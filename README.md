@@ -4,7 +4,7 @@
 
 Scuffle is an opensource live streaming platform.
 
-This project is very much a WIP and has no functional component now!
+This project is very much a WIP and has no functional component right now!
 
 For more information on what this is going to be, check out [our conference](https://www.youtube.com/watch?v=QvQpMRkzoVM&t=593s)
 

@@ -76,7 +76,7 @@ Formatting is not required during the development stage but it is encouraged sin
 
 Each subproject will have its testing requirements. Please read the README for each subproject to see what is required.
 
-There are also integration tests that will run on your PR to ensure that it passes all the tests.
+Integration tests will run on your PR to ensure nothing else breaks during your implementation.
 
 ## Documentation
 

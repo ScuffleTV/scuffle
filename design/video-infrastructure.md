@@ -6,9 +6,9 @@ When a streamer goes live, they hit the first microservice called ingest.
 
 ## Ingest
 
-Ingest is responsible for handling the incoming go-live requests. 
+Ingest is responsible for handling the incoming go live requests. 
 
-It is agnostic to the protocol used to go live; for example, we can support the following:
+It is agnostic to the protocol used by the streamer to go live; for example, we can support the following:
 - [WebRTC](https://en.wikipedia.org/wiki/WebRTC)
 - [SRT](https://en.wikipedia.org/wiki/Secure_Reliable_Transport)
 - [RTMP](https://en.wikipedia.org/wiki/Real-Time_Messaging_Protocol)
@@ -17,7 +17,7 @@ Once we get a new stream request, we need to figure out who went live. What chan
 
 We make an API call to the auth server to validate the incoming stream and then make some API calls to create a stream target.
 
-Once everything passes, and we are all ready and set, we ingest the stream and convert it to a standard protocol (SRT, for example)
+Once everything passes, and we are all ready and set, we ingest the stream and convert it to an SRT stream.
 
 We can pass the stream to other optional or future ideas (such as transcription or image detection).
 
@@ -25,12 +25,13 @@ We then push the newly ingested stream onto the next stage: Transcoding.
 
 ## Transcoding
 
-In the transcoding stage, we fetch the stream from the ingest location and create video variants.
+In the transcoding stage, we fetch the stream from the ingest service and create video variants.
 
 We can transcode it down into `1080p`, `720p`, `480p`, or lower depending on the stream's specific requirements and features.
 
-Transcoding is crucial since we can significantly reduce the bandwidth cost of the video by compressing it using codecs such as [H264](https://en.wikipedia.org/wiki/Advanced_Video_Coding), [VP8](https://en.wikipedia.org/wiki/VP8), [VP9](https://en.wikipedia.org/wiki/VP9) or [AV1](https://en.wikipedia.org/wiki/AV1). 
-We can also decrease the image quality for viewers with slower connections or smaller displays. If the viewer has a slower connection, we still want to provide them with a stream to watch and to do this. We need to be able to provide a lower-quality stream for them. Or if they have a smaller display providing a higher resolution stream does not make any difference and can sometimes look worse.
+Transcoding is critical stage of the pipeline, since we can significantly reduce the file size of the video by compressing it, which in turn can help provide viewers a better experience and also allows us to save a lot of money on bandwidth costs. We would use a video codec such as [H264](https://en.wikipedia.org/wiki/Advanced_Video_Coding), [VP8](https://en.wikipedia.org/wiki/VP8), [VP9](https://en.wikipedia.org/wiki/VP9) or [AV1](https://en.wikipedia.org/wiki/AV1).
+
+We can also decrease the image quality for viewers with slower connections or smaller displays. If the viewer has a slower connection, we still want to provide them with a stream to watch and to do this; We need to be able to provide a lower-quality stream for them. Or if they have a smaller display providing a higher resolution stream does not make any difference and can sometimes look worse.
 
 ### Video Codecs
 
@@ -44,7 +45,7 @@ These servers will cache the video locally so that viewers from those regions ca
 
 Caching the video locally also means that viewers can watch at a higher quality since the bandwidth will be local and is likely to be faster & cheaper than international bandwidth.
 
-Edge is a complex system designed to do these functions efficiently, reliably, and cost-effectively. So for that reason, there is a [separate flowchart diagram for edge](./cdn-edge.md).
+Edge is a rather complex system designed to do these functions efficiently, reliably, and cost-effectively. So for that reason, there is a [separate flowchart diagram for edge](./cdn-edge.md).
 
 ## Website
 

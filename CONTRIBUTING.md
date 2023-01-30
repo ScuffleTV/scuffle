@@ -2,12 +2,12 @@
 
 ## Monorepo
 
-For starters you will notice that this project is a [monorepo](https://semaphoreci.com/blog/what-is-monorepo).
+For starters, you will notice that this project is a [monorepo](https://semaphoreci.com/blog/what-is-monorepo).
 
 This means that all our code for every project is stored here in this repo.
 
 We opted to use a monorepo for a few reasons:
-- We can minimize code duplication, since we can share everything between services and products.
+- We can minimize code duplication since we can share everything between services and products.
 - We can easily test and integrate the entire platform.
 - We can easily maintain and contribute to multiple projects within a single PR or ticket.
 
@@ -27,11 +27,11 @@ where the format is basically
 
 `type(scope): <description>`
 
-Then in the commit message body you can give a more detailed description and link to the ticket which this commit aims to resolve.
+Then in the commit message body, you can give a more detailed description and link to the ticket that this commit aims to resolve.
 
 `Closes #1, #2`
 
-We then youw like you to mention breaking changes if any.
+We then would like you to mention breaking changes if any.
 
 ```
 Breaking changes:
@@ -39,21 +39,21 @@ Breaking changes:
 `abc` is no longer supported and has been replaced with `xyz`
 ```
 
-If you have any questions around how commit messages should be formatted please ask.
+If you have any questions regarding how commit messages should be formatted please ask.
 
 ## Pull Requests
 
 Each commit in a pull request should resolve one or more tickets. 
 
-There should be one commit per ticket. If we need more tickets then we can create sub issues and tasks around those.
+There should be one commit per ticket. If we need more tickets then we can create sub-issues and tasks around those.
 
 So the relationship between tickets to commits is `many to one` where we can have many tickets in a single commit but only one commit per ticket. 
 
-You should try and break up the commits as one ticket per commit but sometimes the trivial tickets might be small enough where we can just combine them into a single commit. 
+You should try and break up the commits as one ticket per commit but sometimes the trivial tickets might be small enough that we can just combine them into a single commit.
 
 A maintainer and or reviewer will advise you on what you should do to make your PR mergeable.
 
-However you do not need to do this for the development stage of your PR. While developing you can commit as many times as you want with any names you like, however once it is ready for merge someone will ask you to squash your commits into tickets and fix up the naming on them. Once that is done and CI passes we can then merge your contributions!
+However, you do not need to do this for the development stage of your PR. While developing you can commit as many times as you want with any names you like, however, once it is ready for merge someone will ask you to squash your commits into tickets and fix up the naming on them. Once that is done and CI passes we can then merge your contributions!
 
 Squashing commits can be done with the following command:
 ```
@@ -74,20 +74,20 @@ Formatting is not required during the development stage but it is encouraged sin
 
 ## Testing
 
-Each subproject will have its own testing requirements. Please read the README for each subproject to see what is required.
+Each subproject will have its testing requirements. Please read the README for each subproject to see what is required.
 
-There are also integration tests which will run on your PR to ensure that it passes all the tests.
+There are also integration tests that will run on your PR to ensure that it passes all the tests.
 
 ## Documentation
 
-When you make a PR you should also update the documentation for the subproject you are working on. This is not required during the development stage but it is encouraged since it makes it easier to review your PR. Once we get to the merging phase we would require you to update the documentation so it is ready to be merged.
+When you make a PR, you should also update the documentation for the subproject you are working on. This is not required during the development stage, but it is encouraged since it makes it easier to review your PR. Once we get to the merging phase, we will require you to update the documentation, so it is ready to be merged.
 
 ## Questions
 
-If you have any questions please ask in the [discord server](https://scuffle.tv/discord) or create an issue on the repo or in the discussion section.
+If you have any questions, please ask in the [discord server](https://scuffle.tv/discord) or create an issue on the repo or in the discussion section
 
-Please do not hesitate to ask questions, we are here to help you and make sure you are comfortable contributing to this project. If you are not able to follow the design documents or are confused about the codebase please ask us and we will help you out.
+Please do not hesitate to ask questions; we are here to help you and make sure you are comfortable contributing to this project. If you need help following the design documents or need clarification about the codebase, please ask us, and we will help you.
 
 ## Thank you
 
-Thank you for taking the time to read this document and for contributing to this project. We are very excited to have you on board and we hope you enjoy your time here.
+Thank you for taking the time to read this document and for contributing to this project. We are very excited to have you on board, and we hope you enjoy your time here.

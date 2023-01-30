@@ -2,7 +2,7 @@
 
 Flowcharts help us visualize the flow of data within a large project. 
 
-They provide a better understanding of how many complex systems integrate with eachother.
+They provide a better understanding of how many complex systems integrate.
 
 - [High Level Design](./high-level.md) For a high level overview of the project.
 - [Video Infrastructure](./video-infrastructure.md) For some specific design on video infrastructure.

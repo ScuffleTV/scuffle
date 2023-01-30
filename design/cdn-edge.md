@@ -6,62 +6,62 @@ On this diagram the arrow points in the direction of who instantiated the reques
 
 ## Internet
 
-The internet is where all incoming requests will come from. When a viewer requests a video segment from us this is where the request lifecycle starts.
+The internet is where all incoming requests will come from. When a viewer requests a video segment from us, this is where the request lifecycle starts.
 
 ## Layer 1
 
-Layer 1 is the first port of entry, all users will talk to a layer 1 cache server. 
+Layer 1 is the first port of entry; all users will talk to a Layer 1 cache server.
 
-Layer 1 cache servers will have very high outgoing bandwidth. This is because most if not all of the files we serve will be cache hits, since everyone gets the same video files. However we will have to serve a large amount of people therefore we will need a lot of bandwidth at the edge of our network.
+Layer 1 cache servers will have very high outgoing bandwidth. This is because most, if not all, of the files we serve will be cache hits since everyone gets identical video files. However, we will have to do a large number of people; therefore, we will need a lot of bandwidth at the edge of our network.
 
-Layer 1 servers are going to be everywhere, in every region and multiple cities in each region. This is because we want to serve the people as close as possible.
+Layer 1 servers will be everywhere, in every region, and in multiple cities in each region. This is because we want to serve the people as close as possible.
 
-Layer 1 servers will connect to 2 unique layer 2 servers. This is to provide redundancy if incase a layer 2 server goes down. 
+Layer 1 servers will connect to 2 unique Layer 2 servers. This is to provide redundancy if a Layer 2 server goes down.
 
 ## Layer 2
 
-Layer 2 servers will act as a 2nd cache layer and will relay instructions to the layer 1 servers recieved from the control servers.
+Layer 2 servers will act as a 2nd cache Layer and relay instructions to the Layer 1 servers received from the control servers.
 
-Layer 2 servers will connect to one layer 2 server in each region (ie, if we have 3x layer 2 server in NA and 3x layer 2 servers, each layer 2 server in NA will connect to 1 layer 2 server in EU and vice-versa)
+Layer 2 servers will connect to one Layer 2 server in each region (i.e., if we have 3x Layer 2 server in NA and 3x Layer 2 servers, each Layer 2 server in NA will connect to 1 Layer 2 server in EU and vice-versa)
 
-Layer 2 will also act as a router. If we recieve a request from a layer 1 server to go to an origin and the layer 2 server does not have the data. If the layer 2 server can fetch the data from an origin it will be routed to said origin, if it cannot then the request will be routed to the layer 2 server which has an origin attached and then the origin will recieve the request. 
+Layer 2 will also act as a router. If we receive a request from a Layer 1 server to go to an origin and the Layer 2 server does not have the data. If the Layer 2 server can fetch the data from an origin, it will be routed to the origin. If it cannot, then the request will be routed to the Layer 2 server, which has an origin attached, and then the origin will receive the request.
 
-In terms of network hops.
+In terms of network Hops.
 - Layer 1 (cache miss)
 - Layer 2 (cache miss)
-- Layer 2 (cache miss & no direct connecton)
+- Layer 2 (cache miss & no direct connection)
 - Origin (source of truth)
 
-If layer 2 in hop 2 has a direct connection to the origin we will route directly to hop 4 (skipping over hop 3).
+If Layer 2 in Hop 2 directly connects to the origin, we will route directly to Hop 4 (skipping over Hop 3).
 
 ## Control
 
-The control servers will act as the state of the system. They will contain all the information about what routes exist in the network. They will also act as a authentication and state management server for the layer 2 servers which will in turn act as a manager for layer 1 servers.
+The control servers will act as the state of the system. They will contain all the information about what routes exist in the network. They will also serve as an authentication and state management server for the Layer 2 servers, which will act as a manager for Layer 1 servers.
 
-Control servers are completely isolated from the request lifecycle and therefore do not a large bandwidth pipe.
+Control servers are entirely isolated from the request lifecycle and therefore do not have a large bandwidth pipe.
 
 ## Origin 
 
-Origin servers will be the source of truth for all the data. If all layers above cache miss the origin will provide a fresh copy of the data for the layers above to use.
+Origin servers will be the source of truth for all the data. If all Layers above cache miss, the origin will provide a fresh copy of the data for the Layers above to use.
 
 ## FAQ
 
 ### __What is this?__
 
-_You may have realized this is a very simple CDN setup similar to that of Cloudflare or Fastly or any other large CDN as a service provider._
+_You may have realized this is a straightforward CDN setup similar to that of Cloudflare or Fastly, or any other large CDN as a service provider._
 
-### __Why build your own if there are very cheap and cost effective solutions that exist?__
+### __Why build your own if very cheap and cost-effective solutions exist?__
 
-_Well, they are not very cheap when you start looking at them at scale. They become extremely expensive and add up very fast._
+_Well, they are not very cheap when looking at them at scale. They become costly and add up very fast_
 
 ### __What makes this solution special?__
 
-_This edge cache will be designed to taylor to specific needs of a video edge cache, and will have unique features which improve performance that other providers do not have._
+_This edge cache is tailored to the specific requirements of a video edge cache and has unique features that improve performance that other vendors do not offer._
 
 
 ## Unique Features
 
-- Event stream updates from Origin. (uncache a file when it changes and push the file everywhere)
-- Push to edge (pre-push a file to edge before its requested)
+- Event stream updates from Origin. (uncached a file when it changes and push the file everywhere)
+- Push to the edge (pre-push a file to the edge before it's requested)
 - Request coalescing (merge multiple requests into a single request)
-- Websocket/Stream coalescing (merge multiple websockets/streams into a single stream connection)
+- Websocket/Stream coalescing (merge multiple Websockets/Streams into a single stream connection)

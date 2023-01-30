@@ -13,8 +13,7 @@ jobs:
     name: Sync Labels
     runs-on: ubuntu-latest
 
-    permissions:
-      actions: write
+    permissions: write-all
 
     steps:
       - name: Checkout repository

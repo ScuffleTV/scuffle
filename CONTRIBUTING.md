@@ -1,5 +1,15 @@
 # Scuffle Contribution Guide
 
+## Code of Conduct
+
+We have a [Code of Conduct](./CODE_OF_CONDUCT.md) that we expect all contributors to follow. Please read it before contributing.
+
+## CLA
+
+We require all contributors to sign a [Contributor License Agreement](./CLA.md) before we can accept any contributions.
+
+To sign the CLA, please head over to [cla.scuffle.tv](https://cla.scuffle.tv) and sign the CLA.
+
 ## Monorepo
 
 For starters, you will notice that this project is a [monorepo](https://semaphoreci.com/blog/what-is-monorepo).

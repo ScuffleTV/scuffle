@@ -1,6 +1,6 @@
 # Flowcharts
 
-Flowcharts help us visualize the flow of data within a large project. 
+Flowcharts help us visualize the flow of data within a large project.
 
 They provide a better understanding of how complex systems interact with each other.
 

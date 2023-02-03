@@ -17,9 +17,9 @@ body:
     id: what-happened
     attributes:
       label: What seems to be the problem?
-      description: | 
-                  A clear and concise description of what needs to be fixed.
-                  *Make sure there are no misunderstandings here. It would be best if you have a video/screenshot for us.*
+      description: |
+        A clear and concise description of what needs to be fixed.
+        *Make sure there are no misunderstandings here. It would be best if you have a video/screenshot for us.*
       placeholder: Tell us what you see!
     validations:
       required: true
@@ -50,12 +50,12 @@ body:
     id: reproduce
     attributes:
       label: How do we replicate that?
-      description: | 
-                  This includes the steps for reproducing the problem, the expected result, and the actual result.
+      description: |
+        This includes the steps for reproducing the problem, the expected result, and the actual result.
       placeholder: |
-                  1. ..
-                  2. ..
-                  3. ..
+        1. ..
+        2. ..
+        3. ..
     validations:
       required: true
   - type: textarea

@@ -1,0 +1,23 @@
+[workspace]
+
+members = [
+    "backend/api",
+    "frontend/player",
+    "video/edge",
+    "video/ingest",
+    "video/transcode",
+    "common",
+]
+
+[profile.release]
+opt-level = 3
+lto = true
+
+# These are for the WASM build
+
+[profile.release.package.player]
+opt-level = "s"
+
+[profile.release.member.package.dependencies."*"]
+opt-level = "s"
+codegen-units = 1

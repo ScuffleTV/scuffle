@@ -1,0 +1,5 @@
+build:
+    wasm-pack build --target web --out-name player --out-dir ./pkg --release
+
+dev:
+    wasm-pack build --target web --out-name player --out-dir ./pkg --dev

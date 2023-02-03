@@ -6,7 +6,7 @@ If you believe you have found a security vulnerability in any [Scuffle-owned rep
 
 ## Reporting security issues
 
-⚠️ **Please do not report security vulnerabilities through public GitHub issues.** ⚠️ 
+⚠️ **Please do not report security vulnerabilities through public GitHub issues.** ⚠️
 
 Instead, please kindly email us at security@scuffle.tv
 

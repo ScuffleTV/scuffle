@@ -10,6 +10,86 @@ We require all contributors to sign a [Contributor License Agreement](./CLA.md) 
 
 To sign the CLA, please head over to [cla.scuffle.tv](https://cla.scuffle.tv) and sign the CLA.
 
+## Getting Started
+
+In order to get started, you will need to have the following installed on your machine:
+
+For this project we recommend using [VSCode](https://code.visualstudio.com/) as your IDE.
+
+We also advise you to use a linux based operating system, however, if you are on windows you can use [WSL2](https://docs.microsoft.com/en-us/windows/wsl/install-win10) to run linux commands.
+
+### WSL2
+
+If you are using WSL2, we recommend you also setup systemd so you can run services like docker inside of WSL2 rather than using Docker Desktop.
+
+You can find instructions on how to do that [here](https://devblogs.microsoft.com/commandline/systemd-support-is-now-available-in-wsl/).
+
+- [Git](https://git-scm.com/)
+- [NodeJS](https://nodejs.org/en/)
+- [Yarn](https://yarnpkg.com/)
+- [Docker](https://www.docker.com/)
+- [Docker Compose V2](https://docs.docker.com/compose/install)
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Just](https://just.systems/)
+
+### For Ubuntu
+
+If you are using Ubuntu you can install everything with the following commands:
+
+```bash
+# Installing Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Configuring apt to find nodejs
+curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+
+# Configuring apt to find yarn
+curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/yarnkey.gpg >/dev/null
+echo "deb [signed-by=/usr/share/keyrings/yarnkey.gpg] https://dl.yarnpkg.com/debian stable main" | sudo tee /etc/apt/sources.list.d/yarn.list >/dev/null
+
+# Running the install for nodejs, yarn, make, docker and git
+sudo apt-get update
+sudo apt-get install nodejs yarn docker.io git
+
+# Installing docker compose v2
+DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}
+mkdir -p $DOCKER_CONFIG/cli-plugins
+curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64 -o $DOCKER_CONFIG/cli-plugins/docker-compose
+chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
+```
+
+You should also make it so you can run docker without sudo.
+
+```bash
+sudo groupadd docker
+sudo usermod -aG docker $USER
+```
+
+Now you need to setup your environment variables.
+
+You should add the following to your `~/.bashrc` or `~/.zshrc` file.
+
+```bash
+source $HOME/.cargo/env
+export PATH="$HOME/.cargo/bin:$HOME/.yarn/bin:$PATH"
+```
+
+Installing Just
+
+```
+cargo install just
+```
+
+## Setting up the project
+
+Once you have everything installed, you can clone the project and install the dependencies.
+
+```bash
+git clone --recurse-submodules https://github.com/ScuffleTV/scuffle.git scuffle
+cd scuffle
+just setup
+```
+
 ## Monorepo
 
 For starters, you will notice that this project is a [monorepo](https://semaphoreci.com/blog/what-is-monorepo).
@@ -17,6 +97,7 @@ For starters, you will notice that this project is a [monorepo](https://semaphor
 This means that all our code for every project is stored here in this repo.
 
 We opted to use a monorepo for a few reasons:
+
 - We can minimize code duplication since we can share everything between services and products.
 - We can easily test and integrate the entire platform.
 - We can easily maintain and contribute to multiple projects within a single PR or ticket.
@@ -53,11 +134,11 @@ If you have any questions regarding how commit messages should be formatted plea
 
 ## Pull Requests
 
-Each commit in a pull request should resolve one or more tickets. 
+Each commit in a pull request should resolve one or more tickets.
 
 There should be one commit per ticket. If we need more tickets then we can create sub-issues and tasks around those.
 
-So the relationship between tickets to commits is `many to one` where we can have many tickets in a single commit but only one commit per ticket. 
+So the relationship between tickets to commits is `many to one` where we can have many tickets in a single commit but only one commit per ticket.
 
 You should try and break up the commits as one ticket per commit but sometimes the trivial tickets might be small enough that we can just combine them into a single commit.
 
@@ -66,11 +147,12 @@ A maintainer and or reviewer will advise you on what you should do to make your 
 However, you do not need to do this for the development stage of your PR. While developing you can commit as many times as you want with any names you like, however, once it is ready for merge someone will ask you to squash your commits into tickets and fix up the naming on them. Once that is done and CI passes we can then merge your contributions!
 
 Squashing commits can be done with the following command:
+
 ```
 git rebase -i HEAD~<number of commits>
 ```
 
-or 
+or
 
 ```
 git rebase -i <commit hash>

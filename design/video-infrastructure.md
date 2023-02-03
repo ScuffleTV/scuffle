@@ -6,9 +6,10 @@ When a streamer goes live, they hit the first microservice called ingest.
 
 ## Ingest
 
-Ingest is responsible for handling the incoming go live requests. 
+Ingest is responsible for handling the incoming go live requests.
 
 It is agnostic to the protocol used by the streamer to go live; for example, we can support the following:
+
 - [WebRTC](https://en.wikipedia.org/wiki/WebRTC)
 - [SRT](https://en.wikipedia.org/wiki/Secure_Reliable_Transport)
 - [RTMP](https://en.wikipedia.org/wiki/Real-Time_Messaging_Protocol)
@@ -51,15 +52,16 @@ Edge is a rather complex system designed to do these functions efficiently, reli
 
 The website will have a video player which will be able to playback the stream in the requested quality.
 
-
 ## Useful links
 
 ### Transport Protocols
+
 - [What is WebRTC?](https://bloggeek.me/what-is-webrtc/)
 - [What is SRT?](https://www.matrox.com/en/video/media/guides-articles/srt-protocol)
 - [What is RTMP?](https://www.dacast.com/blog/rtmp-real-time-messaging-protocol)
 
 ### Video Codecs
+
 - [What is H264?](https://www.haivision.com/resources/streaming-video-definitions/h-264)
 - [What is VP8?](https://trueconf.com/blog/wiki/vp8-video-codec)
 - [What is VP9?](https://www.wowza.com/blog/vp9-codec-googles-open-source-technology-explained)

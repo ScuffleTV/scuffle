@@ -27,6 +27,7 @@ Layer 2 servers will connect to one Layer 2 server in each region (i.e., if we h
 Layer 2 will also act as a router. If we receive a request from a Layer 1 server to go to an origin and the Layer 2 server does not have the data. If the Layer 2 server can fetch the data from an origin, it will be routed to the origin. If it cannot, then the request will be routed to the Layer 2 server, which has an origin attached, and then the origin will receive the request.
 
 In terms of network Hops.
+
 - Layer 1 (cache miss)
 - Layer 2 (cache miss)
 - Layer 2 (cache miss & no direct connection)
@@ -40,24 +41,23 @@ The control servers will act as the state of the system. They will contain all t
 
 Control servers are entirely isolated from the request lifecycle and therefore do not need a large bandwidth pipe.
 
-## Origin 
+## Origin
 
 Origin servers will be the source of truth for all the data. If all Layers above cache miss, the origin will provide a fresh copy of the data for the Layers above to use.
 
 ## FAQ
 
-### __What is this?__
+### **What is this?**
 
 _This is a straightforward CDN setup similar to that of Cloudflare or Fastly, or any other large CDN as a service provider._
 
-### __Why build your own if very cheap and cost-effective solutions exist?__
+### **Why build your own if very cheap and cost-effective solutions exist?**
 
 _Well, they are not very cheap when looking at them at scale. They generally work for most cases, but video streaming is very expensive due to the large files, which makes the cheap solutions very expensive._
 
-### __What makes this solution special?__
+### **What makes this solution special?**
 
 _This edge cache is tailored to the specific requirements of a video edge cache and has unique features that improve performance that other vendors do not offer._
-
 
 ## Unique Features
 

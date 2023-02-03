@@ -1,0 +1,13 @@
+[package]
+name = "common"
+version = "0.1.0"
+edition = "2021"
+authors = ["Scuffle <opensource@scuffle.tv>"]
+description = "Scuffle Common Library"
+
+[dependencies]
+config = "0.13.3"
+tracing = "0.1.37"
+anyhow = "1.0.69"
+serde = { version = "1.0.152", features = ["derive"] }
+tracing-subscriber = { version = "0.3.16", features = ["fmt", "env-filter", "json"] }

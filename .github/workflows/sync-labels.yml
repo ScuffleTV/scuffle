@@ -1,13 +1,13 @@
 name: Sync Labels
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
   workflow_dispatch:
   push:
     branches:
       - main
     paths:
-      - '.github/labels.yml'
+      - ".github/labels.yml"
 jobs:
   synclabels:
     name: Sync Labels

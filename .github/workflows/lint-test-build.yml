@@ -1,0 +1,173 @@
+name: Lint, Test & Build
+
+on:
+  pull_request:
+    branches:
+      - main
+      - feature/*
+  push:
+    branches:
+      - main
+      - feature/*
+
+concurrency:
+  group: lint-test-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-test-rust:
+    name: Run Lint + Test Rust
+    runs-on: ubuntu-latest
+    container: ghcr.io/scuffletv/build:1.67.1
+    services:
+      postgres:
+        image: postgres:15.2
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/scuffle
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install Node
+        uses: actions/setup-node@v3
+        with:
+          cache: "yarn"
+          node-version: 18
+
+      - name: Set up cargo registry cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            /usr/local/cargo/registry/index/
+            /usr/local/cargo/registry/cache/
+            /usr/local/cargo/git/db/
+          key: musl-rust-registry-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            musl-rust-registry-
+
+      - name: Set up cargo target cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            target/
+          key: musl-rust-target-lint-test-rust-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            musl-rust-target-lint-test-rust-
+
+      - name: Install sqlx-cli
+        run: |
+          curl -L https://github.com/ScuffleTV/ci-binaries/releases/download/sqlx-cli/sqlx-cli.tar.gz | tar -xz -C $CARGO_HOME/bin
+
+      - name: Install dependencies
+        run: just setup-deps
+
+      - name: Run migrations
+        run: just db-migrate
+
+      - name: Run Lint
+        run: just lint
+
+      - name: Run Test Rust
+        run: just test-rust
+
+  test-js:
+    name: Run Tests JavaScript
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          cache: "yarn"
+          node-version: 18
+
+      - name: Setup Rust Wasm
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          override: true
+
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: gnu-rust-test-js-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            gnu-rust-test-js-
+
+      - uses: taiki-e/install-action@just
+
+      - name: Install dependencies
+        run: just setup-deps
+
+      - name: Setup tests
+        run: just setup-tests
+
+      - name: Run Test JavaScript
+        run: just test-js
+
+  build:
+    name: Run Build
+    runs-on: ubuntu-latest
+    container: ghcr.io/scuffletv/build:1.67.1
+    needs: [lint-test-rust, test-js]
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          cache: "yarn"
+          node-version: 18
+
+      - name: Set up cargo registry cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            /usr/local/cargo/registry/index/
+            /usr/local/cargo/registry/cache/
+            /usr/local/cargo/git/db/
+          key: musl-rust-registry-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            musl-rust-registry-
+
+      - name: Set up cargo target cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            target/
+          key: musl-rust-target-build-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            musl-rust-target-build-
+
+      - name: Install dependencies
+        run: just setup-deps
+
+      - name: Run Build
+        run: just build

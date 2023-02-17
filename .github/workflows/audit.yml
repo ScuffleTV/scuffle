@@ -1,0 +1,39 @@
+name: Security audit
+
+on:
+  pull_request:
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "**/yarn.lock"
+      - "**/package.json"
+  push:
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "**/yarn.lock"
+      - "**/package.json"
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions-rs/audit-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Node
+        uses: actions/setup-node@v3
+        with:
+          cache: "yarn"
+          node-version: 18
+
+      - name: Yarn Audit
+        uses: borales/actions-yarn@v4
+        with:
+          cmd: audit

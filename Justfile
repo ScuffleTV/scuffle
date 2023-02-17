@@ -3,7 +3,7 @@ set dotenv-load
 arch := `uname -m | sed 's/amd64/x86_64/' | sed 's/arm64/aarch64/'`
 
 build:
-	yarn --cwd ./frontend/website build
+	yarn workspace website build
 	cargo build --release
 
 build-container: env-backup
@@ -15,38 +15,48 @@ env-backup:
 	) || true
 
 format:
-	yarn --cwd ./frontend/website format
 	yarn format
+	yarn workspace website format
 	cargo fmt --all
 	cargo clippy --fix --allow-dirty --allow-staged
 	cargo clippy --fix --allow-dirty --allow-staged --package player --target wasm32-unknown-unknown
 
 lint:
 	yarn lint
-	yarn --cwd ./frontend/website lint
+	yarn workspace website lint
 	cargo clippy
 	cargo clippy --package player --target wasm32-unknown-unknown
 	cargo fmt --all --check
 	cargo sqlx prepare --check --merged -- --all-targets --all-features
 
-test:
+test: test-rust test-js
+
+test-rust:
 	cargo test
-	yarn --cwd ./frontend/website test
+
+test-js:
+	yarn workspace website test
+
+audit:
+	cargo audit
+	yarn audit
 
 setup: setup-deps env
-	yarn global add wasm-pack
 	cargo install cargo-watch
 	cargo install sqlx-cli
+	cargo install cargo-audit --features=fix,vendored-openssl
 	rustup target add wasm32-unknown-unknown
 	rustup target add {{arch}}-unknown-linux-musl
 
 setup-deps:
 	yarn
-	yarn --cwd ./frontend/website
+
+setup-tests:
+	yarn playwright install
 
 clean:
 	cargo clean
-	yarn --cwd ./frontend/website clean
+	yarn workspace website clean
 
 db-migrate:
 	sqlx database create
@@ -54,7 +64,7 @@ db-migrate:
 
 db-prepare:
 	cargo sqlx prepare --merged -- --all-targets --all-features
-	prettier --write sqlx-data.json
+	yarn prettier --write sqlx-data.json
 
 db-migrate-create *ARGS:
 	sqlx migrate add "{{ ARGS }}" --source ./backend/migrations -r

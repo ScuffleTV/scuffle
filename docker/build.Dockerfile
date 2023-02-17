@@ -1,5 +1,5 @@
 # syntax = docker/dockerfile:1.4
-FROM rust:1.66.1-alpine3.17
+FROM rust:1.67.1-alpine3.17
 
 RUN <<eot
     # Install all dependencies for building the backend and frontend
@@ -11,13 +11,13 @@ RUN <<eot
     apk add --no-cache nodejs=18.14.1-r0 yarn=1.22.19-r0
 
     # We need to install just to use our build script
-    apk add --no-cache just=1.8.0-r0 musl-dev=1.2.3-r4 curl=7.87.0-r2
-
-    # Install wasm-pack
-    yarn global add wasm-pack
+    apk add --no-cache just=1.8.0-r0 musl-dev=1.2.3-r4 curl=7.87.0-r2 git=2.38.4-r0 tar=1.34-r1
 
     # Add wasm build target
     rustup target add wasm32-unknown-unknown
+
+    # Install clippy and rustfmt
+    rustup component add clippy rustfmt
 
     # Clean up cache files
     rm -r /usr/local/cargo/registry

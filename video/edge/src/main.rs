@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use common::logging;
+use tokio::select;
 
-mod api;
 mod config;
+mod edge;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -14,7 +15,10 @@ async fn main() -> Result<()> {
 
     tracing::info!("starting");
 
-    api::run(config).await?;
+    select! {
+        _ = edge::run(config.clone()) => tracing::info!("edge stopped"),
+        _ = tokio::signal::ctrl_c() => tracing::info!("ctrl-c received"),
+    }
 
     Ok(())
 }

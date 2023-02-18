@@ -2,4 +2,5 @@ target/
 .vscode/
 !.vscode/extensions.json
 node_modules/
-.env
+.env*
+dev-stack/stack.docker-compose.yaml

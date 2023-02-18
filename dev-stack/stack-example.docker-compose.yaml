@@ -1,0 +1,34 @@
+version: "3.1"
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/api.Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SCUF_DATABASE_URL=postgres://postgres:postgres@postgres:5432/scuffle-dev
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    ports:
+      - "4000:4000"
+  edge:
+    build:
+      context: ..
+      dockerfile: docker/edge.Dockerfile
+  ingest:
+    build:
+      context: ..
+      dockerfile: docker/ingest.Dockerfile
+  transcoder:
+    build:
+      context: ..
+      dockerfile: docker/transcoder.Dockerfile
+
+networks:
+  default:
+    name: scuffle-dev
+    external: true

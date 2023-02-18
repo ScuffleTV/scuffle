@@ -5,7 +5,16 @@ members = [
     "frontend/player",
     "video/edge",
     "video/ingest",
-    "video/transcode",
+    "video/transcoder",
+    "common",
+]
+
+# We don't want to build the wasm by default, this is because its built by a yarn script
+default-members = [
+    "backend/api",
+    "video/edge",
+    "video/ingest",
+    "video/transcoder",
     "common",
 ]
 

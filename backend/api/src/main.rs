@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use common::logging;
+use tokio::select;
 
 mod api;
 mod config;
@@ -18,7 +19,10 @@ async fn main() -> Result<()> {
 
     tracing::info!("starting");
 
-    api::run(global).await?;
+    select! {
+        _ = api::run(global.clone()) => tracing::info!("api stopped"),
+        _ = tokio::signal::ctrl_c() => tracing::info!("ctrl-c received"),
+    }
 
     Ok(())
 }

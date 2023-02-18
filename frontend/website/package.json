@@ -15,11 +15,10 @@
 		"wasm": "just --justfile $(realpath ../player/Justfile) build",
 		"wasm:dev": "just --justfile $(realpath ../player/Justfile) dev",
 		"wasm:watch": "cargo-watch -w $(realpath ../player) -C $(pwd) -s \"yarn wasm:dev\"",
-		"clean": "rm -rf node_modules .svelte-kit wasm.d.ts ../player/pkg"
+		"clean": "rm -rf build .svelte-kit wasm.d.ts ../player/pkg"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.28.1",
-		"@sveltejs/adapter-auto": "^2.0.0",
 		"@sveltejs/kit": "^1.5.0",
 		"@types/fs-extra": "^11.0.1",
 		"@typescript-eslint/eslint-plugin": "^5.45.0",
@@ -33,6 +32,7 @@
 		"prettier": "^2.8.0",
 		"prettier-plugin-svelte": "^2.8.1",
 		"svelte": "^3.54.0",
+		"svelte-adapter-deno": "^0.9.0",
 		"svelte-check": "^3.0.1",
 		"tslib": "^2.4.1",
 		"typescript": "^4.9.3",

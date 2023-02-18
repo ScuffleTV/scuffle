@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use common::logging;
+use tokio::select;
 
 mod config;
 mod ingest;
@@ -14,7 +15,10 @@ async fn main() -> Result<()> {
 
     tracing::info!("starting");
 
-    ingest::run(config).await?;
+    select! {
+        _ = ingest::run(config.clone()) => tracing::info!("ingest stopped"),
+        _ = tokio::signal::ctrl_c() => tracing::info!("ctrl-c received"),
+    }
 
     Ok(())
 }

@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use common::logging;
+use tokio::select;
 
 mod config;
-mod transcode;
+mod transcoder;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -14,7 +15,10 @@ async fn main() -> Result<()> {
 
     tracing::info!("starting");
 
-    transcode::run(config).await?;
+    select! {
+        _ = transcoder::run(config.clone()) => tracing::info!("transcoder stopped"),
+        _ = tokio::signal::ctrl_c() => tracing::info!("ctrl-c received"),
+    }
 
     Ok(())
 }

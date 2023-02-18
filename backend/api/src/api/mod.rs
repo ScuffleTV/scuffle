@@ -5,7 +5,7 @@ use hyper::{service::service_fn, Body, Request, Response, StatusCode};
 use tokio::net::TcpListener;
 use tracing::instrument;
 
-use crate::config::AppConfig;
+use crate::global::GlobalState;
 
 #[instrument(name = "hello_world", skip(req), fields(method = req.method().to_string(), path = &req.uri().path()))]
 async fn hello_world(req: Request<Body>) -> Result<Response<Body>> {
@@ -14,8 +14,8 @@ async fn hello_world(req: Request<Body>) -> Result<Response<Body>> {
     Ok(Response::new("Hello, World".into()))
 }
 
-pub async fn run(config: Arc<AppConfig>) -> Result<()> {
-    let addr: SocketAddr = config.bind_address.parse()?;
+pub async fn run(config: Arc<GlobalState>) -> Result<()> {
+    let addr: SocketAddr = config.config.bind_address.parse()?;
 
     tracing::info!("Listening on {}", addr);
     let listener = TcpListener::bind(&addr).await?;

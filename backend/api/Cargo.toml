@@ -14,3 +14,4 @@ tokio = { version = "1.25.0", features = ["full"] }
 serde = { version = "1.0.152", features = ["derive"] }
 hyper = { version = "0.14.24", features = ["full"] }
 common = { path = "../../common" }
+sqlx = { version = "0.6.2", features = ["postgres", "runtime-tokio-rustls", "json", "chrono"] }

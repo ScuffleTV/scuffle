@@ -90,6 +90,60 @@ cd scuffle
 just setup
 ```
 
+## Development Database
+
+We use Postgres for our database.
+
+You can run a local instance of Postgres with the following command:
+
+```bash
+just db-up
+```
+
+To shut down the local instance of Postgres you can run the following command:
+
+```bash
+just db-down
+```
+
+### Database Migrations
+
+We use sqlx-cli to manage our database migrations.
+
+You can create a new migration with the following command:
+
+```bash
+just db-migrate-create <migration-name>
+```
+
+Then you can find the SQL for the migration in the [migrations](./backend/migrations) folder.
+
+You can run the migrations with the following command:
+
+```bash
+just db-migrate
+```
+
+### Creating Database Migrations
+
+To create a new migration, you can use the `just db-migrate-create` command.
+
+```bash
+just db-migrate-create <migration-name>
+```
+
+This will create a new migration file in the [migrations](./backend/migrations) folder.
+You can then edit the up migration file to add your SQL.
+You must also provide a down migration file so we can rollback the migration.
+
+You will then be prompted to rerun the prepare command
+
+```bash
+just db-prepare
+```
+
+This will run the migrations and generate the SQLx code for the database. So that compile time querying can be used.
+
 ## Monorepo
 
 For starters, you will notice that this project is a [monorepo](https://semaphoreci.com/blog/what-is-monorepo).

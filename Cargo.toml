@@ -17,7 +17,3 @@ lto = true
 
 [profile.release.package.player]
 opt-level = "s"
-
-[profile.release.member.package.dependencies."*"]
-opt-level = "s"
-codegen-units = 1

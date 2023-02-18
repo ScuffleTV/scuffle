@@ -5,16 +5,20 @@ use common::logging;
 
 mod api;
 mod config;
+mod global;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let config = Arc::new(config::AppConfig::parse()?);
-
+    let config = config::AppConfig::parse()?;
     logging::init(&config.log_level)?;
+
+    let db = sqlx::PgPool::connect(&config.database_url).await?;
+
+    let global = Arc::new(global::GlobalState { config, db });
 
     tracing::info!("starting");
 
-    api::run(config).await?;
+    api::run(global).await?;
 
     Ok(())
 }

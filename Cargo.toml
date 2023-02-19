@@ -18,11 +18,5 @@ default-members = [
     "common",
 ]
 
-[profile.release]
-opt-level = 3
-lto = true
-
-# These are for the WASM build
-
 [profile.release.package.player]
 opt-level = "s"

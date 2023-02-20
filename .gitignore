@@ -3,4 +3,5 @@ target/
 !.vscode/extensions.json
 node_modules/
 .env*
+.DS_Store
 dev-stack/stack.docker-compose.yaml

@@ -260,7 +260,7 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 if [ "$no_rust" != "true" ]; then
-    cargo test
+    cargo llvm-cov nextest --all-features --workspace --lcov --output-path lcov.info
 fi
 
 if [ "$no_js" != "true" ]; then
@@ -543,6 +543,8 @@ if [ "$no_rust" != "true" ]; then
     cargo install cargo-watch
     cargo install sqlx-cli
     cargo install wasm-pack
+    cargo install cargo-llvm-cov
+    cargo install cargo-nextest
     cargo install cargo-audit --features=fix,vendored-openssl
 fi
 

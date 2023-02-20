@@ -81,6 +81,13 @@ jobs:
       - name: Run Test Rust
         run: mask test --no-js
 
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: true
+
   test-js:
     name: Run Tests JavaScript
     runs-on: ubuntu-latest

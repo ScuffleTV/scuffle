@@ -6,3 +6,5 @@ node_modules/
 dev-stack/docker-compose.yml
 *.log
 .DS_Store
+*.lcov
+lcov.info

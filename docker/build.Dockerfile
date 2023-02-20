@@ -21,11 +21,17 @@ RUN <<eot
     # Install clippy, rustfmt and llvm-tools-preview
     rustup component add clippy rustfmt llvm-tools-preview
 
+    # Install mask
     curl https://github.com/jacobdeichert/mask/releases/download/v0.11.3/mask-v0.11.3-x86_64-unknown-linux-musl.zip -L -o /tmp/mask.zip
     unzip /tmp/mask.zip -d /tmp/mask
     mv /tmp/mask/**/mask /usr/local/bin/mask
-
     rm -r /tmp/mask /tmp/mask.zip
+
+    # nextest
+    curl -LsSf https://get.nexte.st/latest/linux-musl | tar zxf - -C ${CARGO_HOME:-$HOME/.cargo}/bin
+
+    # install llvm-cov
+    curl -LsSf https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.5.9/cargo-llvm-cov-x86_64-unknown-linux-musl.tar.gz | tar zxf - -C ${CARGO_HOME:-$HOME/.cargo}/bin
 
     # Clean up cache files
     rm -r /usr/local/cargo/registry || true

@@ -1,5 +1,5 @@
-import adapter from "svelte-adapter-deno";
 import { vitePreprocess } from "@sveltejs/kit/vite";
+import adapter from "svelte-adapter-deno";
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {

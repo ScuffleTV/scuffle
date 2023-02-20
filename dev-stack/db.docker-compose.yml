@@ -1,5 +1,7 @@
 version: "3.1"
 
+name: "db-scuffle-dev"
+
 services:
   postgres:
     image: postgres:15.2

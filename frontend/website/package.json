@@ -3,19 +3,20 @@
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
-		"dev": "concurrently -P --kill-others \"yarn wasm:watch\" \"vite dev {@}\" --",
+		"dev": "yarn wasm:dev && vite dev",
 		"build": "yarn wasm && vite build",
 		"preview": "vite preview",
 		"test": "playwright test",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest",
-		"lint": "prettier --plugin-search-dir . --check . && eslint .",
-		"format": "prettier --plugin-search-dir . --write .",
-		"wasm": "just --justfile $(realpath ../player/Justfile) build",
-		"wasm:dev": "just --justfile $(realpath ../player/Justfile) dev",
-		"wasm:watch": "cargo-watch -w $(realpath ../player) -C $(pwd) -s \"yarn wasm:dev\"",
-		"clean": "rm -rf build .svelte-kit wasm.d.ts ../player/pkg"
+		"lint": "prettier --plugin-search-dir . --check \"**/*\" -u && eslint .",
+		"format": "prettier --plugin-search-dir . --write \"**/*\" -u",
+		"wasm": "mask --maskfile $(realpath ../player/maskfile.md) build",
+		"wasm:dev": "yarn wasm dev",
+		"wasm:watch": "yarn wasm:dev --watch",
+		"wasm:clean": "mask --maskfile $(realpath ../player/maskfile.md) clean",
+		"clean": "rm -rf build .svelte-kit wasm.d.ts && yarn wasm:clean"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.28.1",

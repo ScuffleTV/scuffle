@@ -3,4 +3,6 @@ target/
 !.vscode/extensions.json
 node_modules/
 .env*
-dev-stack/stack.docker-compose.yaml
+dev-stack/docker-compose.yml
+*.log
+.DS_Store

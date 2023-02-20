@@ -13,7 +13,7 @@
 	],
 	"scripts": {
 		"prepare": "husky install",
-		"lint": "prettier --check .",
-		"format": "prettier --write ."
+		"lint": "prettier --check \"**/*\" -u",
+		"format": "prettier --write \"**/*\" -u"
 	}
 }

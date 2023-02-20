@@ -70,16 +70,16 @@ jobs:
           curl -L https://github.com/ScuffleTV/ci-binaries/releases/download/sqlx-cli/sqlx-cli.tar.gz | tar -xz -C $CARGO_HOME/bin
 
       - name: Install dependencies
-        run: just setup-deps
+        run: mask bootstrap --no-db --no-docker --no-env --no-js-tests --no-stack --no-rust
 
       - name: Run migrations
-        run: just db-migrate
+        run: mask db migrate
 
       - name: Run Lint
-        run: just lint
+        run: mask lint
 
       - name: Run Test Rust
-        run: just test-rust
+        run: mask test --no-js
 
   test-js:
     name: Run Tests JavaScript
@@ -116,16 +116,17 @@ jobs:
           restore-keys: |
             gnu-rust-test-js-
 
-      - uses: taiki-e/install-action@just
+      - name: Install mask
+        run: |
+          curl -L https://github.com/jacobdeichert/mask/releases/download/v0.11.3/mask-v0.11.3-x86_64-unknown-linux-gnu.zip -o mask.zip
+          unzip mask.zip -d /tmp/mask
+          mv /tmp/mask/**/mask ~/.cargo/bin/mask
 
       - name: Install dependencies
-        run: just setup-deps
-
-      - name: Setup tests
-        run: just setup-tests
+        run: mask bootstrap --no-db --no-docker --no-env --no-stack --no-rust
 
       - name: Run Test JavaScript
-        run: just test-js
+        run: mask test --no-rust
 
   build:
     name: Run Build
@@ -167,7 +168,7 @@ jobs:
             musl-rust-target-build-
 
       - name: Install dependencies
-        run: just setup-deps
+        run: mask bootstrap --no-db --no-docker --no-env --no-js-tests --no-stack --no-rust
 
       - name: Run Build
-        run: just build
+        run: mask build

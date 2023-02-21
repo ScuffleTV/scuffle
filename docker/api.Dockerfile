@@ -1,7 +1,9 @@
-FROM scratch
+FROM gcr.io/distroless/static-debian11
 
-COPY target/x86_64-unknown-linux-musl/release/api /app/
+COPY target/x86_64-unknown-linux-gnu/release/api /app/
 
 STOPSIGNAL SIGINT
+
+USER 1000
 
 ENTRYPOINT ["/app/api"]

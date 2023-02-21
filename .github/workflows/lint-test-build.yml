@@ -15,8 +15,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-test-rust:
-    name: Run Lint + Test Rust
+  lint-test:
+    name: Run Lint + Test
     runs-on: ubuntu-latest
     container: ghcr.io/scuffletv/build:1.67.1
     services:
@@ -51,9 +51,9 @@ jobs:
             /usr/local/cargo/registry/index/
             /usr/local/cargo/registry/cache/
             /usr/local/cargo/git/db/
-          key: musl-rust-registry-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          key: gnu-rust-registry-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
           restore-keys: |
-            musl-rust-registry-
+            gnu-rust-registry-
 
       - name: Set up cargo target cache
         uses: actions/cache@v3
@@ -61,16 +61,12 @@ jobs:
         with:
           path: |
             target/
-          key: musl-rust-target-lint-test-rust-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          key: gnu-rust-target-lint-test-rust-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
           restore-keys: |
-            musl-rust-target-lint-test-rust-
-
-      - name: Install sqlx-cli
-        run: |
-          curl -L https://github.com/ScuffleTV/ci-binaries/releases/download/sqlx-cli/sqlx-cli.tar.gz | tar -xz -C $CARGO_HOME/bin
+            gnu-rust-target-lint-test-rust-
 
       - name: Install dependencies
-        run: mask bootstrap --no-db --no-docker --no-env --no-js-tests --no-stack --no-rust
+        run: mask bootstrap --no-db --no-docker --no-env --no-stack --no-rust
 
       - name: Run migrations
         run: mask db migrate
@@ -88,50 +84,6 @@ jobs:
           files: lcov.info
           fail_ci_if_error: true
 
-  test-js:
-    name: Run Tests JavaScript
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v3
-        with:
-          cache: "yarn"
-          node-version: 18
-
-      - name: Setup Rust Wasm
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: wasm32-unknown-unknown
-          override: true
-
-      - name: Set up cargo cache
-        uses: actions/cache@v3
-        continue-on-error: false
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: gnu-rust-test-js-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
-          restore-keys: |
-            gnu-rust-test-js-
-
-      - name: Install mask
-        run: |
-          curl -L https://github.com/jacobdeichert/mask/releases/download/v0.11.3/mask-v0.11.3-x86_64-unknown-linux-gnu.zip -o mask.zip
-          unzip mask.zip -d /tmp/mask
-          mv /tmp/mask/**/mask ~/.cargo/bin/mask
-
-      - name: Install dependencies
-        run: mask bootstrap --no-db --no-docker --no-env --no-stack --no-rust
-
       - name: Run Test JavaScript
         run: mask test --no-rust
 
@@ -139,7 +91,7 @@ jobs:
     name: Run Build
     runs-on: ubuntu-latest
     container: ghcr.io/scuffletv/build:1.67.1
-    needs: [lint-test-rust, test-js]
+    needs: [lint-test]
 
     steps:
       - uses: actions/checkout@v3
@@ -160,9 +112,9 @@ jobs:
             /usr/local/cargo/registry/index/
             /usr/local/cargo/registry/cache/
             /usr/local/cargo/git/db/
-          key: musl-rust-registry-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          key: gnu-rust-registry-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
           restore-keys: |
-            musl-rust-registry-
+            gnu-rust-registry-
 
       - name: Set up cargo target cache
         uses: actions/cache@v3
@@ -170,9 +122,9 @@ jobs:
         with:
           path: |
             target/
-          key: musl-rust-target-build-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          key: gnu-rust-target-build-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
           restore-keys: |
-            musl-rust-target-build-
+            gnu-rust-target-build-
 
       - name: Install dependencies
         run: mask bootstrap --no-db --no-docker --no-env --no-js-tests --no-stack --no-rust

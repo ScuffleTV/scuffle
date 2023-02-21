@@ -14,4 +14,8 @@ tracing-subscriber = { version = "0.3.16", features = ["fmt", "env-filter", "jso
 chrono = { version = "0.4.23", default-features = false }
 bitmask-enum = "2.1.0"
 async-trait = "0.1.64"
-sqlx = { version = "0.6.2", features = ["postgres", "offline"] }
+sqlx = { version = "0.6.2", features = ["postgres", "offline", "runtime-tokio-rustls"] }
+tokio = { version = "1.25.0", features = ["full"] }
+
+[dev-dependencies]
+tempfile = "3.3.0"

@@ -11,12 +11,17 @@
 - container
   - flags: --container
   - desc: Build the project in a container
+- static
+  - flags: --static
+  - desc: Compile the project statically
 
 ```bash
 set -e
 if [[ "$verbose" == "true" ]]; then
     set -x
 fi
+
+static=${static:-false}
 
 if [ "$container" == "true" ]; then
     $MASK env backup
@@ -30,7 +35,7 @@ if [ "$container" == "true" ]; then
     PID=$(docker run -d --stop-signal SIGKILL --rm -v "$(pwd)":/pwd -w /pwd ghcr.io/scuffletv/build:1.67.1 mask build)
     docker logs -f $PID
 else
-    $MASK build rust
+    $MASK build rust --static=$static
     $MASK build website
 fi
 ```
@@ -44,12 +49,18 @@ fi
 - container
   - flags: --container
   - desc: Build the project in a container
+- static
+  - flags: --static
+  - desc: Compile the project statically
 
 ```bash
 set -e
 if [[ "$verbose" == "true" ]]; then
     set -x
 fi
+
+static=${static:-false}
+target=$(rustup show active-toolchain | cut -d '-' -f2- | cut -d ' ' -f1)
 
 if [ "$container" == "true" ]; then
     $MASK env backup
@@ -60,10 +71,14 @@ if [ "$container" == "true" ]; then
     }
     trap cleanup EXIT
 
-    PID=$(docker run -d --stop-signal SIGKILL --rm -v "$(pwd)":/pwd -w /pwd ghcr.io/scuffletv/build:1.67.1 cargo build --release)
+    PID=$(docker run -d --stop-signal SIGKILL --rm -v "$(pwd)":/pwd -w /pwd ghcr.io/scuffletv/build:1.67.1 mask build rust --static=$static)
     docker logs -f $PID
 else
-    cargo build --release
+    if [ "$static" == "true" ]; then
+        export RUSTFLAGS="-C target-feature=+crt-static"
+    fi
+
+    cargo build --release --target=$target
 fi
 ```
 
@@ -196,8 +211,8 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 if [ "$no_rust" != "true" ]; then
-    cargo clippy
-    cargo clippy --package player --target wasm32-unknown-unknown
+    cargo clippy -- -D warnings
+    cargo clippy --package player --target wasm32-unknown-unknown -- -D warnings
     cargo fmt --all --check
     cargo sqlx prepare --check --merged -- --all-targets --all-features
 fi
@@ -260,7 +275,8 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 if [ "$no_rust" != "true" ]; then
-    cargo llvm-cov nextest --all-features --workspace --lcov --output-path lcov.info
+    cargo llvm-cov clean --workspace
+    cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main.rs|tests.rs)"
 fi
 
 if [ "$no_js" != "true" ]; then
@@ -375,6 +391,19 @@ fi
 docker compose --file ./dev-stack/db.docker-compose.yml down
 ```
 
+### status
+
+> Gets the status of the docker compose db stack
+
+```bash
+set -e
+if [[ "$verbose" == "true" ]]; then
+    set -x
+fi
+
+docker compose --file ./dev-stack/db.docker-compose.yml ps -a
+```
+
 ## env
 
 > Environment tasks
@@ -467,6 +496,19 @@ fi
 cp ./dev-stack/example.docker-compose.yml ./dev-stack/docker-compose.yml
 ```
 
+### status
+
+> Gets the status of the docker compose stack
+
+```bash
+set -e
+if [[ "$verbose" == "true" ]]; then
+    set -x
+fi
+
+docker compose --file ./dev-stack/docker-compose.yml ps -a
+```
+
 ### logs (service)
 
 > Prints the logs of the given service
@@ -534,18 +576,16 @@ fi
 if [ "$no_rust" != "true" ]; then
     rustup update
     rustup target add wasm32-unknown-unknown
-    rustup target add x86_64-unknown-linux-musl
 
-    rustup component add rustfmt
-    rustup component add clippy
-    rustup component add llvm-tools-preview
+    rustup component add rustfmt clippy llvm-tools-preview
 
-    cargo install cargo-watch
-    cargo install sqlx-cli
-    cargo install wasm-pack
-    cargo install cargo-llvm-cov
-    cargo install cargo-nextest
-    cargo install cargo-audit --features=fix,vendored-openssl
+    cargo install cargo-binstall
+    cargo binstall cargo-watch -y
+    cargo install sqlx-cli --features rustls,postgres --no-default-features
+    cargo binstall wasm-pack -y
+    cargo binstall cargo-llvm-cov -y
+    cargo binstall cargo-nextest -y
+    cargo install cargo-audit --features vendored-openssl
 fi
 
 if [ "$no_js" != "true" ]; then

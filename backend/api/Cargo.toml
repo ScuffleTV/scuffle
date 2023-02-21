@@ -15,3 +15,9 @@ serde = { version = "1.0.152", features = ["derive"] }
 hyper = { version = "0.14.24", features = ["full"] }
 common = { path = "../../common" }
 sqlx = { version = "0.6.2", features = ["postgres", "runtime-tokio-rustls", "json", "chrono"] }
+routerify = "3.0.0"
+serde_json = "1.0.93"
+
+[dev-dependencies]
+tempfile = "3.3.0"
+dotenvy = "0.15.6"

@@ -1,5 +1,7 @@
 # Scuffle
 
+[![codecov](https://codecov.io/gh/ScuffleTV/scuffle/branch/main/graph/badge.svg?token=LJCYSZR4IV)](https://codecov.io/gh/ScuffleTV/scuffle)
+
 ## Welcome to Scuffle!
 
 Scuffle is an opensource live streaming platform.

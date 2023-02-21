@@ -12,4 +12,6 @@ RUN deno cache --unstable server.ts
 
 STOPSIGNAL SIGINT
 
+USER 1000
+
 ENTRYPOINT ["deno", "run", "--allow-env", "--allow-read", "--allow-net", "server.ts"]

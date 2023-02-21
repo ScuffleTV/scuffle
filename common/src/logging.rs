@@ -12,3 +12,6 @@ pub fn init(level: &str) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

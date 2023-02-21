@@ -1,39 +1,82 @@
 # syntax = docker/dockerfile:1.4
-FROM rust:1.67.1-alpine3.17
+FROM ubuntu:latest as builder
+
+ENV CARGO_HOME=/usr/local/cargo \
+    RUSTUP_HOME=/usr/local/rustup \
+    PATH=/usr/local/cargo/bin:/usr/local/yarn/bin:$PATH
 
 RUN <<eot
     set -eux
 
-    # Install all dependencies for building the backend and frontend
+    # Install dependencies
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        libssl3=3.0.2-0ubuntu1.8 \
+        libssl-dev=3.0.2-0ubuntu1.8 \
+        build-essential \
+        zip \
+        unzip \
+        tar \
+        curl \
+        git \
+        ssh \
+        libglib2.0-0 \
+        libnss3 \
+        libnspr4 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libcups2 \
+        libdrm2 \
+        libatspi2.0-0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxfixes3 \
+        libxrandr2 \
+        libgbm1 \
+        libxkbcommon0 \
+        libpango-1.0-0 \
+        libcairo2 \
+        libasound2 \
+        gnupg2 \
+        ca-certificates
 
-    # CVEs fixed in 3.0.8-r0
-    apk add --no-cache libssl3=3.0.8-r0 libcrypto3=3.0.8-r0 openssl-dev=3.0.8-r0
+    # Install Node.js
+    curl -sL https://deb.nodesource.com/setup_18.x | bash -
+    curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor | tee /usr/share/keyrings/yarnkey.gpg >/dev/null
+    echo "deb [signed-by=/usr/share/keyrings/yarnkey.gpg] https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list >/dev/null
+    apt-get update
+    apt-get install -y nodejs yarn --no-install-recommends 
 
-    # We need to install nodejs to build the frontend
-    apk add --no-cache nodejs=18.14.1-r0 yarn=1.22.19-r0
+    # Install Yarn
+    yarn config set prefix /usr/local/yarn
 
-    # We need to install just to use our build script
-    apk add --no-cache musl-dev=1.2.3-r4 curl=7.87.0-r2 git=2.38.4-r0 tar=1.34-r1 unzip=6.0-r13 zip=3.0-r10 bash=5.2.15-r0
+    # Install Rust
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
 
-    # Add wasm build target
+    # Install Rust tools
+    rustup update
     rustup target add wasm32-unknown-unknown
-
-    # Install clippy, rustfmt and llvm-tools-preview
     rustup component add clippy rustfmt llvm-tools-preview
 
-    # Install mask
-    curl https://github.com/jacobdeichert/mask/releases/download/v0.11.3/mask-v0.11.3-x86_64-unknown-linux-musl.zip -L -o /tmp/mask.zip
-    unzip /tmp/mask.zip -d /tmp/mask
-    mv /tmp/mask/**/mask /usr/local/bin/mask
-    rm -r /tmp/mask /tmp/mask.zip
+    cargo install cargo-binstall
+    cargo install cargo-watch
+    cargo install sqlx-cli --features rustls,postgres --no-default-features
+    cargo binstall wasm-pack -y
+    cargo binstall cargo-llvm-cov -y
+    cargo binstall cargo-nextest -y
+    cargo install cargo-audit --features vendored-openssl
+    cargo install mask
 
-    # nextest
-    curl -LsSf https://get.nexte.st/latest/linux-musl | tar zxf - -C ${CARGO_HOME:-$HOME/.cargo}/bin
+    # Clean up 
+    rm -rf /usr/local/cargo/registry /usr/local/cargo/git 
+    apt-get remove -y \
+        curl \
+        python3 \
+        python3.10
+    apt-get autoremove -y
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
 
-    # install llvm-cov
-    curl -LsSf https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.5.9/cargo-llvm-cov-x86_64-unknown-linux-musl.tar.gz | tar zxf - -C ${CARGO_HOME:-$HOME/.cargo}/bin
-
-    # Clean up cache files
-    rm -r /usr/local/cargo/registry || true
-    yarn cache clean
+    # Remove SSH host keys, for some reason they are generated on build.
+    rm -rf /etc/ssh/ssh_host_* 
 eot

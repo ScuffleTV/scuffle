@@ -20,6 +20,10 @@ on:
 jobs:
   security-audit:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      checks: write
+
     steps:
       - uses: actions/checkout@v3
 

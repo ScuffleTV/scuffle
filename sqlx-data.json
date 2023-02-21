@@ -1,3 +1,49 @@
 {
-	"db": "PostgreSQL"
+	"db": "PostgreSQL",
+	"165e3eb51d255f5b3013430059b5267269df7285cdb0736efddbf8fca9c32ed2": {
+		"describe": {
+			"columns": [],
+			"nullable": [],
+			"parameters": {
+				"Left": []
+			}
+		},
+		"query": "INSERT INTO users (id, username, password_hash, email, email_verified, created_at, last_login_at) VALUES\n    (1, 'admin', 'abc', 'xyz@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (2, 'user', 'abc2', 'xyz2@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (3, 'user1', 'abc3', 'xyz3@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (4, 'user2', 'abc4', 'xyz4@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (5, 'user3', 'abc5', 'xyz5@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (6, 'user4', 'abc6', 'xyz6@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (7, 'user5', 'abc7', 'xyz7@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (8, 'user6', 'abc8', 'xyz8@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (9, 'user7', 'abc9', 'xyz9@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (10, 'user8', 'abc10', 'xyz10@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (11, 'user9', 'abc11', 'xyz11@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00');"
+	},
+	"1c9b66121e84a7657c44ebd2c19957f71c02ef364f4c1727c68d530a3b68c31a": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				},
+				{
+					"name": "username",
+					"ordinal": 1,
+					"type_info": "Varchar"
+				},
+				{
+					"name": "created_at",
+					"ordinal": 2,
+					"type_info": "Timestamptz"
+				}
+			],
+			"nullable": [false, false, false],
+			"parameters": {
+				"Left": ["Int8Array"]
+			}
+		},
+		"query": "\n        SELECT id, username, created_at\n        FROM users\n        WHERE id = ANY($1)\n        "
+	},
+	"f4f8f8c2668ec23ba1f4a315d74087521496603e8b1bc10475a864001e795593": {
+		"describe": {
+			"columns": [],
+			"nullable": [],
+			"parameters": {
+				"Left": []
+			}
+		},
+		"query": "DELETE FROM users"
+	}
 }

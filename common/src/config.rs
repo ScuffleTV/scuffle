@@ -30,3 +30,6 @@ pub fn parse<'de, T: Deserialize<'de>>(config_file: &str) -> Result<T, ConfigErr
 
     config.try_deserialize()
 }
+
+#[cfg(test)]
+mod tests;

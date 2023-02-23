@@ -16,7 +16,7 @@ In order to get started, you will need to have the following installed on your m
 
 For this project we recommend using [VSCode](https://code.visualstudio.com/) as your IDE.
 
-We also advise you to use a linux based operating system, however, if you are on windows you can use [WSL2](https://docs.microsoft.com/en-us/windows/wsl/install-win10) to run linux commands.
+We also advise you to use a linux based operating system, however, if you are on windows you can use [WSL2](https://docs.microsoft.com/en-us/windows/wsl/install-win10) to run Linux commands.
 
 ### WSL2
 
@@ -45,12 +45,12 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 
 # Configuring apt to find yarn
-curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/yarnkey.gpg >/dev/null
-echo "deb [signed-by=/usr/share/keyrings/yarnkey.gpg] https://dl.yarnpkg.com/debian stable main" | sudo tee /etc/apt/sources.list.d/yarn.list >/dev/null
+curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/yarnkey.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/yarnkey.gpg] https://dl.yarnpkg.com/debian stable main" | sudo tee /etc/apt/sources.list.d/yarn.list > /dev/null
 
 # Running the install for nodejs, yarn, make, docker and git
 sudo apt-get update
-sudo apt-get install nodejs yarn docker.io git musl-tools
+sudo apt-get install build-essential pkg-config libssl-dev nodejs yarn docker.io git musl-tools
 
 # Installing docker compose v2
 DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}

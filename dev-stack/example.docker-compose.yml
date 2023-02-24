@@ -11,10 +11,10 @@ services:
       - "8080:8080"
     environment:
       - SCUF_DATABASE_URL=postgres://postgres:postgres@postgres:5432/scuffle-dev
-  frontend:
+  website:
     build:
       context: ..
-      dockerfile: docker/frontend.Dockerfile
+      dockerfile: docker/website.Dockerfile
     ports:
       - "4000:4000"
   edge:

@@ -1,6 +1,7 @@
 name: Lint, Test & Build
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -18,7 +19,7 @@ jobs:
   lint-test:
     name: Run Lint + Test
     runs-on: ubuntu-latest
-    container: ghcr.io/scuffletv/build:1.67.1
+    container: ghcr.io/scuffletv/build:425e9d58cd6fab8e3d202681188c54b55c9e71f1
     services:
       postgres:
         image: postgres:15.2
@@ -90,7 +91,7 @@ jobs:
   build:
     name: Run Build
     runs-on: ubuntu-latest
-    container: ghcr.io/scuffletv/build:1.67.1
+    container: ghcr.io/scuffletv/build:425e9d58cd6fab8e3d202681188c54b55c9e71f1
     needs: [lint-test]
 
     steps:
@@ -131,3 +132,175 @@ jobs:
 
       - name: Run Build
         run: mask build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build
+          path: |
+            target/x86_64-unknown-linux-gnu/release/api
+            target/x86_64-unknown-linux-gnu/release/edge
+            target/x86_64-unknown-linux-gnu/release/ingest
+            target/x86_64-unknown-linux-gnu/release/edge
+            target/x86_64-unknown-linux-gnu/release/transcoder
+            frontend/website/build
+
+  docker:
+    name: Build docker images
+    runs-on: ubuntu-latest
+    needs: [build]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2.4.1
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        id: docker_build_api
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: .
+          file: ./docker/api.Dockerfile
+          load: true
+          tags: ghcr.io/scuffletv/api:${{ github.sha }}
+
+      - name: Build and push Edge image
+        id: docker_build_edge
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: .
+          file: ./docker/edge.Dockerfile
+          load: true
+          tags: ghcr.io/scuffletv/edge:${{ github.sha }}
+
+      - name: Build and push Ingest image
+        id: docker_build_ingest
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: .
+          file: ./docker/ingest.Dockerfile
+          load: true
+          tags: ghcr.io/scuffletv/ingest:${{ github.sha }}
+
+      - name: Build and push Transcoder image
+        id: docker_build_transcoder
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: .
+          file: ./docker/transcoder.Dockerfile
+          load: true
+          tags: ghcr.io/scuffletv/transcoder:${{ github.sha }}
+
+      - name: Build and push Website image
+        id: docker_build_website
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: .
+          file: ./docker/website.Dockerfile
+          load: true
+          tags: ghcr.io/scuffletv/website:${{ github.sha }}
+
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@master
+        if: ${{ always() && steps.docker_build_api.outcome == 'success' }}
+        with:
+          image-ref: ghcr.io/scuffletv/api:${{ github.sha }}
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: Scan Edge image
+        uses: aquasecurity/trivy-action@master
+        if: ${{ always() && steps.docker_build_edge.outcome == 'success' }}
+        with:
+          image-ref: ghcr.io/scuffletv/edge:${{ github.sha }}
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: Scan Ingest image
+        uses: aquasecurity/trivy-action@master
+        if: ${{ always() && steps.docker_build_ingest.outcome == 'success' }}
+        with:
+          image-ref: ghcr.io/scuffletv/ingest:${{ github.sha }}
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: Scan Transcoder image
+        uses: aquasecurity/trivy-action@master
+        if: ${{ always() && steps.docker_build_transcoder.outcome == 'success' }}
+        with:
+          image-ref: ghcr.io/scuffletv/transcoder:${{ github.sha }}
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: Scan Website image
+        uses: aquasecurity/trivy-action@master
+        if: ${{ always() && steps.docker_build_website.outcome == 'success' }}
+        with:
+          image-ref: ghcr.io/scuffletv/website:${{ github.sha }}
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: Tag images and push
+        if: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/feature/'))) || github.event_name == 'workflow_dispatch' }}
+        # If the push is to the main branch, tag the image as latest
+        # If the workflow is triggered by a workflow_dispatch event, tag the image as workflow_dispatch
+        # Otherwise, tag the image with the branch name, in the format of feature-branch-name
+        env:
+          TAG: ${{ github.ref == 'refs/heads/main' && 'latest' || github.event_name == 'workflow_dispatch' && 'workflow_dispatch' || github.ref_name }}
+        run: |
+          # We need to replace the / in the branch name with a - so that it can be used as a tag
+          TAG="${TAG//\//-}"
+
+          docker tag ghcr.io/scuffletv/api:${{ github.sha }} ghcr.io/scuffletv/api:$TAG
+          docker tag ghcr.io/scuffletv/edge:${{ github.sha }} ghcr.io/scuffletv/edge:$TAG
+          docker tag ghcr.io/scuffletv/ingest:${{ github.sha }} ghcr.io/scuffletv/ingest:$TAG
+          docker tag ghcr.io/scuffletv/transcoder:${{ github.sha }} ghcr.io/scuffletv/transcoder:$TAG
+          docker tag ghcr.io/scuffletv/website:${{ github.sha }} ghcr.io/scuffletv/website:$TAG
+
+          docker push ghcr.io/scuffletv/api:${{ github.sha }}
+          docker push ghcr.io/scuffletv/api:$TAG
+
+          docker push ghcr.io/scuffletv/edge:${{ github.sha }}
+          docker push ghcr.io/scuffletv/edge:$TAG
+
+          docker push ghcr.io/scuffletv/ingest:${{ github.sha }}
+          docker push ghcr.io/scuffletv/ingest:$TAG
+
+          docker push ghcr.io/scuffletv/transcoder:${{ github.sha }}
+          docker push ghcr.io/scuffletv/transcoder:$TAG
+
+          docker push ghcr.io/scuffletv/website:${{ github.sha }}
+          docker push ghcr.io/scuffletv/website:$TAG

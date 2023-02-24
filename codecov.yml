@@ -15,7 +15,7 @@ codecov:
 
 comment:
   layout: "diff, flags, files"
-  behavior: new
+  behavior: default
   require_changes: false
   require_head: no
   require_base: no

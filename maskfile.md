@@ -32,7 +32,7 @@ if [ "$container" == "true" ]; then
     }
     trap cleanup EXIT
 
-    PID=$(docker run -d --stop-signal SIGKILL --rm -v "$(pwd)":/pwd -w /pwd ghcr.io/scuffletv/build:1.67.1 mask build)
+    PID=$(docker run -d --stop-signal SIGKILL --rm -v "$(pwd)":/pwd -w /pwd ghcr.io/scuffletv/build:latest mask build)
     docker logs -f $PID
 else
     $MASK build rust --static=$static
@@ -71,7 +71,7 @@ if [ "$container" == "true" ]; then
     }
     trap cleanup EXIT
 
-    PID=$(docker run -d --stop-signal SIGKILL --rm -v "$(pwd)":/pwd -w /pwd ghcr.io/scuffletv/build:1.67.1 mask build rust --static=$static)
+    PID=$(docker run -d --stop-signal SIGKILL --rm -v "$(pwd)":/pwd -w /pwd ghcr.io/scuffletv/build:latest mask build rust --static=$static)
     docker logs -f $PID
 else
     if [ "$static" == "true" ]; then

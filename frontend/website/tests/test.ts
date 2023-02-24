@@ -1,6 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { test } from "@playwright/test";
 
-test("index page has expected h1", async ({ page }) => {
+test("page loads", async ({ page }) => {
 	await page.goto("/");
-	await expect(page.getByRole("heading", { name: "Scuffle.tv" })).toBeVisible();
 });

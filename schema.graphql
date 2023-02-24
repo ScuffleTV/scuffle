@@ -1,0 +1,101 @@
+"""
+The mutation object for authentication
+"""
+type AuthMutation {
+	"""
+	Login using a username and password. If via websocket this will authenticate the websocket connection.
+	"""
+	login(captchaToken: String!, password: String!, username: String!, validity: Int): Session!
+	"""
+	Login with a session token. If via websocket this will authenticate the websocket connection.
+	"""
+	loginWithToken(sessionToken: String!, updateContext: Boolean): Session!
+	"""
+	Logout the user with the given session token. This will invalidate the session token.
+	"""
+	logout(sessionToken: String): Boolean!
+	"""
+	If successful will return a new session for the account which just got created.
+	"""
+	register(
+		captchaToken: String!
+		email: String!
+		password: String!
+		username: String!
+		validity: Int
+	): Session!
+}
+
+scalar DateRFC3339
+
+"""
+The root mutation type which contains root level fields.
+"""
+type Mutation {
+	auth: AuthMutation!
+}
+
+"""
+The root query type which contains root level fields.
+"""
+type Query {
+	noop: Boolean!
+	userByUsername(username: String!): User
+}
+
+type Session {
+	"""
+	Created at
+	"""
+	createdAt: DateRFC3339!
+	"""
+	Expires at
+	"""
+	expiresAt: DateRFC3339!
+	"""
+	The session's id
+	"""
+	id: Int!
+	"""
+	Last used at
+	"""
+	lastUsedAt: DateRFC3339!
+	"""
+	The session's token
+	"""
+	token: String!
+	"""
+	The user who owns this session
+	"""
+	userId: Int!
+}
+
+type Subscription {
+	noop: Boolean!
+}
+
+type User {
+	createdAt: DateRFC3339!
+	email: String!
+	emailVerified: Boolean!
+	id: Int!
+	lastLoginAt: DateRFC3339!
+	username: String!
+}
+
+extend schema
+	@link(
+		url: "https://specs.apollo.dev/federation/v2.1"
+		import: [
+			"@key"
+			"@tag"
+			"@shareable"
+			"@inaccessible"
+			"@override"
+			"@external"
+			"@provides"
+			"@requires"
+		]
+	)
+directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT

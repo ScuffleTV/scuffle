@@ -1,0 +1,46 @@
+h1,
+h2 {
+	margin: 0;
+}
+
+body {
+	margin: 0;
+	background-color: #0b0b0b;
+	color: white;
+	font-family: "Be Vietnam Pro", sans-serif;
+	scrollbar-width: thin;
+	scrollbar-color: #606364 #0f1314;
+	max-height: 100vh;
+	max-width: 100vw;
+	overflow-x: hidden;
+	overflow-y: overlay;
+	&.no-overflow {
+		overflow: hidden;
+	}
+}
+
+body::-webkit-scrollbar {
+	width: 0.25rem;
+}
+
+body::-webkit-scrollbar-track {
+	background: #0f1314;
+}
+
+body::-webkit-scrollbar-thumb {
+	background: #606364;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+a {
+	color: #5865f2;
+	text-decoration: none;
+	transition: color 0.1s ease-in-out;
+
+	&:hover {
+		color: #7289da;
+	}
+}

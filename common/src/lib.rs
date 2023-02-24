@@ -5,3 +5,6 @@ pub mod context;
 pub mod logging;
 pub mod signal;
 pub mod types;
+
+#[cfg(test)]
+mod tests;

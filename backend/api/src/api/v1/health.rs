@@ -1,16 +1,29 @@
-use std::convert::Infallible;
+use std::sync::Arc;
 
 use hyper::{Body, Request, Response, StatusCode};
 use routerify::Router;
+use serde_json::json;
 
-async fn health(_: Request<Body>) -> Result<Response<Body>, Infallible> {
-    tracing::debug!("Health check");
-    Ok(Response::builder()
-        .status(StatusCode::OK)
-        .body(Body::from("OK"))
-        .expect("failed to build health response"))
+use crate::{
+    api::{
+        error::{Result, RouteError},
+        macros::make_response,
+    },
+    global::GlobalState,
+};
+
+async fn health(_: Request<Body>) -> Result<Response<Body>> {
+    Ok(make_response!(
+        StatusCode::OK,
+        json!({
+            "status": "ok"
+        })
+    ))
 }
 
-pub fn routes() -> Router<Body, Infallible> {
-    Router::builder().get("/", health).build().unwrap()
+pub fn routes(_global: &Arc<GlobalState>) -> Router<Body, RouteError> {
+    Router::builder()
+        .get("/", health)
+        .build()
+        .expect("failed to build router")
 }

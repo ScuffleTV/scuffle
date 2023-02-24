@@ -1,19 +1,30 @@
-use std::{sync::Arc, time::Duration};
+#![cfg_attr(coverage_nightly, feature(no_coverage))]
+
+use std::{str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use common::{context::Context, logging, signal};
+use sqlx::{postgres::PgConnectOptions, ConnectOptions};
 use tokio::{select, signal::unix::SignalKind, time};
 
-mod api;
-mod config;
-mod global;
+pub mod api;
+pub mod config;
+pub mod global;
+
+#[cfg(test)]
+mod tests;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = config::AppConfig::parse()?;
     logging::init(&config.log_level)?;
 
-    let db = sqlx::PgPool::connect(&config.database_url).await?;
+    let db = sqlx::PgPool::connect_with(
+        PgConnectOptions::from_str(&config.database_url)?
+            .disable_statement_logging()
+            .to_owned(),
+    )
+    .await?;
 
     let (ctx, handler) = Context::new();
 

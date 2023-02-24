@@ -91,6 +91,9 @@ fi
 - container
   - flags: --container
   - desc: Build the project in a container
+- no_gql_prepare
+  - flags: --no-gql-prepare
+  - desc: Don't prepare the GraphQL schema
 
 ```bash
 set -e
@@ -110,6 +113,11 @@ if [ "$container" == "true" ]; then
     PID=$(docker run -d --stop-signal SIGKILL --rm -v "$(pwd)":/pwd -w /pwd ghcr.io/scuffletv/build:1.67.1 yarn workspace website build)
     docker logs -f $PID
 else
+    if [ "$no_gql_prepare" != "true" ]; then
+        $MASK gql prepare
+        export SCHEMA_URL=$(realpath frontend/website/schema.graphql)
+    fi
+
     yarn workspace website build
 fi
 ```
@@ -215,6 +223,7 @@ if [ "$no_rust" != "true" ]; then
     cargo clippy --package player --target wasm32-unknown-unknown -- -D warnings
     cargo fmt --all --check
     cargo sqlx prepare --check --merged -- --all-targets --all-features
+    $MASK gql check
 fi
 
 if [ "$no_js" != "true" ]; then
@@ -276,7 +285,7 @@ fi
 
 if [ "$no_rust" != "true" ]; then
     cargo llvm-cov clean --workspace
-    cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main.rs|tests.rs)"
+    cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace
 fi
 
 if [ "$no_js" != "true" ]; then
@@ -612,4 +621,36 @@ if [ "$no_docker" != "true" ]; then
         $MASK db migrate
     fi
 fi
+```
+
+## gql
+
+> GraphQL tasks
+
+### prepare
+
+> Generate the GraphQL schema
+
+```bash
+set -e
+if [[ "$verbose" == "true" ]]; then
+    set -x
+fi
+
+cargo run --bin api-gql-generator | yarn -s prettier --stdin-filepath schema.graphql > schema.graphql
+```
+
+### check
+
+> Check the GraphQL schema
+
+```bash
+set -e
+if [[ "$verbose" == "true" ]]; then
+    set -x
+fi
+
+cargo run --bin api-gql-generator | yarn -s prettier --stdin-filepath schema.graphql | diff - schema.graphql || (echo "GraphQL schema is out of date. Run 'mask gql prepare' to update it." && exit 1)
+
+echo "GraphQL schema is up to date."
 ```

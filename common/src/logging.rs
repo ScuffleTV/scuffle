@@ -1,4 +1,5 @@
 use anyhow::Result;
+use tracing_log::LogTracer;
 
 pub fn init(level: &str) -> Result<()> {
     tracing::subscriber::set_global_default(
@@ -10,8 +11,7 @@ pub fn init(level: &str) -> Result<()> {
             .finish(),
     )?;
 
+    LogTracer::init()?;
+
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;

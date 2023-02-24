@@ -8,3 +8,4 @@ dev-stack/docker-compose.yml
 .DS_Store
 *.lcov
 lcov.info
+local/

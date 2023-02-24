@@ -1,15 +1,22 @@
-use std::convert::Infallible;
+use std::sync::Arc;
 
 use hyper::Body;
 use routerify::Router;
 
-mod health;
-mod users;
+use crate::global::GlobalState;
 
-pub fn routes() -> Router<Body, Infallible> {
+use super::error::RouteError;
+
+pub mod gql;
+pub mod health;
+pub mod jwt;
+pub mod middleware;
+
+pub fn routes(global: &Arc<GlobalState>) -> Router<Body, RouteError> {
     Router::builder()
-        .scope("/health", health::routes())
-        .scope("/users", users::routes())
+        .scope("/health", health::routes(global))
+        .middleware(middleware::auth::auth_middleware(global))
+        .scope("/gql", gql::routes(global))
         .build()
-        .unwrap()
+        .expect("failed to build router")
 }

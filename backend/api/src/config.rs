@@ -15,15 +15,31 @@ pub struct AppConfig {
 
     /// The database URL to use
     pub database_url: String,
+
+    /// The Cloudflare Turnstile site key to use
+    pub turnstile_secret_key: String,
+
+    /// The Cloudflare Turnstile url to use
+    pub turnstile_url: String,
+
+    /// JWT secret
+    pub jwt_secret: String,
+
+    /// JWT issuer
+    pub jwt_issuer: String,
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            log_level: "api=info".to_string(),
+            log_level: "info".to_string(),
             config_file: "config".to_string(),
             bind_address: "[::]:8080".to_string(),
             database_url: "postgres://postgres:postgres@localhost:5432/scuffle-dev".to_string(),
+            turnstile_secret_key: "6LcZ8uIUAAAAAAM8ZQXZ0Z0Z0Z0Z0Z0Z0Z0Z0Z0Z".to_string(),
+            turnstile_url: "https://challenges.cloudflare.com/turnstile/v0/siteverify".to_string(),
+            jwt_issuer: "scuffle".to_string(),
+            jwt_secret: "scuffle".to_string(),
         }
     }
 }
@@ -31,91 +47,5 @@ impl Default for AppConfig {
 impl AppConfig {
     pub fn parse() -> Result<Self> {
         Ok(common::config::parse(&AppConfig::default().config_file)?)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse() {
-        let config = AppConfig::parse().unwrap();
-        assert_eq!(config, AppConfig::default());
-    }
-
-    #[test]
-    fn test_parse_env() {
-        std::env::set_var("SCUF_LOG_LEVEL", "api=debug");
-        std::env::set_var("SCUF_BIND_ADDRESS", "[::]:8081");
-        std::env::set_var(
-            "SCUF_DATABASE_URL",
-            "postgres://postgres:postgres@localhost:5433/postgres",
-        );
-
-        let config = AppConfig::parse().unwrap();
-        assert_eq!(config.log_level, "api=debug");
-        assert_eq!(config.bind_address, "[::]:8081");
-        assert_eq!(
-            config.database_url,
-            "postgres://postgres:postgres@localhost:5433/postgres"
-        );
-    }
-
-    #[test]
-    fn test_parse_file() {
-        let tmp_dir = tempfile::tempdir().unwrap();
-        let config_file = tmp_dir.path().join("config.toml");
-
-        std::fs::write(
-            &config_file,
-            r#"
-log_level = "api=debug"
-bind_address = "[::]:8081"
-database_url = "postgres://postgres:postgres@localhost:5433/postgres"
-"#,
-        )
-        .unwrap();
-
-        std::env::set_var("SCUF_CONFIG_FILE", config_file.to_str().unwrap());
-
-        let config = AppConfig::parse().unwrap();
-
-        assert_eq!(config.log_level, "api=debug");
-        assert_eq!(config.bind_address, "[::]:8081");
-        assert_eq!(
-            config.database_url,
-            "postgres://postgres:postgres@localhost:5433/postgres"
-        );
-        assert_eq!(config.config_file, config_file.to_str().unwrap());
-    }
-
-    #[test]
-    fn test_parse_file_env() {
-        let tmp_dir = tempfile::tempdir().unwrap();
-        let config_file = tmp_dir.path().join("config.toml");
-
-        std::fs::write(
-            &config_file,
-            r#"
-log_level = "api=debug"
-bind_address = "[::]:8081"
-database_url = "postgres://postgres:postgres@localhost:5433/postgres"
-"#,
-        )
-        .unwrap();
-
-        std::env::set_var("SCUF_CONFIG_FILE", config_file.to_str().unwrap());
-        std::env::set_var("SCUF_LOG_LEVEL", "api=info");
-
-        let config = AppConfig::parse().unwrap();
-
-        assert_eq!(config.log_level, "api=info");
-        assert_eq!(config.bind_address, "[::]:8081");
-        assert_eq!(
-            config.database_url,
-            "postgres://postgres:postgres@localhost:5433/postgres"
-        );
-        assert_eq!(config.config_file, config_file.to_str().unwrap());
     }
 }

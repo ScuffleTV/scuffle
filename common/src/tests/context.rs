@@ -1,6 +1,8 @@
 use std::time::Duration;
 
-use super::*;
+use tokio::time::Instant;
+
+use crate::context::{CancelReason, Context};
 
 #[tokio::test]
 async fn test_context_cancel() {
@@ -36,6 +38,26 @@ async fn test_context_deadline() {
     tokio::time::timeout(Duration::from_millis(300), handler.done())
         .await
         .expect("task should be cancelled");
+}
+
+#[tokio::test]
+async fn test_context_is_done() {
+    let (ctx, handler) = Context::new();
+
+    let handle = tokio::spawn(async move {
+        assert!(!ctx.is_done());
+        let reason = ctx.done().await;
+        assert_eq!(reason, CancelReason::Cancel);
+        assert!(ctx.is_done());
+    });
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    drop(handler);
+    tokio::time::timeout(Duration::from_millis(300), handle)
+        .await
+        .expect("task should be cancelled")
+        .expect("panic in task");
 }
 
 #[tokio::test]

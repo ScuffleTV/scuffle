@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use tokio::process::Command;
+use tokio::{process::Command, signal::unix::SignalKind};
 
-use super::*;
+use crate::signal::SignalHandler;
 
 #[tokio::test]
 async fn test_signal() {

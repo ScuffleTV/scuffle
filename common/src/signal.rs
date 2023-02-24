@@ -43,6 +43,3 @@ impl SignalHandler {
             .expect("failed to receive signal")
     }
 }
-
-#[cfg(test)]
-mod tests;

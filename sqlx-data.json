@@ -1,16 +1,67 @@
 {
 	"db": "PostgreSQL",
-	"165e3eb51d255f5b3013430059b5267269df7285cdb0736efddbf8fca9c32ed2": {
+	"035868368a1a31c2ebbe29cf6f8838c53fe59545aeb1addd2c55628db7c882de": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				},
+				{
+					"name": "user_id",
+					"ordinal": 1,
+					"type_info": "Int8"
+				},
+				{
+					"name": "invalidated_at",
+					"ordinal": 2,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "created_at",
+					"ordinal": 3,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "expires_at",
+					"ordinal": 4,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "last_used_at",
+					"ordinal": 5,
+					"type_info": "Timestamptz"
+				}
+			],
+			"nullable": [false, false, true, false, false, false],
+			"parameters": {
+				"Left": ["Int8", "Timestamptz"]
+			}
+		},
+		"query": "INSERT INTO sessions(user_id, expires_at) VALUES ($1, $2) RETURNING *"
+	},
+	"11e96cfd8c2736f13ce55975ea910dd68640f6f14e38a4b3342d514804e3de27": {
 		"describe": {
 			"columns": [],
 			"nullable": [],
 			"parameters": {
-				"Left": []
+				"Left": ["Int8"]
 			}
 		},
-		"query": "INSERT INTO users (id, username, password_hash, email, email_verified, created_at, last_login_at) VALUES\n    (1, 'admin', 'abc', 'xyz@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (2, 'user', 'abc2', 'xyz2@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (3, 'user1', 'abc3', 'xyz3@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (4, 'user2', 'abc4', 'xyz4@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (5, 'user3', 'abc5', 'xyz5@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (6, 'user4', 'abc6', 'xyz6@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (7, 'user5', 'abc7', 'xyz7@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (8, 'user6', 'abc8', 'xyz8@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (9, 'user7', 'abc9', 'xyz9@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (10, 'user8', 'abc10', 'xyz10@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00'),\n    (11, 'user9', 'abc11', 'xyz11@gmail.com', true, '2021-01-01 00:00:00', '2021-01-01 00:00:00');"
+		"query": "DELETE FROM sessions WHERE id = $1"
 	},
-	"1c9b66121e84a7657c44ebd2c19957f71c02ef364f4c1727c68d530a3b68c31a": {
+	"1b7580d4870e1d43d80297bff6a45a7d9e2dc32da6fdd1fa5c23576ce46cdeb0": {
+		"describe": {
+			"columns": [],
+			"nullable": [],
+			"parameters": {
+				"Left": ["Int8", "Varchar", "Varchar", "Varchar"]
+			}
+		},
+		"query": "INSERT INTO users (id, username, email, password_hash) VALUES ($1, $2, $3, $4)"
+	},
+	"26e7e05427bc7dabcd7815d27764fda2baf4cfe60a2d2d6ee2a1f773dccbbce2": {
 		"describe": {
 			"columns": [
 				{
@@ -24,17 +75,417 @@
 					"type_info": "Varchar"
 				},
 				{
-					"name": "created_at",
+					"name": "password_hash",
 					"ordinal": 2,
+					"type_info": "Varchar"
+				},
+				{
+					"name": "email",
+					"ordinal": 3,
+					"type_info": "Varchar"
+				},
+				{
+					"name": "email_verified",
+					"ordinal": 4,
+					"type_info": "Bool"
+				},
+				{
+					"name": "created_at",
+					"ordinal": 5,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "last_login_at",
+					"ordinal": 6,
 					"type_info": "Timestamptz"
 				}
 			],
-			"nullable": [false, false, false],
+			"nullable": [false, false, false, false, false, false, false],
 			"parameters": {
-				"Left": ["Int8Array"]
+				"Left": []
 			}
 		},
-		"query": "\n        SELECT id, username, created_at\n        FROM users\n        WHERE id = ANY($1)\n        "
+		"query": "SELECT * FROM users"
+	},
+	"2942118ad7fa0a0bb28509f8cbcdb1c348e0c76d3461a56f61243ee17f4a8238": {
+		"describe": {
+			"columns": [],
+			"nullable": [],
+			"parameters": {
+				"Left": ["Int8", "Int8", "Timestamptz"]
+			}
+		},
+		"query": "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3)"
+	},
+	"3555fc5e85817d9800ce57e96d4b30da4142ec195205d8499070c8e1a14ab424": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				},
+				{
+					"name": "password_hash",
+					"ordinal": 1,
+					"type_info": "Varchar"
+				}
+			],
+			"nullable": [false, false],
+			"parameters": {
+				"Left": ["Text"]
+			}
+		},
+		"query": "SELECT id, password_hash FROM users WHERE username = $1"
+	},
+	"389adfeac4c92646c6294ca089fd8926c2e99a1e6fbff03073fb331357fcf9e9": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				}
+			],
+			"nullable": [false],
+			"parameters": {
+				"Left": ["Varchar", "Varchar", "Varchar"]
+			}
+		},
+		"query": "INSERT INTO users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING id"
+	},
+	"5621eadc9d47de01630d508892861befd9ac13055a4b5c1654e3e2dc49870ca2": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				},
+				{
+					"name": "username",
+					"ordinal": 1,
+					"type_info": "Varchar"
+				},
+				{
+					"name": "password_hash",
+					"ordinal": 2,
+					"type_info": "Varchar"
+				},
+				{
+					"name": "email",
+					"ordinal": 3,
+					"type_info": "Varchar"
+				},
+				{
+					"name": "email_verified",
+					"ordinal": 4,
+					"type_info": "Bool"
+				},
+				{
+					"name": "created_at",
+					"ordinal": 5,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "last_login_at",
+					"ordinal": 6,
+					"type_info": "Timestamptz"
+				}
+			],
+			"nullable": [false, false, false, false, false, false, false],
+			"parameters": {
+				"Left": ["Int8", "Varchar", "Varchar", "Varchar"]
+			}
+		},
+		"query": "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4) RETURNING *"
+	},
+	"606364c79e0990deb07dfbe6c32b3d302d083ec5333f3a5ce04113c38a041100": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				},
+				{
+					"name": "username",
+					"ordinal": 1,
+					"type_info": "Varchar"
+				},
+				{
+					"name": "password_hash",
+					"ordinal": 2,
+					"type_info": "Varchar"
+				},
+				{
+					"name": "email",
+					"ordinal": 3,
+					"type_info": "Varchar"
+				},
+				{
+					"name": "email_verified",
+					"ordinal": 4,
+					"type_info": "Bool"
+				},
+				{
+					"name": "created_at",
+					"ordinal": 5,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "last_login_at",
+					"ordinal": 6,
+					"type_info": "Timestamptz"
+				}
+			],
+			"nullable": [false, false, false, false, false, false, false],
+			"parameters": {
+				"Left": ["Text"]
+			}
+		},
+		"query": "SELECT * FROM users WHERE username = $1"
+	},
+	"750acae3f638bd028e48f41a955d665914e8cf47383fda2b212183c13e385250": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				},
+				{
+					"name": "user_id",
+					"ordinal": 1,
+					"type_info": "Int8"
+				},
+				{
+					"name": "invalidated_at",
+					"ordinal": 2,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "created_at",
+					"ordinal": 3,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "expires_at",
+					"ordinal": 4,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "last_used_at",
+					"ordinal": 5,
+					"type_info": "Timestamptz"
+				}
+			],
+			"nullable": [false, false, true, false, false, false],
+			"parameters": {
+				"Left": ["Int8", "Int8", "Timestamptz"]
+			}
+		},
+		"query": "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *"
+	},
+	"7f424c4cb2f5ba376b1397fa03f3b8cd6d26fdef16a6a5c385595ecabd6c67f9": {
+		"describe": {
+			"columns": [],
+			"nullable": [],
+			"parameters": {
+				"Left": ["Int8"]
+			}
+		},
+		"query": "UPDATE sessions SET invalidated_at = NOW() WHERE id = $1"
+	},
+	"8c16c76efc00d25c3b8f9a3c612268af26b634cd7af07a2dc900a98895dbc32b": {
+		"describe": {
+			"columns": [],
+			"nullable": [],
+			"parameters": {
+				"Left": ["Int8", "Varchar", "Varchar", "Varchar"]
+			}
+		},
+		"query": "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4)"
+	},
+	"a1397dc8f88d310b34810db9afe69542376d270efb4998af8d81a611d89fe8b9": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				},
+				{
+					"name": "user_id",
+					"ordinal": 1,
+					"type_info": "Int8"
+				},
+				{
+					"name": "invalidated_at",
+					"ordinal": 2,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "created_at",
+					"ordinal": 3,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "expires_at",
+					"ordinal": 4,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "last_used_at",
+					"ordinal": 5,
+					"type_info": "Timestamptz"
+				}
+			],
+			"nullable": [false, false, true, false, false, false],
+			"parameters": {
+				"Left": ["Int8", "Timestamptz"]
+			}
+		},
+		"query": "UPDATE sessions SET last_used_at = $2 WHERE id = $1 RETURNING *"
+	},
+	"b61377101cd65dbd8c97702fe3a76f791c43849b84d5e16e4e3d98cbde9f7a17": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				},
+				{
+					"name": "user_id",
+					"ordinal": 1,
+					"type_info": "Int8"
+				},
+				{
+					"name": "invalidated_at",
+					"ordinal": 2,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "created_at",
+					"ordinal": 3,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "expires_at",
+					"ordinal": 4,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "last_used_at",
+					"ordinal": 5,
+					"type_info": "Timestamptz"
+				}
+			],
+			"nullable": [false, false, true, false, false, false],
+			"parameters": {
+				"Left": ["Int8"]
+			}
+		},
+		"query": "SELECT * FROM sessions WHERE id = $1"
+	},
+	"b70317ca36372ae9803b15c675439062654e708b88c838cef53e642b16963bd3": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				},
+				{
+					"name": "user_id",
+					"ordinal": 1,
+					"type_info": "Int8"
+				},
+				{
+					"name": "invalidated_at",
+					"ordinal": 2,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "created_at",
+					"ordinal": 3,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "expires_at",
+					"ordinal": 4,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "last_used_at",
+					"ordinal": 5,
+					"type_info": "Timestamptz"
+				}
+			],
+			"nullable": [false, false, true, false, false, false],
+			"parameters": {
+				"Left": ["Int8", "Timestamptz"]
+			}
+		},
+		"query": "INSERT INTO sessions (user_id, expires_at) VALUES ($1, $2) RETURNING *"
+	},
+	"d130c416e56962ab334ee1b4ca77369a4c35dbc1cf31279f7ed4d418ed75aabb": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				},
+				{
+					"name": "user_id",
+					"ordinal": 1,
+					"type_info": "Int8"
+				},
+				{
+					"name": "invalidated_at",
+					"ordinal": 2,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "created_at",
+					"ordinal": 3,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "expires_at",
+					"ordinal": 4,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "last_used_at",
+					"ordinal": 5,
+					"type_info": "Timestamptz"
+				}
+			],
+			"nullable": [false, false, true, false, false, false],
+			"parameters": {
+				"Left": []
+			}
+		},
+		"query": "SELECT * FROM sessions"
+	},
+	"dd99e48b1572e25db38f03da95984fda1072913b29bb6b3753a0d351583dfff6": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				}
+			],
+			"nullable": [false],
+			"parameters": {
+				"Left": ["Text"]
+			}
+		},
+		"query": "SELECT id FROM users WHERE username = $1"
 	},
 	"f4f8f8c2668ec23ba1f4a315d74087521496603e8b1bc10475a864001e795593": {
 		"describe": {

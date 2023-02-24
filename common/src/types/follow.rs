@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Model {
     pub id: i64,                   // bigint, primary key
     pub follower_id: i64,          // bigint, foreign key -> users.id

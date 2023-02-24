@@ -144,6 +144,33 @@ mask db prepare
 
 This will run the migrations and generate the SQLx code for the database. So that compile time querying can be used.
 
+### Turnstile
+
+We use [Turnstile](https://www.cloudflare.com/products/turnstile/) as our captcha service.
+
+In order to validate local login requests, you will need to setup a local instance of Turnstile.
+
+You can go to cloudflare's website and register for a free account and then create a new application.
+
+Set the domain to `localhost` and the widget type to managed.
+
+Then create a `.env.local` file in the `frontend/website` folder and add the following:
+
+```
+VITE_CF_TURNSTILE_KEY=<site-key>
+VITE_GQL_ENDPOINT=http://localhost:8080/v1/gql
+VITE_GQL_WS_ENDPOINT=ws://localhost:8080/v1/gql
+VITE_GQL_VERSION=1.0
+```
+
+Then you can export the following environment variables:
+
+```bash
+export SCUF_TURNSTILE_SECRET_KEY=<secret-key>
+```
+
+Then when you start the API server it will use the local instance of Turnstile.
+
 ### Local Stack
 
 You can setup a local stack with the following command:

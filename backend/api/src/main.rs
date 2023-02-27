@@ -4,6 +4,12 @@ use std::{str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use common::{context::Context, logging, signal};
+use fred::{
+    clients::SubscriberClient,
+    pool::RedisPool,
+    prelude::{ClientLike, ServerConfig},
+    types::{ReconnectPolicy, RedisConfig},
+};
 use sqlx::{postgres::PgConnectOptions, ConnectOptions};
 use tokio::{select, signal::unix::SignalKind, time};
 
@@ -29,9 +35,44 @@ async fn main() -> Result<()> {
         .await?,
     );
 
+    let redis_config = if config.redis_sentinel {
+        RedisConfig {
+            server: ServerConfig::Sentinel {
+                hosts: config.redis_urls.to_vec(),
+                service_name: "scuffle-redis".to_string(),
+                #[cfg(feature = "sentinel-auth")]
+                username: Some(config.redis_username.clone()),
+                #[cfg(feature = "sentinel-auth")]
+                password: Some(config.redis_password.clone()),
+            },
+            ..Default::default()
+        }
+    } else {
+        let (host, port) = &config.redis_urls[0];
+        RedisConfig {
+            server: ServerConfig::new_centralized(host.clone(), *port),
+            ..Default::default()
+        }
+    };
+
+    let redis_pool = RedisPool::new(redis_config.clone(), 50)?;
+    let _ = redis_pool.connect(Some(ReconnectPolicy::default()));
+    redis_pool.wait_for_connect().await?;
+
+    let redis_sub_client = SubscriberClient::new(redis_config);
+    redis_sub_client.connect(Some(ReconnectPolicy::default()));
+    redis_sub_client.wait_for_connect().await.unwrap();
+    redis_sub_client.manage_subscriptions();
+
     let (ctx, handler) = Context::new();
 
-    let global = Arc::new(global::GlobalState::new(config, db, ctx));
+    let global = Arc::new(global::GlobalState::new(
+        config,
+        db,
+        ctx,
+        redis_pool,
+        redis_sub_client,
+    ));
 
     tracing::info!("starting");
 

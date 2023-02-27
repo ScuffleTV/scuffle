@@ -13,6 +13,7 @@ use crate::{api::error::RouteError, global::GlobalState};
 use self::error::{GqlError, Result, ResultExt};
 
 pub mod auth;
+pub mod chat;
 pub mod error;
 pub mod handlers;
 pub mod models;
@@ -66,6 +67,7 @@ pub struct Query {
 /// The root mutation type which contains root level fields.
 pub struct Mutation {
     auth: auth::AuthMutation,
+    chat: chat::ChatMutation,
 }
 
 #[derive(Default)]
@@ -76,6 +78,17 @@ pub struct Subscription {}
 impl Subscription {
     async fn noop(&self) -> Result<impl Stream<Item = bool>> {
         Ok(futures_util::stream::iter(Vec::new()))
+    }
+
+    async fn new_message(
+        &self,
+        ctx: &Context<'_>,
+        chat_id: i64,
+    ) -> Result<impl Stream<Item = models::message::Message>> {
+        Ok(chat::ChatSubscription
+            .new_message(ctx, chat_id)
+            .await
+            .unwrap())
     }
 }
 

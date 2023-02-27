@@ -26,13 +26,30 @@ type AuthMutation {
 	): Session!
 }
 
+type ChatMutation {
+	sendMessage(chatId: Int!, content: String!): String!
+}
+
 scalar DateRFC3339
+
+"""
+A scalar that can represent any JSON Object value.
+"""
+scalar JSONObject
+
+type Message {
+	content: String!
+	messageType: String
+	metadata: JSONObject
+	username: String
+}
 
 """
 The root mutation type which contains root level fields.
 """
 type Mutation {
 	auth: AuthMutation!
+	chat: ChatMutation!
 }
 
 """
@@ -71,6 +88,7 @@ type Session {
 }
 
 type Subscription {
+	newMessage(chatId: Int!): Message!
 	noop: Boolean!
 }
 

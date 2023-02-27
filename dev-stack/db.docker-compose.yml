@@ -22,6 +22,10 @@ services:
       - postgres
     volumes:
       - ./pgadmin-servers.json:/pgadmin4/servers.json
+  redis:
+    image: redis:7.0.9
+    ports:
+      - "6379:6379"
 
 networks:
   default:

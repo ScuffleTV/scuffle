@@ -14,6 +14,10 @@ const config = {
 				config.include.push("../wasm.d.ts");
 			},
 		},
+		alias: {
+			"components/*": "src/components/*",
+			"lib/*": "src/lib/*",
+		},
 	},
 };
 

@@ -307,6 +307,38 @@
 		},
 		"query": "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4) RETURNING *"
 	},
+	"60edcd1e57aa49b4bcba2733bae5f95fa8d7fdf884b96bd50d5e0d583ba2396d": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				}
+			],
+			"nullable": [false],
+			"parameters": {
+				"Left": ["Int8"]
+			}
+		},
+		"query": "SELECT id FROM chat_rooms WHERE id = $1"
+	},
+	"60edcd1e57aa49b4bcba2733bae5f95fa8d7fdf884b96bd50d5e0d583ba2396d": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				}
+			],
+			"nullable": [false],
+			"parameters": {
+				"Left": ["Int8"]
+			}
+		},
+		"query": "SELECT id FROM chat_rooms WHERE id = $1"
+	},
 	"750acae3f638bd028e48f41a955d665914e8cf47383fda2b212183c13e385250": {
 		"describe": {
 			"columns": [
@@ -495,6 +527,58 @@
 			}
 		},
 		"query": "SELECT * FROM users WHERE id = ANY($1)"
+	},
+	"de3230de507ca1e11d2ca40bef8a5b8470628ddbaa454af4f49f6fe6953f9014": {
+		"describe": {
+			"columns": [
+				{
+					"name": "username",
+					"ordinal": 0,
+					"type_info": "Varchar"
+				}
+			],
+			"nullable": [false],
+			"parameters": {
+				"Left": ["Int8"]
+			}
+		},
+		"query": "SELECT username FROM users WHERE id = $1"
+	},
+	"e649ed03081393d765c32bb7e9db7cb923e0d16e0dcbb51ede67d975af58b5eb": {
+		"describe": {
+			"columns": [],
+			"nullable": [],
+			"parameters": {
+				"Left": ["Int8", "Int8", "Text", "Timestamptz"]
+			}
+		},
+		"query": "INSERT INTO chat_messages (chat_room_id, author_id, message, created_at) VALUES ($1, $2, $3, $4)"
+	},
+	"de3230de507ca1e11d2ca40bef8a5b8470628ddbaa454af4f49f6fe6953f9014": {
+		"describe": {
+			"columns": [
+				{
+					"name": "username",
+					"ordinal": 0,
+					"type_info": "Varchar"
+				}
+			],
+			"nullable": [false],
+			"parameters": {
+				"Left": ["Int8"]
+			}
+		},
+		"query": "SELECT username FROM users WHERE id = $1"
+	},
+	"e649ed03081393d765c32bb7e9db7cb923e0d16e0dcbb51ede67d975af58b5eb": {
+		"describe": {
+			"columns": [],
+			"nullable": [],
+			"parameters": {
+				"Left": ["Int8", "Int8", "Text", "Timestamptz"]
+			}
+		},
+		"query": "INSERT INTO chat_messages (chat_room_id, author_id, message, created_at) VALUES ($1, $2, $3, $4)"
 	},
 	"f4f8f8c2668ec23ba1f4a315d74087521496603e8b1bc10475a864001e795593": {
 		"describe": {

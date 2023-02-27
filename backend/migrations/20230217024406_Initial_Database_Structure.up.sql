@@ -108,6 +108,15 @@ CREATE TABLE stream_events (
     created_at timestamptz NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE chat_messages (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    channel_id uuid NOT NULL, -- foreign key to users(id)
+    author_id uuid NOT NULL, -- foreign key to users(id)
+    content text NOT NULL,
+    -- Timestamps
+    created_at timestamptz NOT NULL DEFAULT NOW()
+);
+
 -- Indexes
 
 CREATE INDEX users_username_idx ON users (username);
@@ -126,6 +135,10 @@ CREATE INDEX stream_bitrate_updates_stream_id_idx ON stream_bitrate_updates (str
 CREATE INDEX stream_bitrate_updates_created_at_idx ON stream_bitrate_updates (created_at);
 
 CREATE INDEX stream_events_stream_id_idx ON stream_events (stream_id);
+
+CREATE INDEX chat_messages_channel_id_idx ON chat_messages (channel_id);
+
+CREATE INDEX chat_messages_author_id_idx ON chat_messages (author_id);
 
 -- CONSTRAINTS
 
@@ -152,3 +165,6 @@ ALTER TABLE streams ADD CONSTRAINT streams_channel_id_fkey FOREIGN KEY (channel_
 ALTER TABLE stream_bitrate_updates ADD CONSTRAINT stream_bitrate_updates_stream_id_fkey FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE;
 
 ALTER TABLE stream_events ADD CONSTRAINT stream_events_stream_id_fkey FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE;
+
+ALTER TABLE chat_messages ADD CONSTRAINT chat_messages_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE chat_messages ADD CONSTRAINT chat_messages_author_id_fkey FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE;

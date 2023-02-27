@@ -5,10 +5,6 @@ pub mod scuffle {
 
     pub mod types {
         tonic::include_proto!("scuffle.types");
-
-        pub mod api {
-            tonic::include_proto!("scuffle.types.api");
-        }
     }
 
     pub mod events {

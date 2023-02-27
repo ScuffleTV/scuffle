@@ -11,8 +11,8 @@ fn main() {
             config,
             &[
                 format!("{}/scuffle/events/ingest.proto", PROTO_DIR),
+                format!("{}/scuffle/events/api.proto", PROTO_DIR),
                 format!("{}/scuffle/backend/api.proto", PROTO_DIR),
-                format!("{}/scuffle/types/api_events.proto", PROTO_DIR),
                 format!("{}/scuffle/utils/health.proto", PROTO_DIR),
             ],
             &[PROTO_DIR],

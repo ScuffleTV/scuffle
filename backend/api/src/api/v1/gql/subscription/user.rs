@@ -1,5 +1,4 @@
 use async_graphql::{Context, SimpleObject, Subscription};
-use fred::types::RedisValue;
 use futures_util::Stream;
 use prost::Message;
 use uuid::Uuid;
@@ -36,7 +35,7 @@ impl UserSubscription {
 
         let mut subscription = global
             .subscription_manager
-            .subscribe(format!("user.{}.display_name", user_id))
+            .subscribe(format!("user:{}:display_name", user_id))
             .await
             .map_err_gql("failed to subscribe to user display name")?;
 
@@ -46,16 +45,10 @@ impl UserSubscription {
                 username: user.username.clone(),
             });
 
-            while let Ok(value) = subscription.recv().await {
-                let value = match value {
-                    RedisValue::String(val) => val,
-                    _ => {
-                        yield Err(GqlError::InternalServerError.with_message("invalid redis value type"));
-                        break;
-                    },
-                }.into_inner();
-
-                let event = pb::scuffle::types::api::UserDisplayName::decode(value).map_err_gql("failed to decode user display name")?;
+            while let Ok(message) = subscription.recv().await {
+                let event = pb::scuffle::events::UserDisplayName::decode(
+                    message.as_bytes().map_err_gql("invalid redis value")?
+                ).map_err_gql("failed to decode user display name")?;
 
                 if let Some(username) = event.username {
                     user.username = username;

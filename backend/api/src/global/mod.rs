@@ -1,3 +1,4 @@
+use crate::config::AppConfig;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -10,7 +11,6 @@ use fred::pool::RedisPool;
 use fred::prelude::ClientLike;
 use fred::types::{ReconnectPolicy, RedisConfig, ServerConfig};
 
-use crate::config::AppConfig;
 use crate::dataloader::stream::StreamByIdLoader;
 use crate::dataloader::user_permissions::UserPermissionsByIdLoader;
 use crate::dataloader::{

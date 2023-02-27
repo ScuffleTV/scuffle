@@ -219,3 +219,18 @@ where
         }
     }
 }
+
+impl<T> ResultExt<T, ()> for std::option::Option<T> {
+    #[track_caller]
+    fn map_err_gql<C>(self, ctx: C) -> Result<T, GqlErrorInterface>
+    where
+        GqlErrorInterface: From<C>,
+    {
+        match self {
+            Some(v) => Ok(v),
+            None => Err(GqlErrorInterface::from(ctx)
+                .with_location(Location::caller())
+                .with_source(None)),
+        }
+    }
+}

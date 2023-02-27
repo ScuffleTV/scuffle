@@ -1,40 +1,76 @@
 <script lang="ts">
+	import { pipe, subscribe, type Subscription } from "wonka";
+	import { client } from "$lib/gql";
+	import { graphql } from "$/gql";
 	import CloseSidebar from "./closeSidebar.svelte";
-	import { user } from "../store/user";
+	import { user } from "$/store/user";
 	import { onMount } from "svelte";
+	import { MessageType, type ChatMessage, type User } from "$/gql/graphql";
+	import {} from "os";
 
 	export let collapsed = false;
+	export let channelId: string;
+	let svelteId = 1;
 
 	function collapseNav() {
 		collapsed = !collapsed;
+		if (collapsed) {
+			unsubscribeFromMessages();
+		} else {
+			subscribeToMessages();
+		}
 	}
 
-	interface Message {
+	function createSystemMessage(content: string): ChatMessage {
+		return {
+			authorId: "",
+			// We cast to User because this is a system message and we don't care about the author or the channel
+			channel: {} as User,
+			author: {} as User,
+			channelId: channelId,
+			createdAt: "",
+			id: "",
+			type: MessageType.System,
+			content: content,
+		};
+	}
+
+	interface MessageContainer {
 		// Svelte uses this to track changes
 		// Without it, svelte uses the index of the array as the key which causes issues when we remove items
-		svelte_id: number;
-		text: string;
-		sender: string;
-		color: string;
+		svelteId: number;
+		message: ChatMessage;
 	}
 
-	let messages: Message[] = [];
+	const newMessageQuery = graphql(`
+		mutation SendMessage($channelId: UUID!, $content: String!) {
+			chat {
+				sendMessage(channelId: $channelId, content: $content) {
+					id
+				}
+			}
+		}
+	`);
 
+	let chatStatus = "";
+	let messages: MessageContainer[] = [];
+	let subscription: Subscription;
 	let chatMessage = "";
-	let svelte_id = 1;
 	let messagesEl: HTMLDivElement;
-
-	$: valid = chatMessage.length > 0 && $user !== null;
 	let atBottom = true;
+
+	$: valid = chatMessage.length > 0 && $user && chatStatus === "connected";
 
 	function onScroll() {
 		atBottom = messagesEl.scrollTop + messagesEl.offsetHeight >= messagesEl.scrollHeight - 30;
 	}
 
 	onMount(() => {
+		subscribeToMessages();
 		// Scroll to bottom
 		messagesEl.addEventListener("scroll", onScroll);
 		return () => {
+			unsubscribeFromMessages();
 			messagesEl.removeEventListener("scroll", onScroll);
 		};
 	});
@@ -48,40 +84,78 @@
 		});
 	}
 
-	function sendMessageInner(username: string, message: string) {
-		messages.push({
-			svelte_id, // Svelte uses this to track changes
-			sender: username,
-			text: message,
-			color: "teal",
-		});
+	function subscribeToMessages() {
+		chatStatus = "connecting";
+		const subscriptionQuery = graphql(`
+			subscription ChatMessages($channelId: UUID!) {
+				chatMessages(channelId: $channelId) {
+					id
+					content
+					author {
+						id
+						username
+						displayName
+					}
+				}
+			}
+		`);
 
-		svelte_id++;
+		subscription = pipe(
+			client.subscription(subscriptionQuery, { channelId: channelId }),
+			subscribe((response) => {
+				const message = response.data?.chatMessages as ChatMessage | undefined;
+				if (message) {
+					if (message.type === MessageType.Welcome) {
+						chatStatus = "connected";
+					}
+					insertNewMessage(message);
+				} else if (response.error) {
+					insertNewMessage(createSystemMessage("Failed to connect to chat room"));
+				}
+			}),
+		);
+	}
 
-		// Svite doesn't detect changes to arrays, so we have to reassign it to trigger a re-render
-		messages = messages;
+	function insertNewMessage(message: ChatMessage) {
+		const newMessage: MessageContainer = {
+			svelteId: svelteId,
+			message,
+		};
+		svelteId++;
 
-		// Not sure if this is the best way to do this, but it works
-		if (messages.length > 500) {
-			messages = messages.splice(1);
-		}
-
-		// Scroll to bottom
+		// Show 500 latest messages when scroll is at the bottom
 		if (atBottom) {
+			messages = [...messages, newMessage];
+			if (messages.length > 500) {
+				messages.shift();
+			}
 			scrollToBottom();
+		} else {
+			messages = [...messages, newMessage];
+		}
+	}
+
+	function unsubscribeFromMessages() {
+		chatStatus = "disconnected";
+		subscription.unsubscribe();
+		insertNewMessage(createSystemMessage("Disconnected from chat"));
+	}
+
+	async function sendMessageInner(message: string) {
+		const response = await client
+			.mutation(newMessageQuery, { channelId: channelId, content: message })
+			.toPromise();
+		if (response.error) {
+			insertNewMessage(createSystemMessage("Failed to send message"));
 		}
 	}
 
 	function sendMessage() {
-		if (valid && $user) {
-			sendMessageInner($user.username, chatMessage);
+		if (valid) {
+			sendMessageInner(chatMessage);
 			chatMessage = "";
 		}
 	}
-
-	console.log((username: string, message: string) => {
-		sendMessageInner(username, message);
-	});
 </script>
 
 {#if collapsed}
@@ -100,10 +174,15 @@
 		<span class="chat-title">Chat</span>
 	</div>
 	<div class="messages" bind:this={messagesEl}>
-		{#each messages as message (message.svelte_id)}
-			<div class="message" class:odd={message.svelte_id % 2}>
-				<span class="message-sender" style={`color: ${message.color}`}>{message.sender}:</span>
-				<span class="message-text">{message.text}</span>
+		{#each messages as message (message.svelteId)}
+			<div class="message">
+				{#if message.message.type === MessageType.User}
+					<span class="message-sender">{message.message.author?.displayName}</span>:
+					<span class="message-text">{message.message.content}</span>
+				{/if}
+				{#if message.message.type === MessageType.Welcome || message.message.type === MessageType.System}
+					<span class="message-text info">{message.message.content}</span>
+				{/if}
 			</div>
 		{:else}
 			<div class="no-messages">Quiet in here...</div>
@@ -118,6 +197,7 @@
 		<input
 			class="chatbox-input"
 			type="text"
+			maxlength="500"
 			placeholder="Type a message..."
 			bind:value={chatMessage}
 			required
@@ -196,11 +276,13 @@
 	}
 
 	.message {
-		padding: 0.75rem 1rem;
+		padding: 0.2rem 1rem;
 		gap: 0.5rem;
 		word-break: break-all;
-		&.odd {
-			background-color: #4142428a;
+		&-text {
+			&.info {
+				color: #ffffff70;
+			}
 		}
 	}
 

@@ -8,6 +8,11 @@ const config = {
 			preset: "client",
 			config: {
 				useTypeImports: true,
+				strictScalars: true,
+				scalars: {
+					DateRFC3339: "string",
+					UUID: "string",
+				},
 			},
 		},
 	},

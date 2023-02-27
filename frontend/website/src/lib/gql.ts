@@ -9,9 +9,9 @@ import {
 	mapExchange,
 } from "@urql/svelte";
 import { get } from "svelte/store";
-import { sessionToken } from "../store/login";
+import { sessionToken } from "$/store/login";
 import { createClient as createWsClient, type Client as WsClient } from "graphql-ws";
-import { websocketOpen } from "../store/websocket";
+import { websocketOpen } from "$/store/websocket";
 import { filter, merge, pipe, share } from "wonka";
 import { env } from "$env/dynamic/public";
 import { PUBLIC_GQL_ENDPOINT, PUBLIC_GQL_WS_ENDPOINT } from "$env/static/public";

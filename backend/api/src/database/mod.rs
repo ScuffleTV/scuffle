@@ -1,5 +1,6 @@
 pub mod channel_role;
 pub mod channel_role_grant;
+pub mod chat_message;
 pub mod global_role;
 pub mod global_role_grant;
 pub mod protobuf;

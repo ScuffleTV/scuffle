@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { loginMode, sessionToken } from "../store/login";
-	import { user } from "../store/user";
+	import { loginMode, sessionToken } from "$/store/login";
+	import { user } from "$/store/user";
 	import { faSearch, faUser } from "@fortawesome/free-solid-svg-icons";
 	import Fa from "svelte-fa";
 	import MouseTrap from "./mouseTrap.svelte";

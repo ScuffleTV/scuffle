@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { faStar } from "@fortawesome/free-solid-svg-icons";
 	import Fa from "svelte-fa";
-	import Chatroom from "../../components/chatroom.svelte";
+	import Chatroom from "$components/chatroom.svelte";
 	import type { PageData } from "./$types";
 
 	export let data: PageData;
@@ -40,7 +40,7 @@
 	<div class="super-under">some content thats super under the video player</div>
 </div>
 
-<Chatroom />
+<Chatroom channelId={user.id} />
 
 <svelte:head>
 	<title>Scuffle - {user.username}</title>

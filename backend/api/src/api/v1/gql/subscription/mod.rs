@@ -1,12 +1,13 @@
 use async_graphql::{MergedSubscription, Subscription};
 use futures_util::Stream;
 
-use self::user::UserSubscription;
+use self::{chat::ChatSubscription, user::UserSubscription};
 
+pub mod chat;
 pub mod user;
 
 #[derive(MergedSubscription, Default)]
-pub struct Subscription(UserSubscription, NoopSubscription);
+pub struct Subscription(UserSubscription, ChatSubscription, NoopSubscription);
 
 #[derive(Default)]
 struct NoopSubscription;

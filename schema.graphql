@@ -33,6 +33,21 @@ type AuthMutation {
 	): Session!
 }
 
+type ChatMessage {
+	author: User
+	authorId: UUID!
+	channel: User!
+	channelId: UUID!
+	content: String!
+	createdAt: DateRFC3339!
+	id: UUID!
+	type: MessageType!
+}
+
+type ChatMutation {
+	sendMessage(channelId: UUID!, content: String!): ChatMessage!
+}
+
 scalar DateRFC3339
 
 type DisplayNameStream {
@@ -50,11 +65,18 @@ type GlobalRole {
 	rank: Int!
 }
 
+enum MessageType {
+	SYSTEM
+	USER
+	WELCOME
+}
+
 """
 The root mutation type which contains root level fields.
 """
 type Mutation {
 	auth: AuthMutation!
+	chat: ChatMutation!
 }
 
 """
@@ -95,6 +117,7 @@ type Session {
 }
 
 type Subscription {
+	chatMessages(channelId: UUID!): ChatMessage!
 	noop: Boolean!
 	userDisplayName(userId: UUID!): DisplayNameStream!
 }

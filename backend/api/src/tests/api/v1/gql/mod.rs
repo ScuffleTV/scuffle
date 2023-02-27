@@ -14,6 +14,7 @@ use crate::{
 };
 
 mod auth;
+mod chat;
 mod errors;
 mod models;
 mod subscription;

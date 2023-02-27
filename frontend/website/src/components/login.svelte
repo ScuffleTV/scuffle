@@ -1,16 +1,17 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { Turnstile } from "svelte-turnstile";
-	import { loginMode } from "../store/login";
-	import { focusTrap } from "../lib/focusTrap";
+	import { loginMode } from "$/store/login";
+	import { focusTrap } from "$lib/focusTrap";
 	import LoginField, { newField } from "./loginField.svelte";
 	import { z } from "zod";
 	import { getContextClient } from "@urql/svelte";
-	import { graphql } from "../gql";
+	import { graphql } from "$/gql";
 	import { login } from "$lib/user";
 	import TransitionCloser from "./transitionCloser.svelte";
 	import MouseTrap from "./mouseTrap.svelte";
 	import { PUBLIC_CF_TURNSTILE_KEY } from "$env/static/public";
+	import type { User } from "$/gql/graphql";
 
 	const client = getContextClient();
 
@@ -335,6 +336,7 @@
 											emailVerified
 											createdAt
 											lastLoginAt
+											permissions
 										}
 									}
 								}
@@ -370,6 +372,7 @@
 											emailVerified
 											createdAt
 											lastLoginAt
+											permissions
 										}
 									}
 								}
@@ -435,7 +438,7 @@
 
 		globalIsError = false;
 		globalMessage = "Success!";
-		login(token, user);
+		login(token, user as User);
 		closeLogin();
 	}
 

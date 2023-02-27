@@ -13,6 +13,7 @@ use self::{
 };
 
 pub mod auth;
+pub mod chat;
 pub mod error;
 pub mod ext;
 pub mod handlers;
@@ -31,6 +32,7 @@ pub struct Query {
 /// The root mutation type which contains root level fields.
 pub struct Mutation {
     auth: auth::AuthMutation,
+    chat: chat::ChatMutation,
 }
 
 #[ComplexObject]

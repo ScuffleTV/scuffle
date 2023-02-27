@@ -1,12 +1,12 @@
 <script lang="ts">
 	import "$assets/styles/global.scss";
-	import TopNav from "../components/topNav.svelte";
-	import { loginMode } from "../store/login";
-	import Login from "../components/login.svelte";
+	import TopNav from "$components/topNav.svelte";
+	import { loginMode } from "$/store/login";
+	import Login from "$components/login.svelte";
 	import { setContextClient } from "@urql/svelte";
-	import { client } from "../lib/gql";
-	import "../lib/user";
-	import SideNav from "../components/sideNav.svelte";
+	import { client } from "$lib/gql";
+	import "$lib/user";
+	import SideNav from "$components/sideNav.svelte";
 
 	// This provides the GraphQL client to all components in the app.
 	setContextClient(client);

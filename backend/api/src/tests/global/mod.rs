@@ -1,13 +1,13 @@
 use std::{sync::Arc, time::Duration};
 
+use crate::{config::AppConfig, global::GlobalState};
 use common::{
     context::{Context, Handler},
     logging,
     prelude::FutureTimeout,
 };
 use fred::types::ServerConfig;
-
-use crate::{config::AppConfig, global::GlobalState};
+use tokio::select;
 
 pub mod turnstile;
 
@@ -60,9 +60,18 @@ pub async fn mock_global_state(mut config: AppConfig) -> (Arc<GlobalState>, Hand
     };
 
     let redis = crate::global::setup_redis(&config).await;
+    let redis_subscription =
+        crate::global::setup_redis_subscription(&config, Default::default()).await;
 
-    (
-        Arc::new(GlobalState::new(config, db, rmq, redis, ctx)),
-        handler,
-    )
+    let global = Arc::new(GlobalState::new(config, db, rmq, redis, ctx));
+    let global2 = global.clone();
+    tokio::spawn(async move {
+        select! {
+            _ = global2.subscription_manager.run(global2.ctx.clone(), redis_subscription) => {},
+            _ = global2.rmq.handle_reconnects() => {},
+            _ = global2.ctx.done() => {},
+        }
+    });
+
+    (global, handler)
 }

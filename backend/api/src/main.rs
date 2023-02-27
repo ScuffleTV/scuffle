@@ -1,5 +1,3 @@
-#![cfg_attr(coverage_nightly, feature(no_coverage))]
-
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::{Context as _, Result};

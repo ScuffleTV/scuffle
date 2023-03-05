@@ -9,6 +9,7 @@ use tokio::{select, signal::unix::SignalKind, time};
 
 pub mod api;
 pub mod config;
+pub mod dataloader;
 pub mod global;
 
 #[cfg(test)]
@@ -19,16 +20,18 @@ async fn main() -> Result<()> {
     let config = config::AppConfig::parse()?;
     logging::init(&config.log_level)?;
 
-    let db = sqlx::PgPool::connect_with(
-        PgConnectOptions::from_str(&config.database_url)?
-            .disable_statement_logging()
-            .to_owned(),
-    )
-    .await?;
+    let db = Arc::new(
+        sqlx::PgPool::connect_with(
+            PgConnectOptions::from_str(&config.database_url)?
+                .disable_statement_logging()
+                .to_owned(),
+        )
+        .await?,
+    );
 
     let (ctx, handler) = Context::new();
 
-    let global = Arc::new(global::GlobalState { config, db, ctx });
+    let global = Arc::new(global::GlobalState::new(config, db, ctx));
 
     tracing::info!("starting");
 

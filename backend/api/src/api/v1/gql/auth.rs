@@ -48,23 +48,16 @@ impl AuthMutation {
                 .with_field(vec!["captchaToken"]));
         }
 
-        let user = sqlx::query!(
-            "SELECT id, password_hash FROM users WHERE username = $1",
-            username.to_lowercase(),
-        )
-        .map(|row| user::Model {
-            id: row.id,
-            password_hash: row.password_hash,
-            ..Default::default()
-        })
-        .fetch_optional(&global.db)
-        .await
-        .extend_gql("Failed to fetch user")?
-        .ok_or(
-            GqlError::InvalidInput
-                .with_message("Invalid username or password")
-                .with_field(vec!["username", "password"]),
-        )?;
+        let user = global
+            .user_by_username_loader
+            .load_one(username.to_lowercase())
+            .await
+            .extend_gql("Failed to fetch user")?
+            .ok_or(
+                GqlError::InvalidInput
+                    .with_message("Invalid username or password")
+                    .with_field(vec!["username", "password"]),
+            )?;
 
         if !user.verify_password(&password) {
             return Err(GqlError::InvalidInput
@@ -75,13 +68,14 @@ impl AuthMutation {
         let login_duration = validity.unwrap_or(60 * 60 * 24 * 7); // 7 days
         let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
 
+        // TODO: maybe look to batch this
         let session = sqlx::query_as!(
             session::Model,
             "INSERT INTO sessions (user_id, expires_at) VALUES ($1, $2) RETURNING *",
             user.id,
             expires_at,
         )
-        .fetch_one(&global.db)
+        .fetch_one(&*global.db)
         .await
         .extend_gql("Failed to create session")?;
 
@@ -134,13 +128,13 @@ impl AuthMutation {
                 .with_field(vec!["sessionToken"]),
         )?;
 
+        // TODO: maybe look to batch this
         let session = sqlx::query_as!(
             session::Model,
-            "UPDATE sessions SET last_used_at = $2 WHERE id = $1 RETURNING *",
+            "UPDATE sessions SET last_used_at = NOW() WHERE id = $1 RETURNING *",
             jwt.session_id,
-            Utc::now(),
         )
-        .fetch_optional(&global.db)
+        .fetch_optional(&*global.db)
         .await
         .extend_gql("failed to fetch session")?
         .ok_or(
@@ -221,16 +215,17 @@ impl AuthMutation {
                 .with_field(vec!["email"])
         })?;
 
-        if sqlx::query!("SELECT id FROM users WHERE username = $1", username)
-            .fetch_optional(&global.db)
+        if global
+            .user_by_username_loader
+            .load_one(username.clone())
             .await
-            .extend_gql("Failed to fetch user")?
+            .extend_gql("failed to fetch user")?
             .is_some()
         {
             return Err(GqlError::InvalidInput
                 .with_message("Username already taken")
                 .with_field(vec!["username"]));
-        };
+        }
 
         let mut tx = global
             .db
@@ -238,6 +233,7 @@ impl AuthMutation {
             .await
             .extend_gql("Failed to create user")?;
 
+        // TODO: maybe look to batch this
         let user_id = sqlx::query!(
             "INSERT INTO users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING id",
             username,
@@ -252,6 +248,7 @@ impl AuthMutation {
         let login_duration = validity.unwrap_or(60 * 60 * 24 * 7); // 7 days
         let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
 
+        // TODO: maybe look to batch this
         let session = sqlx::query_as!(
             session::Model,
             "INSERT INTO sessions (user_id, expires_at) VALUES ($1, $2) RETURNING *",
@@ -323,11 +320,12 @@ impl AuthMutation {
             }
         };
 
+        // TODO: maybe look to batch this
         sqlx::query!(
             "UPDATE sessions SET invalidated_at = NOW() WHERE id = $1",
             session_id
         )
-        .execute(&global.db)
+        .execute(&*global.db)
         .await
         .extend_gql("Failed to update session")?;
 

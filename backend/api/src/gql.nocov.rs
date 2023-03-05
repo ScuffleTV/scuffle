@@ -4,6 +4,7 @@
 
 mod api;
 mod config;
+mod dataloader;
 mod global;
 
 use api::v1::gql::schema;

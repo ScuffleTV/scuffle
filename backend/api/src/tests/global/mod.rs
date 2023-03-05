@@ -16,9 +16,11 @@ pub async fn mock_global_state(config: AppConfig) -> (Arc<GlobalState>, Handler)
 
     logging::init("api=debug").expect("failed to initialize logging");
 
-    let db = sqlx::PgPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set"))
-        .await
-        .expect("failed to connect to database");
+    let db = Arc::new(
+        sqlx::PgPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set"))
+            .await
+            .expect("failed to connect to database"),
+    );
 
-    (Arc::new(GlobalState { config, db, ctx }), handler)
+    (Arc::new(GlobalState::new(config, db, ctx)), handler)
 }

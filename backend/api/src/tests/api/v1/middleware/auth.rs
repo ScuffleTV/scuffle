@@ -21,7 +21,7 @@ async fn test_auth_middleware() {
     .await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&global.db)
+        .execute(&*global.db)
         .await
         .expect("failed to clear users");
     sqlx::query!(
@@ -31,7 +31,7 @@ async fn test_auth_middleware() {
         "test@test.com",
         "$2b$1"
     )
-    .execute(&global.db)
+    .execute(&*global.db)
     .await
     .expect("failed to insert user");
 
@@ -41,7 +41,7 @@ async fn test_auth_middleware() {
         1,
         Utc::now() + Duration::seconds(30)
     )
-    .fetch_one(&global.db)
+    .fetch_one(&*global.db)
     .await
     .expect("failed to insert session");
 
@@ -72,7 +72,7 @@ async fn test_auth_middleware() {
         "UPDATE sessions SET invalidated_at = NOW() WHERE id = $1",
         session_id
     )
-    .execute(&global.db)
+    .execute(&*global.db)
     .await
     .expect("failed to update session");
 
@@ -114,7 +114,7 @@ async fn test_auth_middleware_failed() {
     .await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&global.db)
+        .execute(&*global.db)
         .await
         .expect("failed to clear users");
     sqlx::query!(
@@ -124,7 +124,7 @@ async fn test_auth_middleware_failed() {
         "test@test.com",
         "$2b$1"
     )
-    .execute(&global.db)
+    .execute(&*global.db)
     .await
     .expect("failed to insert user");
 
@@ -134,7 +134,7 @@ async fn test_auth_middleware_failed() {
         1,
         Utc::now() - Duration::seconds(30)
     )
-    .fetch_one(&global.db)
+    .fetch_one(&*global.db)
     .await
     .expect("failed to insert session");
 

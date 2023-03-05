@@ -4,7 +4,7 @@ use arc_swap::ArcSwap;
 use async_graphql::{
     extensions, futures_util::Stream, ComplexObject, Context, Schema, SimpleObject, Subscription,
 };
-use common::types::{session, user};
+use common::types::session;
 use hyper::{Body, Response};
 use routerify::Router;
 
@@ -38,19 +38,16 @@ impl GqlContext {
             return Ok(Some(session.clone()));
         }
 
-        let session = sqlx::query_as!(
-            session::Model,
-            "SELECT * FROM sessions WHERE id = $1",
-            session.id
-        )
-        .fetch_optional(&global.db)
-        .await
-        .extend_gql("failed to fetch session")?
-        .and_then(|s| if s.validate() { Some(s) } else { None })
-        .ok_or_else(|| {
-            self.session.store(Arc::new(None));
-            GqlError::InvalidSession.with_message("Session is no longer valid")
-        })?;
+        let session = global
+            .session_by_id_loader
+            .load_one(session.id)
+            .await
+            .extend_gql("failed to fetch session")?
+            .and_then(|s| if s.validate() { Some(s) } else { None })
+            .ok_or_else(|| {
+                self.session.store(Arc::new(None));
+                GqlError::InvalidSession.with_message("Session is no longer valid")
+            })?;
 
         self.session.store(Arc::new(Some(session.clone())));
 
@@ -93,14 +90,11 @@ impl Query {
             .data::<Arc<GlobalState>>()
             .expect("failed to get global state");
 
-        let user = sqlx::query_as!(
-            user::Model,
-            "SELECT * FROM users WHERE username = $1",
-            username.to_lowercase(),
-        )
-        .fetch_optional(&global.db)
-        .await
-        .extend_gql("failed to fetch user")?;
+        let user = global
+            .user_by_username_loader
+            .load_one(username.to_lowercase())
+            .await
+            .extend_gql("failed to fetch user")?;
 
         Ok(user.map(models::user::User::from))
     }

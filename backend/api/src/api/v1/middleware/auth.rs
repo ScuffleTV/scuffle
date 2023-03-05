@@ -1,6 +1,5 @@
 use std::sync::{Arc, Weak};
 
-use common::types::session;
 use hyper::http::header;
 use hyper::{Body, StatusCode};
 use routerify::{prelude::RequestExt, Middleware};
@@ -38,15 +37,12 @@ pub fn auth_middleware(_global: &Arc<GlobalState>) -> Middleware<Body, RouteErro
         let jwt = JwtState::verify(&global, token.trim_start_matches("Bearer "))
             .ok_or((StatusCode::UNAUTHORIZED, "invalid authentication token"))?;
 
-        let session = sqlx::query_as!(
-            session::Model,
-            "SELECT * FROM sessions WHERE id = $1",
-            jwt.session_id
-        )
-        .fetch_optional(&global.db)
-        .await
-        .extend_route("failed to fetch session")?
-        .ok_or((StatusCode::UNAUTHORIZED, "invalid authentication token"))?;
+        let session = global
+            .session_by_id_loader
+            .load_one(jwt.session_id)
+            .await
+            .extend_route("failed to fetch session")?
+            .ok_or((StatusCode::UNAUTHORIZED, "invalid authentication token"))?;
 
         if !session.validate() {
             return Err(RouteError::from((

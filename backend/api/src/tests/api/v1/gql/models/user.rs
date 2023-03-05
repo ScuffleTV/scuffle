@@ -11,7 +11,7 @@ async fn test_user_by_name() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&global.db)
+        .execute(&*global.db)
         .await
         .unwrap();
     let user =
@@ -22,7 +22,7 @@ async fn test_user_by_name() {
         "admin@admin.com",
         user::hash_password("admin")
     )
-        .fetch_one(&global.db)
+        .fetch_one(&*global.db)
         .await
         .unwrap();
 
@@ -32,7 +32,7 @@ async fn test_user_by_name() {
         1,
         chrono::Utc::now() + chrono::Duration::seconds(30)
     )
-    .fetch_one(&global.db)
+    .fetch_one(&*global.db)
     .await
     .unwrap();
 
@@ -241,7 +241,7 @@ async fn test_user_by_name() {
     }
 
     sqlx::query!("DELETE FROM sessions WHERE id = $1", session.id)
-        .execute(&global.db)
+        .execute(&*global.db)
         .await
         .expect("failed to delete user");
 

@@ -26,7 +26,7 @@ async fn test_login() {
     .await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&global.db)
+        .execute(&*global.db)
         .await
         .unwrap();
     sqlx::query!(
@@ -36,7 +36,7 @@ async fn test_login() {
         "admin@admin.com",
         user::hash_password("admin")
     )
-    .execute(&global.db)
+    .execute(&*global.db)
     .await
     .unwrap();
 
@@ -73,7 +73,7 @@ async fn test_login() {
 
     let session = tokio::time::timeout(
         Duration::from_secs(1),
-        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&global.db),
+        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&*global.db),
     )
     .await
     .unwrap()
@@ -113,7 +113,7 @@ async fn test_login_while_logged_in() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&global.db)
+        .execute(&*global.db)
         .await
         .unwrap();
     sqlx::query!(
@@ -123,7 +123,7 @@ async fn test_login_while_logged_in() {
         "admin@admin.com",
         user::hash_password("admin")
     )
-    .execute(&global.db)
+    .execute(&*global.db)
     .await
     .unwrap();
 
@@ -182,7 +182,7 @@ async fn test_login_with_token() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&global.db)
+        .execute(&*global.db)
         .await
         .unwrap();
     sqlx::query!(
@@ -192,7 +192,7 @@ async fn test_login_with_token() {
         "admin@admin.com",
         user::hash_password("admin")
     )
-    .execute(&global.db)
+    .execute(&*global.db)
     .await
     .unwrap();
     let session = sqlx::query_as!(
@@ -202,7 +202,7 @@ async fn test_login_with_token() {
         1,
         Utc::now() + chrono::Duration::seconds(60)
     )
-    .fetch_one(&global.db)
+    .fetch_one(&*global.db)
     .await
     .unwrap();
     let token = JwtState::from(session).serialize(&global).unwrap();
@@ -258,7 +258,7 @@ async fn test_login_with_session_expired() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&global.db)
+        .execute(&*global.db)
         .await
         .unwrap();
     sqlx::query!(
@@ -268,7 +268,7 @@ async fn test_login_with_session_expired() {
         "admin@admin.com",
         user::hash_password("admin")
     )
-    .execute(&global.db)
+    .execute(&*global.db)
     .await
     .unwrap();
     sqlx::query!(
@@ -277,7 +277,7 @@ async fn test_login_with_session_expired() {
         1,
         Utc::now() - chrono::Duration::seconds(60)
     )
-    .execute(&global.db)
+    .execute(&*global.db)
     .await
     .unwrap();
 
@@ -333,7 +333,7 @@ async fn test_login_while_logged_in_with_session_expired() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&global.db)
+        .execute(&*global.db)
         .await
         .unwrap();
     sqlx::query!(
@@ -343,7 +343,7 @@ async fn test_login_while_logged_in_with_session_expired() {
         "admin@admin.com",
         user::hash_password("admin")
     )
-    .execute(&global.db)
+    .execute(&*global.db)
     .await
     .unwrap();
     let session = sqlx::query_as!(
@@ -353,7 +353,7 @@ async fn test_login_while_logged_in_with_session_expired() {
         1,
         Utc::now() - chrono::Duration::seconds(60)
     )
-    .fetch_one(&global.db)
+    .fetch_one(&*global.db)
     .await
     .unwrap();
 
@@ -418,7 +418,7 @@ async fn test_register() {
     .await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&global.db)
+        .execute(&*global.db)
         .await
         .unwrap();
 
@@ -455,7 +455,7 @@ async fn test_register() {
 
     let user = tokio::time::timeout(
         Duration::from_secs(1),
-        sqlx::query_as!(user::Model, "SELECT * FROM users").fetch_one(&global.db),
+        sqlx::query_as!(user::Model, "SELECT * FROM users").fetch_one(&*global.db),
     )
     .await
     .unwrap()
@@ -467,7 +467,7 @@ async fn test_register() {
 
     let session = tokio::time::timeout(
         Duration::from_secs(1),
-        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&global.db),
+        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&*global.db),
     )
     .await
     .unwrap()
@@ -501,7 +501,7 @@ async fn test_logout() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&global.db)
+        .execute(&*global.db)
         .await
         .unwrap();
     sqlx::query!(
@@ -511,7 +511,7 @@ async fn test_logout() {
         "admin@admin.com",
         user::hash_password("admin")
     )
-    .execute(&global.db)
+    .execute(&*global.db)
     .await
     .unwrap();
     let session = sqlx::query_as!(
@@ -521,7 +521,7 @@ async fn test_logout() {
         1,
         Utc::now() + chrono::Duration::seconds(60)
     )
-    .fetch_one(&global.db)
+    .fetch_one(&*global.db)
     .await
     .unwrap();
 
@@ -557,7 +557,7 @@ async fn test_logout() {
 
     let session = tokio::time::timeout(
         Duration::from_secs(1),
-        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&global.db),
+        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&*global.db),
     )
     .await
     .unwrap()
@@ -576,7 +576,7 @@ async fn test_logout_with_token() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&global.db)
+        .execute(&*global.db)
         .await
         .unwrap();
     sqlx::query!(
@@ -586,7 +586,7 @@ async fn test_logout_with_token() {
         "admin@admin.com",
         user::hash_password("admin")
     )
-    .execute(&global.db)
+    .execute(&*global.db)
     .await
     .unwrap();
     let session = sqlx::query_as!(
@@ -596,7 +596,7 @@ async fn test_logout_with_token() {
         1,
         Utc::now() + chrono::Duration::seconds(60)
     )
-    .fetch_one(&global.db)
+    .fetch_one(&*global.db)
     .await
     .unwrap();
     let token = JwtState::from(session.clone()).serialize(&global).unwrap();
@@ -638,7 +638,7 @@ async fn test_logout_with_token() {
 
     let session = tokio::time::timeout(
         Duration::from_secs(1),
-        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&global.db),
+        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&*global.db),
     )
     .await
     .unwrap()

@@ -95,7 +95,7 @@ fn test_error_from_residual_error() {
         } else {
             Ok(())
         }
-        .extend_route("failed somewhere")?;
+        .map_err_route("failed somewhere")?;
 
         Ok(())
     };
@@ -115,7 +115,7 @@ fn test_error_debug_display() {
         } else {
             Ok(())
         }
-        .extend_route("failed somewhere")?;
+        .map_err_route("failed somewhere")?;
 
         Ok(())
     };
@@ -148,7 +148,7 @@ fn test_std_error() {
         } else {
             Ok(())
         }
-        .extend_route("failed somwehere")?;
+        .map_err_route("failed somwehere")?;
 
         Ok(())
     };

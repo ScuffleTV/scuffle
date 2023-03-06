@@ -133,7 +133,7 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
             .ok_or((StatusCode::BAD_REQUEST, "Invalid websocket protocol"))?;
 
         let (mut response, websocket) = hyper_tungstenite::upgrade(&mut req, None)
-            .extend_route((StatusCode::BAD_REQUEST, "Failed to upgrade to websocket"))?;
+            .map_err_route((StatusCode::BAD_REQUEST, "Failed to upgrade to websocket"))?;
 
         session.is_websocket = true;
 
@@ -179,13 +179,13 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
                 Default::default(),
             )
             .await
-            .extend_route((StatusCode::BAD_REQUEST, "Invalid request body"))?
+            .map_err_route((StatusCode::BAD_REQUEST, "Invalid request body"))?
         }
         hyper::Method::GET => {
             let query = req.uri().query().unwrap_or("");
 
             async_graphql::http::parse_query_string(query)
-                .extend_route((StatusCode::BAD_REQUEST, "Invalid query string"))?
+                .map_err_route((StatusCode::BAD_REQUEST, "Invalid query string"))?
         }
         _ => {
             return Err(RouteError::from((

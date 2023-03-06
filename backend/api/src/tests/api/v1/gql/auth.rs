@@ -20,7 +20,7 @@ async fn test_login() {
     let (mut rx, addr, h1) = mock_turnstile().await;
     let (global, handler) = mock_global_state(AppConfig {
         turnstile_url: addr,
-        turnstile_secret_key: "batman's chest".to_string(),
+        turnstile_secret_key: "DUMMY_KEY__DEADBEEF".to_string(),
         ..Default::default()
     })
     .await;
@@ -54,7 +54,7 @@ async fn test_login() {
     let h2 = tokio::spawn(async move {
         let (req, resp) = rx.recv().await.unwrap();
         assert_eq!(req.response, "1234");
-        assert_eq!(req.secret, "batman's chest");
+        assert_eq!(req.secret, "DUMMY_KEY__DEADBEEF");
 
         resp.send(true).unwrap();
     });
@@ -412,7 +412,7 @@ async fn test_register() {
     let (mut rx, addr, h1) = mock_turnstile().await;
     let (global, handler) = mock_global_state(AppConfig {
         turnstile_url: addr,
-        turnstile_secret_key: "batman's chest".to_string(),
+        turnstile_secret_key: "DUMMY_KEY__LOREM_IPSUM".to_string(),
         ..Default::default()
     })
     .await;
@@ -436,7 +436,7 @@ async fn test_register() {
     let h2 = tokio::spawn(async move {
         let (req, resp) = rx.recv().await.unwrap();
         assert_eq!(req.response, "1234");
-        assert_eq!(req.secret, "batman's chest");
+        assert_eq!(req.secret, "DUMMY_KEY__LOREM_IPSUM");
 
         resp.send(true).unwrap();
     });
@@ -562,7 +562,7 @@ async fn test_logout() {
     .await
     .unwrap()
     .unwrap();
-    assert!(!session.validate());
+    assert!(!session.is_valid());
 
     drop(global);
 
@@ -643,7 +643,7 @@ async fn test_logout_with_token() {
     .await
     .unwrap()
     .unwrap();
-    assert!(!session.validate());
+    assert!(!session.is_valid());
 
     drop(global);
 

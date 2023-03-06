@@ -1,4 +1,5 @@
 use anyhow::Result;
+use serde::de::Error;
 use serde_json::json;
 
 use super::GlobalState;
@@ -21,10 +22,8 @@ impl GlobalState {
 
         let body = res.json::<serde_json::Value>().await?;
 
-        if let Some(success) = body["success"].as_bool() {
-            return Ok(success);
-        }
-
-        Ok(false)
+        Ok(body["success"]
+            .as_bool()
+            .ok_or(serde_json::Error::missing_field("success"))?)
     }
 }

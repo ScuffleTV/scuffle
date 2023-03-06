@@ -138,7 +138,7 @@ impl std::error::Error for RouteError {
 }
 
 pub trait ResultExt<T, E>: Sized {
-    fn extend_route<C>(self, ctx: C) -> Result<T>
+    fn map_err_route<C>(self, ctx: C) -> Result<T>
     where
         RouteError: From<C>;
 }
@@ -148,7 +148,7 @@ where
     anyhow::Error: From<E>,
 {
     #[track_caller]
-    fn extend_route<C>(self, ctx: C) -> Result<T>
+    fn map_err_route<C>(self, ctx: C) -> Result<T>
     where
         RouteError: From<C>,
     {

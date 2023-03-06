@@ -36,7 +36,7 @@ impl Default for AppConfig {
             config_file: "config".to_string(),
             bind_address: "[::]:8080".to_string(),
             database_url: "postgres://postgres:postgres@localhost:5432/scuffle-dev".to_string(),
-            turnstile_secret_key: "6LcZ8uIUAAAAAAM8ZQXZ0Z0Z0Z0Z0Z0Z0Z0Z0Z0Z".to_string(),
+            turnstile_secret_key: "DUMMY_KEY__SAMPLE_TEXT".to_string(),
             turnstile_url: "https://challenges.cloudflare.com/turnstile/v0/siteverify".to_string(),
             jwt_issuer: "scuffle".to_string(),
             jwt_secret: "scuffle".to_string(),

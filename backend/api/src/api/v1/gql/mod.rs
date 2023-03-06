@@ -31,7 +31,7 @@ impl GqlContext {
         };
 
         if !self.is_websocket {
-            if !session.validate() {
+            if !session.is_valid() {
                 return Err(GqlError::InvalidSession.with_message("Session is no longer valid"));
             }
 
@@ -42,8 +42,8 @@ impl GqlContext {
             .session_by_id_loader
             .load_one(session.id)
             .await
-            .extend_gql("failed to fetch session")?
-            .and_then(|s| if s.validate() { Some(s) } else { None })
+            .map_err_gql("failed to fetch session")?
+            .and_then(|s| if s.is_valid() { Some(s) } else { None })
             .ok_or_else(|| {
                 self.session.store(Arc::new(None));
                 GqlError::InvalidSession.with_message("Session is no longer valid")
@@ -94,7 +94,7 @@ impl Query {
             .user_by_username_loader
             .load_one(username.to_lowercase())
             .await
-            .extend_gql("failed to fetch user")?;
+            .map_err_gql("failed to fetch user")?;
 
         Ok(user.map(models::user::User::from))
     }

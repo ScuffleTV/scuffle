@@ -189,7 +189,7 @@ impl From<GqlErrorInterface> for async_graphql::Error {
 }
 
 pub trait ResultExt<T, E>: Sized {
-    fn extend_gql<C>(self, ctx: C) -> Result<T>
+    fn map_err_gql<C>(self, ctx: C) -> Result<T>
     where
         GqlErrorInterface: From<C>;
 }
@@ -199,7 +199,7 @@ where
     anyhow::Error: From<E>,
 {
     #[track_caller]
-    fn extend_gql<C>(self, ctx: C) -> Result<T, GqlErrorInterface>
+    fn map_err_gql<C>(self, ctx: C) -> Result<T, GqlErrorInterface>
     where
         GqlErrorInterface: From<C>,
     {

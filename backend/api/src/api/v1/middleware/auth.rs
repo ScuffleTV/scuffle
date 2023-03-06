@@ -27,24 +27,21 @@ pub fn auth_middleware(_global: &Arc<GlobalState>) -> Middleware<Body, RouteErro
             .map_err(|e| (StatusCode::UNAUTHORIZED, "invalid authentication token", e))?;
 
         // Token's will start with "Bearer " so we need to remove that
-        if !token.starts_with("Bearer ") {
-            return Err(RouteError::from((
-                StatusCode::UNAUTHORIZED,
-                "invalid authentication token",
-            )));
-        }
+        let token = token
+            .strip_prefix("Bearer ")
+            .ok_or((StatusCode::UNAUTHORIZED, "invalid authentication token"))?;
 
-        let jwt = JwtState::verify(&global, token.trim_start_matches("Bearer "))
+        let jwt = JwtState::verify(&global, token)
             .ok_or((StatusCode::UNAUTHORIZED, "invalid authentication token"))?;
 
         let session = global
             .session_by_id_loader
             .load_one(jwt.session_id)
             .await
-            .extend_route("failed to fetch session")?
+            .map_err_route("failed to fetch session")?
             .ok_or((StatusCode::UNAUTHORIZED, "invalid authentication token"))?;
 
-        if !session.validate() {
+        if !session.is_valid() {
             return Err(RouteError::from((
                 StatusCode::UNAUTHORIZED,
                 "session token has been invalidated",

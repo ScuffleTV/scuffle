@@ -11,7 +11,7 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn validate(&self) -> bool {
+    pub fn is_valid(&self) -> bool {
         if self.invalidated_at.is_some() {
             return false;
         }

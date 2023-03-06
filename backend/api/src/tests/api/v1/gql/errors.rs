@@ -10,7 +10,7 @@ fn test_error_from_residual_error() {
         } else {
             Ok(())
         }
-        .extend_gql("error somewhere")?;
+        .map_err_gql("error somewhere")?;
         Ok(())
     };
     let err = fn1().unwrap_err();

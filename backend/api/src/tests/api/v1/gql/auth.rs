@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use arc_swap::ArcSwap;
 use async_graphql::{Name, Request, Variables};
 use chrono::Utc;
 use common::types::{session, user};
@@ -8,7 +7,7 @@ use serde_json::json;
 
 use crate::{
     api::v1::{
-        gql::{schema, GqlContext},
+        gql::{ext::RequestExt, request_context::RequestContext, schema},
         jwt::JwtState,
     },
     config::AppConfig,
@@ -59,10 +58,14 @@ async fn test_login() {
         resp.send(true).unwrap();
     });
 
-    let ctx = Arc::new(GqlContext::default());
+    let ctx = Arc::new(RequestContext::new(false));
     let res = tokio::time::timeout(
         Duration::from_secs(1),
-        schema.execute(Request::from(query).data(global.clone()).data(ctx)),
+        schema.execute(
+            Request::from(query)
+                .provide_global(global.clone())
+                .provide_context(ctx),
+        ),
     )
     .await
     .unwrap();
@@ -110,7 +113,13 @@ async fn test_login() {
 
 #[tokio::test]
 async fn test_login_while_logged_in() {
-    let (global, handler) = mock_global_state(Default::default()).await;
+    let (mut rx, addr, h1) = mock_turnstile().await;
+    let (global, handler) = mock_global_state(AppConfig {
+        turnstile_url: addr,
+        turnstile_secret_key: "batman's chest".to_string(),
+        ..Default::default()
+    })
+    .await;
 
     sqlx::query!("DELETE FROM users")
         .execute(&*global.db)
@@ -138,37 +147,62 @@ async fn test_login_while_logged_in() {
         }
     "#;
 
-    let ctx = Arc::new(GqlContext {
-        is_websocket: true,
-        session: ArcSwap::from_pointee(Some(Default::default())),
+    let ctx = Arc::new(RequestContext::new(true));
+    ctx.set_session(Some(Default::default()));
+
+    let h2 = tokio::spawn(async move {
+        let (req, resp) = rx.recv().await.unwrap();
+        assert_eq!(req.response, "1234");
+        assert_eq!(req.secret, "batman's chest");
+
+        resp.send(true).unwrap();
     });
+
     let res = tokio::time::timeout(
         Duration::from_secs(1),
-        schema.execute(Request::from(query).data(global.clone()).data(ctx)),
+        schema.execute(
+            Request::from(query)
+                .provide_context(ctx)
+                .provide_global(global.clone()),
+        ),
     )
     .await
     .unwrap();
 
-    assert_eq!(res.errors.len(), 1);
+    assert_eq!(res.errors.len(), 0);
     let json = res.data.into_json();
     assert!(json.is_ok());
 
-    assert_eq!(json.unwrap(), serde_json::json!(null));
+    let session = tokio::time::timeout(
+        Duration::from_secs(1),
+        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&*global.db),
+    )
+    .await
+    .unwrap()
+    .unwrap();
 
-    let errors = res
-        .errors
-        .into_iter()
-        .map(|e| {
-            e.extensions
-                .unwrap()
-                .get("reason")
-                .unwrap()
-                .clone()
-                .into_json()
-                .unwrap()
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(errors, vec![json!("Already logged in")]);
+    let jwt_state = JwtState::from(session);
+
+    let token = jwt_state
+        .serialize(&global)
+        .expect("failed to serialize jwt state");
+
+    assert_eq!(
+        json.unwrap(),
+        serde_json::json!({ "auth": { "login": { "token": token }} })
+    );
+
+    h1.abort();
+
+    tokio::time::timeout(Duration::from_secs(1), h1)
+        .await
+        .unwrap()
+        .ok(); // ignore error because we aborted it
+
+    tokio::time::timeout(Duration::from_secs(1), h2)
+        .await
+        .unwrap()
+        .unwrap();
 
     drop(global);
 
@@ -224,14 +258,14 @@ async fn test_login_with_token() {
         async_graphql::Value::String(token.clone()),
     );
 
-    let ctx = Arc::new(GqlContext::default());
+    let ctx = Arc::new(RequestContext::new(false));
     let res = tokio::time::timeout(
         Duration::from_secs(1),
         schema.execute(
             Request::from(query)
                 .variables(variables)
-                .data(global.clone())
-                .data(ctx),
+                .provide_context(ctx.clone())
+                .provide_global(global.clone()),
         ),
     )
     .await
@@ -271,31 +305,45 @@ async fn test_login_with_session_expired() {
     .execute(&*global.db)
     .await
     .unwrap();
-    sqlx::query!(
-        "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3)",
+    let session = sqlx::query_as!(
+        session::Model,
+        "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
         1,
         1,
         Utc::now() - chrono::Duration::seconds(60)
     )
-    .execute(&*global.db)
+    .fetch_one(&*global.db)
     .await
     .unwrap();
 
     let schema = schema();
     let query = r#"
-        mutation {
+        mutation Login($token: String!) {
             auth {
-                loginWithToken(sessionToken: "token") {
+                loginWithToken(sessionToken: $token) {
                     token
                 }
             }
         }
     "#;
 
-    let ctx = Arc::new(GqlContext::default());
+    let jwt_state = JwtState::from(session);
+
+    let mut variables = Variables::default();
+    variables.insert(
+        Name::new("token"),
+        async_graphql::Value::String(jwt_state.serialize(&global).unwrap()),
+    );
+
+    let ctx = Arc::new(RequestContext::new(false));
     let res = tokio::time::timeout(
         Duration::from_secs(1),
-        schema.execute(Request::from(query).data(global.clone()).data(ctx)),
+        schema.execute(
+            Request::from(query)
+                .variables(variables)
+                .provide_global(global.clone())
+                .provide_context(ctx.clone()),
+        ),
     )
     .await
     .unwrap();
@@ -357,49 +405,61 @@ async fn test_login_while_logged_in_with_session_expired() {
     .await
     .unwrap();
 
+    let session2 = sqlx::query_as!(
+        session::Model,
+        "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
+        2,
+        1,
+        Utc::now() + chrono::Duration::seconds(60)
+    )
+    .fetch_one(&*global.db)
+    .await
+    .unwrap();
+
     let schema = schema();
     let query = r#"
-        mutation {
+        mutation Login($token: String!) {
             auth {
-                loginWithToken(sessionToken: "token") {
+                loginWithToken(sessionToken: $token) {
                     token
                 }
             }
         }
     "#;
 
-    let ctx = Arc::new(GqlContext {
-        is_websocket: true,
-        session: ArcSwap::from_pointee(Some(session)),
-    });
+    let jwt_state = JwtState::from(session2);
+
+    let mut variables = Variables::default();
+    variables.insert(
+        Name::new("token"),
+        async_graphql::Value::String(jwt_state.serialize(&global).unwrap()),
+    );
+
+    let ctx = Arc::new(RequestContext::new(true));
+    ctx.set_session(Some(session));
+
     let res = tokio::time::timeout(
         Duration::from_secs(1),
-        schema.execute(Request::from(query).data(global.clone()).data(ctx)),
+        schema.execute(
+            Request::from(query)
+                .variables(variables)
+                .provide_global(global.clone())
+                .provide_context(ctx.clone()),
+        ),
     )
     .await
     .unwrap();
 
-    assert_eq!(res.errors.len(), 1);
+    println!("{:?}", res.errors);
+
+    assert_eq!(res.errors.len(), 0);
     let json = res.data.into_json();
     assert!(json.is_ok());
 
-    assert_eq!(json.unwrap(), serde_json::json!(null));
-
-    let errors = res
-        .errors
-        .into_iter()
-        .map(|e| {
-            e.extensions
-                .unwrap()
-                .get("reason")
-                .unwrap()
-                .clone()
-                .into_json()
-                .unwrap()
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(errors, vec![json!("Session is no longer valid")]);
-
+    assert_eq!(
+        json.unwrap(),
+        serde_json::json!({ "auth": { "loginWithToken": { "token": jwt_state.serialize(&global).unwrap() }}})
+    );
     drop(global);
 
     tokio::time::timeout(Duration::from_secs(1), handler.cancel())
@@ -441,10 +501,14 @@ async fn test_register() {
         resp.send(true).unwrap();
     });
 
-    let ctx = Arc::new(GqlContext::default());
+    let ctx = Arc::new(RequestContext::new(false));
     let res = tokio::time::timeout(
         Duration::from_secs(1),
-        schema.execute(Request::from(query).data(global.clone()).data(ctx)),
+        schema.execute(
+            Request::from(query)
+                .provide_global(global.clone())
+                .provide_context(ctx),
+        ),
     )
     .await
     .unwrap();
@@ -534,14 +598,16 @@ async fn test_logout() {
         }
     "#;
 
-    let ctx = Arc::new(GqlContext {
-        is_websocket: false,
-        session: ArcSwap::from_pointee(Some(session)),
-    });
+    let ctx = Arc::new(RequestContext::new(false));
+    ctx.set_session(Some(session));
 
     let res = tokio::time::timeout(
         Duration::from_secs(1),
-        schema.execute(Request::from(query).data(global.clone()).data(ctx)),
+        schema.execute(
+            Request::from(query)
+                .provide_global(global.clone())
+                .provide_context(ctx),
+        ),
     )
     .await
     .unwrap();
@@ -610,7 +676,7 @@ async fn test_logout_with_token() {
         }
     "#;
 
-    let ctx = Arc::new(GqlContext::default());
+    let ctx = Arc::new(RequestContext::new(false));
 
     let mut variables = Variables::default();
     variables.insert(Name::new("token"), async_graphql::Value::String(token));
@@ -620,8 +686,8 @@ async fn test_logout_with_token() {
         schema.execute(
             Request::from(query)
                 .variables(variables)
-                .data(global.clone())
-                .data(ctx),
+                .provide_global(global.clone())
+                .provide_context(ctx.clone()),
         ),
     )
     .await

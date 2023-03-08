@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { loginMode } from "../store/login";
 	import { page } from "$app/stores";
+	import { user } from "../store/user";
 
 	interface MenuItem {
 		text: string;
@@ -40,8 +41,12 @@
 			{/each}
 		</div>
 		<div class="buttons">
-			<button class="login button" on:click={openLogin}>Login</button>
-			<button class="signup button" on:click={openSignup}>Sign up</button>
+			{#if $user}
+				<a href="/profile" class="button">Profile</a>
+			{:else}
+				<button class="login button" on:click={openLogin}>Login</button>
+				<button class="signup button" on:click={openSignup}>Sign up</button>
+			{/if}
 		</div>
 	</div>
 </nav>

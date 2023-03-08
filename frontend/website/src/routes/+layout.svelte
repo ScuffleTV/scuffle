@@ -7,6 +7,7 @@
 	import Login from "../components/login.svelte";
 	import { setContextClient } from "@urql/svelte";
 	import { client } from "../lib/gql";
+	import "../lib/user";
 
 	// This provides the GraphQL client to all components in the app.
 	setContextClient(client);

@@ -83,12 +83,15 @@ async fn test_auth_middleware() {
         .await
         .expect("failed to get health");
 
-    assert_eq!(resp.status(), http::StatusCode::UNAUTHORIZED);
-    let body: Value = resp.json().await.expect("failed to read body");
+    assert_eq!(resp.status(), http::StatusCode::OK);
     assert_eq!(
-        body,
-        json!({"success": false, "message": "session token has been invalidated"})
+        resp.headers()
+            .get("X-Auth-Token-Check-Status")
+            .and_then(|s| s.to_str().ok()),
+        Some("failed")
     );
+    let body: Value = resp.json().await.expect("failed to read body");
+    assert_eq!(body, json!({"status": "ok"}));
 
     // The client uses Keep-Alive, so we need to drop it to release the global context
     drop(global);
@@ -151,6 +154,7 @@ async fn test_auth_middleware_failed() {
     let resp = client
         .get("http://localhost:8081/v1/health")
         .header(header::AUTHORIZATION, format!("Bearer {}", token))
+        .header("X-Auth-Token-Check", "always")
         .send()
         .await
         .expect("failed to get health");
@@ -160,7 +164,7 @@ async fn test_auth_middleware_failed() {
     assert_eq!(
         body,
         json!({
-            "message": "invalid authentication token",
+            "message": "unauthorized",
             "success": false,
         })
     );

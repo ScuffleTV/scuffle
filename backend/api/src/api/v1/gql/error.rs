@@ -58,6 +58,8 @@ pub enum GqlError {
     NotImplemented,
     /// Unauthorized
     Unauthorized,
+    /// Not Found
+    NotFound,
 }
 
 impl Display for GqlError {
@@ -68,6 +70,7 @@ impl Display for GqlError {
             GqlError::InvalidSession => write!(f, "InvalidSession"),
             GqlError::NotImplemented => write!(f, "NotImplemented"),
             GqlError::Unauthorized => write!(f, "Unauthorized"),
+            GqlError::NotFound => write!(f, "NotFound"),
         }
     }
 }

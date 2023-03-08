@@ -44,7 +44,7 @@
 			clearTimeout(username.extra.timeout);
 
 			// When we are in login mode, we dont need to validate the username.
-			if ($loginMode === 1) {
+			if ($loginMode !== 2) {
 				return;
 			}
 
@@ -136,6 +136,10 @@
 		update(value) {
 			email.value = value;
 
+			if ($loginMode !== 2) {
+				return;
+			}
+
 			const valid = z.string().email("Please enter a valid email").safeParse(email.value);
 			if (!valid.success) {
 				email.status = "error";
@@ -169,7 +173,7 @@
 			password.value = value;
 
 			// When we are in login mode, we dont need to validate the password.
-			if ($loginMode === 1) {
+			if ($loginMode !== 2) {
 				return;
 			}
 
@@ -220,6 +224,10 @@
 		update(value) {
 			confirmPassword.value = value;
 
+			if ($loginMode !== 2) {
+				return;
+			}
+
 			if (password.value !== confirmPassword.value) {
 				confirmPassword.status = "error";
 				confirmPassword.message = "Passwords do not match";
@@ -265,6 +273,10 @@
 	// This is because the fields have specific logic for each mode.
 	onMount(() =>
 		loginMode.subscribe(() => {
+			if ($loginMode === 0) {
+				return;
+			}
+
 			username.reload();
 			email.reload();
 			password.reload();
@@ -410,7 +422,10 @@
 
 		globalIsError = false;
 		globalMessage = "Success!";
-		sessionToken.set(token);
+		sessionToken.set({
+			token,
+			source: "auth",
+		});
 		closeLogin();
 	}
 

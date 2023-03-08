@@ -10,7 +10,9 @@ use crate::{api::macros::make_response, global::GlobalState};
 use self::error::{RouteError, ShouldLog};
 
 pub mod error;
+pub mod ext;
 pub mod macros;
+pub mod middleware;
 pub mod v1;
 
 async fn error_handler(
@@ -47,7 +49,16 @@ pub fn routes(global: &Arc<GlobalState>) -> Router<Body, RouteError> {
     let weak = Arc::downgrade(global);
     Router::builder()
         .data(weak)
+        // These response header middlewares lets us add headers to the response from the request handlers
+        .middleware(middleware::response_headers::pre_flight_middleware(global))
+        .middleware(middleware::response_headers::post_flight_middleware(global))
+        // Our error handler
         .err_handler_with_info(error_handler)
+        // The CORS middleware adds the CORS headers to the response
+        .middleware(middleware::cors::cors_middleware(global))
+        // The auth middleware checks the Authorization header, and if it's valid, it adds the user to the request extensions
+        // This way, we can access the user in the handlers, this does not fail the request if the token is invalid or not present.
+        .middleware(middleware::auth::auth_middleware(global))
         .scope("/v1", v1::routes(global))
         .build()
         .expect("failed to build router")

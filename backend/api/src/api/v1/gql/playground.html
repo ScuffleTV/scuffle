@@ -42,7 +42,12 @@
 
 	<body>
 		<div id="graphiql">Loading...</div>
-		<script src="https://unpkg.com/graphiql/graphiql.min.js" type="application/javascript"></script>
+		<script
+			src="https://unpkg.com/graphiql/graphiql.min.js"
+			integrity="sha384-MVcRONLrOPBea05C9lB5pu31zTbPkbZI/gIn2y0r5xH6GefRkJcnrBGlY4zo2nwC"
+			crossorigin="anonymous"
+			type="application/javascript"
+		></script>
 		<script>
 			const sub_url = new URL(".", window.location.href);
 			sub_url.protocol = sub_url.protocol.replace("http", "ws");

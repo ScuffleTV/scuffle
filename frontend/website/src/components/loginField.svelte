@@ -149,7 +149,12 @@
 		<div class="field-inliner">
 			<!-- Only render the password visibility toggle if the type is password -->
 			{#if field.type === "password"}
-				<button class="password-visible" on:click={togglePasswordVisible} tabindex="-1">
+				<button
+					class="password-visible"
+					on:click={togglePasswordVisible}
+					tabindex="-1"
+					type="button"
+				>
 					{#if passwordVisible}
 						<Fa icon={faEyeSlash} />
 					{:else}

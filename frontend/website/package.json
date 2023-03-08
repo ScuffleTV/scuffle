@@ -10,7 +10,7 @@
 		"test": "playwright test",
 		"test:unit": "vitest",
 		"lint": "yarn dev:pre && prettier --plugin-search-dir . --check \"**/*\" -u && eslint . --ext .js,.ts,.svelte && yarn svelte:check",
-		"svelte:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"svelte:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json | tee /dev/null",
 		"format": "prettier --plugin-search-dir . --write \"**/*\" -u",
 		"wasm": "mask --maskfile $(realpath ../player/maskfile.md) build",
 		"wasm:dev": "yarn wasm dev",
@@ -59,7 +59,9 @@
 		"@fontsource/comfortaa": "^4.5.11",
 		"@urql/svelte": "^3.0.3",
 		"graphql": "^16.6.0",
+		"graphql-ws": "^5.11.3",
 		"urql": "^3.0.3",
+		"wonka": "^6.2.3",
 		"zod": "^3.20.6"
 	}
 }

@@ -1,65 +1,71 @@
-// Taken from https://github.com/skeletonlabs/skeleton/blob/384982bc4ba34d01f9b618c6064f712585ae0511/src/lib/actions/FocusTrap/focusTrap.ts
-// https://www.skeleton.dev/actions/focus-trap
-// MIT
-
-// Essentially, this focus-trap causes the first and last focusable elements to wrap around when tabbing.
-// This is useful for modals, where you don't want the user to tab out of the modal.
-// It also auto-focuses the first focusable element when the modal is opened.
-
-// Action: Focus Trap
+const focussableElements = "a, button, input";
 
 export function focusTrap(node: HTMLElement, enabled: boolean) {
-	const elemWhitelist =
-		'a[href], button, input, textarea, select, details, [tabindex]:not([tabindex="-1"])';
-	let elemFirst: HTMLElement;
-	let elemLast: HTMLElement;
+	function getTree(): HTMLElement[] {
+		let elements: HTMLElement[] = Array.from(node.querySelectorAll(focussableElements));
+		elements = elements.filter((element) => {
+			return (
+				element.tabIndex !== -1 &&
+				element.getAttribute("disabled") === null &&
+				element.getAttribute("type") !== "hidden"
+			);
+		});
 
-	// When the first element is selected, shift+tab pressed, jump to the last selectable item.
-	function onFirstElemKeydown(e: KeyboardEvent): void {
-		if (e.shiftKey && e.code === "Tab") {
-			e.preventDefault();
-			elemLast.focus();
+		return elements;
+	}
+
+	let isEnabled = false;
+
+	function keydown(event: KeyboardEvent) {
+		if (!isEnabled) {
+			return;
+		}
+
+		if (event.key !== "Tab") {
+			return;
+		}
+
+		event.preventDefault();
+
+		const tree = getTree();
+		const current = document.activeElement as HTMLElement;
+
+		const modify = event.shiftKey ? -1 : 1;
+		const currentIndex = tree.indexOf(current);
+
+		// if we were not in the tree, if they press shift we should focus the last element
+		// otherwise we should focus the first element
+		// -1 + 1 = 0 (which is the first element)
+		// -1 - 1 = -2 (which is the last element)
+
+		const nextIndex = currentIndex + modify;
+		if (nextIndex < 0) {
+			tree[tree.length - 1].focus();
+		} else if (nextIndex >= tree.length) {
+			tree[0].focus();
+		} else {
+			tree[nextIndex].focus();
 		}
 	}
 
-	// When the last item selected, tab pressed, jump to the first selectable item.
-	function onLastElemKeydown(e: KeyboardEvent): void {
-		if (!e.shiftKey && e.code === "Tab") {
-			e.preventDefault();
-			elemFirst.focus();
-		}
+	function init() {
+		window.addEventListener("keydown", keydown);
 	}
 
-	const onInit = () => {
-		if (enabled === false) return;
-		// Gather all focusable elements
-		const focusableElems: HTMLElement[] = Array.from(node.querySelectorAll(elemWhitelist));
-		if (focusableElems.length) {
-			// Set first/last focusable elements
-			elemFirst = focusableElems[0];
-			elemLast = focusableElems[focusableElems.length - 1];
-			// Auto-focus first focusable element
-			elemFirst.focus();
-			// Listen for keydown on first & last element
-			elemFirst.addEventListener("keydown", onFirstElemKeydown);
-			elemLast.addEventListener("keydown", onLastElemKeydown);
-		}
-	};
-	onInit();
-
-	function onDestory(): void {
-		if (elemFirst) elemFirst.removeEventListener("keydown", onFirstElemKeydown);
-		if (elemLast) elemLast.removeEventListener("keydown", onLastElemKeydown);
+	function update(enabled: boolean) {
+		isEnabled = enabled;
 	}
 
-	// Lifecycle
+	function destroy() {
+		isEnabled = false;
+		window.removeEventListener("keydown", keydown);
+	}
+
+	init();
+	update(enabled);
+
 	return {
-		update(newArgs: boolean) {
-			enabled = newArgs;
-			newArgs ? onInit() : onDestory();
-		},
-		destroy() {
-			onDestory();
-		},
+		update,
+		destroy,
 	};
 }

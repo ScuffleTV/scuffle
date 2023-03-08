@@ -3133,7 +3133,7 @@ graphql-tag@^2.11.0:
   dependencies:
     tslib "^2.1.0"
 
-graphql-ws@5.11.3:
+graphql-ws@5.11.3, graphql-ws@^5.11.3:
   version "5.11.3"
   resolved "https://registry.yarnpkg.com/graphql-ws/-/graphql-ws-5.11.3.tgz#eaf8e6baf669d167975cff13ad86abca4ecfe82f"
   integrity sha512-fU8zwSgAX2noXAsuFiCZ8BtXeXZOzXyK5u1LloCdacsVth4skdBMPO74EG51lBoWSIZ8beUocdpV8+cQHBODnQ==
@@ -4920,6 +4920,11 @@ svelte-hmr@^0.15.1:
   resolved "https://registry.yarnpkg.com/svelte-hmr/-/svelte-hmr-0.15.1.tgz#d11d878a0bbb12ec1cba030f580cd2049f4ec86b"
   integrity sha512-BiKB4RZ8YSwRKCNVdNxK/GfY+r4Kjgp9jCLEy0DuqAKfmQtpL38cQK3afdpjw4sqSs4PLi3jIPJIFp259NkZtA==
 
+svelte-portal@^2.2.0:
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/svelte-portal/-/svelte-portal-2.2.0.tgz#794bdd7626e88a7023cd0ff3832c547af827deaf"
+  integrity sha512-jhtZWtD6cUE2nMw46dJ5VXWYiqnER+JH+V/BmNBQ5fNP/YdsJCpJi+DemUy9msklqGb0f+wLhJPBtKHLWQvzjg==
+
 svelte-preprocess@^5.0.0:
   version "5.0.1"
   resolved "https://registry.yarnpkg.com/svelte-preprocess/-/svelte-preprocess-5.0.1.tgz#3dd21a17eb508347d4b26a0d98059d23e2d1b9a0"
@@ -5317,7 +5322,7 @@ which@^2.0.1:
   dependencies:
     isexe "^2.0.0"
 
-wonka@^6.0.0, wonka@^6.1.2:
+wonka@^6.0.0, wonka@^6.1.2, wonka@^6.2.3:
   version "6.2.3"
   resolved "https://registry.yarnpkg.com/wonka/-/wonka-6.2.3.tgz#88f7852a23a3d53bca7411c70d66e9ce8f93a366"
   integrity sha512-EFOYiqDeYLXSzGYt2X3aVe9Hq1XJG+Hz/HjTRRT4dZE9q95khHl5+7pzUSXI19dbMO1/2UMrTf7JT7/7JrSQSQ==

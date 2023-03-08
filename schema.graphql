@@ -64,6 +64,7 @@ type Session {
 	The session's token
 	"""
 	token: String!
+	user: User!
 	"""
 	The user who owns this session
 	"""

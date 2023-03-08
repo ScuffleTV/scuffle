@@ -148,16 +148,6 @@
 		},
 		"query": "SELECT * FROM users"
 	},
-	"2942118ad7fa0a0bb28509f8cbcdb1c348e0c76d3461a56f61243ee17f4a8238": {
-		"describe": {
-			"columns": [],
-			"nullable": [],
-			"parameters": {
-				"Left": ["Int8", "Int8", "Timestamptz"]
-			}
-		},
-		"query": "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3)"
-	},
 	"2c74978cd2c9e2fd4aee55e5b6e7383db42079d2d9e2ca49d5f5c61223d91fc4": {
 		"describe": {
 			"columns": [

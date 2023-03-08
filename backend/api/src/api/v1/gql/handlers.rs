@@ -1,13 +1,8 @@
-use std::{
-    future,
-    str::FromStr,
-    sync::{Arc, Weak},
-};
+use std::{future, str::FromStr, sync::Arc};
 
-use arc_swap::ArcSwap;
 use async_graphql::{
     http::{WebSocketProtocols, WsMessage},
-    Data,
+    Data, ErrorExtensions,
 };
 use common::types::session;
 use futures_util::{SinkExt, StreamExt};
@@ -24,18 +19,27 @@ use serde_json::json;
 use tokio::select;
 
 use crate::{
-    api::error::{Result, ResultExt, RouteError},
+    api::{
+        error::{Result, ResultExt as _, RouteError},
+        ext::RequestExt as _,
+        v1::jwt::JwtState,
+    },
     global::GlobalState,
 };
 
-use super::{GqlContext, MySchema};
+use super::{
+    error::{GqlError, ResultExt as _},
+    ext::RequestExt as _,
+    request_context::RequestContext,
+    MySchema,
+};
 
 async fn websocket_handler(
     ws: HyperWebsocket,
     schema: MySchema,
     global: Arc<GlobalState>,
     protocol: WebSocketProtocols,
-    context: Arc<GqlContext>,
+    request_context: Arc<RequestContext>,
 ) {
     let ws = match ws.await {
         Ok(ws) => ws,
@@ -59,21 +63,49 @@ async fn websocket_handler(
         })
         .map(Message::into_data);
 
-    let mut data = Data::default();
+    let data = Data::default()
+        .provide_context(request_context.clone())
+        .provide_global(global.clone());
 
-    data.insert(context);
-    data.insert(global.clone());
+    let stream = {
+        let global = global.clone();
 
-    let stream = async_graphql::http::WebSocket::new(schema, input, protocol)
-        .connection_data(data)
-        .map(|msg| match msg {
-            WsMessage::Text(text) => Message::Text(text),
-            WsMessage::Close(code, status) => Message::Close(Some(CloseFrame {
-                code: code.into(),
-                reason: status.into(),
-            })),
-        })
-        .map(Ok);
+        async_graphql::http::WebSocket::new(schema, input, protocol)
+            .on_connection_init(|params| async move {
+                // if the token is provided in the connection params we use that
+                // and we fail if the token is invalid, there doesnt seem to be a way to return an error
+                // from the connection_init callback that does not close the connection.
+                // Or a way to tell the client that the token they provided is not valid.
+                let token = params.get("sessionToken").and_then(|v| v.as_str());
+                if let Some(token) = token {
+                    // We silently ignore invalid tokens since we don't want to force the user to login
+                    // if the token is invalid when they make a request which requires authentication, it will fail.
+                    let Some(jwt) = JwtState::verify(&global, token) else {
+                        return Err(GqlError::InvalidSession.with_message("invalid session token").extend());
+                    };
+
+                    let Some(session) = global.session_by_id_loader.load_one(jwt.session_id).await.map_err_gql("failed to fetch session")? else {
+                        return Err(GqlError::InvalidSession.with_message("invalid session").extend());
+                    };
+
+                    if !session.is_valid() {
+                        return Err(GqlError::InvalidSession.with_message("session has invalidated").extend());
+                    }
+
+                    request_context.set_session(Some(session));
+                }
+
+                Ok(data)
+            })
+            .map(|msg| match msg {
+                WsMessage::Text(text) => Message::Text(text),
+                WsMessage::Close(code, status) => Message::Close(Some(CloseFrame {
+                    code: code.into(),
+                    reason: status.into(),
+                })),
+            })
+            .map(Ok)
+    };
 
     // TODO: Gracefully shutdown the stream forward.
     //  This is interesting since when we shutdown we interrupt the stream forward rather then waiting for the stream to finish.
@@ -105,18 +137,9 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
         .expect("failed to get schema")
         .clone();
 
-    let global = req
-        .data::<Weak<GlobalState>>()
-        .and_then(|w| w.upgrade())
-        .ok_or((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "failed to get global state",
-        ))?;
+    let global = req.get_global()?;
 
-    let mut session = GqlContext {
-        is_websocket: false,
-        session: ArcSwap::from_pointee(req.context::<session::Model>()),
-    };
+    let session = req.context::<session::Model>();
 
     // We need to check if this is a websocket upgrade request.
     // If it is, we need to upgrade the request to a websocket request.
@@ -135,8 +158,6 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
         let (mut response, websocket) = hyper_tungstenite::upgrade(&mut req, None)
             .map_err_route((StatusCode::BAD_REQUEST, "Failed to upgrade to websocket"))?;
 
-        session.is_websocket = true;
-
         response.headers_mut().insert(
             header::SEC_WEBSOCKET_PROTOCOL,
             protocol
@@ -145,16 +166,22 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
                 .expect("failed to set websocket protocol"),
         );
 
+        let request_context = Arc::new(RequestContext::new(true));
+        request_context.set_session(session);
+
         tokio::spawn(websocket_handler(
             websocket,
             schema,
             global,
             protocol,
-            Arc::new(session),
+            request_context,
         ));
 
         return Ok(response);
     }
+
+    let session_state = Arc::new(RequestContext::new(false));
+    session_state.set_session(session);
 
     // We need to parse the request body into a GraphQL request.
     // If the request is a post request, we need to parse the body as a GraphQL request.
@@ -194,8 +221,8 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
             )))
         }
     }
-    .data(global)
-    .data(Arc::new(session));
+    .provide_global(global)
+    .provide_context(session_state);
 
     let response = schema.execute(request).await;
 

@@ -8,7 +8,7 @@ use common::{
 use fred::{
     clients::SubscriberClient,
     pool::RedisPool,
-    prelude::{ClientLike, ReconnectPolicy, RedisConfig, ServerConfig},
+    prelude::{ClientLike, ReconnectPolicy},
 };
 pub mod turnstile;
 
@@ -25,26 +25,7 @@ pub async fn mock_global_state(config: AppConfig) -> (Arc<GlobalState>, Handler)
             .expect("failed to connect to database"),
     );
 
-    let redis_config = if config.redis_sentinel {
-        RedisConfig {
-            server: ServerConfig::Sentinel {
-                hosts: config.redis_urls.to_vec(),
-                service_name: "scuffle-redis".to_string(),
-                #[cfg(feature = "sentinel-auth")]
-                username: Some(config.redis_username.clone()),
-                #[cfg(feature = "sentinel-auth")]
-                password: Some(config.redis_password.clone()),
-            },
-            ..Default::default()
-        }
-    } else {
-        let (host, port) = &config.redis_urls[0];
-        RedisConfig {
-            server: ServerConfig::new_centralized(host.clone(), *port),
-            ..Default::default()
-        }
-    };
-
+    let redis_config = config.get_redis_config();
     let redis_pool = RedisPool::new(redis_config.clone(), 2).unwrap();
     let _ = redis_pool.connect(Some(ReconnectPolicy::default()));
     let _ = redis_pool.wait_for_connect().await;

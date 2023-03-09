@@ -30,6 +30,11 @@ jobs:
         ports:
           - 5432:5432
 
+      redis:
+        image: redis:7.0.9
+        ports:
+          - "6379:6379"
+
     env:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/scuffle
 

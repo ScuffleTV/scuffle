@@ -8,7 +8,8 @@ use common::{
 use fred::{
     clients::SubscriberClient,
     pool::RedisPool,
-    prelude::{ClientLike, ReconnectPolicy},
+    prelude::ClientLike,
+    types::{PerformanceConfig, ReconnectPolicy},
 };
 pub mod turnstile;
 
@@ -26,14 +27,33 @@ pub async fn mock_global_state(config: AppConfig) -> (Arc<GlobalState>, Handler)
     );
 
     let redis_config = config.get_redis_config();
-    let redis_pool = RedisPool::new(redis_config.clone(), 2).unwrap();
-    let _ = redis_pool.connect(Some(ReconnectPolicy::default()));
-    let _ = redis_pool.wait_for_connect().await;
+    let redis_pool = RedisPool::new(
+        redis_config.clone(),
+        Some(PerformanceConfig::default()),
+        Some(ReconnectPolicy::default()),
+        50,
+    )
+    .unwrap();
+    redis_pool.connect();
+    redis_pool.wait_for_connect().await.unwrap();
 
-    let redis_sub_client = SubscriberClient::new(redis_config);
-    redis_sub_client.connect(Some(ReconnectPolicy::default()));
+    let redis_sub_client = SubscriberClient::new(
+        redis_config,
+        Some(PerformanceConfig::default()),
+        Some(ReconnectPolicy::default()),
+    );
+    redis_sub_client.connect();
     redis_sub_client.wait_for_connect().await.unwrap();
     redis_sub_client.manage_subscriptions();
 
-    (Arc::new(GlobalState::new(config, db, ctx, redis_pool, redis_sub_client,)), handler)
+    (
+        Arc::new(GlobalState::new(
+            config,
+            db,
+            ctx,
+            redis_pool,
+            redis_sub_client,
+        )),
+        handler,
+    )
 }

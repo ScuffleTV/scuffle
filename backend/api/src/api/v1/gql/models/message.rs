@@ -1,13 +1,13 @@
 use async_graphql::SimpleObject;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(SimpleObject, Deserialize)]
+#[derive(SimpleObject, Deserialize, Serialize)]
 pub struct Message {
     #[graphql(skip)]
     pub chat_id: i64,
-    pub username: Option<String>,
+    pub username: String,
     pub content: String,
-    pub metadata: Option<HashMap<String, String>>,
-    pub message_type: Option<String>,
+    pub metadata: HashMap<String, String>,
+    pub message_type: String,
 }

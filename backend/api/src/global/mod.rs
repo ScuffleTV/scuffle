@@ -5,7 +5,8 @@ use async_graphql::dataloader::DataLoader;
 use common::context::Context;
 
 use crate::dataloader::{
-    session::SessionByIdLoader, user::UserByIdLoader, user::UserByUsernameLoader,
+    chat_room::ChatRoomByIdLoader, session::SessionByIdLoader, user::UserByIdLoader,
+    user::UserByUsernameLoader,
 };
 use fred::clients::SubscriberClient;
 use fred::pool::RedisPool;
@@ -19,21 +20,29 @@ pub struct GlobalState {
     pub user_by_username_loader: DataLoader<UserByUsernameLoader>,
     pub user_by_id_loader: DataLoader<UserByIdLoader>,
     pub session_by_id_loader: DataLoader<SessionByIdLoader>,
+    pub chat_room_by_id_loader: DataLoader<ChatRoomByIdLoader>,
     pub redis_pool: RedisPool,
     pub redis_sub_client: SubscriberClient,
 }
 
 impl GlobalState {
-    pub fn new(config: AppConfig, db: Arc<sqlx::PgPool>, ctx: Context, redis_pool: RedisPool, redis_sub_client: SubscriberClient) -> Self {
+    pub fn new(
+        config: AppConfig,
+        db: Arc<sqlx::PgPool>,
+        ctx: Context,
+        redis_pool: RedisPool,
+        redis_sub_client: SubscriberClient,
+    ) -> Self {
         Self {
             config,
             ctx,
             user_by_username_loader: UserByUsernameLoader::new(db.clone()),
             user_by_id_loader: UserByIdLoader::new(db.clone()),
             session_by_id_loader: SessionByIdLoader::new(db.clone()),
+            chat_room_by_id_loader: ChatRoomByIdLoader::new(db.clone()),
             db,
             redis_pool,
-            redis_sub_client
+            redis_sub_client,
         }
     }
 }

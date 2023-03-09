@@ -39,9 +39,9 @@ scalar JSONObject
 
 type Message {
 	content: String!
-	messageType: String
-	metadata: JSONObject
-	username: String
+	messageType: String!
+	metadata: JSONObject!
+	username: String!
 }
 
 """

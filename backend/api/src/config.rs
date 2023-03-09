@@ -65,6 +65,7 @@ impl AppConfig {
     pub fn parse() -> Result<Self> {
         Ok(common::config::parse(&AppConfig::default().config_file)?)
     }
+
     pub fn get_redis_config(&self) -> RedisConfig {
         if self.redis_sentinel {
             let parsed_urls = self

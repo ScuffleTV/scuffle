@@ -307,6 +307,16 @@
 		},
 		"query": "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4) RETURNING *"
 	},
+	"62b02e2c2b7f71816ce73f51eda36bbc41d03d72ebc6bc01ac615a3c917f41af": {
+		"describe": {
+			"columns": [],
+			"nullable": [],
+			"parameters": {
+				"Left": ["Int8", "Int8", "Varchar", "Text"]
+			}
+		},
+		"query": "INSERT INTO chat_rooms(id, owner_id, name, description) VALUES ($1, $2, $3, $4)"
+	},
 	"750acae3f638bd028e48f41a955d665914e8cf47383fda2b212183c13e385250": {
 		"describe": {
 			"columns": [
@@ -348,6 +358,16 @@
 		},
 		"query": "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *"
 	},
+	"758b4822a1597c4e683b5160015edcca61bdc5e4ed67611ac74a7d241f150615": {
+		"describe": {
+			"columns": [],
+			"nullable": [],
+			"parameters": {
+				"Left": []
+			}
+		},
+		"query": "DELETE FROM chat_messages"
+	},
 	"7f424c4cb2f5ba376b1397fa03f3b8cd6d26fdef16a6a5c385595ecabd6c67f9": {
 		"describe": {
 			"columns": [],
@@ -367,6 +387,52 @@
 			}
 		},
 		"query": "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4)"
+	},
+	"965361b8badb34cde609db1dd5abfa6f1bd129b8c7f289f84f79ce71797e31f8": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				},
+				{
+					"name": "chat_room_id",
+					"ordinal": 1,
+					"type_info": "Int8"
+				},
+				{
+					"name": "author_id",
+					"ordinal": 2,
+					"type_info": "Int8"
+				},
+				{
+					"name": "message",
+					"ordinal": 3,
+					"type_info": "Text"
+				},
+				{
+					"name": "created_at",
+					"ordinal": 4,
+					"type_info": "Timestamptz"
+				}
+			],
+			"nullable": [false, false, false, false, false],
+			"parameters": {
+				"Left": ["Int8"]
+			}
+		},
+		"query": "SELECT * FROM chat_messages WHERE chat_room_id = $1"
+	},
+	"a6953b8d45e8ccf9da305fe0e9e2d7661063317a48cb96448d06da043f39edff": {
+		"describe": {
+			"columns": [],
+			"nullable": [],
+			"parameters": {
+				"Left": []
+			}
+		},
+		"query": "DELETE FROM sessions"
 	},
 	"b70317ca36372ae9803b15c675439062654e708b88c838cef53e642b16963bd3": {
 		"describe": {
@@ -450,6 +516,57 @@
 		},
 		"query": "SELECT * FROM sessions"
 	},
+	"d50f4511bf2c3432971cdba39b24a814279e2256b6c9adef4b2effbc4b177360": {
+		"describe": {
+			"columns": [],
+			"nullable": [],
+			"parameters": {
+				"Left": []
+			}
+		},
+		"query": "DELETE FROM chat_rooms"
+	},
+	"dbb8317d7e4f5666cf86b2619d26ef551c348030e4700efc6f6998d01ca19075": {
+		"describe": {
+			"columns": [
+				{
+					"name": "id",
+					"ordinal": 0,
+					"type_info": "Int8"
+				},
+				{
+					"name": "owner_id",
+					"ordinal": 1,
+					"type_info": "Int8"
+				},
+				{
+					"name": "name",
+					"ordinal": 2,
+					"type_info": "Varchar"
+				},
+				{
+					"name": "description",
+					"ordinal": 3,
+					"type_info": "Text"
+				},
+				{
+					"name": "created_at",
+					"ordinal": 4,
+					"type_info": "Timestamptz"
+				},
+				{
+					"name": "deleted_at",
+					"ordinal": 5,
+					"type_info": "Timestamptz"
+				}
+			],
+			"nullable": [false, false, false, false, false, true],
+			"parameters": {
+				"Left": ["Int8Array"]
+			}
+		},
+		"query": "SELECT * FROM chat_rooms WHERE id = ANY($1)"
+	},
 	"e4568529cfbdc9207c1ba481ae77489e756927d45b7963842215098d51bc3d0b": {
 		"describe": {
 			"columns": [
@@ -495,6 +612,16 @@
 			}
 		},
 		"query": "SELECT * FROM users WHERE id = ANY($1)"
+	},
+	"e649ed03081393d765c32bb7e9db7cb923e0d16e0dcbb51ede67d975af58b5eb": {
+		"describe": {
+			"columns": [],
+			"nullable": [],
+			"parameters": {
+				"Left": ["Int8", "Int8", "Text", "Timestamptz"]
+			}
+		},
+		"query": "INSERT INTO chat_messages (chat_room_id, author_id, message, created_at) VALUES ($1, $2, $3, $4)"
 	},
 	"f4f8f8c2668ec23ba1f4a315d74087521496603e8b1bc10475a864001e795593": {
 		"describe": {

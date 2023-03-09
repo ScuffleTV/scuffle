@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use async_graphql::{
-    extensions, futures_util::Stream, ComplexObject, Context, Schema, SimpleObject, Subscription,
+    extensions, futures_util::Stream, ComplexObject, Context, MergedSubscription, Schema,
+    SimpleObject, Subscription,
 };
 use common::types::session;
 use hyper::{Body, Response};
@@ -56,6 +57,16 @@ impl GqlContext {
     }
 }
 
+#[derive(Default)]
+struct Noop;
+
+#[Subscription]
+impl Noop {
+    async fn noop(&self) -> Result<impl Stream<Item = bool>> {
+        Ok(futures_util::stream::iter(Vec::new()))
+    }
+}
+
 #[derive(Default, SimpleObject)]
 #[graphql(complex)]
 /// The root query type which contains root level fields.
@@ -70,27 +81,9 @@ pub struct Mutation {
     chat: chat::ChatMutation,
 }
 
-#[derive(Default)]
+#[derive(Default, MergedSubscription)]
 /// The root subscription type which contains root level fields.
-pub struct Subscription {}
-
-#[Subscription]
-impl Subscription {
-    async fn noop(&self) -> Result<impl Stream<Item = bool>> {
-        Ok(futures_util::stream::iter(Vec::new()))
-    }
-
-    async fn new_message(
-        &self,
-        ctx: &Context<'_>,
-        chat_id: i64,
-    ) -> Result<impl Stream<Item = models::message::Message>> {
-        Ok(chat::ChatSubscription
-            .new_message(ctx, chat_id)
-            .await
-            .unwrap())
-    }
-}
+pub struct Subscription(chat::ChatSubscription, Noop);
 
 #[ComplexObject]
 impl Query {

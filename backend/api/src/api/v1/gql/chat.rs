@@ -101,7 +101,7 @@ impl ChatSubscription {
         &self,
         ctx: &Context<'_>,
         #[graphql(desc = "Chat to subscribe to.")] chat_id: i64,
-    ) -> impl Stream<Item = Message> {
+    ) -> Result<impl Stream<Item = Message>> {
         let global = ctx
             .data::<Arc<GlobalState>>()
             .expect("failed to get global state")
@@ -113,7 +113,7 @@ impl ChatSubscription {
             .subscribe::<String, String>("chat:".to_string() + &chat_id.to_string())
             .await;
 
-        stream! {
+        Ok(stream! {
             while let Ok(message) = message_stream.recv().await {
                 if message.channel.split(':').collect::<Vec<&str>>()[1] == chat_id.to_string() {
                     let data = serde_json::from_str::<Message>(&message.value.as_str().unwrap());
@@ -122,6 +122,6 @@ impl ChatSubscription {
                     }
                 }
             }
-        }
+        })
     }
 }

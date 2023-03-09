@@ -87,6 +87,9 @@ type Session {
 	userId: Int!
 }
 
+"""
+The root subscription type which contains root level fields.
+"""
 type Subscription {
 	newMessage(chatId: Int!): Message!
 	noop: Boolean!

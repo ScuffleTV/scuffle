@@ -31,7 +31,7 @@ pub async fn mock_global_state(config: AppConfig) -> (Arc<GlobalState>, Handler)
         redis_config.clone(),
         Some(PerformanceConfig::default()),
         Some(ReconnectPolicy::default()),
-        50,
+        2,
     )
     .unwrap();
     redis_pool.connect();

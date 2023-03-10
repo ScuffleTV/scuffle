@@ -47,6 +47,14 @@ async function logout(token?: string) {
 		.toPromise();
 }
 
+export const login = (token: string, usr: User) => {
+	sessionToken.set({
+		token,
+		source: "auth",
+	});
+	user.set(usr);
+};
+
 // When we mount we need to check if we have a token in local storage
 // and if so, set it in the store
 if (typeof window !== "undefined") {
@@ -54,7 +62,7 @@ if (typeof window !== "undefined") {
 
 	sessionToken.subscribe(async (token) => {
 		if (token) {
-			if (oldToken) {
+			if (oldToken && oldToken.token !== token.token) {
 				logout(oldToken.token);
 			}
 
@@ -65,9 +73,9 @@ if (typeof window !== "undefined") {
 					sessionToken.set(null);
 				}
 			}
-		} else {
+		} else if (oldToken) {
 			user.set(null);
-			await logout(oldToken?.token);
+			await logout(oldToken.token);
 		}
 
 		oldToken = token;

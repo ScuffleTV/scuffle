@@ -8,7 +8,7 @@ use common::types::user;
 
 use super::date::DateRFC3339;
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Clone)]
 #[graphql(complex)]
 pub struct User {
     id: i64,

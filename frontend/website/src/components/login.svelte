@@ -1,17 +1,20 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { Turnstile } from "svelte-turnstile";
-	import { loginMode, sessionToken } from "../store/login";
+	import { loginMode } from "../store/login";
 	import { focusTrap } from "../lib/focusTrap";
 	import LoginField, { newField } from "./loginField.svelte";
 	import { z } from "zod";
 	import { getContextClient } from "@urql/svelte";
 	import { graphql } from "../gql";
+	import { login } from "$lib/user";
+	import TransitionCloser from "./transitionCloser.svelte";
+	import MouseTrap from "./mouseTrap.svelte";
 
 	const client = getContextClient();
 	const turnstileSiteKey = import.meta.env.VITE_CF_TURNSTILE_KEY;
 
-	let show = false;
+	let show = true;
 	let globalMessage = "";
 	let globalIsError = false;
 	let turnstileToken = "";
@@ -260,10 +263,6 @@
 	// Forces no interaction with the page behind the modal.
 	onMount(() => {
 		document.body.classList.add("no-overflow");
-		setTimeout(() => {
-			show = true;
-		}, 100);
-
 		return () => {
 			document.body.classList.remove("no-overflow");
 		};
@@ -284,17 +283,12 @@
 		}),
 	);
 
-	function closeLogin() {
+	function hideLogin() {
 		show = false;
-		setTimeout(() => {
-			loginMode.set(0);
-		}, 200);
 	}
 
-	function handleOnMouseDown(event: MouseEvent) {
-		if (event.target === event.currentTarget) {
-			closeLogin();
-		}
+	function closeLogin() {
+		loginMode.set(0);
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
@@ -333,6 +327,14 @@
 										captchaToken: $captchaToken
 									) {
 										token
+										user {
+											id
+											username
+											email
+											emailVerified
+											createdAt
+											lastLoginAt
+										}
 									}
 								}
 							}
@@ -359,6 +361,14 @@
 										captchaToken: $captchaToken
 									) {
 										token
+										user {
+											id
+											username
+											email
+											emailVerified
+											createdAt
+											lastLoginAt
+										}
 									}
 								}
 							}
@@ -413,7 +423,8 @@
 		}
 
 		const token = response.data?.auth.resp.token;
-		if (!token) {
+		const user = response.data?.auth.resp.user;
+		if (!token || !user) {
 			globalIsError = true;
 			globalMessage = "An unknown error occured, if the problem persists please contact support";
 			console.error("Bad GQL response", response);
@@ -422,10 +433,7 @@
 
 		globalIsError = false;
 		globalMessage = "Success!";
-		sessionToken.set({
-			token,
-			source: "auth",
-		});
+		login(token, user);
 		closeLogin();
 	}
 
@@ -458,52 +466,63 @@
 
 <svelte:window on:keydown={handleKeyDown} />
 
-<div class="container" class:show on:mousedown={handleOnMouseDown}>
-	<div class="popup">
-		<div class="login-title">
-			<h2 class="text-left signup-title">{$loginMode === 1 ? "Login" : "Sign up"}</h2>
-			<h2 class="text-left signup-subtitle">
-				{$loginMode === 1 ? "Don't have an account?" : "Already have an account?"}
-				<span>
-					<button class="link-button" on:click={toggleMode}
-						>{$loginMode === 1 ? "Sign up" : "Sign in"}</button
-					>
-				</span>
-			</h2>
-		</div>
-		<form use:focusTrap={true} on:submit|preventDefault={onSubmit}>
-			<LoginField field={username} />
-			{#if $loginMode === 2}
-				<LoginField field={email} />
-			{/if}
-			<LoginField field={password} />
-			{#if $loginMode === 2}
-				<LoginField field={confirmPassword} />
-			{/if}
-			{#if globalMessage !== ""}
-				<div class="message-holder" class:error={globalIsError}>
-					<span>{globalMessage}</span>
+<div class="container">
+	<TransitionCloser
+		open={show}
+		on:closed={closeLogin}
+		closeAnimationDuration={300}
+		openAnimationDuration={100}
+	>
+		<div class="bg">
+			<MouseTrap on:close={hideLogin}>
+				<div class="popup">
+					<div class="login-title">
+						<h2 class="text-left signup-title">{$loginMode === 1 ? "Login" : "Sign up"}</h2>
+						<h2 class="text-left signup-subtitle">
+							{$loginMode === 1 ? "Don't have an account?" : "Already have an account?"}
+							<span>
+								<button class="link-button" on:click={toggleMode}
+									>{$loginMode === 1 ? "Sign up" : "Sign in"}</button
+								>
+							</span>
+						</h2>
+					</div>
+					<form use:focusTrap={true} on:submit|preventDefault={onSubmit}>
+						<LoginField field={username} />
+						{#if $loginMode === 2}
+							<LoginField field={email} />
+						{/if}
+						<LoginField field={password} />
+						{#if $loginMode === 2}
+							<LoginField field={confirmPassword} />
+						{/if}
+						{#if globalMessage !== ""}
+							<div class="message-holder" class:error={globalIsError}>
+								<span>{globalMessage}</span>
+							</div>
+						{/if}
+						<div id="login-turnstile-container">
+							<Turnstile
+								siteKey={turnstileSiteKey}
+								on:turnstile-callback={onTurnstileCallback}
+								on:turnstile-error={clearTurnstileToken}
+								on:turnstile-expired={clearTurnstileToken}
+								on:turnstile-timeout={clearTurnstileToken}
+							/>
+						</div>
+						<div class="button-group">
+							<input
+								class="button-submit"
+								type="submit"
+								value={loggingIn ? "Loading..." : $loginMode === 1 ? "Login" : "Sign up"}
+								disabled={!formValid || loggingIn}
+							/>
+						</div>
+					</form>
 				</div>
-			{/if}
-			<div id="login-turnstile-container">
-				<Turnstile
-					siteKey={turnstileSiteKey}
-					on:turnstile-callback={onTurnstileCallback}
-					on:turnstile-error={clearTurnstileToken}
-					on:turnstile-expired={clearTurnstileToken}
-					on:turnstile-timeout={clearTurnstileToken}
-				/>
-			</div>
-			<div class="button-group">
-				<input
-					class="button-submit"
-					type="submit"
-					value={loggingIn ? "Loading..." : $loginMode === 1 ? "Login" : "Sign up"}
-					disabled={!formValid || loggingIn}
-				/>
-			</div>
-		</form>
-	</div>
+			</MouseTrap>
+		</div>
+	</TransitionCloser>
 </div>
 
 <style lang="scss">
@@ -513,14 +532,12 @@
 		height: 100vh;
 		top: 0;
 		left: 0;
-		z-index: 2;
-		background-color: #000000a3;
-		opacity: 0;
-		transition: opacity 0.1s ease-in-out;
-		&.show {
-			transition: opacity 0.2s ease-in-out;
-			opacity: 1;
-		}
+		z-index: 100;
+	}
+
+	.bg {
+		all: inherit;
+		background-color: #00000075;
 	}
 
 	.link-button {
@@ -533,6 +550,10 @@
 		outline: 0;
 		border: 0;
 		cursor: pointer;
+		transition: color 0.2s ease-in-out;
+		&:hover {
+			color: #dc8573;
+		}
 	}
 
 	.popup {

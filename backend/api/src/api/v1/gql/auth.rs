@@ -86,6 +86,7 @@ impl AuthMutation {
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
             created_at: session.created_at.into(),
+            _user: Some(user.into()),
         })
     }
 
@@ -139,6 +140,7 @@ impl AuthMutation {
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
             created_at: session.created_at.into(),
+            _user: None,
         })
     }
 
@@ -249,6 +251,7 @@ impl AuthMutation {
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
             created_at: session.created_at.into(),
+            _user: None,
         })
     }
 

@@ -13,13 +13,15 @@
 	setContextClient(client);
 </script>
 
-<div class="no-overflow">
+<div class="body">
 	<header>
 		<Nav />
 	</header>
 
 	<main>
-		<slot />
+		<div class="no-overflow">
+			<slot />
+		</div>
 	</main>
 
 	{#if $loginMode}
@@ -31,15 +33,14 @@
 
 <style lang="scss">
 	header {
-		position: fixed;
+		position: sticky;
 		width: 100%;
 		top: 0;
 		z-index: 2;
 	}
 
 	main {
-		overflow: visible;
-		min-height: 95vh;
+		min-height: 100%;
 	}
 
 	footer {
@@ -48,7 +49,12 @@
 	}
 
 	.no-overflow {
-		position: relative;
 		overflow: hidden;
+	}
+
+	.body {
+		display: grid;
+		grid-template-rows: auto 1fr auto;
+		height: 100vh;
 	}
 </style>

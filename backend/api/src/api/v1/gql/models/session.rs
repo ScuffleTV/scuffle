@@ -21,11 +21,18 @@ pub struct Session {
     pub last_used_at: date::DateRFC3339,
     /// Created at
     pub created_at: date::DateRFC3339,
+
+    #[graphql(skip)]
+    pub _user: Option<User>,
 }
 
 #[ComplexObject]
 impl Session {
     pub async fn user(&self, ctx: &Context<'_>) -> Result<User> {
+        if let Some(user) = &self._user {
+            return Ok(user.clone());
+        }
+
         let global = ctx.get_global();
 
         let user = global

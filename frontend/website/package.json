@@ -10,7 +10,7 @@
 		"test": "playwright test",
 		"test:unit": "vitest",
 		"lint": "yarn dev:pre && prettier --plugin-search-dir . --check \"**/*\" -u && eslint . --ext .js,.ts,.svelte && yarn svelte:check",
-		"svelte:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"svelte:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json | tee /dev/null",
 		"format": "prettier --plugin-search-dir . --write \"**/*\" -u",
 		"wasm": "mask --maskfile $(realpath ../player/maskfile.md) build",
 		"wasm:dev": "yarn wasm dev",

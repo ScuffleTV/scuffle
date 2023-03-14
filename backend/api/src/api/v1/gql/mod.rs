@@ -1,59 +1,24 @@
 use std::sync::Arc;
 
-use arc_swap::ArcSwap;
 use async_graphql::{
     extensions, futures_util::Stream, ComplexObject, Context, Schema, SimpleObject, Subscription,
 };
-use common::types::session;
 use hyper::{Body, Response};
 use routerify::Router;
 
 use crate::{api::error::RouteError, global::GlobalState};
 
-use self::error::{GqlError, Result, ResultExt};
+use self::{
+    error::{Result, ResultExt},
+    ext::ContextExt,
+};
 
 pub mod auth;
 pub mod error;
+pub mod ext;
 pub mod handlers;
 pub mod models;
-
-#[derive(Default)]
-pub struct GqlContext {
-    pub is_websocket: bool,
-    pub session: ArcSwap<Option<session::Model>>,
-}
-
-impl GqlContext {
-    pub async fn get_session(&self, global: &Arc<GlobalState>) -> Result<Option<session::Model>> {
-        let guard = self.session.load();
-        let Some(session) = guard.as_ref() else {
-            return Ok(None)
-        };
-
-        if !self.is_websocket {
-            if !session.is_valid() {
-                return Err(GqlError::InvalidSession.with_message("Session is no longer valid"));
-            }
-
-            return Ok(Some(session.clone()));
-        }
-
-        let session = global
-            .session_by_id_loader
-            .load_one(session.id)
-            .await
-            .map_err_gql("failed to fetch session")?
-            .and_then(|s| if s.is_valid() { Some(s) } else { None })
-            .ok_or_else(|| {
-                self.session.store(Arc::new(None));
-                GqlError::InvalidSession.with_message("Session is no longer valid")
-            })?;
-
-        self.session.store(Arc::new(Some(session.clone())));
-
-        Ok(Some(session))
-    }
-}
+pub mod request_context;
 
 #[derive(Default, SimpleObject)]
 #[graphql(complex)]
@@ -86,9 +51,7 @@ impl Query {
         ctx: &Context<'_>,
         #[graphql(desc = "The username of the user.")] username: String,
     ) -> Result<Option<models::user::User>> {
-        let global = ctx
-            .data::<Arc<GlobalState>>()
-            .expect("failed to get global state");
+        let global = ctx.get_global();
 
         let user = global
             .user_by_username_loader

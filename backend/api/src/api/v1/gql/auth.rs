@@ -1,12 +1,10 @@
 use super::error::{GqlError, Result, ResultExt};
+use super::ext::ContextExt;
 use super::models::session::Session;
-use super::GqlContext;
 use crate::api::v1::jwt::JwtState;
-use crate::global::GlobalState;
 use async_graphql::{Context, Object};
 use chrono::{Duration, Utc};
 use common::types::{session, user};
-use std::sync::Arc;
 
 #[derive(Default, Clone)]
 pub struct AuthMutation;
@@ -26,17 +24,8 @@ impl AuthMutation {
         )]
         validity: Option<u32>,
     ) -> Result<Session> {
-        let global = ctx
-            .data::<Arc<GlobalState>>()
-            .expect("failed to get global state");
-
-        let request_context = ctx
-            .data::<Arc<GqlContext>>()
-            .expect("failed to get request context");
-
-        if request_context.session.load().is_some() {
-            return Err(GqlError::InvalidInput.with_message("Already logged in"));
-        }
+        let global = ctx.get_global();
+        let request_context = ctx.get_session();
 
         if !global
             .validate_turnstile_token(&captcha_token)
@@ -86,9 +75,9 @@ impl AuthMutation {
             .ok_or((GqlError::InternalServerError, "Failed to serialize JWT"))?;
 
         // We need to update the request context with the new session
-        request_context
-            .session
-            .store(Arc::new(Some(session.clone())));
+        if request_context.is_websocket() {
+            request_context.set_session(Some(session.clone()));
+        }
 
         Ok(Session {
             id: session.id,
@@ -97,6 +86,7 @@ impl AuthMutation {
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
             created_at: session.created_at.into(),
+            _user: Some(user.into()),
         })
     }
 
@@ -110,17 +100,8 @@ impl AuthMutation {
         )]
         update_context: Option<bool>,
     ) -> Result<Session> {
-        let global = ctx
-            .data::<Arc<GlobalState>>()
-            .expect("failed to get global state");
-
-        let request_context = ctx
-            .data::<Arc<GqlContext>>()
-            .expect("failed to get request context");
-
-        if request_context.get_session(global).await?.is_some() {
-            return Err(GqlError::InvalidInput.with_message("Already logged in"));
-        }
+        let global = ctx.get_global();
+        let request_context = ctx.get_session();
 
         let jwt = JwtState::verify(global, &session_token).ok_or(
             GqlError::InvalidInput
@@ -149,9 +130,7 @@ impl AuthMutation {
 
         // We need to update the request context with the new session
         if update_context.unwrap_or(true) {
-            request_context
-                .session
-                .store(Arc::new(Some(session.clone())));
+            request_context.set_session(Some(session.clone()));
         }
 
         Ok(Session {
@@ -161,6 +140,7 @@ impl AuthMutation {
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
             created_at: session.created_at.into(),
+            _user: None,
         })
     }
 
@@ -174,17 +154,8 @@ impl AuthMutation {
         #[graphql(desc = "The captcha token from cloudflare turnstile.")] captcha_token: String,
         #[graphql(desc = "The validity of the session in seconds.")] validity: Option<u32>,
     ) -> Result<Session> {
-        let global = ctx
-            .data::<Arc<GlobalState>>()
-            .expect("failed to get global state");
-
-        let request_context = ctx
-            .data::<Arc<GqlContext>>()
-            .expect("failed to get request context");
-
-        if request_context.get_session(global).await?.is_some() {
-            return Err(GqlError::InvalidInput.with_message("Already logged in"));
-        }
+        let global = ctx.get_global();
+        let request_context = ctx.get_session();
 
         if !global
             .validate_turnstile_token(&captcha_token)
@@ -269,9 +240,9 @@ impl AuthMutation {
             .await
             .map_err_gql("Failed to commit transaction")?;
 
-        request_context
-            .session
-            .store(Arc::new(Some(session.clone())));
+        if request_context.is_websocket() {
+            request_context.set_session(Some(session.clone()));
+        }
 
         Ok(Session {
             id: session.id,
@@ -280,6 +251,7 @@ impl AuthMutation {
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
             created_at: session.created_at.into(),
+            _user: None,
         })
     }
 
@@ -292,13 +264,9 @@ impl AuthMutation {
         )]
         session_token: Option<String>,
     ) -> Result<bool> {
-        let global = ctx
-            .data::<Arc<GlobalState>>()
-            .expect("failed to get global state");
+        let global = ctx.get_global();
+        let request_context = ctx.get_session();
 
-        let request_context = ctx
-            .data::<Arc<GqlContext>>()
-            .expect("failed to get request context");
         let session = if session_token.is_none() {
             request_context.get_session(global).await?
         } else {
@@ -330,7 +298,7 @@ impl AuthMutation {
         .map_err_gql("Failed to update session")?;
 
         if jwt.is_none() {
-            request_context.session.store(Arc::new(None));
+            request_context.set_session(None);
         }
 
         Ok(true)

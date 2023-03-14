@@ -1,53 +1,36 @@
-<script>
-	import "@fontsource/be-vietnam-pro";
-	import "@fontsource/comfortaa";
+<script lang="ts">
 	import "$assets/styles/global.scss";
-	import Nav from "../components/nav.svelte";
+	import TopNav from "../components/topNav.svelte";
 	import { loginMode } from "../store/login";
 	import Login from "../components/login.svelte";
 	import { setContextClient } from "@urql/svelte";
 	import { client } from "../lib/gql";
+	import "../lib/user";
+	import SideNav from "../components/sideNav.svelte";
 
 	// This provides the GraphQL client to all components in the app.
 	setContextClient(client);
 </script>
 
-<div class="no-overflow">
-	<header>
-		<Nav />
-	</header>
-
-	<main>
-		<slot />
-	</main>
+<main>
+	<SideNav />
+	<TopNav />
+	<slot />
 
 	{#if $loginMode}
 		<Login />
 	{/if}
 
 	<footer />
-</div>
+</main>
 
 <style lang="scss">
-	header {
-		position: fixed;
-		width: 100%;
-		top: 0;
-		z-index: 2;
-	}
+	@import "../assets/styles/variables.scss";
 
 	main {
-		overflow: visible;
-		min-height: 95vh;
-	}
-
-	footer {
 		display: grid;
-		place-items: center;
-	}
-
-	.no-overflow {
-		position: relative;
-		overflow: hidden;
+		grid-template-rows: auto 1fr auto;
+		grid-template-columns: auto 1fr auto;
+		min-height: 100%;
 	}
 </style>

@@ -1,8 +1,8 @@
+use std::sync::Arc;
 use std::time::Duration;
 
-use crate::api::v1::gql::{schema, GqlContext};
+use crate::api::v1::gql::{ext::RequestExt, request_context::RequestContext, schema};
 use crate::tests::global::mock_global_state;
-use arc_swap::ArcSwap;
 use async_graphql::{Request, Value};
 use common::types::{session, user};
 
@@ -49,14 +49,15 @@ async fn test_user_by_name() {
             }
         "#;
 
-        let ctx = GqlContext {
-            is_websocket: false,
-            session: ArcSwap::from_pointee(None),
-        };
+        let ctx = Arc::new(RequestContext::new(false));
 
         let res = tokio::time::timeout(
             Duration::from_secs(1),
-            schema.execute(Request::from(query).data(global.clone()).data(ctx)),
+            schema.execute(
+                Request::from(query)
+                    .provide_global(global.clone())
+                    .provide_context(ctx),
+            ),
         )
         .await
         .unwrap();
@@ -83,14 +84,15 @@ async fn test_user_by_name() {
             }
         "#;
 
-        let ctx = GqlContext {
-            is_websocket: false,
-            session: ArcSwap::from_pointee(None),
-        };
+        let ctx = Arc::new(RequestContext::new(false));
 
         let res = tokio::time::timeout(
             Duration::from_secs(1),
-            schema.execute(Request::from(query).data(global.clone()).data(ctx)),
+            schema.execute(
+                Request::from(query)
+                    .provide_global(global.clone())
+                    .provide_context(ctx),
+            ),
         )
         .await
         .unwrap();
@@ -125,14 +127,15 @@ async fn test_user_by_name() {
             }
         "#;
 
-        let ctx = GqlContext {
-            is_websocket: false,
-            session: ArcSwap::from_pointee(None),
-        };
+        let ctx = Arc::new(RequestContext::new(false));
 
         let res = tokio::time::timeout(
             Duration::from_secs(1),
-            schema.execute(Request::from(query).data(global.clone()).data(ctx)),
+            schema.execute(
+                Request::from(query)
+                    .provide_global(global.clone())
+                    .provide_context(ctx),
+            ),
         )
         .await
         .unwrap();
@@ -170,14 +173,15 @@ async fn test_user_by_name() {
             }
         "#;
 
-        let ctx = GqlContext {
-            is_websocket: false,
-            session: ArcSwap::from_pointee(None),
-        };
+        let ctx = Arc::new(RequestContext::new(false));
 
         let res = tokio::time::timeout(
             Duration::from_secs(1),
-            schema.execute(Request::from(query).data(global.clone()).data(ctx)),
+            schema.execute(
+                Request::from(query)
+                    .provide_global(global.clone())
+                    .provide_context(ctx),
+            ),
         )
         .await
         .unwrap();
@@ -217,14 +221,16 @@ async fn test_user_by_name() {
             }
         "#;
 
-        let ctx = GqlContext {
-            is_websocket: false,
-            session: ArcSwap::from_pointee(Some(session.clone())),
-        };
+        let ctx = Arc::new(RequestContext::new(false));
+        ctx.set_session(Some(session.clone()));
 
         let res = tokio::time::timeout(
             Duration::from_secs(1),
-            schema.execute(Request::from(query).data(global.clone()).data(ctx)),
+            schema.execute(
+                Request::from(query)
+                    .provide_global(global.clone())
+                    .provide_context(ctx),
+            ),
         )
         .await
         .unwrap();
@@ -257,14 +263,16 @@ async fn test_user_by_name() {
             }
         "#;
 
-        let ctx = GqlContext {
-            is_websocket: true,
-            session: ArcSwap::from_pointee(Some(session.clone())),
-        };
+        let ctx = Arc::new(RequestContext::new(true));
+        ctx.set_session(Some(session.clone()));
 
         let res = tokio::time::timeout(
             Duration::from_secs(1),
-            schema.execute(Request::from(query).data(global.clone()).data(ctx)),
+            schema.execute(
+                Request::from(query)
+                    .provide_global(global.clone())
+                    .provide_context(ctx),
+            ),
         )
         .await
         .unwrap();

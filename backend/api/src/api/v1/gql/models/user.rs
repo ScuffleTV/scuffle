@@ -1,19 +1,14 @@
-use std::sync::Arc;
-
 use async_graphql::{ComplexObject, Context, SimpleObject};
 
-use crate::{
-    api::v1::gql::{
-        error::{GqlError, Result},
-        GqlContext,
-    },
-    global::GlobalState,
+use crate::api::v1::gql::{
+    error::{GqlError, Result},
+    ext::ContextExt,
 };
 use common::types::user;
 
 use super::date::DateRFC3339;
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Clone)]
 #[graphql(complex)]
 pub struct User {
     id: i64,
@@ -32,14 +27,8 @@ pub struct User {
 #[ComplexObject]
 impl User {
     async fn email<'ctx>(&self, ctx: &Context<'_>) -> Result<&str> {
-        let global = ctx
-            .data::<Arc<GlobalState>>()
-            .expect("failed to get global state");
-
-        // check if the user is allowed to see the email
-        let request_context = ctx
-            .data::<GqlContext>()
-            .expect("failed to get request context");
+        let global = ctx.get_global();
+        let request_context = ctx.get_session();
 
         let session = request_context.get_session(global).await?;
 
@@ -55,14 +44,8 @@ impl User {
     }
 
     async fn email_verified<'ctx>(&self, ctx: &Context<'_>) -> Result<bool> {
-        let global = ctx
-            .data::<Arc<GlobalState>>()
-            .expect("failed to get global state");
-
-        // check if the user is allowed to see the email
-        let request_context = ctx
-            .data::<GqlContext>()
-            .expect("failed to get request context");
+        let global = ctx.get_global();
+        let request_context = ctx.get_session();
 
         let session = request_context.get_session(global).await?;
 
@@ -78,14 +61,8 @@ impl User {
     }
 
     async fn last_login_at<'ctx>(&self, ctx: &Context<'_>) -> Result<&DateRFC3339> {
-        let global = ctx
-            .data::<Arc<GlobalState>>()
-            .expect("failed to get global state");
-
-        // check if the user is allowed to see the email
-        let request_context = ctx
-            .data::<GqlContext>()
-            .expect("failed to get request context");
+        let global = ctx.get_global();
+        let request_context = ctx.get_session();
 
         let session = request_context.get_session(global).await?;
 

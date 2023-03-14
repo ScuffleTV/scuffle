@@ -475,7 +475,7 @@
 	>
 		<div class="bg">
 			<MouseTrap on:close={hideLogin}>
-				<div class="popup">
+				<div class="popup" use:focusTrap={true}>
 					<div class="login-title">
 						<h2 class="text-left signup-title">{$loginMode === 1 ? "Login" : "Sign up"}</h2>
 						<h2 class="text-left signup-subtitle">
@@ -487,7 +487,7 @@
 							</span>
 						</h2>
 					</div>
-					<form use:focusTrap={true} on:submit|preventDefault={onSubmit}>
+					<form on:submit|preventDefault={onSubmit}>
 						<LoginField field={username} />
 						{#if $loginMode === 2}
 							<LoginField field={email} />
@@ -547,7 +547,6 @@
 		background-color: transparent;
 		margin: 0;
 		padding: 0;
-		outline: 0;
 		border: 0;
 		cursor: pointer;
 		transition: color 0.2s ease-in-out;

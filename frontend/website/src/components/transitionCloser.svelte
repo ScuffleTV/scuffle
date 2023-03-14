@@ -38,11 +38,11 @@
 	}
 </script>
 
-<div class={classState + (inheritAll ? " all" : "")} style={styleState}>
-	{#if innerOpen}
+{#if innerOpen}
+	<div class={classState + (inheritAll ? " all" : "")} style={styleState}>
 		<slot />
-	{/if}
-</div>
+	</div>
+{/if}
 
 <style lang="scss">
 	div {

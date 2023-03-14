@@ -1,35 +1,13 @@
 <script lang="ts">
 	import { loginMode, sessionToken } from "../store/login";
-	import { page } from "$app/stores";
 	import { user } from "../store/user";
-	import { faUser } from "@fortawesome/free-solid-svg-icons";
+	import { faSearch, faUser } from "@fortawesome/free-solid-svg-icons";
 	import Fa from "svelte-fa";
 	import MouseTrap from "./mouseTrap.svelte";
 	import { focusTrap } from "$lib/focusTrap";
 	import TransitionCloser from "./transitionCloser.svelte";
-	import { onMount } from "svelte";
 
-	interface MenuItem {
-		text: string;
-		url: string;
-	}
-
-	let menuItems: MenuItem[] = [
-		{ text: "Scuffle", url: "/" },
-		{ text: "About", url: "/about" },
-	];
-
-	let activeMenuItem: MenuItem | undefined;
 	let pfpDropdownOpen = false;
-
-	// Subscribe to the page store to update the active menu item when the page changes.
-	// This is also called when the page first loads and on SSR.
-	onMount(() =>
-		page.subscribe((value) => {
-			activeMenuItem = menuItems.find((item) => item.url === value.url.pathname);
-			pfpDropdownOpen = false;
-		}),
-	);
 
 	function openLogin() {
 		loginMode.set(1);
@@ -39,77 +17,124 @@
 		loginMode.set(2);
 	}
 
+	let lastUpdate = 0;
 	function setPfpDropdown(state?: boolean) {
+		// This is a hack to prevent the dropdown from closing when the user clicks on the pfp button.
+		if (Date.now() - lastUpdate < 100) return;
+		lastUpdate = Date.now();
 		pfpDropdownOpen = state ?? !pfpDropdownOpen;
+	}
+
+	function closePfpDropdown() {
+		setPfpDropdown(false);
 	}
 
 	function logout() {
 		// When we set this to null the store will delete the token from local storage & invalidate the token on the server.
 		// Will also update the value of $user to null.
 		sessionToken.set(null);
-		pfpDropdownOpen = false;
+		closePfpDropdown();
 	}
 </script>
 
-<nav>
+<nav class="main-grid">
 	<div class="logo" />
-	<div class="nav-right">
-		<div class="menu">
-			{#each menuItems as item}
-				<a href={item.url} class="menu-item" class:active-page={activeMenuItem === item}>
-					{item.text}
-				</a>
-			{/each}
+	<div class="search">
+		<input type="text" placeholder="Search" />
+		<div class="icon">
+			<Fa icon={faSearch} />
 		</div>
+	</div>
+	<div class="nav-right">
 		<!-- TODO
 			We should figure out a way to make this work when the page is first loaded.
 			Currently it flashes the login/signup buttons before the user is loaded.
 			Perhaps we can have a loading state for the user store?
 			if loading render a button that has no text and is very minimal.
 		-->
-		{#if $user}
-			<button class="pfp" on:click|stopPropagation={() => setPfpDropdown()}>
-				<Fa icon={faUser} />
-			</button>
-			<TransitionCloser
-				open={pfpDropdownOpen}
-				closeAnimationDuration={150}
-				openAnimationDuration={150}
-				inheritAll={false}
-			>
-				<MouseTrap on:close={() => setPfpDropdown(false)} inheritAll={false}>
-					<div class="pfp-dropdown">
-						<a class="pfp-button" href="/profile">Profile</a>
-						<button class="pfp-button" on:click={logout}>Logout</button>
-					</div>
-				</MouseTrap>
-			</TransitionCloser>
-		{:else}
-			<div class="buttons" use:focusTrap={pfpDropdownOpen}>
+		<div class="buttons" use:focusTrap={pfpDropdownOpen}>
+			{#if $user}
+				<button class="pfp" on:click={() => setPfpDropdown()}>
+					<Fa icon={faUser} />
+				</button>
+				<TransitionCloser
+					open={pfpDropdownOpen}
+					closeAnimationDuration={150}
+					openAnimationDuration={150}
+					inheritAll={false}
+				>
+					<MouseTrap on:close={closePfpDropdown} inheritAll={false}>
+						<div class="pfp-dropdown">
+							<a class="pfp-button" href={`/${$user.username}`} on:click={closePfpDropdown}
+								>Channel</a
+							>
+							<a class="pfp-button" href="/profile" on:click={closePfpDropdown}>Profile</a>
+							<button class="pfp-button" on:click={logout}>Logout</button>
+						</div>
+					</MouseTrap>
+				</TransitionCloser>
+			{:else}
 				<button class="login button" on:click={openLogin}>Login</button>
 				<button class="signup button" on:click={openSignup}>Sign up</button>
-			</div>
-		{/if}
+			{/if}
+		</div>
 	</div>
 </nav>
 
 <style lang="scss">
-	a.active-page {
-		text-decoration: underline;
-		text-underline-offset: 0.5rem;
-		text-decoration-color: #ff7357;
-		text-decoration-thickness: 0.2rem;
+	@import "../assets/styles/variables.scss";
+
+	.main-grid {
+		position: sticky;
+		top: 0;
+		grid-column: 2 / 2;
+		grid-row: 1 / 1;
 	}
 
 	nav {
-		display: flex;
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
 		align-items: center;
 		justify-content: space-between;
-		background-color: #0000004b;
-		backdrop-filter: blur(16px) saturate(125%);
+		background-color: $bgColor2;
+		height: $topNavHeight;
+		width: 100%;
+		z-index: 5;
 	}
 
-	.menu,
+	.search {
+		display: flex;
+		width: 30rem;
+		position: relative;
+
+		& > input {
+			border: 3px solid $borderColor;
+			border-radius: 1rem;
+			padding: 0.5rem 1rem;
+			font: inherit;
+			background-color: $bgColor2;
+			color: white;
+			width: 100%;
+			padding-right: 2rem;
+			outline: 0;
+			transition: border-color 0.25s;
+			&:focus {
+				border-color: #ff7357;
+				background-color: black;
+			}
+			&::placeholder {
+				color: #ffffff70;
+			}
+		}
+
+		& > .icon {
+			position: absolute;
+			right: 1rem;
+			top: 0.7rem;
+			color: #ffffff70;
+		}
+	}
+
 	.buttons,
 	.nav-right {
 		display: flex;
@@ -119,22 +144,8 @@
 
 	.nav-right {
 		padding: 0.5rem;
-		grid-gap: 0.5rem;
-		margin-right: 0.5rem;
-	}
-
-	.menu {
-		display: flex;
-		grid-gap: 0.5rem;
-	}
-
-	.menu-item {
-		font-size: 1.1rem;
-		color: white;
-		padding: 1rem 0.5rem;
-		&:hover {
-			color: #ff7357;
-		}
+		gap: 1rem;
+		justify-content: flex-end;
 	}
 
 	.button {
@@ -175,7 +186,6 @@
 		transition: background-color 0.5s, color 0.5s, box-shadow 0.5s;
 		cursor: pointer;
 		border: 0.1rem solid #96491c;
-		box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.1);
 		background-color: #212121;
 		&:hover {
 			background-color: #f79986;
@@ -187,7 +197,7 @@
 		position: absolute;
 		top: 100%;
 		right: 1rem;
-		background-color: #16181862;
+		background-color: #161818;
 		border-radius: 0.2rem;
 		box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.1);
 		border: 1px solid #96491c;
@@ -201,6 +211,9 @@
 			color: white;
 			padding: 1rem 3rem;
 			border-radius: 0.1rem;
+			cursor: pointer;
+			width: 100%;
+			text-align: center;
 			&:focus,
 			&:hover {
 				outline: none;

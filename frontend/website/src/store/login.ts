@@ -13,7 +13,6 @@ export const sessionToken = writable(null as Token | null);
 if (typeof window !== "undefined") {
 	const localToken = localStorage.getItem("SCUFFLE_SESSION_TOKEN");
 	if (localToken) {
-		console.log("settingToken");
 		sessionToken.set({
 			token: localToken,
 			source: "localstorage",

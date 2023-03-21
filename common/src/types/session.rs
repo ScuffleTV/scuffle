@@ -6,7 +6,7 @@ pub struct Model {
     pub user_id: i64,                          // bigint, foreign key -> users.id
     pub invalidated_at: Option<DateTime<Utc>>, // timestampz
     pub created_at: DateTime<Utc>,             // timestamptz
-    pub expires_at: DateTime<Utc>,             // timestamptz?
+    pub expires_at: DateTime<Utc>,             // timestamptz
     pub last_used_at: DateTime<Utc>,           // timestamptz
 }
 

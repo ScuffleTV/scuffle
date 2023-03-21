@@ -31,7 +31,7 @@ You can find instructions on how to do that [here](https://devblogs.microsoft.co
 - [Docker Compose V2](https://docs.docker.com/compose/install)
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Mask](https://github.com/jacobdeichert/mask)
-- [Musl](https://musl.libc.org/)
+- [Terraform](https://developer.hashicorp.com/terraform)
 
 ### For Ubuntu
 
@@ -50,7 +50,18 @@ echo "deb [signed-by=/usr/share/keyrings/yarnkey.gpg] https://dl.yarnpkg.com/deb
 
 # Running the install for nodejs, yarn, make, docker and git
 sudo apt-get update
-sudo apt-get install build-essential pkg-config libssl-dev nodejs yarn docker.io git musl-tools
+sudo apt-get install build-essential pkg-config libssl-dev nodejs yarn docker.io git gnupg software-properties-common
+
+# Add Hashicorp's GPG key
+wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
+
+# Add Hashicorp's repository
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
+sudo tee /etc/apt/sources.list.d/hashicorp.list > /dev/null
+
+# Install Terraform
+sudo apt-get update && sudo apt-get install terraform
 
 # Installing docker compose v2
 DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}

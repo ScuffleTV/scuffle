@@ -2,6 +2,7 @@ name: Lint, Test & Build
 
 on:
   workflow_dispatch:
+
   pull_request:
     branches:
       - main
@@ -16,10 +17,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  should_run:
+    name: Should run?
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: "${{ (github.event_name == 'workflow_dispatch' || steps.regex-match.outputs.match != 'ci: skip') && (github.event_name != 'pull_request' || !github.event.pull_request.draft || steps.regex-match.outputs.match == 'ci: force') }}"
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Get last commit message
+        run: |
+          git log -1 --no-merges --pretty=format:"%B" -n 1 HEAD | tee commit_message.txt
+          COMMIT_MSG=$(cat commit_message.txt)
+
+          echo "COMMIT_MSG<<EOF" >> $GITHUB_ENV
+          echo "$COMMIT_MSG" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - uses: actions-ecosystem/action-regex-match@v2
+        id: regex-match
+        with:
+          text: ${{ env.COMMIT_MSG }}
+          regex: '\bci: (force|skip)\b'
+
   lint-test:
     name: Run Lint + Test
     runs-on: ubuntu-latest
-    container: ghcr.io/scuffletv/build:425e9d58cd6fab8e3d202681188c54b55c9e71f1
+    container: ghcr.io/scuffletv/build:latest
+    needs: [should_run]
+    if: ${{ needs.should_run.outputs.should-run == 'true' }}
+    environment: ${{ (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/feature/*' && github.event_name != 'workflow_dispatch') && 'lint-test-build' || '' }}
     services:
       postgres:
         image: postgres:15.2
@@ -44,27 +73,11 @@ jobs:
           cache: "yarn"
           node-version: 18
 
-      - name: Set up cargo registry cache
-        uses: actions/cache@v3
+      - name: Cargo Cache
+        uses: Swatinem/rust-cache@v2
         continue-on-error: false
         with:
-          path: |
-            /usr/local/cargo/registry/index/
-            /usr/local/cargo/registry/cache/
-            /usr/local/cargo/git/db/
-          key: gnu-rust-registry-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
-          restore-keys: |
-            gnu-rust-registry-
-
-      - name: Set up cargo target cache
-        uses: actions/cache@v3
-        continue-on-error: false
-        with:
-          path: |
-            target/
-          key: gnu-rust-target-lint-test-rust-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
-          restore-keys: |
-            gnu-rust-target-lint-test-rust-
+          prefix-key: lint-test
 
       - name: Install dependencies
         run: mask bootstrap --no-db --no-docker --no-env --no-stack --no-rust
@@ -91,7 +104,7 @@ jobs:
   build:
     name: Run Build
     runs-on: ubuntu-latest
-    container: ghcr.io/scuffletv/build:425e9d58cd6fab8e3d202681188c54b55c9e71f1
+    container: ghcr.io/scuffletv/build:latest
     needs: [lint-test]
 
     steps:
@@ -105,27 +118,11 @@ jobs:
           cache: "yarn"
           node-version: 18
 
-      - name: Set up cargo registry cache
-        uses: actions/cache@v3
+      - name: Cargo Cache
+        uses: Swatinem/rust-cache@v2
         continue-on-error: false
         with:
-          path: |
-            /usr/local/cargo/registry/index/
-            /usr/local/cargo/registry/cache/
-            /usr/local/cargo/git/db/
-          key: gnu-rust-registry-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
-          restore-keys: |
-            gnu-rust-registry-
-
-      - name: Set up cargo target cache
-        uses: actions/cache@v3
-        continue-on-error: false
-        with:
-          path: |
-            target/
-          key: gnu-rust-target-build-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
-          restore-keys: |
-            gnu-rust-target-build-
+          prefix-key: build
 
       - name: Install dependencies
         run: mask bootstrap --no-db --no-docker --no-env --no-js-tests --no-stack --no-rust
@@ -304,3 +301,34 @@ jobs:
 
           docker push ghcr.io/scuffletv/website:${{ github.sha }}
           docker push ghcr.io/scuffletv/website:$TAG
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [docker]
+    environment: prod
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Run Terraform Apply
+        run: |
+          terraform -chdir=terraform init
+          terraform -chdir=terraform workspace select prod
+
+          cat > terraform/terraform.tfvars <<EOT
+          api_docker_image = "ghcr.io/scuffletv/api:${{ github.sha }}"
+          edge_docker_image = "ghcr.io/scuffletv/edge:${{ github.sha }}"
+          ingest_docker_image = "ghcr.io/scuffletv/ingest:${{ github.sha }}"
+          transcoder_docker_image = "ghcr.io/scuffletv/transcoder:${{ github.sha }}"
+          website_docker_image = "ghcr.io/scuffletv/website:${{ github.sha }}"
+          EOT
+
+          terraform -chdir=terraform apply

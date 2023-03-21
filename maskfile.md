@@ -11,17 +11,12 @@
 - container
   - flags: --container
   - desc: Build the project in a container
-- static
-  - flags: --static
-  - desc: Compile the project statically
 
 ```bash
 set -e
 if [[ "$verbose" == "true" ]]; then
     set -x
 fi
-
-static=${static:-false}
 
 if [ "$container" == "true" ]; then
     $MASK env backup
@@ -35,7 +30,7 @@ if [ "$container" == "true" ]; then
     PID=$(docker run -d --stop-signal SIGKILL --rm -v "$(pwd)":/pwd -w /pwd ghcr.io/scuffletv/build:latest mask build)
     docker logs -f $PID
 else
-    $MASK build rust --static=$static
+    $MASK build rust
     $MASK build website
 fi
 ```
@@ -49,9 +44,6 @@ fi
 - container
   - flags: --container
   - desc: Build the project in a container
-- static
-  - flags: --static
-  - desc: Compile the project statically
 
 ```bash
 set -e
@@ -59,7 +51,6 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-static=${static:-false}
 target=$(rustup show active-toolchain | cut -d '-' -f2- | cut -d ' ' -f1)
 
 if [ "$container" == "true" ]; then
@@ -74,10 +65,6 @@ if [ "$container" == "true" ]; then
     PID=$(docker run -d --stop-signal SIGKILL --rm -v "$(pwd)":/pwd -w /pwd ghcr.io/scuffletv/build:latest mask build rust --static=$static)
     docker logs -f $PID
 else
-    if [ "$static" == "true" ]; then
-        export RUSTFLAGS="-C target-feature=+crt-static"
-    fi
-
     cargo build --release --target=$target
 fi
 ```
@@ -178,6 +165,10 @@ fi
   - flags: --no-js
   - type: bool
   - desc: Disables JS formatting
+- no_terraform
+  - flags: --no-terraform
+  - type: bool
+  - desc: Disables Terraform formatting
 
 ```bash
 set -e
@@ -195,6 +186,10 @@ if [ "$no_js" != "true" ]; then
     yarn format
     yarn workspace website format
 fi
+
+if [ "$no_terraform" != "true" ]; then
+    terraform fmt -recursive
+fi
 ```
 
 ## lint
@@ -211,6 +206,10 @@ fi
   - flags: --no-js
   - type: bool
   - desc: Disables JS linting
+- no_terraform
+  - flags: --no-terraform
+  - type: bool
+  - desc: Disables Terraform linting
 
 ```bash
 set -e
@@ -222,13 +221,17 @@ if [ "$no_rust" != "true" ]; then
     cargo clippy -- -D warnings
     cargo clippy --package player --target wasm32-unknown-unknown -- -D warnings
     cargo fmt --all --check
-    cargo sqlx prepare --check --merged -- --all-targets --all-features
+    cargo sqlx prepare --check --workspace -- --all-targets --all-features
     $MASK gql check
 fi
 
 if [ "$no_js" != "true" ]; then
     yarn lint
     yarn workspace website lint
+fi
+
+if [ "$no_terraform" != "true" ]; then
+    terraform fmt -check -recursive
 fi
 ```
 
@@ -354,10 +357,10 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-cargo sqlx prepare --merged -- --all-targets --all-features
+cargo sqlx prepare --workspace -- --all-targets --all-features
 
 if [ "$no_format" != "true" ]; then
-    yarn prettier --write sqlx-data.json
+    yarn prettier --write .sqlx
 fi
 ```
 
@@ -590,7 +593,7 @@ if [ "$no_rust" != "true" ]; then
 
     cargo install cargo-binstall
     cargo binstall cargo-watch -y
-    cargo install sqlx-cli --features rustls,postgres --no-default-features
+    cargo install sqlx-cli --features native-tls,postgres --no-default-features --git https://github.com/launchbadge/sqlx --branch main
     cargo binstall wasm-pack -y
     cargo binstall cargo-llvm-cov -y
     cargo binstall cargo-nextest -y

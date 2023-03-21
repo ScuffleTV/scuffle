@@ -1,0 +1,43 @@
+{
+	"db_name": "PostgreSQL",
+	"query": "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
+	"describe": {
+		"columns": [
+			{
+				"ordinal": 0,
+				"name": "id",
+				"type_info": "Int8"
+			},
+			{
+				"ordinal": 1,
+				"name": "user_id",
+				"type_info": "Int8"
+			},
+			{
+				"ordinal": 2,
+				"name": "invalidated_at",
+				"type_info": "Timestamptz"
+			},
+			{
+				"ordinal": 3,
+				"name": "created_at",
+				"type_info": "Timestamptz"
+			},
+			{
+				"ordinal": 4,
+				"name": "expires_at",
+				"type_info": "Timestamptz"
+			},
+			{
+				"ordinal": 5,
+				"name": "last_used_at",
+				"type_info": "Timestamptz"
+			}
+		],
+		"parameters": {
+			"Left": ["Int8", "Int8", "Timestamptz"]
+		},
+		"nullable": [false, false, true, false, false, false]
+	},
+	"hash": "750acae3f638bd028e48f41a955d665914e8cf47383fda2b212183c13e385250"
+}

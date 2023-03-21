@@ -13,6 +13,8 @@ import { sessionToken } from "../store/login";
 import { createClient as createWsClient, type Client as WsClient } from "graphql-ws";
 import { websocketOpen } from "../store/websocket";
 import { filter, merge, pipe, share } from "wonka";
+import { env } from "$env/dynamic/public";
+import { PUBLIC_GQL_ENDPOINT, PUBLIC_GQL_WS_ENDPOINT } from "$env/static/public";
 
 declare global {
 	interface Window {
@@ -25,7 +27,7 @@ const exchanges: Exchange[] = [dedupExchange, cacheExchange];
 
 if (typeof window !== "undefined") {
 	const wsClient = createWsClient({
-		url: import.meta.env.VITE_GQL_WS_ENDPOINT,
+		url: PUBLIC_GQL_WS_ENDPOINT,
 		lazy: false,
 		connectionParams: () => {
 			return {
@@ -121,9 +123,13 @@ exchanges.push(
 	}),
 );
 
+const gqlURL =
+	(typeof window === "undefined" && env.PUBLIC_SSR_GQL_ENDPOINT) || PUBLIC_GQL_ENDPOINT;
+
 // This GQL context is created once and is available to all components.
 export const client = createClient({
-	url: import.meta.env.VITE_GQL_ENDPOINT,
+	// This allows us to change the endpoint at runtime.
+	url: gqlURL,
 	exchanges,
 	fetchOptions: () => {
 		const token = get(sessionToken);

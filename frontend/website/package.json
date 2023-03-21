@@ -5,7 +5,7 @@
 	"scripts": {
 		"dev:pre": "yarn wasm:dev && yarn codegen",
 		"dev": "yarn dev:pre && vite dev",
-		"build": "yarn wasm && yarn codegen && vite build",
+		"build": "yarn wasm && yarn codegen && NODE_ENV=production vite build",
 		"preview": "vite preview",
 		"test": "playwright test",
 		"test:unit": "vitest",
@@ -28,6 +28,7 @@
 		"@graphql-codegen/typescript-document-nodes": "^3.0.1",
 		"@graphql-typed-document-node/core": "^3.1.2",
 		"@playwright/test": "^1.28.1",
+		"@rollup/plugin-replace": "^5.0.2",
 		"@sveltejs/kit": "^1.5.0",
 		"@types/fs-extra": "^11.0.1",
 		"@types/node": "^18.14.2",

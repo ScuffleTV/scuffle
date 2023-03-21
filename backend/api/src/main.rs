@@ -20,6 +20,8 @@ async fn main() -> Result<()> {
     let config = config::AppConfig::parse()?;
     logging::init(&config.log_level)?;
 
+    tracing::info!("starting: loaded config from {}", config.config_file);
+
     let db = Arc::new(
         sqlx::PgPool::connect_with(
             PgConnectOptions::from_str(&config.database_url)?
@@ -32,8 +34,6 @@ async fn main() -> Result<()> {
     let (ctx, handler) = Context::new();
 
     let global = Arc::new(global::GlobalState::new(config, db, ctx));
-
-    tracing::info!("starting");
 
     let api_future = tokio::spawn(api::run(global.clone()));
 

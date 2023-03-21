@@ -15,12 +15,14 @@ use serde::Deserialize;
 //
 
 pub fn parse<'de, T: Deserialize<'de>>(config_file: &str) -> Result<T, ConfigError> {
-    let config_file = std::env::var("SCUF_CONFIG_FILE")
-        .ok()
-        .unwrap_or_else(|| config_file.to_string());
+    let mut required = true;
+    let config_file = std::env::var("SCUF_CONFIG_FILE").ok().unwrap_or_else(|| {
+        required = false;
+        config_file.to_string()
+    });
 
     let config = config::Config::builder()
-        .add_source(config::File::with_name(&config_file).required(false))
+        .add_source(config::File::with_name(&config_file).required(required))
         .add_source(
             config::Environment::with_prefix("SCUF")
                 .separator("__")

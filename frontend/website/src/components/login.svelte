@@ -10,9 +10,9 @@
 	import { login } from "$lib/user";
 	import TransitionCloser from "./transitionCloser.svelte";
 	import MouseTrap from "./mouseTrap.svelte";
+	import { PUBLIC_CF_TURNSTILE_KEY } from "$env/static/public";
 
 	const client = getContextClient();
-	const turnstileSiteKey = import.meta.env.VITE_CF_TURNSTILE_KEY;
 
 	let show = true;
 	let globalMessage = "";
@@ -503,7 +503,7 @@
 						{/if}
 						<div id="login-turnstile-container">
 							<Turnstile
-								siteKey={turnstileSiteKey}
+								siteKey={PUBLIC_CF_TURNSTILE_KEY}
 								on:turnstile-callback={onTurnstileCallback}
 								on:turnstile-error={clearTurnstileToken}
 								on:turnstile-expired={clearTurnstileToken}

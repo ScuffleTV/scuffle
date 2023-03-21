@@ -5,7 +5,13 @@ type AuthMutation {
 	"""
 	Login using a username and password. If via websocket this will authenticate the websocket connection.
 	"""
-	login(captchaToken: String!, password: String!, username: String!, validity: Int): Session!
+	login(
+		captchaToken: String!
+		password: String!
+		updateContext: Boolean
+		username: String!
+		validity: Int
+	): Session!
 	"""
 	Login with a session token. If via websocket this will authenticate the websocket connection.
 	"""
@@ -21,6 +27,7 @@ type AuthMutation {
 		captchaToken: String!
 		email: String!
 		password: String!
+		updateContext: Boolean
 		username: String!
 		validity: Int
 	): Session!

@@ -1,5 +1,6 @@
 import { vitePreprocess } from "@sveltejs/kit/vite";
-import adapter from "svelte-adapter-deno";
+import adapter from "./plugins/svelte-adapter-deno/index.js";
+import replace from "@rollup/plugin-replace";
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -8,7 +9,19 @@ const config = {
 	preprocess: vitePreprocess(),
 
 	kit: {
-		adapter: adapter(),
+		adapter: adapter({
+			rollupHook: (options) => {
+				options.plugins.push(
+					replace({
+						preventAssignment: true,
+						sourceMap: false,
+						values: {
+							"process.env.NODE_ENV": JSON.stringify("production"),
+						},
+					}),
+				);
+			},
+		}),
 		typescript: {
 			config(config) {
 				config.include.push("../wasm.d.ts");

@@ -23,6 +23,10 @@ impl AuthMutation {
             desc = "The duration of the session in seconds. If not specified it will be 7 days."
         )]
         validity: Option<u32>,
+        #[graphql(
+            desc = "Setting this to false will make it so logging in does not authenticate the connection."
+        )]
+        update_context: Option<bool>,
     ) -> Result<Session> {
         let global = ctx.get_global();
         let request_context = ctx.get_session();
@@ -75,7 +79,7 @@ impl AuthMutation {
             .ok_or((GqlError::InternalServerError, "Failed to serialize JWT"))?;
 
         // We need to update the request context with the new session
-        if request_context.is_websocket() {
+        if update_context.unwrap_or(true) {
             request_context.set_session(Some(session.clone()));
         }
 
@@ -96,7 +100,7 @@ impl AuthMutation {
         ctx: &Context<'_>,
         #[graphql(desc = "The JWT Session Token")] session_token: String,
         #[graphql(
-            desc = "Setting this to false will make it so logging in does not authenticate the websocket connection."
+            desc = "Setting this to false will make it so logging in does not authenticate the connection."
         )]
         update_context: Option<bool>,
     ) -> Result<Session> {
@@ -145,6 +149,7 @@ impl AuthMutation {
     }
 
     /// If successful will return a new session for the account which just got created.
+    #[allow(clippy::too_many_arguments)]
     async fn register<'ctx>(
         &self,
         ctx: &Context<'_>,
@@ -153,6 +158,10 @@ impl AuthMutation {
         #[graphql(desc = "The email of the user.")] email: String,
         #[graphql(desc = "The captcha token from cloudflare turnstile.")] captcha_token: String,
         #[graphql(desc = "The validity of the session in seconds.")] validity: Option<u32>,
+        #[graphql(
+            desc = "Setting this to false will make it so logging in does not authenticate the connection."
+        )]
+        update_context: Option<bool>,
     ) -> Result<Session> {
         let global = ctx.get_global();
         let request_context = ctx.get_session();
@@ -205,16 +214,16 @@ impl AuthMutation {
             .map_err_gql("Failed to create user")?;
 
         // TODO: maybe look to batch this
-        let user_id = sqlx::query!(
-            "INSERT INTO users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING id",
+        let user =
+            sqlx::query_as!(user::Model,
+            "INSERT INTO users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING *",
             username,
             user::hash_password(&password),
             email,
         )
-        .map(|row| row.id)
-        .fetch_one(&mut tx)
-        .await
-        .map_err_gql("Failed to create user")?;
+            .fetch_one(&mut *tx)
+            .await
+            .map_err_gql("Failed to create user")?;
 
         let login_duration = validity.unwrap_or(60 * 60 * 24 * 7); // 7 days
         let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
@@ -223,10 +232,10 @@ impl AuthMutation {
         let session = sqlx::query_as!(
             session::Model,
             "INSERT INTO sessions (user_id, expires_at) VALUES ($1, $2) RETURNING *",
-            user_id,
+            user.id,
             expires_at,
         )
-        .fetch_one(&mut tx)
+        .fetch_one(&mut *tx)
         .await
         .map_err_gql("Failed to create session")?;
 
@@ -240,7 +249,8 @@ impl AuthMutation {
             .await
             .map_err_gql("Failed to commit transaction")?;
 
-        if request_context.is_websocket() {
+        // We need to update the request context with the new session
+        if update_context.unwrap_or(true) {
             request_context.set_session(Some(session.clone()));
         }
 
@@ -251,7 +261,7 @@ impl AuthMutation {
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
             created_at: session.created_at.into(),
-            _user: None,
+            _user: Some(user.into()),
         })
     }
 

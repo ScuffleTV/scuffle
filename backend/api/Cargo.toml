@@ -25,10 +25,10 @@ tokio = { version = "1.25.0", features = ["full"] }
 serde = { version = "1.0.152", features = ["derive"] }
 hyper = { version = "0.14.24", features = ["full"] }
 common = { path = "../../common" }
-sqlx = { version = "0.6.2", features = ["postgres", "runtime-tokio-rustls", "json", "chrono"] }
+sqlx = { git="https://github.com/launchbadge/sqlx", branch="main", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono"] }
 routerify = "3.0.0"
 serde_json = "1.0.93"
-reqwest = { version = "0.11.14", features = ["json", "rustls-tls"], default-features = false }
+reqwest = { version = "0.11.14", features = ["json"] }
 chrono = { version = "0.4.23", default-features = false, features = ["serde"] }
 async-graphql = { version = "5.0.6", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "opentelemetry", "dataloader", "string_number"] }
 hyper-tungstenite = "0.9.0"

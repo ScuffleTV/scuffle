@@ -1,15 +1,15 @@
-use std::time::Duration;
-
 use async_graphql::http::WebSocketProtocols;
+use common::prelude::FutureTimeout;
 use futures_util::{SinkExt, StreamExt};
 use http::HeaderValue;
 use hyper_tungstenite::tungstenite::client::IntoClientRequest;
 use serde_json::json;
+use std::time::Duration;
 
 use crate::{
     api,
     api::v1::gql::{schema, PLAYGROUND_HTML},
-    config::AppConfig,
+    config::{ApiConfig, AppConfig},
     tests::global::mock_global_state,
 };
 
@@ -47,8 +47,13 @@ async fn test_subscription_noop() {
 
 #[tokio::test]
 async fn test_query_noop_via_http() {
+    let port = portpicker::pick_unused_port().expect("failed to pick port");
+
     let (global, handler) = mock_global_state(AppConfig {
-        bind_address: "0.0.0.0:8081".to_string(),
+        api: ApiConfig {
+            bind_address: format!("0.0.0.0:{}", port).parse().unwrap(),
+            tls: None,
+        },
         ..Default::default()
     })
     .await;
@@ -59,7 +64,7 @@ async fn test_query_noop_via_http() {
 
     let client = reqwest::Client::new();
     let res = client
-        .post("http://localhost:8081/v1/gql")
+        .post(format!("http://localhost:{}/v1/gql", port))
         .json(&serde_json::json!({
             "query": "query { noop }",
         }))
@@ -75,7 +80,7 @@ async fn test_query_noop_via_http() {
     );
 
     let res = client
-        .get("http://localhost:8081/v1/gql")
+        .get(format!("http://localhost:{}/v1/gql", port))
         .query(&[("query", "query { noop }")])
         .send()
         .await
@@ -91,7 +96,9 @@ async fn test_query_noop_via_http() {
     drop(client);
 
     // Connect via websocket
-    let mut req = "ws://localhost:8081/v1/gql".into_client_request().unwrap();
+    let mut req = format!("ws://localhost:{}/v1/gql", port)
+        .into_client_request()
+        .unwrap();
     req.headers_mut().insert(
         http::header::SEC_WEBSOCKET_PROTOCOL,
         HeaderValue::from_static(WebSocketProtocols::GraphQLWS.sec_websocket_protocol()),
@@ -177,10 +184,12 @@ async fn test_query_noop_via_http() {
     ws_stream.next().await;
 
     // Wait for the server to shutdown
-    tokio::time::timeout(std::time::Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(std::time::Duration::from_secs(1))
         .await
         .unwrap();
-    tokio::time::timeout(std::time::Duration::from_secs(1), h)
+    h.timeout(std::time::Duration::from_secs(1))
         .await
         .unwrap()
         .unwrap()
@@ -189,8 +198,13 @@ async fn test_query_noop_via_http() {
 
 #[tokio::test]
 async fn test_playground() {
+    let port = portpicker::pick_unused_port().expect("failed to pick port");
+
     let (global, handler) = mock_global_state(AppConfig {
-        bind_address: "0.0.0.0:8081".to_string(),
+        api: ApiConfig {
+            bind_address: format!("0.0.0.0:{}", port).parse().unwrap(),
+            tls: None,
+        },
         ..Default::default()
     })
     .await;
@@ -201,7 +215,7 @@ async fn test_playground() {
 
     let client = reqwest::Client::new();
     let res = client
-        .get("http://localhost:8081/v1/gql/playground")
+        .get(format!("http://localhost:{}/v1/gql/playground", port))
         .send()
         .await
         .unwrap();
@@ -217,10 +231,12 @@ async fn test_playground() {
     drop(client);
 
     // Wait for the server to shutdown
-    tokio::time::timeout(std::time::Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(std::time::Duration::from_secs(1))
         .await
         .unwrap();
-    tokio::time::timeout(std::time::Duration::from_secs(1), h)
+    h.timeout(std::time::Duration::from_secs(1))
         .await
         .unwrap()
         .unwrap()

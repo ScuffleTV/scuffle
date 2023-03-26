@@ -11,7 +11,7 @@ mod edge;
 async fn main() -> Result<()> {
     let config = Arc::new(config::AppConfig::parse()?);
 
-    logging::init(&config.log_level)?;
+    logging::init(&config.log_level, false)?;
 
     tracing::info!("starting");
 

@@ -1,10 +1,10 @@
 import { client } from "$lib/gql";
 import { get } from "svelte/store";
 import { graphql } from "../gql";
-import type { User } from "../gql/graphql";
 import { sessionToken } from "../store/login";
 import { user } from "../store/user";
 import { websocketOpen } from "../store/websocket";
+import type { User } from "../types/index";
 
 async function verifyToken(token: string): Promise<User | null> {
 	const result = await client
@@ -15,6 +15,7 @@ async function verifyToken(token: string): Promise<User | null> {
 						loginWithToken(sessionToken: $token, updateContext: true) {
 							user {
 								id
+								displayName
 								username
 								email
 								emailVerified

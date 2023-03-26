@@ -1,16 +1,18 @@
 use std::sync::Arc;
 
+use crate::database::session;
 use arc_swap::ArcSwap;
-use common::types::session;
 
-use crate::{api::v1::gql::error::Result, global::GlobalState};
+use crate::{
+    api::v1::gql::error::Result, dataloader::user_permissions::UserPermission, global::GlobalState,
+};
 
 use super::error::{GqlError, ResultExt};
 
 #[derive(Default)]
 pub struct RequestContext {
     is_websocket: bool,
-    session: ArcSwap<Option<session::Model>>,
+    session: ArcSwap<Option<(session::Model, UserPermission)>>,
 }
 
 impl RequestContext {
@@ -21,22 +23,21 @@ impl RequestContext {
         }
     }
 
-    pub fn set_session(&self, session: Option<session::Model>) {
+    pub fn set_session(&self, session: Option<(session::Model, UserPermission)>) {
         self.session.store(Arc::new(session));
     }
 
-    pub fn is_websocket(&self) -> bool {
-        self.is_websocket
-    }
-
-    pub async fn get_session(&self, global: &Arc<GlobalState>) -> Result<Option<session::Model>> {
+    pub async fn get_session(
+        &self,
+        global: &Arc<GlobalState>,
+    ) -> Result<Option<(session::Model, UserPermission)>> {
         let guard = self.session.load();
         let Some(session) = guard.as_ref() else {
             return Ok(None)
         };
 
         if !self.is_websocket {
-            if !session.is_valid() {
+            if !session.0.is_valid() {
                 return Err(GqlError::InvalidSession.with_message("Session is no longer valid"));
             }
 
@@ -45,7 +46,7 @@ impl RequestContext {
 
         let session = global
             .session_by_id_loader
-            .load_one(session.id)
+            .load_one(session.0.id)
             .await
             .map_err_gql("failed to fetch session")?
             .and_then(|s| if s.is_valid() { Some(s) } else { None })
@@ -54,8 +55,18 @@ impl RequestContext {
                 GqlError::InvalidSession.with_message("Session is no longer valid")
             })?;
 
-        self.session.store(Arc::new(Some(session.clone())));
+        let user_permissions = global
+            .user_permisions_by_id_loader
+            .load_one(session.user_id)
+            .await
+            .map_err_gql("failed to fetch user permissions")?
+            .ok_or_else(|| {
+                GqlError::InternalServerError.with_message("failed to fetch user permissions")
+            })?;
 
-        Ok(Some(session))
+        self.session
+            .store(Arc::new(Some((session.clone(), user_permissions.clone()))));
+
+        Ok(Some((session, user_permissions)))
     }
 }

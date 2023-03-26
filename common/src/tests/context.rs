@@ -2,7 +2,10 @@ use std::time::Duration;
 
 use tokio::time::Instant;
 
-use crate::context::{CancelReason, Context};
+use crate::{
+    context::{CancelReason, Context},
+    prelude::FutureTimeout,
+};
 
 #[tokio::test]
 async fn test_context_cancel() {
@@ -13,10 +16,13 @@ async fn test_context_cancel() {
         assert_eq!(reason, CancelReason::Cancel);
     });
 
-    tokio::time::timeout(Duration::from_millis(300), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled");
-    tokio::time::timeout(Duration::from_millis(300), handle)
+    handle
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled")
         .expect("panic in task");
@@ -31,11 +37,14 @@ async fn test_context_deadline() {
         assert_eq!(reason, CancelReason::Deadline);
     });
 
-    tokio::time::timeout(Duration::from_millis(300), handle)
+    handle
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled")
         .expect("panic in task");
-    tokio::time::timeout(Duration::from_millis(300), handler.done())
+    handler
+        .done()
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled");
 }
@@ -54,7 +63,8 @@ async fn test_context_is_done() {
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     drop(handler);
-    tokio::time::timeout(Duration::from_millis(300), handle)
+    handle
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled")
         .expect("panic in task");
@@ -69,11 +79,14 @@ async fn test_context_timeout() {
         assert_eq!(reason, CancelReason::Deadline);
     });
 
-    tokio::time::timeout(Duration::from_millis(300), handle)
+    handle
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled")
         .expect("panic in task");
-    tokio::time::timeout(Duration::from_millis(300), handler.done())
+    handler
+        .done()
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled");
 }
@@ -88,14 +101,19 @@ async fn test_context_parent() {
         assert_eq!(reason, CancelReason::Parent);
     });
 
-    tokio::time::timeout(Duration::from_millis(300), parent_handler.cancel())
+    parent_handler
+        .cancel()
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled");
-    tokio::time::timeout(Duration::from_millis(300), handle)
+    handle
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled")
         .expect("panic in task");
-    tokio::time::timeout(Duration::from_millis(300), handler.done())
+    handler
+        .done()
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled");
 }
@@ -111,13 +129,18 @@ async fn test_context_parent_deadline() {
         assert_eq!(reason, CancelReason::Deadline);
     });
 
-    tokio::time::timeout(Duration::from_millis(300), parent_handler.done())
+    parent_handler
+        .done()
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled");
-    tokio::time::timeout(Duration::from_millis(300), handler.done())
+    handler
+        .done()
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled");
-    tokio::time::timeout(Duration::from_millis(300), handle)
+    handle
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled")
         .expect("panic in task");
@@ -134,13 +157,18 @@ async fn test_context_parent_deadline_cancel() {
         assert_eq!(reason, CancelReason::Cancel);
     });
 
-    tokio::time::timeout(Duration::from_millis(300), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled");
-    tokio::time::timeout(Duration::from_millis(300), parent_handler.done())
+    parent_handler
+        .done()
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled");
-    tokio::time::timeout(Duration::from_millis(300), handle)
+    handle
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled")
         .expect("panic in task");
@@ -157,13 +185,18 @@ async fn test_context_parent_deadline_parent_cancel() {
         assert_eq!(reason, CancelReason::Parent);
     });
 
-    tokio::time::timeout(Duration::from_millis(300), parent_handler.cancel())
+    parent_handler
+        .cancel()
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled");
-    tokio::time::timeout(Duration::from_millis(300), handler.done())
+    handler
+        .done()
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled");
-    tokio::time::timeout(Duration::from_millis(300), handle)
+    handle
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled")
         .expect("panic in task");
@@ -179,14 +212,18 @@ async fn test_context_cancel_cloned() {
         assert_eq!(reason, CancelReason::Cancel);
     });
 
-    tokio::time::timeout(Duration::from_millis(300), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_millis(300))
         .await
         .expect_err("task should block because a clone exists");
-    tokio::time::timeout(Duration::from_millis(300), handle)
+    handle
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled")
         .expect("panic in task");
-    tokio::time::timeout(Duration::from_millis(300), ctx2.done())
+    ctx2.done()
+        .timeout(Duration::from_millis(300))
         .await
         .expect("task should be cancelled");
 }

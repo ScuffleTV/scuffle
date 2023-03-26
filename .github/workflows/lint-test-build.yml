@@ -45,7 +45,7 @@ jobs:
   lint-test:
     name: Run Lint + Test
     runs-on: ubuntu-latest
-    container: ghcr.io/scuffletv/build:latest
+    container: ghcr.io/scuffletv/build:troy
     needs: [should_run]
     if: ${{ needs.should_run.outputs.should-run == 'true' }}
     environment: ${{ (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/feature/*' && github.event_name != 'workflow_dispatch') && 'lint-test-build' || '' }}
@@ -58,9 +58,15 @@ jobs:
           POSTGRES_DB: postgres
         ports:
           - 5432:5432
+      nats:
+        image: ghcr.io/scuffletv/nats:latest
+        ports:
+          - 4222:4222
+          - 8222:8222
 
     env:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/scuffle
+      NATS_URL: nats://nats:4222
 
     steps:
       - uses: actions/checkout@v3
@@ -73,6 +79,9 @@ jobs:
           cache: "yarn"
           node-version: 18
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
       - name: Cargo Cache
         uses: Swatinem/rust-cache@v2
         continue-on-error: false
@@ -80,7 +89,7 @@ jobs:
           prefix-key: lint-test
 
       - name: Install dependencies
-        run: mask bootstrap --no-db --no-docker --no-env --no-stack --no-rust
+        run: mask bootstrap --no-db --no-docker --no-env --no-rust
 
       - name: Run migrations
         run: mask db migrate
@@ -89,7 +98,7 @@ jobs:
         run: mask lint
 
       - name: Run Test Rust
-        run: mask test --no-js
+        run: mask test --no-js --ci
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -98,13 +107,16 @@ jobs:
           files: lcov.info
           fail_ci_if_error: true
 
+      - name: Install Playwright Dependencies
+        run: npx playwright install-deps
+
       - name: Run Test JavaScript
         run: mask test --no-rust
 
   build:
     name: Run Build
     runs-on: ubuntu-latest
-    container: ghcr.io/scuffletv/build:latest
+    container: ghcr.io/scuffletv/build:troy
     needs: [lint-test]
 
     steps:
@@ -125,7 +137,7 @@ jobs:
           prefix-key: build
 
       - name: Install dependencies
-        run: mask bootstrap --no-db --no-docker --no-env --no-js-tests --no-stack --no-rust
+        run: mask bootstrap --no-db --no-docker --no-env --no-js-tests --no-rust
 
       - name: Run Build
         run: mask build

@@ -6,44 +6,19 @@
 
 <!-- Default build all  -->
 
-**OPTIONS**
-
-- container
-  - flags: --container
-  - desc: Build the project in a container
-
 ```bash
 set -e
 if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-if [ "$container" == "true" ]; then
-    $MASK env backup
-
-    function cleanup {
-        $MASK env restore
-        docker stop $PID >> /dev/null
-    }
-    trap cleanup EXIT
-
-    PID=$(docker run -d --stop-signal SIGKILL --rm -v "$(pwd)":/pwd -w /pwd ghcr.io/scuffletv/build:latest mask build)
-    docker logs -f $PID
-else
-    $MASK build rust
-    $MASK build website
-fi
+$MASK build rust
+$MASK build website
 ```
 
 ### rust
 
 > Build all rust code
-
-**OPTIONS**
-
-- container
-  - flags: --container
-  - desc: Build the project in a container
 
 ```bash
 set -e
@@ -53,20 +28,7 @@ fi
 
 target=$(rustup show active-toolchain | cut -d '-' -f2- | cut -d ' ' -f1)
 
-if [ "$container" == "true" ]; then
-    $MASK env backup
-
-    function cleanup {
-        $MASK env restore
-        docker stop $PID >> /dev/null
-    }
-    trap cleanup EXIT
-
-    PID=$(docker run -d --stop-signal SIGKILL --rm -v "$(pwd)":/pwd -w /pwd ghcr.io/scuffletv/build:latest mask build rust --static=$static)
-    docker logs -f $PID
-else
-    cargo build --release --target=$target
-fi
+cargo build --release --target=$target
 ```
 
 ### website
@@ -75,9 +37,6 @@ fi
 
 **OPTIONS**
 
-- container
-  - flags: --container
-  - desc: Build the project in a container
 - no_gql_prepare
   - flags: --no-gql-prepare
   - desc: Don't prepare the GraphQL schema
@@ -88,25 +47,12 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-if [ "$container" == "true" ]; then
-    $MASK env backup
-
-    function cleanup {
-        $MASK env restore
-        docker stop $PID >> /dev/null
-    }
-    trap cleanup EXIT
-
-    PID=$(docker run -d --stop-signal SIGKILL --rm -v "$(pwd)":/pwd -w /pwd ghcr.io/scuffletv/build:1.67.1 yarn workspace website build)
-    docker logs -f $PID
-else
-    if [ "$no_gql_prepare" != "true" ]; then
-        $MASK gql prepare
-        export SCHEMA_URL=$(realpath frontend/website/schema.graphql)
-    fi
-
-    yarn workspace website build
+if [ "$no_gql_prepare" != "true" ]; then
+    $MASK gql prepare
+    export SCHEMA_URL=$(realpath frontend/website/schema.graphql)
 fi
+
+yarn workspace website build
 ```
 
 ## clean
@@ -169,6 +115,10 @@ fi
   - flags: --no-terraform
   - type: bool
   - desc: Disables Terraform formatting
+- no_proto
+  - flags: --no-proto
+  - type: bool
+  - desc: Disables Protobuf formatting
 
 ```bash
 set -e
@@ -179,7 +129,6 @@ fi
 if [ "$no_rust" != "true" ]; then
     cargo fmt --all
     cargo clippy --fix --allow-dirty --allow-staged
-    cargo clippy --fix --allow-dirty --allow-staged --package player --target wasm32-unknown-unknown
 fi
 
 if [ "$no_js" != "true" ]; then
@@ -189,6 +138,10 @@ fi
 
 if [ "$no_terraform" != "true" ]; then
     terraform fmt -recursive
+fi
+
+if [ "$no_proto" != "true" ]; then
+    find . -name '*.proto' -exec clang-format -i {} \;
 fi
 ```
 
@@ -210,6 +163,10 @@ fi
   - flags: --no-terraform
   - type: bool
   - desc: Disables Terraform linting
+- no_proto
+  - flags: --no-proto
+  - type: bool
+  - desc: Disables Protobuf linting
 
 ```bash
 set -e
@@ -219,7 +176,6 @@ fi
 
 if [ "$no_rust" != "true" ]; then
     cargo clippy -- -D warnings
-    cargo clippy --package player --target wasm32-unknown-unknown -- -D warnings
     cargo fmt --all --check
     cargo sqlx prepare --check --workspace -- --all-targets --all-features
     $MASK gql check
@@ -232,6 +188,10 @@ fi
 
 if [ "$no_terraform" != "true" ]; then
     terraform fmt -check -recursive
+fi
+
+if [ "$no_proto" != "true" ]; then
+    find . -name '*.proto' -exec clang-format --dry-run --Werror {} \;
 fi
 ```
 
@@ -279,6 +239,10 @@ fi
   - flags: --no-js
   - type: bool
   - desc: Disables JS testing
+- ci
+  - flags: --ci
+  - type: bool
+  - desc: Runs tests in CI mode
 
 ```bash
 set -e
@@ -288,7 +252,11 @@ fi
 
 if [ "$no_rust" != "true" ]; then
     cargo llvm-cov clean --workspace
-    cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace
+    if [ "$ci" == "true" ]; then
+        cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace --no-fail-fast -E "not test(_v6)" --status-level all
+    else
+        cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace
+    fi
 fi
 
 if [ "$no_js" != "true" ]; then
@@ -431,7 +399,8 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 if [ ! -f .env ]; then
-    echo "DATABASE_URL=postgres://postgres:postgres@localhost:5432/scuffle-dev" > .env
+    echo "DATABASE_URL=postgres://postgres:postgres@localhost:5432/scuffle_dev" > .env
+    echo "RMQ_URL=amqp://rabbitmq:rabbitmq@localhost:5672/%2fscuffle" >> .env
 fi
 ```
 
@@ -465,85 +434,6 @@ if [ -f .env.bak ]; then
 fi
 ```
 
-## stack
-
-> Development stack tasks
-
-### up
-
-> Starts the docker compose stack
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-docker compose --file ./dev-stack/docker-compose.yml up -d --build
-```
-
-### down
-
-> Stops the docker compose stack
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-docker compose --file ./dev-stack/docker-compose.yml down
-```
-
-### init
-
-> Initializes the development stack
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-cp ./dev-stack/example.docker-compose.yml ./dev-stack/docker-compose.yml
-```
-
-### status
-
-> Gets the status of the docker compose stack
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-docker compose --file ./dev-stack/docker-compose.yml ps -a
-```
-
-### logs (service)
-
-> Prints the logs of the given service
-> You can show logs of multiple services by passing a single string with space separated service names
-
-**OPTIONS**
-
-- follow
-  - flags: -f, --follow
-  - type: bool
-  - desc: Follow log output
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-follow=${follow:-false}
-
-docker compose --file ./dev-stack/docker-compose.yml logs --follow=$follow $service
-```
-
 ## bootstrap
 
 > Bootstrap the project
@@ -570,10 +460,6 @@ docker compose --file ./dev-stack/docker-compose.yml logs --follow=$follow $serv
   - flags: --no-docker
   - type: bool
   - desc: Disables docker bootstrapping
-- no_stack
-  - flags: --no-stack
-  - type: bool
-  - desc: Disables stack bootstrapping
 - no_db
   - flags: --no-db
   - type: bool
@@ -587,14 +473,12 @@ fi
 
 if [ "$no_rust" != "true" ]; then
     rustup update
-    rustup target add wasm32-unknown-unknown
 
     rustup component add rustfmt clippy llvm-tools-preview
 
     cargo install cargo-binstall
     cargo binstall cargo-watch -y
     cargo install sqlx-cli --features native-tls,postgres --no-default-features --git https://github.com/launchbadge/sqlx --branch main
-    cargo binstall wasm-pack -y
     cargo binstall cargo-llvm-cov -y
     cargo binstall cargo-nextest -y
     cargo install cargo-audit --features vendored-openssl
@@ -614,10 +498,6 @@ fi
 
 if [ "$no_docker" != "true" ]; then
     docker network create scuffle-dev || true
-
-    if [ "$no_stack" != "true" ]; then
-        $MASK stack init
-    fi
 
     if [ "$no_db" != "true" ]; then
         $MASK db up
@@ -656,4 +536,17 @@ fi
 cargo run --bin api-gql-generator | yarn -s prettier --stdin-filepath schema.graphql | diff - schema.graphql || (echo "GraphQL schema is out of date. Run 'mask gql prepare' to update it." && exit 1)
 
 echo "GraphQL schema is up to date."
+```
+
+## cloc
+
+> Count lines of code
+
+```bash
+set -e
+if [[ "$verbose" == "true" ]]; then
+    set -x
+fi
+
+cloc $(git ls-files)
 ```

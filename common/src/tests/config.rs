@@ -2,6 +2,14 @@ use serde::Deserialize;
 
 use crate::config::parse;
 
+fn clear_env() {
+    for (key, _) in std::env::vars() {
+        if key.starts_with("SCUF_") {
+            std::env::remove_var(key);
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Default)]
 struct Config {
     foo: String,
@@ -10,6 +18,8 @@ struct Config {
 
 #[test]
 fn test_parse() {
+    clear_env();
+
     let tmp_dir = tempfile::tempdir().expect("Failed to create temp dir");
     let config_file = tmp_dir.path().join("config.toml");
 
@@ -30,6 +40,8 @@ bar = "bar"
 
 #[test]
 fn test_parse_env() {
+    clear_env();
+
     std::env::set_var("SCUF_FOO", "foo");
     std::env::set_var("SCUF_BAR", "bar");
 

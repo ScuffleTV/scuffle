@@ -6,20 +6,29 @@ authors = ["Scuffle <opensource@scuffle.tv>"]
 description = "Scuffle Common Library"
 
 [dependencies]
-config = "0.13.3"
-tracing = "0.1.37"
-anyhow = "1.0.69"
-serde = { version = "1.0.152", features = ["derive"] }
-tracing-subscriber = { version = "0.3.16", features = ["fmt", "env-filter", "json"] }
-chrono = { version = "0.4.23", default-features = false, features = ["clock"] }
-bitmask-enum = "2.1.0"
-async-trait = "0.1.64"
-sqlx = { version = "0.6.2", features = ["postgres", "offline", "runtime-tokio-rustls"] }
-tokio = { version = "1.25.0", features = ["full"] }
-argon2 = "0.4.1"
-tracing-log = { version = "0.1.2", features = ["env_logger"] }
-log = "0.4.17"
-email_address = "0.2.4"
+log = "0"
+http = "0"
+tower = "0"
+config = "0"
+anyhow = "1"
+futures = "0"
+tracing = "0"
+arc-swap = "1"
+tokio-util = "0"
+async-trait = "0"
+async-stream = "0"
+tonic = { version = "0", features = ["tls"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+lapin = { version = "2.0.3", features = ["native-tls"] }
+tracing-log = { version = "0", features = ["env_logger"] }
+trust-dns-resolver = { version = "0", features = ["tokio-runtime"] }
+tracing-subscriber = { version = "0", features = ["fmt", "env-filter", "json"] }
 
 [dev-dependencies]
-tempfile = "3.3.0"
+prost = "0"
+tempfile = "3"
+portpicker = "0"
+
+[build-dependencies]
+tonic-build = "0"

@@ -1,0 +1,12 @@
+{
+	"db_name": "PostgreSQL",
+	"query": "UPDATE streams SET state = $2, ended_at = NOW(), updated_at = NOW() WHERE id = $1",
+	"describe": {
+		"columns": [],
+		"parameters": {
+			"Left": ["Uuid", "Int8"]
+		},
+		"nullable": []
+	},
+	"hash": "66b22ce14a23a871257906fa260a4dfbe8a60b781d89bb12199dcc9a249e7fbd"
+}

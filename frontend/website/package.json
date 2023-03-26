@@ -3,20 +3,16 @@
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
-		"dev:pre": "yarn wasm:dev && yarn codegen",
+		"dev:pre": "yarn codegen",
 		"dev": "yarn dev:pre && vite dev",
-		"build": "yarn wasm && yarn codegen && NODE_ENV=production vite build",
+		"build": "yarn codegen && NODE_ENV=production vite build",
 		"preview": "vite preview",
 		"test": "playwright test",
 		"test:unit": "vitest",
 		"lint": "yarn dev:pre && prettier --plugin-search-dir . --check \"**/*\" -u && eslint . --ext .js,.ts,.svelte && yarn svelte:check",
 		"svelte:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json | tee /dev/null",
 		"format": "prettier --plugin-search-dir . --write \"**/*\" -u",
-		"wasm": "mask --maskfile $(realpath ../player/maskfile.md) build",
-		"wasm:dev": "yarn wasm dev",
-		"wasm:watch": "yarn wasm:dev --watch",
-		"wasm:clean": "mask --maskfile $(realpath ../player/maskfile.md) clean",
-		"clean": "rm -rf build .svelte-kit wasm.d.ts src/gql && yarn wasm:clean",
+		"clean": "rm -rf build .svelte-kit src/gql",
 		"codegen": "graphql-codegen --config codegen.cjs"
 	},
 	"devDependencies": {

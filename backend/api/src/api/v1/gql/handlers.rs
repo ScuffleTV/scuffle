@@ -1,10 +1,10 @@
 use std::{future, str::FromStr, sync::Arc};
 
+use crate::database::session;
 use async_graphql::{
     http::{WebSocketProtocols, WsMessage},
     Data, ErrorExtensions,
 };
-use common::types::session;
 use futures_util::{SinkExt, StreamExt};
 use hyper::{body::HttpBody, header, Body, Request, Response, StatusCode};
 use hyper_tungstenite::{
@@ -24,6 +24,7 @@ use crate::{
         ext::RequestExt as _,
         v1::jwt::JwtState,
     },
+    dataloader::user_permissions::UserPermission,
     global::GlobalState,
 };
 
@@ -92,7 +93,13 @@ async fn websocket_handler(
                         return Err(GqlError::InvalidSession.with_message("session has invalidated").extend());
                     }
 
-                    request_context.set_session(Some(session));
+                    let permissions = global
+                        .user_permisions_by_id_loader
+                        .load_one(session.id)
+                        .await
+                        .map_err_gql("failed to fetch permissions")?.unwrap_or_default();
+
+                    request_context.set_session(Some((session, permissions)));
                 }
 
                 Ok(data)
@@ -139,7 +146,7 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
 
     let global = req.get_global()?;
 
-    let session = req.context::<session::Model>();
+    let session = req.context::<(session::Model, UserPermission)>();
 
     // We need to check if this is a websocket upgrade request.
     // If it is, we need to upgrade the request to a websocket request.

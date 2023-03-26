@@ -1,14 +1,16 @@
+use crate::api::v1::gql::{ext::RequestExt, request_context::RequestContext, schema};
+use crate::api::v1::jwt::JwtState;
+use crate::database::{session, user};
+use crate::tests::global::mock_global_state;
+use async_graphql::{Request, Variables};
+use common::prelude::FutureTimeout;
+use serial_test::serial;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::api::v1::gql::{ext::RequestExt, request_context::RequestContext, schema};
-use crate::api::v1::jwt::JwtState;
-use crate::tests::global::mock_global_state;
-use async_graphql::{Request, Variables};
-use common::types::{session, user};
-
+#[serial]
 #[tokio::test]
-async fn test_session_user() {
+async fn test_serial_session_user() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
@@ -17,11 +19,11 @@ async fn test_session_user() {
         .unwrap();
     let user =
         sqlx::query_as!(user::Model,
-        "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4) RETURNING *",
-        1,
+        "INSERT INTO users(username, display_name, email, password_hash, stream_key) VALUES ($1, $1, $2, $3, $4) RETURNING *",
         "admin",
         "admin@admin.com",
-        user::hash_password("admin")
+        user::hash_password("admin"),
+        user::generate_stream_key(),
     )
         .fetch_one(&*global.db)
         .await
@@ -30,7 +32,7 @@ async fn test_session_user() {
     let session = sqlx::query_as!(
         session::Model,
         "INSERT INTO sessions(user_id, expires_at) VALUES ($1, $2) RETURNING *",
-        1,
+        user.id,
         chrono::Utc::now() + chrono::Duration::seconds(30)
     )
     .fetch_one(&*global.db)
@@ -88,7 +90,9 @@ async fn test_session_user() {
 
     drop(global);
 
-    tokio::time::timeout(Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to cancel context");
 }

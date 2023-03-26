@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use common::types::session;
 use hyper::http::header;
 use hyper::{header::HeaderValue, Body, StatusCode};
 use routerify::{prelude::RequestExt, Middleware};
@@ -109,18 +108,15 @@ pub fn auth_middleware(_: &Arc<GlobalState>) -> Middleware<Body, RouteError> {
             fail_fast!(mode, req);
         }
 
+        let permissions = global
+            .user_permisions_by_id_loader
+            .load_one(session.user_id)
+            .await
+            .map_err_route("failed to fetch user permissions")?
+            .unwrap_or_default();
+
         req.set_response_header(X_AUTH_TOKEN_CHECK_STATUS, AuthTokenCheckStatus::Success);
-        req.set_context(session);
-
-        Ok(req)
-    })
-}
-
-pub fn auth_required() -> Middleware<Body, RouteError> {
-    Middleware::pre(|req| async move {
-        if req.context::<session::Model>().is_none() {
-            return Err(RouteError::from((StatusCode::UNAUTHORIZED, "unauthorized")));
-        }
+        req.set_context((session, permissions));
 
         Ok(req)
     })

@@ -1,0 +1,17 @@
+[package]
+name = "bytesio"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+byteorder = "1"
+bytes = "1"
+tokio-util = { version = "0", features = ["codec"] }
+futures = "0"
+tokio-stream = { version = "0" }
+tokio = "1"
+
+common = { path = "../../common" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

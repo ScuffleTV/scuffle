@@ -22,11 +22,6 @@ const config = {
 				);
 			},
 		}),
-		typescript: {
-			config(config) {
-				config.include.push("../wasm.d.ts");
-			},
-		},
 	},
 };
 

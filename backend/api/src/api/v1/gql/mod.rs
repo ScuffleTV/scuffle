@@ -5,6 +5,7 @@ use async_graphql::{
 };
 use hyper::{Body, Response};
 use routerify::Router;
+use uuid::Uuid;
 
 use crate::{api::error::RouteError, global::GlobalState};
 
@@ -61,6 +62,22 @@ impl Query {
 
         Ok(user.map(models::user::User::from))
     }
+
+    async fn user_by_id(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "The id of the user.")] id: Uuid,
+    ) -> Result<Option<models::user::User>> {
+        let global = ctx.get_global();
+
+        let user = global
+            .user_by_id_loader
+            .load_one(id)
+            .await
+            .map_err_gql("failed to fetch user")?;
+
+        Ok(user.map(models::user::User::from))
+    }
 }
 
 pub type MySchema = Schema<Query, Mutation, Subscription>;
@@ -75,7 +92,6 @@ pub fn schema() -> MySchema {
     )
     .enable_federation()
     .enable_subscription_in_federation()
-    .extension(extensions::ApolloTracing)
     .extension(extensions::Analyzer)
     .limit_complexity(100) // We don't want to allow too complex queries to be executed
     .finish()

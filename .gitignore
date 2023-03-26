@@ -3,7 +3,6 @@ target/
 !.vscode/extensions.json
 node_modules/
 .env*
-dev-stack/docker-compose.yml
 *.log
 .DS_Store
 *.lcov

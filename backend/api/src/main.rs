@@ -2,15 +2,17 @@
 
 use std::{str::FromStr, sync::Arc, time::Duration};
 
-use anyhow::Result;
-use common::{context::Context, logging, signal};
+use anyhow::{Context as _, Result};
+use common::{context::Context, logging, prelude::FutureTimeout, signal};
 use sqlx::{postgres::PgConnectOptions, ConnectOptions};
 use tokio::{select, signal::unix::SignalKind, time};
 
-pub mod api;
-pub mod config;
-pub mod dataloader;
-pub mod global;
+mod api;
+mod config;
+mod database;
+mod dataloader;
+mod global;
+mod grpc;
 
 #[cfg(test)]
 mod tests;
@@ -18,13 +20,13 @@ mod tests;
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = config::AppConfig::parse()?;
-    logging::init(&config.log_level)?;
+    logging::init(&config.logging.level, config.logging.json)?;
 
     tracing::info!("starting: loaded config from {}", config.config_file);
 
     let db = Arc::new(
         sqlx::PgPool::connect_with(
-            PgConnectOptions::from_str(&config.database_url)?
+            PgConnectOptions::from_str(&config.database.uri)?
                 .disable_statement_logging()
                 .to_owned(),
         )
@@ -33,9 +35,21 @@ async fn main() -> Result<()> {
 
     let (ctx, handler) = Context::new();
 
-    let global = Arc::new(global::GlobalState::new(config, db, ctx));
+    let rmq = common::rmq::ConnectionPool::connect(
+        config.rmq.uri.clone(),
+        lapin::ConnectionProperties::default(),
+        Duration::from_secs(30),
+        1,
+    )
+    .timeout(Duration::from_secs(5))
+    .await
+    .context("failed to connect to rabbitmq, timedout")?
+    .context("failed to connect to rabbitmq")?;
+
+    let global = Arc::new(global::GlobalState::new(config, db, rmq, ctx));
 
     let api_future = tokio::spawn(api::run(global.clone()));
+    let grpc_future = tokio::spawn(grpc::run(global.clone()));
 
     // Listen on both sigint and sigterm and cancel the context when either is received
     let mut signal_handler = signal::SignalHandler::new()
@@ -44,6 +58,8 @@ async fn main() -> Result<()> {
 
     select! {
         r = api_future => tracing::error!("api stopped unexpectedly: {:?}", r),
+        r = grpc_future => tracing::error!("grpc stopped unexpectedly: {:?}", r),
+        r = global.rmq.handle_reconnects() => tracing::error!("rmq stopped unexpectedly: {:?}", r),
         _ = signal_handler.recv() => tracing::info!("shutting down"),
     }
 

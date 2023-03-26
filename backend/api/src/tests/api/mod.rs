@@ -1,16 +1,25 @@
 use std::time::Duration;
 
+use common::prelude::FutureTimeout;
 use hyper::StatusCode;
 
-use crate::{api::run, config::AppConfig, tests::global::mock_global_state};
+use crate::{
+    api::run,
+    config::{ApiConfig, AppConfig},
+    tests::global::mock_global_state,
+};
 
 mod errors;
 mod v1;
 
 #[tokio::test]
 async fn test_api_v6() {
+    let port = portpicker::pick_unused_port().expect("failed to pick port");
     let (global, handler) = mock_global_state(AppConfig {
-        bind_address: "[::]:8081".to_string(),
+        api: ApiConfig {
+            bind_address: format!("[::]:{}", port).parse().unwrap(),
+            tls: None,
+        },
         ..Default::default()
     })
     .await;
@@ -22,7 +31,7 @@ async fn test_api_v6() {
 
     let client = reqwest::Client::new();
     let resp = client
-        .get("http://localhost:8081/v1/health")
+        .get(format!("http://localhost:{}/v1/health", port))
         .send()
         .await
         .expect("failed to get health");
@@ -34,10 +43,13 @@ async fn test_api_v6() {
     // The client uses Keep-Alive, so we need to drop it to release the global context
     drop(client);
 
-    tokio::time::timeout(Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to cancel context");
-    tokio::time::timeout(Duration::from_secs(1), handle)
+    handle
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to cancel api")
         .expect("api failed")
@@ -46,8 +58,13 @@ async fn test_api_v6() {
 
 #[tokio::test]
 async fn test_api_v4() {
+    let port = portpicker::pick_unused_port().expect("failed to pick port");
+
     let (global, handler) = mock_global_state(AppConfig {
-        bind_address: "0.0.0.0:8081".to_string(),
+        api: ApiConfig {
+            bind_address: format!("0.0.0.0:{}", port).parse().unwrap(),
+            tls: None,
+        },
         ..Default::default()
     })
     .await;
@@ -59,7 +76,7 @@ async fn test_api_v4() {
 
     let client = reqwest::Client::new();
     let resp = client
-        .get("http://localhost:8081/v1/health")
+        .get(format!("http://localhost:{}/v1/health", port))
         .send()
         .await
         .expect("failed to get health");
@@ -71,27 +88,15 @@ async fn test_api_v4() {
     // The client uses Keep-Alive, so we need to drop it to release the global context
     drop(client);
 
-    tokio::time::timeout(Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to cancel context");
-    tokio::time::timeout(Duration::from_secs(1), handle)
+    handle
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to cancel api")
         .expect("api failed")
         .expect("api failed");
-}
-
-#[tokio::test]
-async fn test_api_bad_bind() {
-    let (global, handler) = mock_global_state(AppConfig {
-        bind_address: "???".to_string(),
-        ..Default::default()
-    })
-    .await;
-
-    assert!(run(global).await.is_err());
-
-    tokio::time::timeout(Duration::from_secs(1), handler.cancel())
-        .await
-        .expect("failed to cancel context");
 }

@@ -1,21 +1,27 @@
-use core::time;
-
+use crate::database::{session, user};
 use chrono::{Duration, Utc};
-use common::types::session;
+use common::prelude::FutureTimeout;
+use core::time;
 use http::header;
 use serde_json::{json, Value};
+use serial_test::serial;
 
 use crate::{
     api::{self, v1::jwt::JwtState},
-    config::AppConfig,
+    config::{ApiConfig, AppConfig},
     tests::global::mock_global_state,
 };
 
+#[serial]
 #[tokio::test]
 
-async fn test_auth_middleware() {
+async fn test_serial_auth_middleware() {
+    let port = portpicker::pick_unused_port().expect("failed to pick port");
     let (global, handler) = mock_global_state(AppConfig {
-        bind_address: "0.0.0.0:8081".to_string(),
+        api: ApiConfig {
+            bind_address: format!("0.0.0.0:{}", port).parse().unwrap(),
+            tls: None,
+        },
         ..Default::default()
     })
     .await;
@@ -24,21 +30,22 @@ async fn test_auth_middleware() {
         .execute(&*global.db)
         .await
         .expect("failed to clear users");
-    sqlx::query!(
-        "INSERT INTO users (id, username, email, password_hash) VALUES ($1, $2, $3, $4)",
-        1,
+    let id = sqlx::query!(
+        "INSERT INTO users (username, display_name, email, password_hash, stream_key) VALUES ($1, $1, $2, $3, $4) RETURNING id",
         "test",
         "test@test.com",
-        "$2b$1"
+        user::hash_password("test"),
+        user::generate_stream_key(),
     )
-    .execute(&*global.db)
+    .map(|row| row.id)
+    .fetch_one(&*global.db)
     .await
     .expect("failed to insert user");
 
     let session = sqlx::query_as!(
         session::Model,
         "INSERT INTO sessions (user_id, expires_at) VALUES ($1, $2) RETURNING *",
-        1,
+        id,
         Utc::now() + Duration::seconds(30)
     )
     .fetch_one(&*global.db)
@@ -58,7 +65,7 @@ async fn test_auth_middleware() {
 
     let client = reqwest::Client::new();
     let resp = client
-        .get("http://localhost:8081/v1/health")
+        .get(format!("http://localhost:{}/v1/health", port))
         .header(header::AUTHORIZATION, format!("Bearer {}", token))
         .send()
         .await
@@ -77,7 +84,7 @@ async fn test_auth_middleware() {
     .expect("failed to update session");
 
     let resp = client
-        .get("http://localhost:8081/v1/health")
+        .get(format!("http://localhost:{}/v1/health", port))
         .header(header::AUTHORIZATION, format!("Bearer {}", token))
         .send()
         .await
@@ -97,21 +104,29 @@ async fn test_auth_middleware() {
     drop(global);
     drop(client);
 
-    tokio::time::timeout(time::Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(time::Duration::from_secs(1))
         .await
         .expect("failed to cancel context");
 
-    tokio::time::timeout(time::Duration::from_secs(1), handle)
+    handle
+        .timeout(time::Duration::from_secs(1))
         .await
         .unwrap()
         .unwrap()
         .unwrap();
 }
 
+#[serial]
 #[tokio::test]
-async fn test_auth_middleware_failed() {
+async fn test_serial_auth_middleware_failed() {
+    let port = portpicker::pick_unused_port().expect("failed to pick port");
     let (global, handler) = mock_global_state(AppConfig {
-        bind_address: "0.0.0.0:8081".to_string(),
+        api: ApiConfig {
+            bind_address: format!("0.0.0.0:{}", port).parse().unwrap(),
+            tls: None,
+        },
         ..Default::default()
     })
     .await;
@@ -120,21 +135,22 @@ async fn test_auth_middleware_failed() {
         .execute(&*global.db)
         .await
         .expect("failed to clear users");
-    sqlx::query!(
-        "INSERT INTO users (id, username, email, password_hash) VALUES ($1, $2, $3, $4)",
-        1,
+    let id = sqlx::query!(
+        "INSERT INTO users (username, display_name, email, password_hash, stream_key) VALUES ($1, $1, $2, $3, $4) RETURNING id",
         "test",
         "test@test.com",
-        "$2b$1"
+        user::hash_password("test"),
+        user::generate_stream_key(),
     )
-    .execute(&*global.db)
+    .map(|row| row.id)
+    .fetch_one(&*global.db)
     .await
     .expect("failed to insert user");
 
     let session = sqlx::query_as!(
         session::Model,
         "INSERT INTO sessions (user_id, expires_at) VALUES ($1, $2) RETURNING *",
-        1,
+        id,
         Utc::now() - Duration::seconds(30)
     )
     .fetch_one(&*global.db)
@@ -152,7 +168,7 @@ async fn test_auth_middleware_failed() {
 
     let client = reqwest::Client::new();
     let resp = client
-        .get("http://localhost:8081/v1/health")
+        .get(format!("http://localhost:{}/v1/health", port))
         .header(header::AUTHORIZATION, format!("Bearer {}", token))
         .header("X-Auth-Token-Check", "always")
         .send()
@@ -172,11 +188,14 @@ async fn test_auth_middleware_failed() {
     // The client uses Keep-Alive, so we need to drop it to release the global context
     drop(client);
 
-    tokio::time::timeout(time::Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(time::Duration::from_secs(1))
         .await
         .expect("failed to cancel context");
 
-    tokio::time::timeout(time::Duration::from_secs(1), handle)
+    handle
+        .timeout(time::Duration::from_secs(1))
         .await
         .unwrap()
         .unwrap()

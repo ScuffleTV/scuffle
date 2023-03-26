@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package scuffle.events;
+
+import "scuffle/types/stream_variant.proto";
+
+message TranscoderMessage {
+  string id = 1;
+  uint64 timestamp = 2;
+
+  oneof data {
+    TranscoderMessageNewStream new_stream = 3;
+  }
+}
+
+message TranscoderMessageNewStream {
+  string request_id = 1;
+  string stream_id = 2;
+  string ingest_address = 3;
+  repeated scuffle.types.StreamVariant variants = 4;
+}

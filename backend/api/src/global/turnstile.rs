@@ -10,11 +10,11 @@ impl GlobalState {
 
         let body = json!({
             "response": token,
-            "secret": self.config.turnstile_secret_key,
+            "secret": self.config.turnstile.secret_key,
         });
 
         let res = client
-            .post(self.config.turnstile_url.as_str())
+            .post(self.config.turnstile.url.as_str())
             .header("Content-Type", "application/json")
             .json(&body)
             .send()

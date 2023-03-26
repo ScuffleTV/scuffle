@@ -4,10 +4,11 @@
 		"rust-lang.rust-analyzer",
 		"serayuzgur.crates",
 		"bungcip.better-toml",
-		"prisma.prisma",
 		"swellaby.rust-pack",
 		"svelte.svelte-vscode",
 		"zxh404.vscode-proto3",
-		"ryanluker.vscode-coverage-gutters"
+		"ryanluker.vscode-coverage-gutters",
+		"mtxr.sqltools-driver-pg",
+		"mtxr.sqltools"
 	]
 }

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Demo Player</title>
+	</head>
+	<body>
+		<div id="app">
+			<video id="video" controls autoplay></video>
+			<div>
+				<h1>Select</h1>
+				<button id="select-track-0">Track 0</button>
+				<button id="select-track-1">Track 1</button>
+				<button id="select-track-2">Track 2</button>
+				<button id="select-track-3">Track 3</button>
+				<button id="select-track-4">Track 4</button>
+			</div>
+			<div>
+				<h1>Force</h1>
+				<button id="force-track-0">Track 0</button>
+				<button id="force-track-1">Track 1</button>
+				<button id="force-track-2">Track 2</button>
+				<button id="force-track-3">Track 3</button>
+				<button id="force-track-4">Track 4</button>
+			</div>
+			<div>
+				<h1>Toggle</h1>
+				<button id="toggle-low-latency">Low Latency</button>
+				<button id="jump-to-live">Jump to Live</button>
+			</div>
+			<h1>Video Time <span id="video-time"></span></h1>
+			<h1>Buffer Size <span id="buffer-size"></span></h1>
+			<h1>Frame Rate <span id="frame-rate"></span></h1>
+		</div>
+		<style>
+			video {
+				max-width: 1200px;
+				max-height: 675px;
+				min-width: 300px;
+				object-fit: contain;
+				background-color: black;
+			}
+		</style>
+		<script type="module" src="/demo/index.ts"></script>
+	</body>
+</html>

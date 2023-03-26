@@ -5,13 +5,13 @@ on:
     paths:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
-      - "**/yarn.lock"
+      - "**/pnpm-lock.yaml"
       - "**/package.json"
   push:
     paths:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
-      - "**/yarn.lock"
+      - "**/pnpm-lock.yaml"
       - "**/package.json"
   workflow_dispatch:
   schedule:
@@ -27,17 +27,26 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions-rs/audit-check@v1
+      - name: Install Mask
+        run: |
+          curl -sL https://github.com/jacobdeichert/mask/releases/download/v0.11.3/mask-v0.11.3-x86_64-unknown-linux-gnu.zip -o mask.zip && \
+            unzip mask.zip && \
+            mv mask-v0.11.3-x86_64-unknown-linux-gnu/mask /usr/local/bin/mask && \
+            chmod +x /usr/local/bin/mask && \
+            rm -rf mask.zip mask-v0.11.3-x86_64-unknown-linux-gnu
+
+      - uses: pnpm/action-setup@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          version: latest
 
       - name: Install Node
         uses: actions/setup-node@v3
         with:
-          cache: "yarn"
+          cache: "pnpm"
           node-version: 18
 
-      - name: Yarn Audit
-        uses: borales/actions-yarn@v4
-        with:
-          cmd: audit
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Audit
+        run: mask audit

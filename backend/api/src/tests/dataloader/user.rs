@@ -1,9 +1,11 @@
 use crate::tests::global::mock_global_state;
 
-use common::types::user;
+use crate::database::user;
+use serial_test::serial;
 
+#[serial]
 #[tokio::test]
-async fn test_user_by_username_loader() {
+async fn test_serial_user_by_username_loader() {
     let (global, _) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
@@ -12,11 +14,11 @@ async fn test_user_by_username_loader() {
         .unwrap();
     let user =
         sqlx::query_as!(user::Model,
-        "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4) RETURNING *",
-        1,
+        "INSERT INTO users(username, display_name, email, password_hash, stream_key) VALUES ($1, $1, $2, $3, $4) RETURNING *",
         "admin",
         "admin@admin.com",
-        user::hash_password("admin")
+        user::hash_password("admin"),
+        user::generate_stream_key(),
     )
         .fetch_one(&*global.db)
         .await
@@ -38,8 +40,9 @@ async fn test_user_by_username_loader() {
     assert_eq!(loaded.created_at, user.created_at);
 }
 
+#[serial]
 #[tokio::test]
-async fn test_user_by_id_loader() {
+async fn test_serial_user_by_id_loader() {
     let (global, _) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
@@ -48,11 +51,11 @@ async fn test_user_by_id_loader() {
         .unwrap();
     let user =
         sqlx::query_as!(user::Model,
-        "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4) RETURNING *",
-        1,
+        "INSERT INTO users(username, display_name, email, password_hash, stream_key) VALUES ($1, $1, $2, $3, $4) RETURNING *",
         "admin",
         "admin@admin.com",
-        user::hash_password("admin")
+        user::hash_password("admin"),
+        user::generate_stream_key(),
     )
         .fetch_one(&*global.db)
         .await

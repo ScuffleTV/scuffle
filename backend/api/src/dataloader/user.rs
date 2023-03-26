@@ -1,9 +1,10 @@
+use crate::database::user;
 use async_graphql::{
     async_trait::async_trait,
     dataloader::{DataLoader, Loader},
 };
-use common::types::user;
 use std::{collections::HashMap, sync::Arc};
+use uuid::Uuid;
 
 pub struct UserByUsernameLoader {
     db: Arc<sqlx::PgPool>,
@@ -50,14 +51,18 @@ impl UserByIdLoader {
 }
 
 #[async_trait]
-impl Loader<i64> for UserByIdLoader {
+impl Loader<Uuid> for UserByIdLoader {
     type Value = user::Model;
     type Error = Arc<sqlx::Error>;
 
-    async fn load(&self, keys: &[i64]) -> Result<HashMap<i64, Self::Value>, Self::Error> {
+    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
         let results = sqlx::query_as!(user::Model, "SELECT * FROM users WHERE id = ANY($1)", &keys)
             .fetch_all(&*self.db)
-            .await?;
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to fetch users: {}", e);
+                Arc::new(e)
+            })?;
 
         let mut map = HashMap::new();
 

@@ -5,21 +5,42 @@ edition = "2021"
 authors = ["Scuffle <opensource@scuffle.tv>"]
 description = "Scuffle Common Library"
 
+[features]
+logging = ["dep:log", "dep:tracing", "dep:tracing-log", "dep:tracing-subscriber", "dep:arc-swap", "dep:anyhow"]
+rmq = ["dep:lapin", "dep:arc-swap", "dep:anyhow", "dep:futures", "dep:tracing", "dep:tokio", "dep:async-stream", "prelude"]
+grpc = ["dep:tonic", "dep:anyhow", "dep:async-trait", "dep:futures", "dep:http", "dep:tower", "dep:trust-dns-resolver", "dep:tracing"]
+context = ["dep:tokio", "dep:tokio-util"]
+prelude = ["dep:tokio"]
+signal = []
+macros = []
+config = ["dep:config", "dep:serde"]
+
+default = ["logging", "rmq", "grpc", "context", "prelude", "signal", "macros", "config"]
+
 [dependencies]
-config = "0.13.3"
-tracing = "0.1.37"
-anyhow = "1.0.69"
-serde = { version = "1.0.152", features = ["derive"] }
-tracing-subscriber = { version = "0.3.16", features = ["fmt", "env-filter", "json"] }
-chrono = { version = "0.4.23", default-features = false, features = ["clock"] }
-bitmask-enum = "2.1.0"
-async-trait = "0.1.64"
-sqlx = { version = "0.6.2", features = ["postgres", "offline", "runtime-tokio-rustls"] }
-tokio = { version = "1.25.0", features = ["full"] }
-argon2 = "0.4.1"
-tracing-log = { version = "0.1.2", features = ["env_logger"] }
-log = "0.4.17"
-email_address = "0.2.4"
+log = { version = "0", optional = true }
+http = { version = "0", optional = true }
+tower = { version = "0", optional = true }
+config = { version = "0", optional = true }
+anyhow = { version = "1", optional = true }
+futures = { version = "0", optional = true }
+tracing = { version = "0", optional = true }
+arc-swap = { version = "1", optional = true }
+tokio-util = { version = "0", optional = true }
+async-trait = { version = "0", optional = true }
+async-stream = { version = "0", optional = true }
+tonic = { version = "0", features = ["tls"], optional = true }
+tokio = { version = "1", features = ["sync", "rt"], optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+lapin = { version = "2.0.3", features = ["native-tls"], optional = true }
+tracing-log = { version = "0", features = ["env_logger"], optional = true }
+trust-dns-resolver = { version = "0", features = ["tokio-runtime"], optional = true }
+tracing-subscriber = { version = "0", features = ["fmt", "env-filter", "json"], optional = true }
 
 [dev-dependencies]
-tempfile = "3.3.0"
+prost = "0"
+tempfile = "3"
+portpicker = "0"
+
+[build-dependencies]
+tonic-build = "0"

@@ -1,0 +1,9 @@
+{
+	"useTabs": true,
+	"singleQuote": false,
+	"trailingComma": "all",
+	"printWidth": 100,
+	"plugins": [],
+	"pluginSearchDirs": ["."],
+	"overrides": [{ "files": "*.svg", "options": { "parser": "html" } }]
+}

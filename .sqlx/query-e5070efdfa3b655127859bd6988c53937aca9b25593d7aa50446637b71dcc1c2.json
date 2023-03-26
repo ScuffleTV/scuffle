@@ -1,0 +1,98 @@
+{
+	"db_name": "PostgreSQL",
+	"query": "SELECT * FROM stream_variants WHERE stream_id = ANY($1)",
+	"describe": {
+		"columns": [
+			{
+				"ordinal": 0,
+				"name": "id",
+				"type_info": "Uuid"
+			},
+			{
+				"ordinal": 1,
+				"name": "stream_id",
+				"type_info": "Uuid"
+			},
+			{
+				"ordinal": 2,
+				"name": "name",
+				"type_info": "Varchar"
+			},
+			{
+				"ordinal": 3,
+				"name": "video_framerate",
+				"type_info": "Int8"
+			},
+			{
+				"ordinal": 4,
+				"name": "video_width",
+				"type_info": "Int8"
+			},
+			{
+				"ordinal": 5,
+				"name": "video_height",
+				"type_info": "Int8"
+			},
+			{
+				"ordinal": 6,
+				"name": "video_bitrate",
+				"type_info": "Int8"
+			},
+			{
+				"ordinal": 7,
+				"name": "video_codec",
+				"type_info": "Varchar"
+			},
+			{
+				"ordinal": 8,
+				"name": "audio_sample_rate",
+				"type_info": "Int8"
+			},
+			{
+				"ordinal": 9,
+				"name": "audio_channels",
+				"type_info": "Int8"
+			},
+			{
+				"ordinal": 10,
+				"name": "audio_bitrate",
+				"type_info": "Int8"
+			},
+			{
+				"ordinal": 11,
+				"name": "audio_codec",
+				"type_info": "Varchar"
+			},
+			{
+				"ordinal": 12,
+				"name": "metadata",
+				"type_info": "Jsonb"
+			},
+			{
+				"ordinal": 13,
+				"name": "created_at",
+				"type_info": "Timestamptz"
+			}
+		],
+		"parameters": {
+			"Left": ["UuidArray"]
+		},
+		"nullable": [
+			false,
+			false,
+			false,
+			true,
+			true,
+			true,
+			true,
+			true,
+			true,
+			true,
+			true,
+			true,
+			false,
+			false
+		]
+	},
+	"hash": "e5070efdfa3b655127859bd6988c53937aca9b25593d7aa50446637b71dcc1c2"
+}

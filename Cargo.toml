@@ -2,21 +2,23 @@
 
 members = [
     "backend/api",
+    "video/edge",
+    "video/ingest",
+    "video/transcoder",
+    "video/bytesio",
+    "video/container/flv",
+    "video/container/mp4",
+    "video/codec/h264",
+    "video/codec/h265",
+    "video/codec/av1",
+    "video/codec/aac",
+    "video/protocol/rtmp",
+    "video/transmuxer",
+    "video/utils/amf0",
+    "video/utils/exp_golomb",
+    "common",
+]
+
+exclude = [
     "frontend/player",
-    "video/edge",
-    "video/ingest",
-    "video/transcoder",
-    "common",
 ]
-
-# We don't want to build the wasm by default, this is because its built by a yarn script
-default-members = [
-    "backend/api",
-    "video/edge",
-    "video/ingest",
-    "video/transcoder",
-    "common",
-]
-
-[profile.release.package.player]
-opt-level = "s"

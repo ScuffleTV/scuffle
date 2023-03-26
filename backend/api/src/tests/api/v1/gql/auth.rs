@@ -1,25 +1,30 @@
 use std::{sync::Arc, time::Duration};
 
+use crate::database::{session, user};
 use async_graphql::{Name, Request, Variables};
 use chrono::Utc;
-use common::types::{session, user};
+use common::prelude::FutureTimeout;
 use serde_json::json;
+use serial_test::serial;
 
 use crate::{
     api::v1::{
         gql::{ext::RequestExt, request_context::RequestContext, schema},
         jwt::JwtState,
     },
-    config::AppConfig,
+    config::{AppConfig, TurnstileConfig},
     tests::global::{mock_global_state, turnstile::mock_turnstile},
 };
 
+#[serial]
 #[tokio::test]
-async fn test_login() {
+async fn test_serial_login() {
     let (mut rx, addr, h1) = mock_turnstile().await;
     let (global, handler) = mock_global_state(AppConfig {
-        turnstile_url: addr,
-        turnstile_secret_key: "DUMMY_KEY__DEADBEEF".to_string(),
+        turnstile: TurnstileConfig {
+            url: addr,
+            secret_key: "DUMMY_KEY__DEADBEEF".to_string(),
+        },
         ..Default::default()
     })
     .await;
@@ -28,14 +33,14 @@ async fn test_login() {
         .execute(&*global.db)
         .await
         .unwrap();
-    sqlx::query!(
-        "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4)",
-        1,
+    sqlx::query_as!(user::Model,
+        "INSERT INTO users(username, display_name, email, password_hash, stream_key) VALUES ($1, $1, $2, $3, $4) RETURNING *",
         "admin",
         "admin@admin.com",
-        user::hash_password("admin")
+        user::hash_password("admin"),
+        user::generate_stream_key(),
     )
-    .execute(&*global.db)
+    .fetch_one(&*global.db)
     .await
     .unwrap();
 
@@ -59,28 +64,26 @@ async fn test_login() {
     });
 
     let ctx = Arc::new(RequestContext::new(false));
-    let res = tokio::time::timeout(
-        Duration::from_secs(1),
-        schema.execute(
+    let res = schema
+        .execute(
             Request::from(query)
                 .provide_global(global.clone())
                 .provide_context(ctx),
-        ),
-    )
-    .await
-    .unwrap();
+        )
+        .timeout(Duration::from_secs(5))
+        .await
+        .unwrap();
 
     assert_eq!(res.errors.len(), 0);
     let json = res.data.into_json();
     assert!(json.is_ok());
 
-    let session = tokio::time::timeout(
-        Duration::from_secs(1),
-        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&*global.db),
-    )
-    .await
-    .unwrap()
-    .unwrap();
+    let session = sqlx::query_as!(session::Model, "SELECT * FROM sessions")
+        .fetch_one(&*global.db)
+        .timeout(Duration::from_secs(5))
+        .await
+        .unwrap()
+        .unwrap();
 
     let jwt_state = JwtState::from(session);
 
@@ -95,28 +98,27 @@ async fn test_login() {
 
     h1.abort();
 
-    tokio::time::timeout(Duration::from_secs(1), h1)
-        .await
-        .unwrap()
-        .ok(); // ignore error because we aborted it
-    tokio::time::timeout(Duration::from_secs(1), h2)
-        .await
-        .unwrap()
-        .unwrap();
+    h1.timeout(Duration::from_secs(1)).await.unwrap().ok(); // ignore error because we aborted it
+    h2.timeout(Duration::from_secs(1)).await.unwrap().unwrap();
 
     drop(global);
 
-    tokio::time::timeout(Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to cancel context");
 }
 
+#[serial]
 #[tokio::test]
-async fn test_login_while_logged_in() {
+async fn test_serial_login_while_logged_in() {
     let (mut rx, addr, h1) = mock_turnstile().await;
     let (global, handler) = mock_global_state(AppConfig {
-        turnstile_url: addr,
-        turnstile_secret_key: "batman's chest".to_string(),
+        turnstile: TurnstileConfig {
+            url: addr,
+            secret_key: "batman's chest".to_string(),
+        },
         ..Default::default()
     })
     .await;
@@ -126,11 +128,11 @@ async fn test_login_while_logged_in() {
         .await
         .unwrap();
     sqlx::query!(
-        "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4)",
-        1,
+        "INSERT INTO users(username, display_name, email, password_hash, stream_key) VALUES ($1, $1, $2, $3, $4)",
         "admin",
         "admin@admin.com",
-        user::hash_password("admin")
+        user::hash_password("admin"),
+        user::generate_stream_key(),
     )
     .execute(&*global.db)
     .await
@@ -158,28 +160,26 @@ async fn test_login_while_logged_in() {
         resp.send(true).unwrap();
     });
 
-    let res = tokio::time::timeout(
-        Duration::from_secs(1),
-        schema.execute(
+    let res = schema
+        .execute(
             Request::from(query)
                 .provide_context(ctx)
                 .provide_global(global.clone()),
-        ),
-    )
-    .await
-    .unwrap();
+        )
+        .timeout(Duration::from_secs(1))
+        .await
+        .unwrap();
 
     assert_eq!(res.errors.len(), 0);
     let json = res.data.into_json();
     assert!(json.is_ok());
 
-    let session = tokio::time::timeout(
-        Duration::from_secs(1),
-        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&*global.db),
-    )
-    .await
-    .unwrap()
-    .unwrap();
+    let session = sqlx::query_as!(session::Model, "SELECT * FROM sessions")
+        .fetch_one(&*global.db)
+        .timeout(Duration::from_secs(1))
+        .await
+        .unwrap()
+        .unwrap();
 
     let jwt_state = JwtState::from(session);
 
@@ -194,46 +194,43 @@ async fn test_login_while_logged_in() {
 
     h1.abort();
 
-    tokio::time::timeout(Duration::from_secs(1), h1)
-        .await
-        .unwrap()
-        .ok(); // ignore error because we aborted it
+    h1.timeout(Duration::from_secs(1)).await.unwrap().ok(); // ignore error because we aborted it
 
-    tokio::time::timeout(Duration::from_secs(1), h2)
-        .await
-        .unwrap()
-        .unwrap();
+    h2.timeout(Duration::from_secs(1)).await.unwrap().unwrap();
 
     drop(global);
 
-    tokio::time::timeout(Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to cancel context");
 }
 
+#[serial]
 #[tokio::test]
-async fn test_login_with_token() {
+async fn test_serial_login_with_token() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
         .execute(&*global.db)
         .await
         .unwrap();
-    sqlx::query!(
-        "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4)",
-        1,
+    let user = sqlx::query!(
+        "INSERT INTO users(username, display_name, email, password_hash, stream_key) VALUES ($1, $1, $2, $3, $4) RETURNING *",
         "admin",
         "admin@admin.com",
-        user::hash_password("admin")
+        user::hash_password("admin"),
+        user::generate_stream_key()
     )
-    .execute(&*global.db)
+    .fetch_one(&*global.db)
     .await
     .unwrap();
+
     let session = sqlx::query_as!(
         session::Model,
-        "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
-        1,
-        1,
+        "INSERT INTO sessions(user_id, expires_at) VALUES ($1, $2) RETURNING *",
+        user.id,
         Utc::now() + chrono::Duration::seconds(60)
     )
     .fetch_one(&*global.db)
@@ -282,34 +279,36 @@ async fn test_login_with_token() {
 
     drop(global);
 
-    tokio::time::timeout(Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to cancel context");
 }
 
+#[serial]
 #[tokio::test]
-async fn test_login_with_session_expired() {
+async fn test_serial_login_with_session_expired() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
         .execute(&*global.db)
         .await
         .unwrap();
-    sqlx::query!(
-        "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4)",
-        1,
+    let user = sqlx::query!(
+        "INSERT INTO users(username, display_name, email, password_hash, stream_key) VALUES ($1, $1, $2, $3, $4) RETURNING *",
         "admin",
         "admin@admin.com",
-        user::hash_password("admin")
+        user::hash_password("admin"),
+        user::generate_stream_key()
     )
-    .execute(&*global.db)
+    .fetch_one(&*global.db)
     .await
     .unwrap();
     let session = sqlx::query_as!(
         session::Model,
-        "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
-        1,
-        1,
+        "INSERT INTO sessions(user_id, expires_at) VALUES ($1, $2) RETURNING *",
+        user.id,
         Utc::now() - chrono::Duration::seconds(60)
     )
     .fetch_one(&*global.db)
@@ -371,34 +370,36 @@ async fn test_login_with_session_expired() {
 
     drop(global);
 
-    tokio::time::timeout(Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to cancel context");
 }
 
+#[serial]
 #[tokio::test]
-async fn test_login_while_logged_in_with_session_expired() {
+async fn test_serial_login_while_logged_in_with_session_expired() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
         .execute(&*global.db)
         .await
         .unwrap();
-    sqlx::query!(
-        "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4)",
-        1,
+    let user = sqlx::query_as!(user::Model,
+        "INSERT INTO users(username, display_name, email, password_hash, stream_key) VALUES ($1, $1, $2, $3, $4) RETURNING *",
         "admin",
         "admin@admin.com",
-        user::hash_password("admin")
+        user::hash_password("admin"),
+        user::generate_stream_key()
     )
-    .execute(&*global.db)
+    .fetch_one(&*global.db)
     .await
     .unwrap();
     let session = sqlx::query_as!(
         session::Model,
-        "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
-        1,
-        1,
+        "INSERT INTO sessions(user_id, expires_at) VALUES ($1, $2) RETURNING *",
+        user.id,
         Utc::now() - chrono::Duration::seconds(60)
     )
     .fetch_one(&*global.db)
@@ -407,9 +408,8 @@ async fn test_login_while_logged_in_with_session_expired() {
 
     let session2 = sqlx::query_as!(
         session::Model,
-        "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
-        2,
-        1,
+        "INSERT INTO sessions(user_id, expires_at) VALUES ($1, $2) RETURNING *",
+        user.id,
         Utc::now() + chrono::Duration::seconds(60)
     )
     .fetch_one(&*global.db)
@@ -436,7 +436,7 @@ async fn test_login_while_logged_in_with_session_expired() {
     );
 
     let ctx = Arc::new(RequestContext::new(true));
-    ctx.set_session(Some(session));
+    ctx.set_session(Some((session, Default::default())));
 
     let res = tokio::time::timeout(
         Duration::from_secs(1),
@@ -462,17 +462,22 @@ async fn test_login_while_logged_in_with_session_expired() {
     );
     drop(global);
 
-    tokio::time::timeout(Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to cancel context");
 }
 
+#[serial]
 #[tokio::test]
-async fn test_register() {
+async fn test_serial_register() {
     let (mut rx, addr, h1) = mock_turnstile().await;
     let (global, handler) = mock_global_state(AppConfig {
-        turnstile_url: addr,
-        turnstile_secret_key: "DUMMY_KEY__LOREM_IPSUM".to_string(),
+        turnstile: TurnstileConfig {
+            url: addr,
+            secret_key: "DUMMY_KEY__LOREM_IPSUM".to_string(),
+        },
         ..Default::default()
     })
     .await;
@@ -503,7 +508,7 @@ async fn test_register() {
 
     let ctx = Arc::new(RequestContext::new(false));
     let res = tokio::time::timeout(
-        Duration::from_secs(1),
+        Duration::from_secs(2),
         schema.execute(
             Request::from(query)
                 .provide_global(global.clone())
@@ -544,45 +549,41 @@ async fn test_register() {
 
     h1.abort();
 
-    tokio::time::timeout(Duration::from_secs(1), h1)
-        .await
-        .unwrap()
-        .ok(); // ignore error because we aborted it
-    tokio::time::timeout(Duration::from_secs(1), h2)
-        .await
-        .unwrap()
-        .unwrap();
+    h1.timeout(Duration::from_secs(1)).await.unwrap().ok(); // ignore error because we aborted it
+    h2.timeout(Duration::from_secs(1)).await.unwrap().unwrap();
 
     drop(global);
 
-    tokio::time::timeout(Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to cancel context");
 }
 
+#[serial]
 #[tokio::test]
-async fn test_logout() {
+async fn test_serial_logout() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
         .execute(&*global.db)
         .await
         .unwrap();
-    sqlx::query!(
-        "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4)",
-        1,
+    let user = sqlx::query_as!(user::Model,
+        "INSERT INTO users(username, display_name, email, password_hash, stream_key) VALUES ($1, $1, $2, $3, $4) RETURNING *",
         "admin",
         "admin@admin.com",
-        user::hash_password("admin")
+        user::hash_password("admin"),
+        user::generate_stream_key(),
     )
-    .execute(&*global.db)
+    .fetch_one(&*global.db)
     .await
     .unwrap();
     let session = sqlx::query_as!(
         session::Model,
-        "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
-        1,
-        1,
+        "INSERT INTO sessions(user_id, expires_at) VALUES ($1, $2) RETURNING *",
+        user.id,
         Utc::now() + chrono::Duration::seconds(60)
     )
     .fetch_one(&*global.db)
@@ -599,7 +600,7 @@ async fn test_logout() {
     "#;
 
     let ctx = Arc::new(RequestContext::new(false));
-    ctx.set_session(Some(session));
+    ctx.set_session(Some((session, Default::default())));
 
     let res = tokio::time::timeout(
         Duration::from_secs(1),
@@ -632,34 +633,36 @@ async fn test_logout() {
 
     drop(global);
 
-    tokio::time::timeout(Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to cancel context");
 }
 
+#[serial]
 #[tokio::test]
-async fn test_logout_with_token() {
+async fn test_serial_logout_with_token() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
         .execute(&*global.db)
         .await
         .unwrap();
-    sqlx::query!(
-        "INSERT INTO users(id, username, email, password_hash) VALUES ($1, $2, $3, $4)",
-        1,
+    let user = sqlx::query_as!(user::Model,
+        "INSERT INTO users(username, display_name, email, password_hash, stream_key) VALUES ($1, $1, $2, $3, $4) RETURNING *",
         "admin",
         "admin@admin.com",
-        user::hash_password("admin")
+        user::hash_password("admin"),
+        user::generate_stream_key()
     )
-    .execute(&*global.db)
+    .fetch_one(&*global.db)
     .await
     .unwrap();
     let session = sqlx::query_as!(
         session::Model,
-        "INSERT INTO sessions(id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
-        1,
-        1,
+        "INSERT INTO sessions(user_id, expires_at) VALUES ($1, $2) RETURNING *",
+        user.id,
         Utc::now() + chrono::Duration::seconds(60)
     )
     .fetch_one(&*global.db)
@@ -713,7 +716,9 @@ async fn test_logout_with_token() {
 
     drop(global);
 
-    tokio::time::timeout(Duration::from_secs(1), handler.cancel())
+    handler
+        .cancel()
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to cancel context");
 }

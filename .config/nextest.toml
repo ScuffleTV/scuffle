@@ -1,0 +1,10 @@
+[profile.default]
+test-threads = "num-cpus"
+slow-timeout = { period = "5s", terminate-after = 3 }
+
+[test-groups]
+serial = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = 'test(serial)'
+test-group = 'serial'

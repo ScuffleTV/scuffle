@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use tokio::{process::Command, signal::unix::SignalKind};
 
-use crate::signal::SignalHandler;
+use crate::{prelude::FutureTimeout, signal::SignalHandler};
 
 #[tokio::test]
 async fn test_signal() {
@@ -22,7 +22,9 @@ async fn test_signal() {
         .await
         .expect("failed to send SIGINT");
 
-    tokio::time::timeout(Duration::from_secs(1), handler.recv())
+    handler
+        .recv()
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to receive signal");
 
@@ -35,7 +37,9 @@ async fn test_signal() {
         .await
         .expect("failed to send SIGINT");
 
-    tokio::time::timeout(Duration::from_secs(1), handler.recv())
+    handler
+        .recv()
+        .timeout(Duration::from_secs(1))
         .await
         .expect("failed to receive signal");
 }

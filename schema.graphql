@@ -35,6 +35,16 @@ type AuthMutation {
 
 scalar DateRFC3339
 
+type GlobalRole {
+	allowedPermissions: Int!
+	createdAt: DateRFC3339!
+	deniedPermissions: Int!
+	description: String!
+	id: UUID!
+	name: String!
+	rank: Int!
+}
+
 """
 The root mutation type which contains root level fields.
 """
@@ -47,6 +57,7 @@ The root query type which contains root level fields.
 """
 type Query {
 	noop: Boolean!
+	userById(id: UUID!): User
 	userByUsername(username: String!): User
 }
 
@@ -62,7 +73,7 @@ type Session {
 	"""
 	The session's id
 	"""
-	id: Int!
+	id: UUID!
 	"""
 	Last used at
 	"""
@@ -75,19 +86,35 @@ type Session {
 	"""
 	The user who owns this session
 	"""
-	userId: Int!
+	userId: UUID!
 }
 
 type Subscription {
 	noop: Boolean!
 }
 
+"""
+A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
+Strings within GraphQL. UUIDs are used to assign unique identifiers to
+entities without requiring a central allocating authority.
+
+# References
+
+* [Wikipedia: Universally Unique Identifier](http://en.wikipedia.org/wiki/Universally_unique_identifier)
+* [RFC4122: A Universally Unique IDentifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
+"""
+scalar UUID @specifiedBy(url: "http://tools.ietf.org/html/rfc4122")
+
 type User {
 	createdAt: DateRFC3339!
+	displayName: String!
 	email: String!
 	emailVerified: Boolean!
-	id: Int!
+	globalRoles: [GlobalRole!]!
+	id: UUID!
 	lastLoginAt: DateRFC3339!
+	permissions: Int!
+	streamKey: String!
 	username: String!
 }
 

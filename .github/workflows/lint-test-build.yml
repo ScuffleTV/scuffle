@@ -50,28 +50,44 @@ jobs:
     if: ${{ needs.should_run.outputs.should-run == 'true' }}
     environment: ${{ (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/feature/*' && github.event_name != 'workflow_dispatch') && 'lint-test-build' || '' }}
     services:
-      postgres:
-        image: postgres:15.2
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
+      cockroach:
+        image: ghcr.io/scuffletv/cockroach:latest
         ports:
-          - 5432:5432
-
+          - 26257:26257
+      rmq:
+        image: bitnami/rabbitmq:latest
+        ports:
+          - 5672:5672
+        env:
+          RABBITMQ_USERNAME: rabbitmq
+          RABBITMQ_PASSWORD: rabbitmq
+          RABBITMQ_VHOSTS: scuffle
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
     env:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/scuffle
+      DATABASE_URL: postgres://root@cockroach:26257/scuffle
+      RMQ_URL: amqp://rabbitmq:rabbitmq@rmq:5672/scuffle
+      REDIS_URL: redis://redis:6379
 
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
+      - uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
       - name: Install Node
         uses: actions/setup-node@v3
         with:
-          cache: "yarn"
+          cache: "pnpm"
           node-version: 18
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
 
       - name: Cargo Cache
         uses: Swatinem/rust-cache@v2
@@ -80,7 +96,7 @@ jobs:
           prefix-key: lint-test
 
       - name: Install dependencies
-        run: mask bootstrap --no-db --no-docker --no-env --no-stack --no-rust
+        run: mask bootstrap --no-db --no-docker --no-env --no-rust
 
       - name: Run migrations
         run: mask db migrate
@@ -89,7 +105,7 @@ jobs:
         run: mask lint
 
       - name: Run Test Rust
-        run: mask test --no-js
+        run: mask test --no-js --ci
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -97,6 +113,9 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
+
+      - name: Install Playwright Dependencies
+        run: pnpm --filter website exec playwright install-deps
 
       - name: Run Test JavaScript
         run: mask test --no-rust
@@ -112,10 +131,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          cache: "yarn"
+          cache: "pnpm"
           node-version: 18
 
       - name: Cargo Cache
@@ -125,7 +148,7 @@ jobs:
           prefix-key: build
 
       - name: Install dependencies
-        run: mask bootstrap --no-db --no-docker --no-env --no-js-tests --no-stack --no-rust
+        run: mask bootstrap --no-db --no-docker --no-env --no-js-tests --no-rust
 
       - name: Run Build
         run: mask build
@@ -141,6 +164,9 @@ jobs:
             target/x86_64-unknown-linux-gnu/release/edge
             target/x86_64-unknown-linux-gnu/release/transcoder
             frontend/website/build
+            frontend/player/dist
+            frontend/player/pkg
+            frontend/player/demo-dist
 
   docker:
     name: Build docker images

@@ -5,17 +5,15 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use tokio::{
-    sync::{broadcast, oneshot},
-    time::Instant,
-};
+use tokio::{sync::oneshot, time::Instant};
+use tokio_util::sync::{CancellationToken, DropGuard};
 
 struct RawContext {
     _sender: oneshot::Sender<()>,
     _weak: Weak<()>,
     deadline: Option<Instant>,
     parent: Option<Context>,
-    cancel_receiver: broadcast::Receiver<()>,
+    cancel_receiver: CancellationToken,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -39,20 +37,21 @@ impl RawContext {
     #[must_use]
     fn new() -> (Self, Handler) {
         let (sender, recv) = oneshot::channel();
-        let (cancel_sender, cancel_receiver) = broadcast::channel(1);
         let strong = Arc::new(());
+        let token = CancellationToken::new();
+        let child = token.child_token();
 
         (
             Self {
-                _sender: sender,
                 deadline: None,
                 parent: None,
-                cancel_receiver,
+                cancel_receiver: child,
+                _sender: sender,
                 _weak: Arc::downgrade(&strong),
             },
             Handler {
                 recv,
-                _cancel_sender: cancel_sender,
+                _token: token.drop_guard(),
                 _strong: strong,
             },
         )
@@ -73,31 +72,30 @@ impl RawContext {
         (ctx, handler)
     }
 
-    fn done(&self) -> Pin<Box<dyn Future<Output = CancelReason> + '_ + Send>> {
-        let mut recv = self.cancel_receiver.resubscribe();
+    fn done(&self) -> Pin<Box<dyn Future<Output = CancelReason> + '_ + Send + Sync>> {
         Box::pin(async move {
             match (&self.parent, self.deadline) {
                 (Some(parent), Some(deadline)) => {
                     tokio::select! {
                         _ = parent.done() => CancelReason::Parent,
                         _ = tokio::time::sleep_until(deadline) => CancelReason::Deadline,
-                        _ = recv.recv() => CancelReason::Cancel,
+                        _ = self.cancel_receiver.cancelled() => CancelReason::Cancel,
                     }
                 }
                 (Some(parent), None) => {
                     tokio::select! {
                         _ = parent.done() => CancelReason::Parent,
-                        _ = recv.recv() => CancelReason::Cancel,
+                        _ = self.cancel_receiver.cancelled() => CancelReason::Cancel,
                     }
                 }
                 (None, Some(deadline)) => {
                     tokio::select! {
                         _ = tokio::time::sleep_until(deadline) => CancelReason::Deadline,
-                        _ = recv.recv() => CancelReason::Cancel,
+                        _ = self.cancel_receiver.cancelled() => CancelReason::Cancel,
                     }
                 }
                 (None, None) => {
-                    let _ = recv.recv().await;
+                    self.cancel_receiver.cancelled().await;
                     CancelReason::Cancel
                 }
             }
@@ -111,8 +109,9 @@ impl RawContext {
 
 pub struct Handler {
     _strong: Arc<()>,
+    _token: DropGuard,
+
     recv: oneshot::Receiver<()>,
-    _cancel_sender: broadcast::Sender<()>,
 }
 
 impl Handler {
@@ -120,7 +119,7 @@ impl Handler {
         let _ = (&mut self.recv).await;
     }
 
-    pub fn cancel(self) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    pub fn cancel(self) -> Pin<Box<dyn Future<Output = ()> + Send + Sync>> {
         let recv = self.recv;
         Box::pin(async move {
             let _ = recv.await;
@@ -158,7 +157,7 @@ impl Context {
         (ctx.into(), handler)
     }
 
-    pub fn done(&self) -> Pin<Box<dyn Future<Output = CancelReason> + '_ + Send>> {
+    pub fn done(&self) -> Pin<Box<dyn Future<Output = CancelReason> + '_ + Send + Sync>> {
         self.0.done()
     }
 

@@ -329,6 +329,7 @@
 										token
 										user {
 											id
+											displayName
 											username
 											email
 											emailVerified
@@ -363,6 +364,7 @@
 										token
 										user {
 											id
+											displayName
 											username
 											email
 											emailVerified

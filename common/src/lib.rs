@@ -1,10 +1,23 @@
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "config")]
 pub mod config;
+#[cfg(feature = "context")]
 pub mod context;
+#[cfg(feature = "grpc")]
+pub mod grpc;
+#[cfg(feature = "logging")]
 pub mod logging;
+#[cfg(feature = "prelude")]
+pub mod prelude;
+#[cfg(feature = "rmq")]
+pub mod rmq;
+#[cfg(feature = "signal")]
 pub mod signal;
-pub mod types;
+
+#[cfg(feature = "macros")]
+#[macro_use]
+pub mod macros;
 
 #[cfg(test)]
 mod tests;

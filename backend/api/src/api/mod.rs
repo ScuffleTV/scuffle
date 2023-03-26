@@ -2,7 +2,7 @@ use anyhow::Result;
 use hyper::{server::conn::Http, Body, Response, StatusCode};
 use routerify::{RequestInfo, RequestServiceBuilder, Router};
 use serde_json::json;
-use std::{net::SocketAddr, sync::Arc};
+use std::sync::Arc;
 use tokio::{net::TcpSocket, select};
 
 use crate::{api::macros::make_response, global::GlobalState};
@@ -65,10 +65,8 @@ pub fn routes(global: &Arc<GlobalState>) -> Router<Body, RouteError> {
 }
 
 pub async fn run(global: Arc<GlobalState>) -> Result<()> {
-    let addr: SocketAddr = global.config.bind_address.parse()?;
-
-    tracing::info!("Listening on {}", addr);
-    let socket = if addr.is_ipv6() {
+    tracing::info!("Listening on {}", global.config.api.bind_address);
+    let socket = if global.config.api.bind_address.is_ipv6() {
         TcpSocket::new_v6()?
     } else {
         TcpSocket::new_v4()?
@@ -76,7 +74,7 @@ pub async fn run(global: Arc<GlobalState>) -> Result<()> {
 
     socket.set_reuseaddr(true)?;
     socket.set_reuseport(true)?;
-    socket.bind(addr)?;
+    socket.bind(global.config.api.bind_address)?;
     let listener = socket.listen(1024)?;
 
     // The reason we use a Weak reference to the global state is because we don't want to block the shutdown

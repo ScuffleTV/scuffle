@@ -1,4 +1,5 @@
 use async_graphql::{ComplexObject, Context, SimpleObject};
+use uuid::Uuid;
 
 use super::{date, user::User};
 use crate::api::v1::gql::{
@@ -10,11 +11,11 @@ use crate::api::v1::gql::{
 #[graphql(complex)]
 pub struct Session {
     /// The session's id
-    pub id: i64,
+    pub id: Uuid,
     /// The session's token
     pub token: String,
     /// The user who owns this session
-    pub user_id: i64,
+    pub user_id: Uuid,
     /// Expires at
     pub expires_at: date::DateRFC3339,
     /// Last used at

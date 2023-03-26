@@ -1,22 +1,14 @@
-mod utils;
-
 use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen]
-extern "C" {
-    fn alert(s: &str);
-}
+mod hls;
+mod player;
+mod tracing_wasm;
 
-#[wasm_bindgen(start)]
+#[wasm_bindgen(start, skip_typescript)]
 pub fn main() -> Result<(), JsValue> {
-    utils::set_panic_hook();
+    console_error_panic_hook::set_once();
 
-    utils::set_logging();
+    tracing_wasm::set_as_global_default();
 
     Ok(())
-}
-
-#[wasm_bindgen]
-pub fn add(a: u32, b: u32) -> u32 {
-    a + b
 }

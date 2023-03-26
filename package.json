@@ -5,12 +5,8 @@
 		"@commitlint/config-conventional": "^17.4.3",
 		"commitlint": "^17.4.3",
 		"husky": "^8.0.3",
-		"lint-staged": "^13.1.2",
 		"prettier": "^2.8.4"
 	},
-	"workspaces": [
-		"frontend/website"
-	],
 	"scripts": {
 		"prepare": "husky install",
 		"lint": "prettier --check \"**/*\" -u",

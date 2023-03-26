@@ -3,25 +3,26 @@ version: "3.1"
 name: "db-scuffle-dev"
 
 services:
-  postgres:
-    image: postgres:15.2
+  cockroach:
+    image: ghcr.io/scuffletv/cockroach:latest
     ports:
-      - "5432:5432"
+      - "5432:26257"
+      - "8080:8080"
+
+  rmq:
+    image: bitnami/rabbitmq:latest
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
-  pgadmin:
-    image: dpage/pgadmin4:6.20
+      RABBITMQ_USERNAME: rabbitmq
+      RABBITMQ_PASSWORD: rabbitmq
+      RABBITMQ_VHOSTS: scuffle
     ports:
-      - "5050:80"
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    depends_on:
-      - postgres
-    volumes:
-      - ./pgadmin-servers.json:/pgadmin4/servers.json
+      - "5672:5672"
+      - "15672:15672"
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
 
 networks:
   default:

@@ -2,9 +2,9 @@ use super::error::{GqlError, Result, ResultExt};
 use super::ext::ContextExt;
 use super::models::session::Session;
 use crate::api::v1::jwt::JwtState;
+use crate::database::{session, user};
 use async_graphql::{Context, Object};
 use chrono::{Duration, Utc};
-use common::types::{session, user};
 
 #[derive(Default, Clone)]
 pub struct AuthMutation;
@@ -78,9 +78,16 @@ impl AuthMutation {
             .serialize(global)
             .ok_or((GqlError::InternalServerError, "Failed to serialize JWT"))?;
 
+        let permissions = global
+            .user_permisions_by_id_loader
+            .load_one(user.id)
+            .await
+            .map_err_gql("Failed to fetch user permissions")?
+            .unwrap_or_default();
+
         // We need to update the request context with the new session
         if update_context.unwrap_or(true) {
-            request_context.set_session(Some(session.clone()));
+            request_context.set_session(Some((session.clone(), permissions)));
         }
 
         Ok(Session {
@@ -132,9 +139,16 @@ impl AuthMutation {
             return Err(GqlError::InvalidSession.with_message("Session token is no longer valid"));
         }
 
+        let permissions = global
+            .user_permisions_by_id_loader
+            .load_one(session.user_id)
+            .await
+            .map_err_gql("Failed to fetch user permissions")?
+            .unwrap_or_default();
+
         // We need to update the request context with the new session
         if update_context.unwrap_or(true) {
-            request_context.set_session(Some(session.clone()));
+            request_context.set_session(Some((session.clone(), permissions)));
         }
 
         Ok(Session {
@@ -176,6 +190,7 @@ impl AuthMutation {
                 .with_field(vec!["captchaToken"]));
         }
 
+        let display_name = username.clone();
         let username = username.to_lowercase();
         let email = email.to_lowercase();
 
@@ -216,10 +231,12 @@ impl AuthMutation {
         // TODO: maybe look to batch this
         let user =
             sqlx::query_as!(user::Model,
-            "INSERT INTO users (username, password_hash, email) VALUES ($1, $2, $3) RETURNING *",
+            "INSERT INTO users (username, display_name, password_hash, email, stream_key) VALUES ($1, $2, $3, $4, $5) RETURNING *",
             username,
+            display_name,
             user::hash_password(&password),
             email,
+            user::generate_stream_key(),
         )
             .fetch_one(&mut *tx)
             .await
@@ -249,9 +266,16 @@ impl AuthMutation {
             .await
             .map_err_gql("Failed to commit transaction")?;
 
+        let permissions = global
+            .user_permisions_by_id_loader
+            .load_one(user.id)
+            .await
+            .map_err_gql("Failed to fetch user permissions")?
+            .unwrap_or_default();
+
         // We need to update the request context with the new session
         if update_context.unwrap_or(true) {
-            request_context.set_session(Some(session.clone()));
+            request_context.set_session(Some((session.clone(), permissions)));
         }
 
         Ok(Session {
@@ -287,7 +311,7 @@ impl AuthMutation {
 
         let session_id = match (
             Option::as_ref(&jwt).map(|jwt| jwt.session_id),
-            Option::as_ref(&session).map(|s| s.id),
+            Option::as_ref(&session).map(|(s, _)| s.id),
         ) {
             (Some(id), _) => id,
             (None, Some(id)) => id,

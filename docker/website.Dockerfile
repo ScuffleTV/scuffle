@@ -4,8 +4,7 @@ LABEL org.opencontainers.image.source=https://github.com/scuffletv/scuffle
 LABEL org.opencontainers.image.description="Website Container for ScuffleTV"
 LABEL org.opencontainers.image.licenses=BSD-4-Clause
 
-# CVEs fixed in 3.0.8-r1
-RUN apk add --no-cache libssl3=3.0.8-r1 libcrypto3=3.0.8-r1
+RUN apk add --no-cache libssl3=3.0.8-r2 libcrypto3=3.0.8-r2
 
 COPY frontend/website/server.ts /app/
 COPY frontend/website/build /app/build

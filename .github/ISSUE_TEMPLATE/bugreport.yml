@@ -26,7 +26,7 @@ body:
   - type: dropdown
     id: os
     attributes:
-      label: Operation System
+      label: Operating System
       description: What is the affected environment?
       options:
         - "Microsoft Windows"

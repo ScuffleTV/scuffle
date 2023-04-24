@@ -52,6 +52,10 @@ Edge is a rather complex system designed to do these functions efficiently, reli
 
 The website will have a video player which will be able to playback the stream in the requested quality.
 
+## Detailed diagram
+
+![](./assets/video-infrastructure-detailed.webp)
+
 ## Useful links
 
 ### Transport Protocols

@@ -53,7 +53,7 @@ jobs:
       cockroach:
         image: ghcr.io/scuffletv/cockroach:latest
         ports:
-          - 5432:26257
+          - 26257:26257
       rmq:
         image: bitnami/rabbitmq:latest
         ports:
@@ -67,7 +67,7 @@ jobs:
         ports:
           - 6379:6379
     env:
-      DATABASE_URL: postgres://root@cockroach:5432/scuffle
+      DATABASE_URL: postgres://root@cockroach:26257/scuffle
       RMQ_URL: amqp://rabbitmq:rabbitmq@rmq:5672/scuffle
       REDIS_URL: redis://redis:6379
 

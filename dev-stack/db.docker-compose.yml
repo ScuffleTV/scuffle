@@ -4,18 +4,17 @@ name: "db-scuffle-dev"
 
 services:
   cockroach:
-    image: cockroachdb/cockroach:latest
+    image: ghcr.io/scuffletv/cockroach:latest
     ports:
       - "5432:26257"
       - "8080:8080"
-    command: start-single-node --insecure
 
   rmq:
     image: bitnami/rabbitmq:latest
     environment:
       RABBITMQ_USERNAME: rabbitmq
       RABBITMQ_PASSWORD: rabbitmq
-      RABBITMQ_VHOSTS: /scuffle
+      RABBITMQ_VHOSTS: scuffle
     ports:
       - "5672:5672"
       - "15672:15672"

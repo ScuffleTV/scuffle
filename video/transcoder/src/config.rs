@@ -82,7 +82,7 @@ pub struct RmqConfig {
 impl Default for RmqConfig {
     fn default() -> Self {
         Self {
-            uri: "amqp://rabbitmq:rabbitmq@localhost:5672/%2fscuffle".to_string(),
+            uri: "amqp://rabbitmq:rabbitmq@localhost:5672/scuffle".to_string(),
             transcoder_queue: "transcoder".to_string(),
         }
     }

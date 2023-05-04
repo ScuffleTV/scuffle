@@ -400,7 +400,7 @@ fi
 
 if [ ! -f .env ]; then
     echo "DATABASE_URL=postgres://postgres:postgres@localhost:5432/scuffle_dev" > .env
-    echo "RMQ_URL=amqp://rabbitmq:rabbitmq@localhost:5672/%2fscuffle" >> .env
+    echo "RMQ_URL=amqp://rabbitmq:rabbitmq@localhost:5672/scuffle" >> .env
 fi
 ```
 

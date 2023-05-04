@@ -53,7 +53,7 @@ jobs:
       cockroach:
         image: ghcr.io/scuffletv/cockroach:latest
         ports:
-          - 5432:5432
+          - 5432:26257
       rmq:
         image: bitnami/rabbitmq:latest
         ports:

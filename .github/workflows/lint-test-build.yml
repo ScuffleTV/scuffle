@@ -50,23 +50,26 @@ jobs:
     if: ${{ needs.should_run.outputs.should-run == 'true' }}
     environment: ${{ (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/feature/*' && github.event_name != 'workflow_dispatch') && 'lint-test-build' || '' }}
     services:
-      postgres:
-        image: postgres:15.2
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
+      cockroach:
+        image: ghcr.io/scuffletv/cockroach:latest
         ports:
           - 5432:5432
-      nats:
-        image: ghcr.io/scuffletv/nats:latest
+      rmq:
+        image: bitnami/rabbitmq:latest
         ports:
-          - 4222:4222
-          - 8222:8222
-
+          - 5672:5672
+        env:
+          RABBITMQ_USERNAME: rabbitmq
+          RABBITMQ_PASSWORD: rabbitmq
+          RABBITMQ_VHOSTS: scuffle
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
     env:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/scuffle
-      NATS_URL: nats://nats:4222
+      DATABASE_URL: postgres://root@cockroach:5432/scuffle
+      RMQ_URL: amqp://rabbitmq:rabbitmq@rmq:5672/scuffle
+      REDIS_URL: redis://redis:6379
 
     steps:
       - uses: actions/checkout@v3

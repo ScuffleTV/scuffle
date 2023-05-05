@@ -503,27 +503,6 @@ impl api_server::Api for ApiServer {
             return Err(Status::internal("internal server error"));
         }
 
-        // let r = global
-        //     .nats
-        //     .publish(
-        //         old_stream.events_subject,
-        //         events::IngestMessage {
-        //             id: Uuid::new_v4().to_string(),
-        //             timestamp: Utc::now().timestamp() as u64,
-        //             data: Some(events::ingest_message::Data::DropStream(
-        //                 events::IngestMessageDropStream {
-        //                     id: old_stream_id.to_string(),
-        //                 },
-        //             )),
-        //         }
-        //         .encode_to_vec()
-        //         .into(),
-        //     )
-        //     .await;
-        // if let Err(e) = r {
-        //     tracing::error!("failed to publish NATS message: {}", e);
-        // }
-
         Ok(Response::new(NewLiveStreamResponse {
             stream_id: stream_id.to_string(),
         }))

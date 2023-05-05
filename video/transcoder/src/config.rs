@@ -88,29 +88,6 @@ impl Default for RmqConfig {
     }
 }
 
-#[derive(Debug, Default, Clone, Deserialize, Serialize, PartialEq)]
-#[serde(untagged)]
-pub enum NatsAuth {
-    /// No authentication
-    #[default]
-    None,
-
-    /// Username and password
-    UserPass {
-        /// The username
-        username: String,
-
-        /// The password
-        password: String,
-    },
-
-    /// Token
-    Token {
-        /// The token
-        token: String,
-    },
-}
-
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct RedisConfig {
     /// The address of the Redis server
@@ -198,7 +175,7 @@ impl Default for TranscoderConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(default)]
 pub struct AppConfig {
     /// Name of this instance

@@ -275,11 +275,6 @@ impl Connection {
             self.stream_id_sender.subscribe()
         ));
 
-        // let mut nats_events_stream = pin!(watch_events(
-        //     global.clone(),
-        //     self.stream_id_sender.subscribe()
-        // ));
-
         let mut next_timeout = Instant::now() + Duration::from_secs(2);
 
         let mut clean_shutdown = false;
@@ -316,14 +311,6 @@ impl Connection {
                 api_update_failed = true;
                 false
             }
-            // event = nats_events_stream.next() => {
-            //     if let Some(event) = event {
-            //         self.on_nats_event(&update_channel, &global, event).await
-            //     } else {
-            //         tracing::error!("nats event stream closed");
-            //         false
-            //     }
-            // }
             event = self.transcoder_req_rx.recv() => self.on_transcoder_request(&update_channel, &global, event.expect("transcoder closed")).await,
         } {}
 

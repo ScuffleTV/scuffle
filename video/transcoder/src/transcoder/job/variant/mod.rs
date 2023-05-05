@@ -6,7 +6,7 @@ use chrono::SecondsFormat;
 use common::prelude::FutureTimeout;
 use fred::{
     prelude::{HashesInterface, KeysInterface},
-    types::{Expiration, RedisValue, SetOptions},
+    types::{Expiration, RedisValue},
 };
 use futures_util::StreamExt;
 use mp4::{
@@ -32,7 +32,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::{
     track_parser::{track_parser, TrackOut, TrackSample},
-    utils::{unix_stream, MultiStream, MultiStreamSubscriber},
+    utils::{unix_stream, MultiStream, MultiStreamSubscriber, set_lock, release_lock},
 };
 
 mod consts;
@@ -112,71 +112,6 @@ pub async fn handle_variant(
     }
 
     Ok(variant.variant_id)
-}
-
-async fn set_lock(
-    global: Arc<GlobalState>,
-    key: String,
-    req_id: String,
-    owned: CancellationToken,
-) -> Result<()> {
-    loop {
-        let have_lock: String = global
-            .redis
-            .set(
-                &key,
-                &req_id,
-                Some(Expiration::EX(5)),
-                Some(SetOptions::NX),
-                true,
-            )
-            .await?;
-        if have_lock == req_id {
-            break;
-        }
-
-        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-    }
-
-    owned.cancel();
-
-    let mut timer = tokio::time::interval(tokio::time::Duration::from_secs(1));
-    loop {
-        timer.tick().await;
-
-        let lock_owner: String = global
-            .redis
-            .set(
-                &key,
-                &req_id,
-                Some(Expiration::EX(5)),
-                Some(SetOptions::XX),
-                true,
-            )
-            .await?;
-        if lock_owner != req_id {
-            return Err(anyhow!("lost lock"));
-        }
-    }
-}
-
-async fn release_lock(global: &Arc<GlobalState>, key: &str, request_id: &str) -> Result<()> {
-    let lock_owner: String = global
-        .redis
-        .set(
-            key,
-            request_id,
-            Some(Expiration::EX(5)),
-            Some(SetOptions::XX),
-            true,
-        )
-        .await?;
-
-    if lock_owner == request_id {
-        global.redis.del(key).await?;
-    }
-
-    Ok(())
 }
 
 impl Variant {
@@ -895,10 +830,6 @@ impl Variant {
                 1
             };
 
-        playlist.push_str("#EXTM3U\n");
-        playlist.push_str("#EXT-X-VERSION:9\n");
-        playlist.push_str(&format!("#EXT-X-MEDIA-SEQUENCE:{}\n", oldest_segment_idx));
-
         let mut discontinuity_sequence = self.redis_state.discontinuity_sequence() as i32;
         let mut segment_data = String::new();
 
@@ -907,7 +838,7 @@ impl Variant {
         // However, this should be a good enough approximation.
         // Baring that the framerate is not less than 8fps. (which is unlikely)
         // If it is less than 8fps, then it will automatically increase to the longest fragment duration.
-        let mut longest_fragment_duration: f64 = consts::FRAGMENT_CUT_MAX_DURATION;
+        let mut longest_fragment_duration: f64 = consts::FRAGMENT_CUT_TARGET_DURATION;
 
         for idx in oldest_segment_idx..newest_segment_idx {
             let Some((segment, _)) = self.segment_state.get(&idx) else {
@@ -919,13 +850,6 @@ impl Variant {
                 segment_data.push_str("#EXT-X-DISCONTINUITY\n");
             }
 
-            segment_data.push_str(&format!(
-                "#EXT-X-PROGRAM-DATE-TIME:{}\n",
-                segment
-                    .timestamp()
-                    .to_rfc3339_opts(SecondsFormat::Millis, true)
-            ));
-
             let track_1_timescale = self.redis_state.track_timescale(0).unwrap_or(1);
 
             let mut total_duration = 0;
@@ -935,7 +859,7 @@ impl Variant {
                 longest_fragment_duration = longest_fragment_duration
                     .max(fragment.duration as f64 / track_1_timescale as f64);
 
-                if idx >= oldest_fragment_display_idx || !segment.ready() {
+                if idx >= oldest_fragment_display_idx {
                     segment_data.push_str(&format!(
                         "#EXT-X-PART:DURATION={:.5},URI=\"{}.{}.mp4\"{}\n",
                         fragment.duration as f64 / track_1_timescale as f64,
@@ -956,34 +880,46 @@ impl Variant {
             }
 
             if segment.ready() {
+                segment_data.push_str(&format!(
+                    "#EXT-X-PROGRAM-DATE-TIME:{}\n",
+                    segment
+                        .timestamp()
+                        .to_rfc3339_opts(SecondsFormat::Millis, true)
+                ));
+
                 segment_data.push_str(&format!("#EXTINF:{:.5},\n", segment_duration));
                 segment_data.push_str(&format!("{}.mp4\n", idx));
-            } else {
-                segment_data.push_str(&format!(
-                    "#EXT-X-PRELOAD-HINT:TYPE=PART,URI=\"{}.{}.mp4\"",
-                    idx,
-                    segment.fragments().len()
-                ))
             }
         }
 
+        segment_data.push_str(&format!(
+            "#EXT-X-PRELOAD-HINT:TYPE=PART,URI=\"{}.{}.mp4\"",
+            self.redis_state.current_segment_idx(),
+            self.redis_state.current_fragment_idx()
+        ));
+
+        playlist.push_str("#EXTM3U\n");
         playlist.push_str(&format!(
             "#EXT-X-TARGETDURATION:{}\n",
-            self.redis_state.longest_segment().ceil() as u32
+            self.redis_state.longest_segment().ceil() as u32 * 2,
+        ));
+        playlist.push_str("#EXT-X-VERSION:6\n");
+        playlist.push_str(&format!(
+            "#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK={:.5}\n",
+            longest_fragment_duration * 2.0
         ));
         playlist.push_str(&format!(
             "#EXT-X-PART-INF:PART-TARGET={:.5}\n",
             longest_fragment_duration
         ));
-        playlist.push_str(&format!(
-            "#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK={:.5}\n",
-            longest_fragment_duration * 2.0
-        ));
+        playlist.push_str(&format!("#EXT-X-MEDIA-SEQUENCE:{}\n", oldest_segment_idx));
+        // playlist.push_str(&format!(
+        //     "#EXT-X-DISCONTINUITY-SEQUENCE:{}\n",
+        //     discontinuity_sequence.max(0)
+        // ));
+
         playlist.push_str("#EXT-X-MAP:URI=\"init.mp4\"\n");
-        playlist.push_str(&format!(
-            "#EXT-X-DISCONTINUITY-SEQUENCE:{}\n",
-            discontinuity_sequence.max(0)
-        ));
+        
         playlist.push_str(&segment_data);
 
         self.redis_state.set_playlist(playlist);

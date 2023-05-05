@@ -8,6 +8,7 @@ use std::{
 use anyhow::{anyhow, Result};
 use common::prelude::*;
 use common::vec_of_strings;
+use fred::types::Expiration;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use lapin::message::Delivery;
 use lapin::options::BasicAckOptions;
@@ -24,7 +25,8 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use tonic::{transport::Channel, Status};
 
-use crate::transcoder::job::utils::SharedFuture;
+use crate::pb::scuffle::types::StreamVariant;
+use crate::transcoder::job::utils::{SharedFuture, set_lock, release_lock};
 use crate::transcoder::job::variant::make_audio_stream;
 use crate::{
     global::GlobalState,
@@ -37,6 +39,7 @@ use crate::{
     },
     transcoder::job::{utils::MultiStream, variant::TrackSetup},
 };
+use fred::interfaces::KeysInterface;
 
 mod track_parser;
 mod utils;
@@ -94,6 +97,7 @@ async fn handle_message_internal(msg: &Delivery) -> Result<Job> {
         req,
         client,
         stream,
+        lock_owner: CancellationToken::new(),
     })
 }
 
@@ -101,11 +105,78 @@ struct Job {
     req: TranscoderMessageNewStream,
     client: IngestClient<Channel>,
     stream: tonic::Streaming<WatchStreamResponse>,
+    lock_owner: CancellationToken,
+}
+
+#[inline(always)]
+fn redis_mutex_key(stream_id: &str) -> String {
+    format!("transcoder:{}:mutex", stream_id)
+}
+
+#[inline(always)]
+fn redis_master_playlist_key(stream_id: &str) -> String {
+    format!("transcoder:{}:playlist", stream_id)
+}
+
+fn set_master_playlist(
+    global: Arc<GlobalState>,
+    stream_id: &str,
+    variants: &[StreamVariant],
+    lock: CancellationToken,
+) -> impl futures::Future<Output = Result<()>> + Send + 'static {
+    let playlist_key = redis_master_playlist_key(stream_id);
+
+    let mut playlist = String::new();
+
+    playlist.push_str("#EXTM3U\n");
+    for variant in variants {
+        let mut options = vec![
+            format!("BANDWIDTH={}", variant.audio_settings.as_ref().map(|a| a.bitrate).unwrap_or_default() + variant.video_settings.as_ref().map(|v| v.bitrate).unwrap_or_default()),
+            format!("CODECS=\"{}\"", variant.video_settings.as_ref().map(|v| v.codec.clone()).into_iter().chain(variant.audio_settings.as_ref().map(|a| a.codec.clone()).into_iter()).collect::<Vec<_>>().join(",")),
+        ];
+
+        if let Some(video_settings) = &variant.video_settings {
+            options.push(format!("RESOLUTION={}x{}", video_settings.width, video_settings.height));
+            options.push(format!("FRAME-RATE={}", video_settings.framerate));
+        }
+
+        playlist.push_str(&format!(
+            "#EXT-X-STREAM-INF:{}\n",
+            options.join(",")
+        ));
+
+        playlist.push_str(&format!("{}/index.m3u8\n", variant.id))
+    }
+
+    async move {
+        lock.cancelled().await;
+
+        global.redis.set(&playlist_key, playlist, Some(Expiration::EX(450)), None, false).await?;
+
+        let mut ticker = tokio::time::interval(Duration::from_secs(60));
+        loop {
+            ticker.tick().await;
+            global.redis.expire(&playlist_key, 450).await?;
+        }
+    }
 }
 
 impl Job {
     async fn run(&mut self, global: Arc<GlobalState>, shutdown_token: CancellationToken) {
         tracing::info!("starting transcode job");
+        let mut set_lock_fut = pin!(set_lock(
+            global.clone(),
+            redis_mutex_key(&self.req.stream_id),
+            self.req.request_id.clone(),
+            self.lock_owner.clone(),
+        ));
+
+        let mut update_playlist_fut = pin!(set_master_playlist(
+            global.clone(),
+            &self.req.stream_id,
+            &self.req.variants,
+            self.lock_owner.child_token(),
+        ));
 
         // We need to create a unix socket for ffmpeg to connect to.
         let socket_dir = Path::new(&global.config.transcoder.socket_dir).join(&self.req.request_id);
@@ -246,7 +317,7 @@ impl Job {
                     .display()
             ),
             "-map", "0:a",
-            "-c:a", "libopus",
+            "-c:a", "aac",
             "-b:a", format!("{}", audio_settings.bitrate),
             "-ac:a", format!("{}", audio_settings.channels),
             "-ar:a", format!("{}", audio_settings.sample_rate),
@@ -327,8 +398,10 @@ impl Job {
         let child = pin!(child.wait_with_output());
         let mut child = SharedFuture::new(child);
 
+        let mut shutdown_fuse = pin!(shutdown_token.cancelled().fuse());
+
         while select! {
-            _ = shutdown_token.cancelled() => {
+            _ = &mut shutdown_fuse => {
                 self.client.transcoder_event(TranscoderEventRequest {
                     request_id: self.req.request_id.clone(),
                     stream_id: self.req.stream_id.clone(),
@@ -348,6 +421,18 @@ impl Job {
             // So we don't need to report an error.
             _ = &mut audio_stream_fut => {
                 tracing::info!("audio stream shutdown while running");
+                false
+            },
+            r = &mut set_lock_fut => {
+                if let Err(err) = r {
+                    tracing::error!("set lock error: {:#}", err);
+                } else {
+                    tracing::warn!("set lock done prematurely without error");
+                }
+                false
+            },
+            _ = &mut update_playlist_fut => {
+                tracing::info!("playlist update shutdown while running");
                 false
             },
             // This shutting down usually implies that the stream was closed.
@@ -374,6 +459,10 @@ impl Job {
                 "failed to shut down stream, forcefully shutting down by stack unwinding"
             );
             self.report_error("failed to shut down stream", false).await;
+        };
+
+        if let Err(err) = release_lock(&global, &redis_mutex_key(&self.req.stream_id), &self.req.request_id).await {
+            tracing::error!("failed to release lock: {:#}", err);
         };
 
         tracing::info!("stream shut down");

@@ -10,7 +10,7 @@ rand = "0"
 hmac = "0"
 sha2 = "0"
 uuid = { version = "1", features = ["v4"] }
-chrono = { version = "0", default-features = false, features = ["serde"] }
+chrono = { version = "0", default-features = false, features = ["clock"] }
 num-traits = "0"
 num-derive = "0"
 tokio = "1"

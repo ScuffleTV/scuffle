@@ -1,10 +1,14 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Result};
 use async_stream::stream;
 use bytes::Bytes;
 use bytesio::{bytesio::BytesIO, bytesio_errors::BytesIOError};
+use fred::types::{Expiration, SetOptions};
 use futures_util::{FutureExt, StreamExt};
+use tokio_util::sync::CancellationToken;
 use std::{io, sync::Arc};
 use tokio::{net::UnixListener, sync::broadcast};
+use fred::interfaces::KeysInterface;
+use crate::global::GlobalState;
 
 pub fn unix_stream(
     listener: UnixListener,
@@ -114,4 +118,69 @@ impl<O, F: futures::Future<Output = O> + Unpin> futures::Future for SharedFuture
         this.output = Some(output.clone());
         std::task::Poll::Ready(output)
     }
+}
+
+pub async fn set_lock(
+    global: Arc<GlobalState>,
+    key: String,
+    req_id: String,
+    owned: CancellationToken,
+) -> Result<()> {
+    loop {
+        let have_lock: String = global
+            .redis
+            .set(
+                &key,
+                &req_id,
+                Some(Expiration::EX(5)),
+                Some(SetOptions::NX),
+                true,
+            )
+            .await?;
+        if have_lock == req_id {
+            break;
+        }
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+    }
+
+    owned.cancel();
+
+    let mut timer = tokio::time::interval(tokio::time::Duration::from_secs(1));
+    loop {
+        timer.tick().await;
+
+        let lock_owner: String = global
+            .redis
+            .set(
+                &key,
+                &req_id,
+                Some(Expiration::EX(5)),
+                Some(SetOptions::XX),
+                true,
+            )
+            .await?;
+        if lock_owner != req_id {
+            return Err(anyhow!("lost lock"));
+        }
+    }
+}
+
+pub async fn release_lock(global: &Arc<GlobalState>, key: &str, request_id: &str) -> Result<()> {
+    let lock_owner: String = global
+        .redis
+        .set(
+            key,
+            request_id,
+            Some(Expiration::EX(5)),
+            Some(SetOptions::XX),
+            true,
+        )
+        .await?;
+
+    if lock_owner == request_id {
+        global.redis.del(key).await?;
+    }
+
+    Ok(())
 }

@@ -14,7 +14,7 @@ tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 hyper = { version = "0", features = ["full"] }
 tonic = { version = "0", features = ["tls"] }
-chrono = { version = "0", default-features = false, features = ["serde"] }
+chrono = { version = "0", default-features = false, features = ["clock"] }
 prost = "0"
 async-stream = "0"
 futures = "0"
@@ -36,3 +36,9 @@ bytesio = { path = "../bytesio" }
 [build-dependencies]
 tonic-build = "0"
 prost-build = "0"
+
+[dev-dependencies]
+dotenvy = "0"
+portpicker = "0"
+serial_test = "2"
+tempfile = "3"

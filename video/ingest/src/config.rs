@@ -88,7 +88,7 @@ impl Default for ApiConfig {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(default)]
 pub struct RmqConfig {
-    /// The address of the NATS server
+    /// The address of the RMQ server
     pub uri: String,
 }
 

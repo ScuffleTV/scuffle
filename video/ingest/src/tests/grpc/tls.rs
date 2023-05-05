@@ -11,16 +11,16 @@ use crate::tests::global::mock_global_state;
 #[tokio::test]
 async fn test_grpc_tls_rsa() {
     let port = portpicker::pick_unused_port().expect("failed to pick port");
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/tests/certs");
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/tests/certs/rsa");
 
     let (global, handler) = mock_global_state(AppConfig {
         grpc: GrpcConfig {
             bind_address: format!("0.0.0.0:{}", port).parse().unwrap(),
             advertise_address: "".to_string(),
             tls: Some(TlsConfig {
-                cert: dir.join("server.rsa.crt").to_str().unwrap().to_string(),
-                ca_cert: dir.join("ca.rsa.crt").to_str().unwrap().to_string(),
-                key: dir.join("server.rsa.key").to_str().unwrap().to_string(),
+                cert: dir.join("server.crt").to_str().unwrap().to_string(),
+                ca_cert: dir.join("ca.crt").to_str().unwrap().to_string(),
+                key: dir.join("server.key").to_str().unwrap().to_string(),
                 domain: Some("localhost".to_string()),
             }),
         },
@@ -28,10 +28,9 @@ async fn test_grpc_tls_rsa() {
     })
     .await;
 
-    let ca_content =
-        Certificate::from_pem(std::fs::read_to_string(dir.join("ca.rsa.crt")).unwrap());
-    let client_cert = std::fs::read_to_string(dir.join("client.rsa.crt")).unwrap();
-    let client_key = std::fs::read_to_string(dir.join("client.rsa.key")).unwrap();
+    let ca_content = Certificate::from_pem(std::fs::read_to_string(dir.join("ca.crt")).unwrap());
+    let client_cert = std::fs::read_to_string(dir.join("client.crt")).unwrap();
+    let client_key = std::fs::read_to_string(dir.join("client.key")).unwrap();
     let client_identity = Identity::from_pem(client_cert, client_key);
 
     let channel = make_channel(
@@ -83,16 +82,16 @@ async fn test_grpc_tls_rsa() {
 #[tokio::test]
 async fn test_grpc_tls_ec() {
     let port = portpicker::pick_unused_port().expect("failed to pick port");
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/tests/certs");
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/tests/certs/ec");
 
     let (global, handler) = mock_global_state(AppConfig {
         grpc: GrpcConfig {
             bind_address: format!("0.0.0.0:{}", port).parse().unwrap(),
             advertise_address: "".to_string(),
             tls: Some(TlsConfig {
-                cert: dir.join("server.ec.crt").to_str().unwrap().to_string(),
-                ca_cert: dir.join("ca.ec.crt").to_str().unwrap().to_string(),
-                key: dir.join("server.ec.key").to_str().unwrap().to_string(),
+                cert: dir.join("server.crt").to_str().unwrap().to_string(),
+                ca_cert: dir.join("ca.crt").to_str().unwrap().to_string(),
+                key: dir.join("server.key").to_str().unwrap().to_string(),
                 domain: Some("localhost".to_string()),
             }),
         },
@@ -100,9 +99,9 @@ async fn test_grpc_tls_ec() {
     })
     .await;
 
-    let ca_content = Certificate::from_pem(std::fs::read_to_string(dir.join("ca.ec.crt")).unwrap());
-    let client_cert = std::fs::read_to_string(dir.join("client.ec.crt")).unwrap();
-    let client_key = std::fs::read_to_string(dir.join("client.ec.key")).unwrap();
+    let ca_content = Certificate::from_pem(std::fs::read_to_string(dir.join("ca.crt")).unwrap());
+    let client_cert = std::fs::read_to_string(dir.join("client.crt")).unwrap();
+    let client_key = std::fs::read_to_string(dir.join("client.key")).unwrap();
     let client_identity = Identity::from_pem(client_cert, client_key);
 
     let channel = make_channel(

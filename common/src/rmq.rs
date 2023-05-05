@@ -119,15 +119,18 @@ impl ConnectionPool {
 
     pub fn basic_consume<'a>(
         &'a self,
-        queue_name: &'a str,
-        connection_name: &'a str,
+        queue_name: impl ToString,
+        connection_name: impl ToString,
         options: BasicConsumeOptions,
         table: FieldTable,
     ) -> impl Stream<Item = Result<lapin::message::Delivery>> + 'a {
+        let queue_name = queue_name.to_string();
+        let connection_name = connection_name.to_string();
+
         stream! {
             'connection_loop: loop {
                 let channel = self.aquire().await?;
-                let mut consumer = channel.basic_consume(queue_name, connection_name, options, table.clone()).await?;
+                let mut consumer = channel.basic_consume(&queue_name, &connection_name, options, table.clone()).await?;
                 loop {
                     let m = consumer.next().await;
                     match m {

@@ -1,23 +1,25 @@
-openssl genrsa -out ca.rsa.key 2048
-openssl genrsa -out server.rsa.key 2048
-openssl genrsa -out client.rsa.key 2048
+mkdir -p rsa ec
 
-openssl req -x509 -sha256 -days 365 -nodes -key ca.rsa.key -config ca.ini -out ca.rsa.crt
-openssl req -x509 -sha256 -days 365 -CA ca.rsa.crt -CAkey ca.rsa.key -nodes -key server.rsa.key -config server.ini -out server.rsa.crt
-openssl req -x509 -sha256 -days 365 -CA ca.rsa.crt -CAkey ca.rsa.key -nodes -key client.rsa.key -config client.ini -out client.rsa.crt
+openssl genrsa -out rsa/ca.key 2048
+openssl genrsa -out rsa/server.key 2048
+openssl genrsa -out rsa/client.key 2048
 
-openssl ecparam -outform PEM -name prime256v1 -genkey -noout -out ca.ec.key
-openssl ecparam -outform PEM -name prime256v1 -genkey -noout -out server.ec.key
-openssl ecparam -outform PEM -name prime256v1 -genkey -noout -out client.ec.key
+openssl req -x509 -sha256 -days 365 -nodes -key rsa/ca.key -config ca.ini -out rsa/ca.crt
+openssl req -x509 -sha256 -days 365 -CA rsa/ca.crt -CAkey rsa/ca.key -nodes -key rsa/server.key -config server.ini -out rsa/server.crt
+openssl req -x509 -sha256 -days 365 -CA rsa/ca.crt -CAkey rsa/ca.key -nodes -key rsa/client.key -config client.ini -out rsa/client.crt
 
-openssl pkcs8 -topk8 -nocrypt -in ca.ec.key -out ca.ec.key.pem
-openssl pkcs8 -topk8 -nocrypt -in server.ec.key -out server.ec.key.pem
-openssl pkcs8 -topk8 -nocrypt -in client.ec.key -out client.ec.key.pem
+openssl ecparam -outform PEM -name prime256v1 -genkey -noout -out ec/ca.key
+openssl ecparam -outform PEM -name prime256v1 -genkey -noout -out ec/server.key
+openssl ecparam -outform PEM -name prime256v1 -genkey -noout -out ec/client.key
 
-mv ca.ec.key.pem ca.ec.key
-mv server.ec.key.pem server.ec.key
-mv client.ec.key.pem client.ec.key
+openssl pkcs8 -topk8 -nocrypt -in ec/ca.key -out ec/ca.key.pem
+openssl pkcs8 -topk8 -nocrypt -in ec/server.key -out ec/server.key.pem
+openssl pkcs8 -topk8 -nocrypt -in ec/client.key -out ec/client.key.pem
 
-openssl req -x509 -sha256 -days 365 -nodes -key ca.ec.key -config ca.ini -out ca.ec.crt
-openssl req -x509 -sha256 -days 365 -CA ca.ec.crt -CAkey ca.ec.key -nodes -key server.ec.key -config server.ini -out server.ec.crt
-openssl req -x509 -sha256 -days 365 -CA ca.ec.crt -CAkey ca.ec.key -nodes -key client.ec.key -config client.ini -out client.ec.crt
+mv ec/ca.key.pem ec/ca.key
+mv ec/server.key.pem ec/server.key
+mv ec/client.key.pem ec/client.key
+
+openssl req -x509 -sha256 -days 365 -nodes -key ec/ca.key -config ca.ini -out ec/ca.crt
+openssl req -x509 -sha256 -days 365 -CA ec/ca.crt -CAkey ec/ca.key -nodes -key ec/server.key -config server.ini -out ec/server.crt
+openssl req -x509 -sha256 -days 365 -CA ec/ca.crt -CAkey ec/ca.key -nodes -key ec/client.key -config client.ini -out ec/client.crt

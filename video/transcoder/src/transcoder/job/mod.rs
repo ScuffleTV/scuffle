@@ -317,7 +317,7 @@ impl Job {
                     .display()
             ),
             "-map", "0:a",
-            "-c:a", "aac",
+            "-c:a", "libopus",
             "-b:a", format!("{}", audio_settings.bitrate),
             "-ac:a", format!("{}", audio_settings.channels),
             "-ar:a", format!("{}", audio_settings.sample_rate),

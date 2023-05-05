@@ -903,7 +903,7 @@ impl Variant {
             "#EXT-X-TARGETDURATION:{}\n",
             self.redis_state.longest_segment().ceil() as u32 * 2,
         ));
-        playlist.push_str("#EXT-X-VERSION:6\n");
+        playlist.push_str("#EXT-X-VERSION:9\n");
         playlist.push_str(&format!(
             "#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK={:.5}\n",
             longest_fragment_duration * 2.0
@@ -913,10 +913,10 @@ impl Variant {
             longest_fragment_duration
         ));
         playlist.push_str(&format!("#EXT-X-MEDIA-SEQUENCE:{}\n", oldest_segment_idx));
-        // playlist.push_str(&format!(
-        //     "#EXT-X-DISCONTINUITY-SEQUENCE:{}\n",
-        //     discontinuity_sequence.max(0)
-        // ));
+        playlist.push_str(&format!(
+            "#EXT-X-DISCONTINUITY-SEQUENCE:{}\n",
+            discontinuity_sequence.max(0)
+        ));
 
         playlist.push_str("#EXT-X-MAP:URI=\"init.mp4\"\n");
         

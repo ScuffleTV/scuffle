@@ -26,7 +26,7 @@ pub struct EdgeConfig {
     /// Bind Address
     pub bind_address: SocketAddr,
 
-    /// If we should use TLS 
+    /// If we should use TLS
     pub tls: Option<TlsConfig>,
 }
 

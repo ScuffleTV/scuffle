@@ -7,6 +7,11 @@
 	import { client } from "../lib/gql";
 	import "../lib/user";
 	import SideNav from "../components/sideNav.svelte";
+	import { abc } from "@scuffle/player";
+
+	if (typeof window !== "undefined") {
+		abc();
+	}
 
 	// This provides the GraphQL client to all components in the app.
 	setContextClient(client);

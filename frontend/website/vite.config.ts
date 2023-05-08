@@ -1,15 +1,16 @@
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
-import { defineConfig } from "vitest/config";
-// import wasm from "./plugins/wasm";
 import { resolve } from "path";
 
 export default defineConfig({
-	plugins: [sveltekit()], // wasm({ directory: "../player", name: "player" })
-	test: {
-		include: ["src/**/*.{test,spec}.{js,ts}"],
-	},
+	plugins: [sveltekit()],
 	optimizeDeps: {
-		exclude: ["@urql/svelte", "urql", "@urql/core"],
+		exclude: ["@urql/svelte", "urql", "@urql/core", "@scuffle/player"],
+	},
+	server: {
+		fs: {
+			allow: [searchForWorkspaceRoot(process.cwd())],
+		},
 	},
 	resolve: {
 		alias: {

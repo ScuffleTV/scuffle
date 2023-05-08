@@ -7,9 +7,6 @@
 		"husky": "^8.0.3",
 		"prettier": "^2.8.4"
 	},
-	"workspaces": [
-		"frontend/website"
-	],
 	"scripts": {
 		"prepare": "husky install",
 		"lint": "prettier --check \"**/*\" -u",

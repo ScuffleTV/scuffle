@@ -18,3 +18,7 @@ members = [
     "video/utils/exp_golomb",
     "common",
 ]
+
+exclude = [
+    "frontend/player"
+]

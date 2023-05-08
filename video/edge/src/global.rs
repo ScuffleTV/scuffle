@@ -13,16 +13,8 @@ pub struct GlobalState {
 }
 
 impl GlobalState {
-    pub fn new(
-        config: AppConfig,
-        ctx: Context,
-        redis: RedisPool,
-    ) -> Self {
-        Self {
-            config,
-            ctx,
-            redis,
-        }
+    pub fn new(config: AppConfig, ctx: Context, redis: RedisPool) -> Self {
+        Self { config, ctx, redis }
     }
 }
 

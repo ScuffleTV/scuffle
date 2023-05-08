@@ -1,0 +1,36 @@
+{
+	"name": "@scuffle/player",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"wasm:build": "wasm-pack build . --target web",
+		"wasm:watch": "cargo watch --watch src --watch Cargo.toml -s \"pnpm run wasm:build\"",
+		"watch": "pnpm run wasm:watch & vite build --watch",
+		"build": "pnpm run clean && pnpm run wasm:build --release && tsc && vite build",
+		"lint": "prettier --plugin-search-dir . --check \"**/*\" -u && eslint . --ext .js,.ts",
+		"format": "prettier --plugin-search-dir . --write \"**/*\" -u",
+		"demo:dev": "pnpm run clean && pnpm run wasm:build --debug && vite",
+		"demo:build": "pnpm run wasm:build --release && tsc && vite build -c vite.demo.config.ts",
+		"demo:preview": "vite preview",
+		"clean": "rimraf dist pkg"
+	},
+	"module": "./dist/player.js",
+	"types": "./dist/player.d.ts",
+	"files": [
+		"dist"
+	],
+	"devDependencies": {
+		"@typescript-eslint/eslint-plugin": "^5.59.2",
+		"@typescript-eslint/parser": "^5.59.2",
+		"astring": "^1.8.4",
+		"eslint": "^8.40.0",
+		"eslint-config-prettier": "^8.8.0",
+		"prettier": "^2.8.8",
+		"rimraf": "^3.0.0",
+		"typescript": "^5.0.2",
+		"vite": "^4.3.2",
+		"vite-plugin-dts": "^2.3.0",
+		"wasm-pack": "^0.11.0"
+	}
+}

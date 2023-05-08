@@ -40,6 +40,9 @@ cargo build --release --target=$target
 - no_gql_prepare
   - flags: --no-gql-prepare
   - desc: Don't prepare the GraphQL schema
+- no_player
+  - flags: --no-player
+  - desc: Don't build the player
 
 ```bash
 set -e
@@ -52,7 +55,24 @@ if [ "$no_gql_prepare" != "true" ]; then
     export SCHEMA_URL=$(realpath frontend/website/schema.graphql)
 fi
 
-yarn workspace website build
+if [ "$no_player" != "true" ]; then
+    $MASK build player
+fi
+
+pnpm --filter website build
+```
+
+### player
+
+> Build the player
+
+```bash
+set -e
+if [[ "$verbose" == "true" ]]; then
+    set -x
+fi
+
+pnpm --filter player build
 ```
 
 ## clean
@@ -86,7 +106,7 @@ if [[ "$all" == "true" ]]; then
 fi
 
 cargo clean
-yarn workspace website clean
+pnpm --recursive --parallel --stream run clean
 
 if [ "$node_modules" == "true" ]; then
     rm -rf node_modules
@@ -132,8 +152,7 @@ if [ "$no_rust" != "true" ]; then
 fi
 
 if [ "$no_js" != "true" ]; then
-    yarn format
-    yarn workspace website format
+    pnpm --recursive --parallel --stream run format
 fi
 
 if [ "$no_terraform" != "true" ]; then
@@ -182,8 +201,7 @@ if [ "$no_rust" != "true" ]; then
 fi
 
 if [ "$no_js" != "true" ]; then
-    yarn lint
-    yarn workspace website lint
+    pnpm --recursive --parallel --stream run lint
 fi
 
 if [ "$no_terraform" != "true" ]; then
@@ -221,7 +239,7 @@ if [ "$no_rust" != "true" ]; then
 fi
 
 if [ "$no_js" != "true" ]; then
-    yarn audit
+    pnpm audit
 fi
 ```
 
@@ -260,7 +278,7 @@ if [ "$no_rust" != "true" ]; then
 fi
 
 if [ "$no_js" != "true" ]; then
-    yarn workspace website test
+    pnpm --recursive --parallel --stream run test
 fi
 ```
 
@@ -328,7 +346,7 @@ fi
 cargo sqlx prepare --workspace -- --all-targets --all-features
 
 if [ "$no_format" != "true" ]; then
-    yarn prettier --write .sqlx
+    pnpm exec prettier --write .sqlx
 fi
 ```
 
@@ -486,10 +504,10 @@ if [ "$no_rust" != "true" ]; then
 fi
 
 if [ "$no_js" != "true" ]; then
-    yarn install
+    pnpm --recursive --parallel --stream install
 
     if [ "$no_js_tests" != "true" ]; then
-        yarn playwright install
+        pnpm exec playwright install
     fi
 fi
 
@@ -521,7 +539,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-cargo run --bin api-gql-generator | yarn -s prettier --stdin-filepath schema.graphql > schema.graphql
+cargo run --bin api-gql-generator | pnpm exec prettier --stdin-filepath schema.graphql > schema.graphql
 ```
 
 ### check
@@ -534,7 +552,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-cargo run --bin api-gql-generator | yarn -s prettier --stdin-filepath schema.graphql | diff - schema.graphql || (echo "GraphQL schema is out of date. Run 'mask gql prepare' to update it." && exit 1)
+cargo run --bin api-gql-generator | pnpm exec prettier --stdin-filepath schema.graphql | diff - schema.graphql || (echo "GraphQL schema is out of date. Run 'mask gql prepare' to update it." && exit 1)
 
 echo "GraphQL schema is up to date."
 ```

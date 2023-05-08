@@ -26,7 +26,7 @@ use tokio_util::sync::CancellationToken;
 use tonic::{transport::Channel, Status};
 
 use crate::pb::scuffle::types::StreamVariant;
-use crate::transcoder::job::utils::{SharedFuture, set_lock, release_lock};
+use crate::transcoder::job::utils::{release_lock, set_lock, SharedFuture};
 use crate::transcoder::job::variant::make_audio_stream;
 use crate::{
     global::GlobalState,
@@ -131,19 +131,47 @@ fn set_master_playlist(
     playlist.push_str("#EXTM3U\n");
     for variant in variants {
         let mut options = vec![
-            format!("BANDWIDTH={}", variant.audio_settings.as_ref().map(|a| a.bitrate).unwrap_or_default() + variant.video_settings.as_ref().map(|v| v.bitrate).unwrap_or_default()),
-            format!("CODECS=\"{}\"", variant.video_settings.as_ref().map(|v| v.codec.clone()).into_iter().chain(variant.audio_settings.as_ref().map(|a| a.codec.clone()).into_iter()).collect::<Vec<_>>().join(",")),
+            format!(
+                "BANDWIDTH={}",
+                variant
+                    .audio_settings
+                    .as_ref()
+                    .map(|a| a.bitrate)
+                    .unwrap_or_default()
+                    + variant
+                        .video_settings
+                        .as_ref()
+                        .map(|v| v.bitrate)
+                        .unwrap_or_default()
+            ),
+            format!(
+                "CODECS=\"{}\"",
+                variant
+                    .video_settings
+                    .as_ref()
+                    .map(|v| v.codec.clone())
+                    .into_iter()
+                    .chain(
+                        variant
+                            .audio_settings
+                            .as_ref()
+                            .map(|a| a.codec.clone())
+                            .into_iter()
+                    )
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
         ];
 
         if let Some(video_settings) = &variant.video_settings {
-            options.push(format!("RESOLUTION={}x{}", video_settings.width, video_settings.height));
+            options.push(format!(
+                "RESOLUTION={}x{}",
+                video_settings.width, video_settings.height
+            ));
             options.push(format!("FRAME-RATE={}", video_settings.framerate));
         }
 
-        playlist.push_str(&format!(
-            "#EXT-X-STREAM-INF:{}\n",
-            options.join(",")
-        ));
+        playlist.push_str(&format!("#EXT-X-STREAM-INF:{}\n", options.join(",")));
 
         playlist.push_str(&format!("{}/index.m3u8\n", variant.id))
     }
@@ -151,7 +179,16 @@ fn set_master_playlist(
     async move {
         lock.cancelled().await;
 
-        global.redis.set(&playlist_key, playlist, Some(Expiration::EX(450)), None, false).await?;
+        global
+            .redis
+            .set(
+                &playlist_key,
+                playlist,
+                Some(Expiration::EX(450)),
+                None,
+                false,
+            )
+            .await?;
 
         let mut ticker = tokio::time::interval(Duration::from_secs(60));
         loop {
@@ -461,7 +498,13 @@ impl Job {
             self.report_error("failed to shut down stream", false).await;
         };
 
-        if let Err(err) = release_lock(&global, &redis_mutex_key(&self.req.stream_id), &self.req.request_id).await {
+        if let Err(err) = release_lock(
+            &global,
+            &redis_mutex_key(&self.req.stream_id),
+            &self.req.request_id,
+        )
+        .await
+        {
             tracing::error!("failed to release lock: {:#}", err);
         };
 

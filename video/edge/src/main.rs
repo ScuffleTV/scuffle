@@ -5,9 +5,9 @@ use common::{context::Context, logging, prelude::FutureTimeout, signal};
 use tokio::{select, signal::unix::SignalKind, time};
 
 mod config;
+mod edge;
 mod global;
 mod grpc;
-mod edge;
 mod pb;
 
 #[tokio::main]

@@ -18,8 +18,11 @@ pub async fn mock_global_state(config: AppConfig) -> (Arc<GlobalState>, Handler)
 
     let redis = RedisPool::new(
         fred::types::RedisConfig::from_url(
-            std::env::var("REDIS_URL").expect("REDIS_URL not set").as_str(),
-        ).expect("failed to parse redis url"),
+            std::env::var("REDIS_URL")
+                .expect("REDIS_URL not set")
+                .as_str(),
+        )
+        .expect("failed to parse redis url"),
         Some(Default::default()),
         Some(Default::default()),
         2,

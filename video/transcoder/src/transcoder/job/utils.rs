@@ -1,14 +1,14 @@
+use crate::global::GlobalState;
 use anyhow::{anyhow, Result};
 use async_stream::stream;
 use bytes::Bytes;
 use bytesio::{bytesio::BytesIO, bytesio_errors::BytesIOError};
+use fred::interfaces::KeysInterface;
 use fred::types::{Expiration, SetOptions};
 use futures_util::{FutureExt, StreamExt};
-use tokio_util::sync::CancellationToken;
 use std::{io, sync::Arc};
 use tokio::{net::UnixListener, sync::broadcast};
-use fred::interfaces::KeysInterface;
-use crate::global::GlobalState;
+use tokio_util::sync::CancellationToken;
 
 pub fn unix_stream(
     listener: UnixListener,

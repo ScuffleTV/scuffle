@@ -2,14 +2,14 @@ use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
 use common::prelude::FutureTimeout;
-use hyper::{Body, Response, StatusCode, server::conn::Http};
-use routerify::{RequestInfo, Router, RequestServiceBuilder, Middleware};
+use hyper::http::header;
+use hyper::{server::conn::Http, Body, Response, StatusCode};
+use routerify::{Middleware, RequestInfo, RequestServiceBuilder, Router};
 use serde_json::json;
 use tokio::net::TcpSocket;
 use tokio::select;
-use hyper::http::header;
 
-use crate::{global::GlobalState, edge::macros::make_response};
+use crate::{edge::macros::make_response, global::GlobalState};
 
 use self::error::{RouteError, ShouldLog};
 
@@ -48,28 +48,26 @@ async fn error_handler(
     }
 }
 
-
 pub fn cors_middleware(_: &Arc<GlobalState>) -> Middleware<Body, RouteError> {
     Middleware::post(|mut resp| async move {
         resp.headers_mut()
             .insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());
-        resp.headers_mut().insert(
-            header::ACCESS_CONTROL_ALLOW_METHODS,
-            "*".parse().unwrap(),
-        );
-        resp.headers_mut().insert(
-            header::ACCESS_CONTROL_ALLOW_HEADERS,
-            "*".parse().unwrap(),
-        );
+        resp.headers_mut()
+            .insert(header::ACCESS_CONTROL_ALLOW_METHODS, "*".parse().unwrap());
+        resp.headers_mut()
+            .insert(header::ACCESS_CONTROL_ALLOW_HEADERS, "*".parse().unwrap());
         resp.headers_mut().insert(
             header::ACCESS_CONTROL_MAX_AGE,
-            Duration::from_secs(86400).as_secs().to_string().parse().unwrap(),
+            Duration::from_secs(86400)
+                .as_secs()
+                .to_string()
+                .parse()
+                .unwrap(),
         );
 
         Ok(resp)
     })
 }
-
 
 pub fn routes(global: &Arc<GlobalState>) -> Router<Body, RouteError> {
     let weak = Arc::downgrade(global);

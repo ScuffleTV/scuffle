@@ -32,7 +32,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::{
     track_parser::{track_parser, TrackOut, TrackSample},
-    utils::{unix_stream, MultiStream, MultiStreamSubscriber, set_lock, release_lock},
+    utils::{release_lock, set_lock, unix_stream, MultiStream, MultiStreamSubscriber},
 };
 
 mod consts;
@@ -919,7 +919,7 @@ impl Variant {
         ));
 
         playlist.push_str("#EXT-X-MAP:URI=\"init.mp4\"\n");
-        
+
         playlist.push_str(&segment_data);
 
         self.redis_state.set_playlist(playlist);

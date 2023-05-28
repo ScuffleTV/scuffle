@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{
-    extensions, futures_util::Stream, ComplexObject, Context, Schema, SimpleObject, Subscription,
-};
+use async_graphql::{extensions, ComplexObject, Context, Schema, SimpleObject};
 use hyper::{Body, Response};
 use routerify::Router;
 use uuid::Uuid;
@@ -20,6 +18,7 @@ pub mod ext;
 pub mod handlers;
 pub mod models;
 pub mod request_context;
+pub mod subscription;
 
 #[derive(Default, SimpleObject)]
 #[graphql(complex)]
@@ -32,17 +31,6 @@ pub struct Query {
 /// The root mutation type which contains root level fields.
 pub struct Mutation {
     auth: auth::AuthMutation,
-}
-
-#[derive(Default)]
-/// The root subscription type which contains root level fields.
-pub struct Subscription {}
-
-#[Subscription]
-impl Subscription {
-    async fn noop(&self) -> Result<impl Stream<Item = bool>> {
-        Ok(futures_util::stream::iter(Vec::new()))
-    }
 }
 
 #[ComplexObject]
@@ -80,7 +68,7 @@ impl Query {
     }
 }
 
-pub type MySchema = Schema<Query, Mutation, Subscription>;
+pub type MySchema = Schema<Query, Mutation, subscription::Subscription>;
 
 pub const PLAYGROUND_HTML: &str = include_str!("playground.html");
 
@@ -88,7 +76,7 @@ pub fn schema() -> MySchema {
     Schema::build(
         Query::default(),
         Mutation::default(),
-        Subscription::default(),
+        subscription::Subscription::default(),
     )
     .enable_federation()
     .enable_subscription_in_federation()

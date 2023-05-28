@@ -1,24 +1,29 @@
 use std::{
     fmt::{Display, Formatter},
     panic::Location,
+    sync::Arc,
 };
 
 use async_graphql::ErrorExtensions;
 
 pub type Result<T, E = GqlErrorInterface> = std::result::Result<T, E>;
 
+#[derive(Clone)]
 pub struct GqlErrorInterface {
     kind: GqlError,
     message: Option<String>,
     fields: Vec<String>,
     span: tracing::Span,
-    source: Option<anyhow::Error>,
+    source: Option<Arc<anyhow::Error>>,
     location: &'static Location<'static>,
 }
 
 impl GqlErrorInterface {
     fn with_source(self, source: Option<anyhow::Error>) -> Self {
-        Self { source, ..self }
+        Self {
+            source: source.map(Arc::new),
+            ..self
+        }
     }
 
     fn with_location(self, location: &'static Location<'static>) -> Self {
@@ -45,7 +50,7 @@ impl GqlErrorInterface {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 
 pub enum GqlError {
     /// An internal server error occurred.
@@ -165,7 +170,7 @@ impl
             fields: Vec::new(),
             message: Some(message.to_string()),
             span: tracing::Span::current(),
-            source: Some(err.into()),
+            source: Some(Arc::new(err.into())),
             location: Location::caller(),
         }
     }

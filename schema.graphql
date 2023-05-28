@@ -35,6 +35,11 @@ type AuthMutation {
 
 scalar DateRFC3339
 
+type DisplayNameStream {
+	displayName: String!
+	username: String!
+}
+
 type GlobalRole {
 	allowedPermissions: Int!
 	createdAt: DateRFC3339!
@@ -91,6 +96,7 @@ type Session {
 
 type Subscription {
 	noop: Boolean!
+	userDisplayName(userId: UUID!): DisplayNameStream!
 }
 
 """

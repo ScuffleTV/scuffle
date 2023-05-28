@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package scuffle.types.api;
+
+message UserDisplayName {
+  optional string username = 2;
+  optional string display_name = 1;
+}

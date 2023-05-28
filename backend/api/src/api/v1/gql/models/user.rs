@@ -32,7 +32,7 @@ pub struct User {
 
 #[ComplexObject]
 impl User {
-    async fn email<'ctx>(&self, ctx: &Context<'_>) -> Result<&str> {
+    async fn email(&self, ctx: &Context<'_>) -> Result<&str> {
         let global = ctx.get_global();
         let request_context = ctx.get_session();
 
@@ -53,7 +53,7 @@ impl User {
             .with_field(vec!["email"]))
     }
 
-    async fn email_verified<'ctx>(&self, ctx: &Context<'_>) -> Result<bool> {
+    async fn email_verified(&self, ctx: &Context<'_>) -> Result<bool> {
         let global = ctx.get_global();
         let request_context = ctx.get_session();
 
@@ -74,7 +74,7 @@ impl User {
             .with_field(vec!["emailVerified"]))
     }
 
-    async fn last_login_at<'ctx>(&self, ctx: &Context<'_>) -> Result<&DateRFC3339> {
+    async fn last_login_at(&self, ctx: &Context<'_>) -> Result<&DateRFC3339> {
         let global = ctx.get_global();
         let request_context = ctx.get_session();
 
@@ -95,7 +95,7 @@ impl User {
             .with_field(vec!["lastLoginAt"]))
     }
 
-    async fn stream_key<'ctx>(&self, ctx: &Context<'_>) -> Result<&str> {
+    async fn stream_key(&self, ctx: &Context<'_>) -> Result<&str> {
         let global = ctx.get_global();
         let request_context = ctx.get_session();
 
@@ -116,7 +116,7 @@ impl User {
             .with_field(vec!["stream_key"]))
     }
 
-    async fn permissions<'ctx>(&self, ctx: &Context<'_>) -> Result<i64> {
+    async fn permissions(&self, ctx: &Context<'_>) -> Result<i64> {
         let global = ctx.get_global();
 
         let global_roles = global
@@ -136,7 +136,7 @@ impl User {
         Ok(global_roles.bits())
     }
 
-    async fn global_roles<'ctx>(&self, ctx: &Context<'_>) -> Result<Vec<GlobalRole>> {
+    async fn global_roles(&self, ctx: &Context<'_>) -> Result<Vec<GlobalRole>> {
         let global = ctx.get_global();
 
         let global_roles = global

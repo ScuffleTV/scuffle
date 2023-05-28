@@ -4,6 +4,7 @@ use std::{str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::{Context as _, Result};
 use common::{context::Context, logging, prelude::FutureTimeout, signal};
+use fred::types::ReconnectPolicy;
 use sqlx::{postgres::PgConnectOptions, ConnectOptions};
 use tokio::{select, signal::unix::SignalKind, time};
 
@@ -14,6 +15,7 @@ mod dataloader;
 mod global;
 mod grpc;
 mod pb;
+mod subscription;
 
 #[cfg(test)]
 mod tests;
@@ -47,7 +49,13 @@ async fn main() -> Result<()> {
     .context("failed to connect to rabbitmq, timedout")?
     .context("failed to connect to rabbitmq")?;
 
-    let global = Arc::new(global::GlobalState::new(config, db, rmq, ctx));
+    let redis = global::setup_redis(&config).await;
+    let subscription_redis =
+        global::setup_redis_subscription(&config, ReconnectPolicy::new_constant(0, 300)).await;
+
+    tracing::info!("connected to redis");
+
+    let global = Arc::new(global::GlobalState::new(config, db, rmq, redis, ctx));
 
     let api_future = tokio::spawn(api::run(global.clone()));
     let grpc_future = tokio::spawn(grpc::run(global.clone()));
@@ -61,6 +69,7 @@ async fn main() -> Result<()> {
         r = api_future => tracing::error!("api stopped unexpectedly: {:?}", r),
         r = grpc_future => tracing::error!("grpc stopped unexpectedly: {:?}", r),
         r = global.rmq.handle_reconnects() => tracing::error!("rmq stopped unexpectedly: {:?}", r),
+        r = global.subscription_manager.run(global.ctx.clone(), subscription_redis) => tracing::error!("subscription manager stopped unexpectedly: {:?}", r),
         _ = signal_handler.recv() => tracing::info!("shutting down"),
     }
 

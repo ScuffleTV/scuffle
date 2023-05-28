@@ -16,6 +16,7 @@ use crate::{
 mod auth;
 mod errors;
 mod models;
+mod subscription;
 
 #[tokio::test]
 async fn test_query_noop() {

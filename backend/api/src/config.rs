@@ -55,6 +55,59 @@ impl Default for RmqConfig {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct RedisConfig {
+    /// The address of the Redis server
+    pub addresses: Vec<String>,
+
+    /// Number of connections to keep in the pool
+    pub pool_size: usize,
+
+    /// The username to use for authentication
+    pub username: Option<String>,
+
+    /// The password to use for authentication
+    pub password: Option<String>,
+
+    /// The database to use
+    pub database: u8,
+
+    /// The TLS configuration
+    pub tls: Option<TlsConfig>,
+
+    /// To use Redis Sentinel
+    pub sentinel: Option<RedisSentinelConfig>,
+}
+
+impl Default for RedisConfig {
+    fn default() -> Self {
+        Self {
+            addresses: vec!["localhost:6379".to_string()],
+            pool_size: 10,
+            username: None,
+            password: None,
+            database: 0,
+            tls: None,
+            sentinel: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[serde(default)]
+pub struct RedisSentinelConfig {
+    /// The master group name
+    pub service_name: String,
+}
+
+impl Default for RedisSentinelConfig {
+    fn default() -> Self {
+        Self {
+            service_name: "myservice".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(default)]
 pub struct AppConfig {
     /// The path to the config file
@@ -83,6 +136,9 @@ pub struct AppConfig {
 
     /// RMQ Config
     pub rmq: RmqConfig,
+
+    /// Redis configuration
+    pub redis: RedisConfig,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -188,6 +244,7 @@ impl Default for AppConfig {
             jwt: JwtConfig::default(),
             turnstile: TurnstileConfig::default(),
             rmq: RmqConfig::default(),
+            redis: RedisConfig::default(),
         }
     }
 }

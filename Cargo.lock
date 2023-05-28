@@ -148,6 +148,7 @@ dependencies = [
  "common",
  "dotenvy",
  "email_address",
+ "fred",
  "futures",
  "futures-util",
  "hmac",
@@ -170,6 +171,7 @@ dependencies = [
  "sqlx",
  "tempfile",
  "tokio",
+ "tokio-stream",
  "tokio-tungstenite",
  "tonic",
  "tonic-build",
@@ -3770,6 +3772,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]

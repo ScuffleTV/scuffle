@@ -48,6 +48,8 @@ argon2 = "0"
 email_address = "0"
 rand = "0"
 lapin = { version = "2.0.3", features = ["native-tls"] }
+tokio-stream = { version = "0.1.14", features = ["sync"] }
+fred = { version = "6", features = ["enable-native-tls", "sentinel-client", "sentinel-auth", "subscriber-client"] }
 
 [dev-dependencies]
 tempfile = "3"

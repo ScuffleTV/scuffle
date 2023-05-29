@@ -7,6 +7,7 @@ mod config;
 mod database;
 mod dataloader;
 mod global;
+mod pb;
 
 use api::v1::gql::schema;
 use async_graphql::SDLExportOptions;

@@ -82,6 +82,7 @@ CREATE TABLE streams (
     state int NOT NULL DEFAULT 0, -- 0 = not ready, 1 = ready, 2 = stopped, 3 = stopped resumable, 4 = failed, 5 = was ready
     ingest_address varchar(255) NOT NULL,
     connection_id uuid NOT NULL,
+    variants bytea,
     -- Timestamps
     created_at timestamptz NOT NULL DEFAULT NOW(),
     updated_at timestamptz DEFAULT NULL, -- NULL = not started (last bitrate is report)
@@ -93,24 +94,6 @@ CREATE TABLE stream_bitrate_updates (
     video_bitrate bigint NOT NULL,
     audio_bitrate bigint NOT NULL,
     metadata_bitrate bigint NOT NULL,
-    -- Timestamps
-    created_at timestamptz NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE stream_variants (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    stream_id uuid NOT NULL, -- foreign key to streams(id)
-    name varchar(255) NOT NULL,
-    video_framerate int, -- null = audio only
-    video_width int, -- null = audio only
-    video_height int, -- null = audio only
-    video_bitrate int, -- null = audio only
-    video_codec varchar(255), -- null = audio only
-    audio_sample_rate int, -- null = video only
-    audio_channels int, -- null = video only
-    audio_bitrate int, -- null = video only
-    audio_codec varchar(255), -- null = video only
-    metadata jsonb NOT NULL DEFAULT '{}',
     -- Timestamps
     created_at timestamptz NOT NULL DEFAULT NOW()
 );
@@ -142,9 +125,8 @@ CREATE INDEX streams_channel_id_idx ON streams (channel_id);
 CREATE INDEX stream_bitrate_updates_stream_id_idx ON stream_bitrate_updates (stream_id);
 CREATE INDEX stream_bitrate_updates_created_at_idx ON stream_bitrate_updates (created_at);
 
-CREATE INDEX stream_variants_stream_id_idx ON stream_variants (stream_id);
-
 CREATE INDEX stream_events_stream_id_idx ON stream_events (stream_id);
+
 -- CONSTRAINTS
 
 ALTER TABLE IF EXISTS users ADD CONSTRAINT users_username_unique UNIQUE (username);
@@ -155,7 +137,6 @@ ALTER TABLE IF EXISTS global_roles ADD CONSTRAINT global_roles_rank_unique UNIQU
 ALTER TABLE IF EXISTS channel_roles ADD CONSTRAINT channel_roles_name_unique UNIQUE (channel_id, name);
 ALTER TABLE IF EXISTS channel_roles ADD CONSTRAINT channel_roles_rank_unique UNIQUE (channel_id, rank);
 
-ALTER TABLE IF EXISTS stream_variants ADD CONSTRAINT stream_variants_name_unique UNIQUE (stream_id, name);
 -- Foreign keys
 
 ALTER TABLE sessions ADD CONSTRAINT sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
@@ -169,7 +150,5 @@ ALTER TABLE channel_role_grants ADD CONSTRAINT channel_role_grants_channel_role_
 ALTER TABLE streams ADD CONSTRAINT streams_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES users(id) ON DELETE CASCADE;
 
 ALTER TABLE stream_bitrate_updates ADD CONSTRAINT stream_bitrate_updates_stream_id_fkey FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE;
-
-ALTER TABLE stream_variants ADD CONSTRAINT stream_variants_stream_id_fkey FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE;
 
 ALTER TABLE stream_events ADD CONSTRAINT stream_events_stream_id_fkey FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE;

@@ -1708,6 +1708,7 @@ dependencies = [
 name = "ingest"
 version = "0.1.0"
 dependencies = [
+ "aac",
  "anyhow",
  "async-stream",
  "async-trait",
@@ -3989,6 +3990,7 @@ dependencies = [
 name = "transcoder"
 version = "0.1.0"
 dependencies = [
+ "aac",
  "anyhow",
  "async-stream",
  "async-trait",
@@ -4020,6 +4022,7 @@ dependencies = [
  "tonic-build",
  "tracing",
  "url-parse",
+ "uuid",
 ]
 
 [[package]]

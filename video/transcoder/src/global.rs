@@ -35,7 +35,7 @@ impl GlobalState {
     }
 }
 
-pub async fn init_rmq(global: &Arc<GlobalState>) {
+pub async fn init_rmq(global: &Arc<GlobalState>, durable: bool) {
     let channel = global.rmq.aquire().await.expect("failed to create channel");
 
     let mut options = FieldTable::default();
@@ -46,7 +46,7 @@ pub async fn init_rmq(global: &Arc<GlobalState>) {
         .queue_declare(
             &global.config.rmq.transcoder_queue,
             QueueDeclareOptions {
-                durable: true,
+                durable,
                 ..Default::default()
             },
             options,

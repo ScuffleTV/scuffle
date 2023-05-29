@@ -2,8 +2,9 @@ use crate::{
     connection_manager::{GrpcRequest, WatchStreamEvent},
     global::GlobalState,
     pb::scuffle::video::{
-        ingest_server, transcoder_event_request, watch_stream_response, TranscoderEventRequest,
-        TranscoderEventResponse, WatchStreamRequest, WatchStreamResponse,
+        ingest_server, transcoder_event_request, watch_stream_response, ShutdownStreamRequest,
+        ShutdownStreamResponse, TranscoderEventRequest, TranscoderEventResponse,
+        WatchStreamRequest, WatchStreamResponse,
     },
 };
 use std::{
@@ -122,12 +123,12 @@ impl ingest_server::Ingest for IngestServer {
 
         let request = match request.event {
             Some(transcoder_event_request::Event::Started(_)) => {
-                GrpcRequest::Started { id: request_id }
+                GrpcRequest::TranscoderStarted { id: request_id }
             }
             Some(transcoder_event_request::Event::ShuttingDown(_)) => {
-                GrpcRequest::ShuttingDown { id: request_id }
+                GrpcRequest::TranscoderShuttingDown { id: request_id }
             }
-            Some(transcoder_event_request::Event::Error(error)) => GrpcRequest::Error {
+            Some(transcoder_event_request::Event::Error(error)) => GrpcRequest::TranscoderError {
                 id: request_id,
                 message: error.message,
                 fatal: error.fatal,
@@ -144,5 +145,32 @@ impl ingest_server::Ingest for IngestServer {
         }
 
         Ok(Response::new(TranscoderEventResponse {}))
+    }
+
+    async fn shutdown_stream(
+        &self,
+        request: Request<ShutdownStreamRequest>,
+    ) -> Result<Response<ShutdownStreamResponse>> {
+        let global = self
+            .global
+            .upgrade()
+            .ok_or_else(|| Status::internal("Global state is gone"))?;
+
+        let request = request.into_inner();
+
+        let stream_id = Uuid::parse_str(&request.stream_id)
+            .map_err(|_| Status::invalid_argument("Invalid stream ID"))?;
+
+        let request = GrpcRequest::ShutdownStream;
+
+        if !global
+            .connection_manager
+            .submit_request(stream_id, request)
+            .await
+        {
+            return Err(Status::not_found("Stream not found"));
+        }
+
+        Ok(Response::new(ShutdownStreamResponse {}))
     }
 }

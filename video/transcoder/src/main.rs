@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
 
     let global = Arc::new(global::GlobalState::new(config, ctx, rmq, redis));
 
-    global::init_rmq(&global).await;
+    global::init_rmq(&global, true).await;
     tracing::info!("initialized rmq");
 
     let transcoder_future = tokio::spawn(transcoder::run(global.clone()));

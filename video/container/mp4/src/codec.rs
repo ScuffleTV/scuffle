@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, str::FromStr};
 
 use aac::AudioObjectType;
 
@@ -98,6 +98,186 @@ impl fmt::Display for VideoCodec {
     }
 }
 
+impl FromStr for VideoCodec {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let splits = s.split('.').collect::<Vec<_>>();
+        if splits.is_empty() {
+            return Err("invalid codec, empty string".into());
+        }
+
+        match splits[0] {
+            "avc1" => {
+                if splits.len() < 2 {
+                    return Err("invalid codec, missing profile".into());
+                }
+
+                let profile = u8::from_str_radix(&splits[1][..2], 16)
+                    .map_err(|e| format!("invalid codec, invalid profile: {}, {}", splits[1], e))?;
+                let constraint_set = u8::from_str_radix(&splits[1][2..4], 16).map_err(|e| {
+                    format!(
+                        "invalid codec, invalid constraint set: {}, {}",
+                        splits[1], e
+                    )
+                })?;
+                let level = u8::from_str_radix(&splits[1][4..6], 16)
+                    .map_err(|e| format!("invalid codec, invalid level: {}, {}", splits[1], e))?;
+
+                Ok(VideoCodec::Avc {
+                    profile,
+                    constraint_set,
+                    level,
+                })
+            }
+            "hev1" => {
+                if splits.len() < 6 {
+                    return Err("invalid codec, missing profile".into());
+                }
+
+                let general_profile_space = match splits[1] {
+                    "A" => 1,
+                    "B" => 2,
+                    "C" => 3,
+                    _ => {
+                        return Err(format!(
+                            "invalid codec, invalid general profile space: {}",
+                            splits[1]
+                        ))
+                    }
+                };
+
+                let profile = u8::from_str_radix(splits[2], 16)
+                    .map_err(|e| format!("invalid codec, invalid profile: {}, {}", splits[2], e))?;
+
+                let profile_compatibility = u32::from_str_radix(splits[3], 16).map_err(|e| {
+                    format!(
+                        "invalid codec, invalid profile compatibility: {}, {}",
+                        splits[3], e
+                    )
+                })?;
+
+                let tier = match splits[4] {
+                    "H" => true,
+                    "L" => false,
+                    _ => return Err(format!("invalid codec, invalid tier: {}", splits[4])),
+                };
+
+                let level = u8::from_str_radix(splits[5], 16)
+                    .map_err(|e| format!("invalid codec, invalid level: {}, {}", splits[5], e))?;
+
+                let constraint_indicator = u64::from_str_radix(splits[6], 16).map_err(|e| {
+                    format!(
+                        "invalid codec, invalid constraint indicator: {}, {}",
+                        splits[6], e
+                    )
+                })?;
+
+                Ok(VideoCodec::Hevc {
+                    general_profile_space,
+                    profile,
+                    level,
+                    tier,
+                    profile_compatibility,
+                    constraint_indicator,
+                })
+            }
+            "av01" => {
+                if splits.len() < 12 {
+                    return Err("invalid codec, missing profile".into());
+                }
+
+                let profile = u8::from_str_radix(splits[1], 16)
+                    .map_err(|e| format!("invalid codec, invalid profile: {}, {}", splits[1], e))?;
+
+                let level = u8::from_str_radix(splits[2], 16)
+                    .map_err(|e| format!("invalid codec, invalid level: {}, {}", splits[2], e))?;
+
+                let tier = match splits[3] {
+                    "H" => true,
+                    "M" => false,
+                    _ => return Err(format!("invalid codec, invalid tier: {}", splits[3])),
+                };
+
+                let depth = splits[4]
+                    .parse::<u8>()
+                    .map_err(|e| format!("invalid codec, invalid depth: {}, {}", splits[4], e))?;
+
+                let monochrome = match splits[5] {
+                    "1" => true,
+                    "0" => false,
+                    _ => return Err(format!("invalid codec, invalid monochrome: {}", splits[5])),
+                };
+
+                let sub_sampling_x = match splits[6] {
+                    "1" => true,
+                    "0" => false,
+                    _ => {
+                        return Err(format!(
+                            "invalid codec, invalid sub_sampling_x: {}",
+                            splits[6]
+                        ))
+                    }
+                };
+
+                let sub_sampling_y = match splits[7] {
+                    "1" => true,
+                    "0" => false,
+                    _ => {
+                        return Err(format!(
+                            "invalid codec, invalid sub_sampling_y: {}",
+                            splits[7]
+                        ))
+                    }
+                };
+
+                let color_primaries = splits[8].parse::<u8>().map_err(|e| {
+                    format!(
+                        "invalid codec, invalid color_primaries: {}, {}",
+                        splits[8], e
+                    )
+                })?;
+
+                let transfer_characteristics = splits[9].parse::<u8>().map_err(|e| {
+                    format!(
+                        "invalid codec, invalid transfer_characteristics: {}, {}",
+                        splits[9], e
+                    )
+                })?;
+
+                let matrix_coefficients = splits[10].parse::<u8>().map_err(|e| {
+                    format!(
+                        "invalid codec, invalid matrix_coefficients: {}, {}",
+                        splits[10], e
+                    )
+                })?;
+
+                let full_range_flag = splits[11].parse::<u8>().map_err(|e| {
+                    format!(
+                        "invalid codec, invalid full_range_flag: {}, {}",
+                        splits[11], e
+                    )
+                })? == 1;
+
+                Ok(VideoCodec::Av1 {
+                    profile,
+                    level,
+                    tier,
+                    depth,
+                    monochrome,
+                    sub_sampling_x,
+                    sub_sampling_y,
+                    color_primaries,
+                    transfer_characteristics,
+                    matrix_coefficients,
+                    full_range_flag,
+                })
+            }
+            r => Err(format!("invalid codec, unknown type: {}", r)),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AudioCodec {
     Aac { object_type: AudioObjectType },
@@ -109,6 +289,35 @@ impl fmt::Display for AudioCodec {
         match self {
             AudioCodec::Aac { object_type } => write!(f, "mp4a.40.{}", u16::from(*object_type)),
             AudioCodec::Opus => write!(f, "opus"),
+        }
+    }
+}
+
+impl FromStr for AudioCodec {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let splits = s.split('.').collect::<Vec<_>>();
+        if splits.is_empty() {
+            return Err("invalid codec, empty string".into());
+        }
+
+        match splits[0] {
+            "mp4a" => {
+                if splits.len() < 3 {
+                    return Err("invalid codec, missing object type".into());
+                }
+
+                let object_type = splits[2].parse::<u16>().map_err(|e| {
+                    format!("invalid codec, invalid object type: {}, {}", splits[2], e)
+                })?;
+
+                Ok(AudioCodec::Aac {
+                    object_type: AudioObjectType::from(object_type),
+                })
+            }
+            "opus" => Ok(AudioCodec::Opus),
+            r => Err(format!("invalid codec, unknown type: {}", r)),
         }
     }
 }

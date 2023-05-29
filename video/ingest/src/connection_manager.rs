@@ -11,17 +11,18 @@ pub struct StreamConnection {
 }
 
 pub enum GrpcRequest {
-    Started {
-        id: Uuid,
-    },
     WatchStream {
         id: Uuid,
         channel: mpsc::Sender<WatchStreamEvent>,
     },
-    ShuttingDown {
+    ShutdownStream,
+    TranscoderStarted {
         id: Uuid,
     },
-    Error {
+    TranscoderShuttingDown {
+        id: Uuid,
+    },
+    TranscoderError {
         id: Uuid,
         message: String,
         fatal: bool,

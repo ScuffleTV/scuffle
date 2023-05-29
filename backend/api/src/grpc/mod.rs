@@ -6,7 +6,6 @@ use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
 
 pub mod api;
 pub mod health;
-pub mod pb;
 
 pub async fn run(global: Arc<GlobalState>) -> Result<()> {
     tracing::info!("GRPC Listening on {}", global.config.grpc.bind_address);

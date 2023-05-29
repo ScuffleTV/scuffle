@@ -1,5 +1,8 @@
+use crate::pb::scuffle::types::StreamVariants;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
+
+use super::protobuf::ProtobufValue;
 
 #[derive(Debug, Clone, Default, Copy, Eq, PartialEq)]
 #[repr(i64)]
@@ -62,6 +65,8 @@ pub struct Model {
     pub ingest_address: String,
     /// The connection which owns the stream.
     pub connection_id: Uuid,
+    /// The Stream Variants
+    pub variants: ProtobufValue<StreamVariants>,
     /// The time the stream was created.
     pub created_at: DateTime<Utc>,
     /// The time the stream was last updated.

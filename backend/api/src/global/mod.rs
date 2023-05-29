@@ -5,7 +5,6 @@ use common::context::Context;
 
 use crate::config::AppConfig;
 use crate::dataloader::stream::StreamByIdLoader;
-use crate::dataloader::stream_variant::StreamVariantsByStreamIdLoader;
 use crate::dataloader::user_permissions::UserPermissionsByIdLoader;
 use crate::dataloader::{
     session::SessionByIdLoader, user::UserByIdLoader, user::UserByUsernameLoader,
@@ -22,7 +21,6 @@ pub struct GlobalState {
     pub session_by_id_loader: DataLoader<SessionByIdLoader>,
     pub user_permisions_by_id_loader: DataLoader<UserPermissionsByIdLoader>,
     pub stream_by_id_loader: DataLoader<StreamByIdLoader>,
-    pub stream_variants_by_stream_id_loader: DataLoader<StreamVariantsByStreamIdLoader>,
     pub rmq: common::rmq::ConnectionPool,
 }
 
@@ -41,7 +39,6 @@ impl GlobalState {
             session_by_id_loader: SessionByIdLoader::new(db.clone()),
             user_permisions_by_id_loader: UserPermissionsByIdLoader::new(db.clone()),
             stream_by_id_loader: StreamByIdLoader::new(db.clone()),
-            stream_variants_by_stream_id_loader: StreamVariantsByStreamIdLoader::new(db.clone()),
             db,
             rmq,
         }

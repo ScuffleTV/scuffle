@@ -1,17 +1,17 @@
 use crate::config::{AppConfig, GrpcConfig};
 use crate::database::{global_role::Permission, user};
-use crate::database::{stream, stream_bitrate_update, stream_event, stream_variant};
-use crate::grpc::pb::scuffle::backend::{
+use crate::database::{stream, stream_bitrate_update, stream_event};
+use crate::grpc::run;
+use crate::pb;
+use crate::pb::scuffle::backend::{
     update_live_stream_request, LiveStreamState, NewLiveStreamRequest,
 };
-use crate::grpc::pb::scuffle::types::stream_variant::{AudioSettings, VideoSettings};
-use crate::grpc::pb::scuffle::types::StreamVariant;
-use crate::grpc::{self, run};
+use crate::pb::scuffle::types::stream_variants::transcode_state::{AudioSettings, VideoSettings};
+use crate::pb::scuffle::types::{stream_variants, StreamVariants};
 use crate::tests::global::mock_global_state;
 use chrono::Utc;
 use common::grpc::make_channel;
 use common::prelude::FutureTimeout;
-use serde_json::json;
 use serial_test::serial;
 use std::time::Duration;
 use uuid::Uuid;
@@ -40,9 +40,9 @@ async fn test_serial_grpc_authenticate_invalid_stream_key() {
     )
     .unwrap();
 
-    let mut client = grpc::pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
     let err = client
-        .authenticate_live_stream(grpc::pb::scuffle::backend::AuthenticateLiveStreamRequest {
+        .authenticate_live_stream(pb::scuffle::backend::AuthenticateLiveStreamRequest {
             app_name: "test".to_string(),
             stream_key: "test".to_string(),
             ip_address: "127.0.0.1".to_string(),
@@ -124,9 +124,9 @@ async fn test_serial_grpc_authenticate_valid_stream_key() {
     )
     .unwrap();
 
-    let mut client = grpc::pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
     let resp = client
-        .authenticate_live_stream(grpc::pb::scuffle::backend::AuthenticateLiveStreamRequest {
+        .authenticate_live_stream(pb::scuffle::backend::AuthenticateLiveStreamRequest {
             app_name: "test".to_string(),
             stream_key: user.get_stream_key(),
             ip_address: "127.0.0.1".to_string(),
@@ -149,7 +149,7 @@ async fn test_serial_grpc_authenticate_valid_stream_key() {
     .unwrap();
 
     let resp = client
-        .authenticate_live_stream(grpc::pb::scuffle::backend::AuthenticateLiveStreamRequest {
+        .authenticate_live_stream(pb::scuffle::backend::AuthenticateLiveStreamRequest {
             app_name: "test".to_string(),
             stream_key: user.get_stream_key(),
             ip_address: "127.0.0.1".to_string(),
@@ -241,10 +241,10 @@ async fn test_serial_grpc_authenticate_valid_stream_key_ext() {
     )
     .unwrap();
 
-    let mut client = grpc::pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
 
     let resp = client
-        .authenticate_live_stream(grpc::pb::scuffle::backend::AuthenticateLiveStreamRequest {
+        .authenticate_live_stream(pb::scuffle::backend::AuthenticateLiveStreamRequest {
             app_name: "test".to_string(),
             stream_key: user.get_stream_key(),
             ip_address: "127.0.0.1".to_string(),
@@ -335,10 +335,10 @@ async fn test_serial_grpc_authenticate_valid_stream_key_ext_2() {
     )
     .unwrap();
 
-    let mut client = grpc::pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
 
     let resp = client
-        .authenticate_live_stream(grpc::pb::scuffle::backend::AuthenticateLiveStreamRequest {
+        .authenticate_live_stream(pb::scuffle::backend::AuthenticateLiveStreamRequest {
             app_name: "test".to_string(),
             stream_key: user.get_stream_key(),
             ip_address: "127.0.0.1".to_string(),
@@ -419,13 +419,13 @@ async fn test_serial_grpc_update_live_stream_state() {
     )
     .unwrap();
 
-    let mut client = grpc::pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
 
     {
         let timestamp = Utc::now().timestamp() as u64;
 
         assert!(client
-            .update_live_stream(grpc::pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -451,7 +451,7 @@ async fn test_serial_grpc_update_live_stream_state() {
         let timestamp = Utc::now().timestamp() as u64;
 
         assert!(client
-            .update_live_stream(grpc::pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -477,7 +477,7 @@ async fn test_serial_grpc_update_live_stream_state() {
         let timestamp = Utc::now().timestamp() as u64;
 
         assert!(client
-            .update_live_stream(grpc::pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -504,7 +504,7 @@ async fn test_serial_grpc_update_live_stream_state() {
         let timestamp = Utc::now().timestamp() as u64;
 
         let res = client
-            .update_live_stream(grpc::pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -543,7 +543,7 @@ async fn test_serial_grpc_update_live_stream_state() {
         let timestamp = Utc::now().timestamp() as u64;
 
         let res = client
-            .update_live_stream(grpc::pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -644,13 +644,13 @@ async fn test_serial_grpc_update_live_stream_bitrate() {
     )
     .unwrap();
 
-    let mut client = grpc::pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
 
     {
         let timestamp = Utc::now().timestamp() as u64;
 
         assert!(client
-            .update_live_stream(grpc::pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -748,13 +748,13 @@ async fn test_serial_grpc_update_live_stream_event() {
     )
     .unwrap();
 
-    let mut client = grpc::pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
 
     {
         let timestamp = Utc::now().timestamp() as u64;
 
         assert!(client
-            .update_live_stream(grpc::pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -852,156 +852,76 @@ async fn test_serial_grpc_update_live_stream_variants() {
     )
     .unwrap();
 
-    let mut client = grpc::pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
 
     {
         let timestamp = Utc::now().timestamp() as u64;
 
-        let variants = vec![
-            stream_variant::Model {
-                id: Uuid::new_v4(),
-                name: "video-audio".to_string(),
-                stream_id: s.id,
-                audio_bitrate: Some(128),
-                audio_channels: Some(2),
-                audio_sample_rate: Some(44100),
-                video_bitrate: Some(12800),
-                video_framerate: Some(30),
-                video_height: Some(720),
-                video_width: Some(1280),
-                audio_codec: Some("aac".to_string()),
-                video_codec: Some("h264".to_string()),
-                created_at: Utc::now(),
-                metadata: json!({}),
-            },
-            stream_variant::Model {
-                id: Uuid::new_v4(),
-                name: "video-only".to_string(),
-                stream_id: s.id,
-                audio_bitrate: None,
-                audio_channels: None,
-                audio_sample_rate: None,
-                video_bitrate: Some(12800),
-                video_framerate: Some(30),
-                video_height: Some(720),
-                video_width: Some(1280),
-                audio_codec: None,
-                video_codec: Some("h264".to_string()),
-                created_at: Utc::now(),
-                metadata: json!({}),
-            },
-            stream_variant::Model {
-                id: Uuid::new_v4(),
-                name: "audio-only".to_string(),
-                stream_id: s.id,
-                audio_bitrate: Some(128),
-                audio_channels: Some(2),
-                audio_sample_rate: Some(44100),
-                video_bitrate: None,
-                video_framerate: None,
-                video_height: None,
-                video_width: None,
-                audio_codec: Some("aac".to_string()),
-                video_codec: None,
-                created_at: Utc::now(),
-                metadata: json!({}),
-            },
-        ];
+        let source_id = Uuid::new_v4().to_string();
+        let audio_id = Uuid::new_v4().to_string();
+
+        let variants = StreamVariants {
+            stream_variants: vec![
+                stream_variants::StreamVariant {
+                    name: "source".to_string(),
+                    group: "aac".to_string(),
+                    transcode_state_ids: vec![source_id.to_string(), audio_id.to_string()],
+                },
+                stream_variants::StreamVariant {
+                    name: "audio-only".to_string(),
+                    group: "aac".to_string(),
+                    transcode_state_ids: vec![audio_id.to_string()],
+                },
+            ],
+            transcode_states: vec![
+                stream_variants::TranscodeState {
+                    bitrate: 8000 * 1024,
+                    codec: "avc1.640028".to_string(),
+                    id: source_id.to_string(),
+                    copy: true,
+                    settings: Some(stream_variants::transcode_state::Settings::Video(
+                        VideoSettings {
+                            framerate: 60,
+                            height: 1080,
+                            width: 1920,
+                        },
+                    )),
+                },
+                stream_variants::TranscodeState {
+                    bitrate: 128 * 1024,
+                    codec: "mp4a.40.2".to_string(),
+                    id: audio_id.to_string(),
+                    copy: false,
+                    settings: Some(stream_variants::transcode_state::Settings::Audio(
+                        AudioSettings {
+                            channels: 2,
+                            sample_rate: 48000,
+                        },
+                    )),
+                },
+            ],
+        };
 
         assert!(client
-            .update_live_stream(grpc::pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
                     timestamp,
                     update: Some(update_live_stream_request::update::Update::Variants(
-                        update_live_stream_request::Variants {
-                            variants: variants
-                                .iter()
-                                .map(|v| {
-                                    let audio_settings =
-                                        v.audio_bitrate.map(|audio_bitrate| AudioSettings {
-                                            bitrate: audio_bitrate as u32,
-                                            channels: v.audio_channels.unwrap() as u32,
-                                            sample_rate: v.audio_sample_rate.unwrap() as u32,
-                                            codec: v.audio_codec.clone().unwrap(),
-                                        });
-
-                                    let video_settings =
-                                        v.video_bitrate.map(|video_bitrate| VideoSettings {
-                                            bitrate: video_bitrate as u32,
-                                            framerate: v.video_framerate.unwrap() as u32,
-                                            height: v.video_height.unwrap() as u32,
-                                            width: v.video_width.unwrap() as u32,
-                                            codec: v.video_codec.clone().unwrap(),
-                                        });
-
-                                    StreamVariant {
-                                        name: v.name.clone(),
-                                        id: v.id.to_string(),
-                                        metadata: v.metadata.to_string(),
-                                        audio_settings,
-                                        video_settings,
-                                    }
-                                })
-                                .collect(),
-                        }
+                        variants.clone()
                     )),
                 }]
             })
             .await
             .is_ok());
 
-        let s = sqlx::query_as!(
-            stream_variant::Model,
-            "SELECT * FROM stream_variants WHERE stream_id = $1",
-            s.id,
-        )
-        .fetch_all(&*db)
-        .await
-        .unwrap();
+        let s = sqlx::query_as!(stream::Model, "SELECT * FROM streams WHERE id = $1", s.id,)
+            .fetch_one(&*db)
+            .await
+            .unwrap();
 
-        let v = s.iter().find(|v| v.name == "video-audio").unwrap();
-        assert_eq!(v.id, variants[0].id);
-        assert_eq!(v.audio_bitrate, Some(128));
-        assert_eq!(v.audio_channels, Some(2));
-        assert_eq!(v.audio_sample_rate, Some(44100));
-        assert_eq!(v.video_bitrate, Some(12800));
-        assert_eq!(v.video_framerate, Some(30));
-        assert_eq!(v.video_height, Some(720));
-        assert_eq!(v.video_width, Some(1280));
-        assert_eq!(v.audio_codec, Some("aac".to_string()));
-        assert_eq!(v.video_codec, Some("h264".to_string()));
-        assert_eq!(v.metadata, json!({}));
-        assert_eq!(v.created_at.timestamp(), timestamp as i64);
-
-        let v = s.iter().find(|v| v.name == "video-only").unwrap();
-        assert_eq!(v.id, variants[1].id);
-        assert_eq!(v.audio_bitrate, None);
-        assert_eq!(v.audio_channels, None);
-        assert_eq!(v.audio_sample_rate, None);
-        assert_eq!(v.video_bitrate, Some(12800));
-        assert_eq!(v.video_framerate, Some(30));
-        assert_eq!(v.video_height, Some(720));
-        assert_eq!(v.video_width, Some(1280));
-        assert_eq!(v.audio_codec, None);
-        assert_eq!(v.video_codec, Some("h264".to_string()));
-        assert_eq!(v.metadata, json!({}));
-        assert_eq!(v.created_at.timestamp(), timestamp as i64);
-
-        let v = s.iter().find(|v| v.name == "audio-only").unwrap();
-        assert_eq!(v.id, variants[2].id);
-        assert_eq!(v.audio_bitrate, Some(128));
-        assert_eq!(v.audio_channels, Some(2));
-        assert_eq!(v.audio_sample_rate, Some(44100));
-        assert_eq!(v.video_bitrate, None);
-        assert_eq!(v.video_framerate, None);
-        assert_eq!(v.video_height, None);
-        assert_eq!(v.video_width, None);
-        assert_eq!(v.audio_codec, Some("aac".to_string()));
-        assert_eq!(v.video_codec, None);
-        assert_eq!(v.metadata, json!({}));
-        assert_eq!(v.created_at.timestamp(), timestamp as i64);
+        assert_eq!(s.variants, Some(variants));
     }
 
     handler
@@ -1070,95 +990,63 @@ async fn test_serial_grpc_new_live_stream() {
     )
     .unwrap();
 
-    let mut client = grpc::pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
 
-    let variants = vec![
-        stream_variant::Model {
-            id: Uuid::new_v4(),
-            name: "video-audio".to_string(),
-            stream_id: s.id,
-            audio_bitrate: Some(128),
-            audio_channels: Some(2),
-            audio_sample_rate: Some(44100),
-            video_bitrate: Some(12800),
-            video_framerate: Some(30),
-            video_height: Some(720),
-            video_width: Some(1280),
-            audio_codec: Some("aac".to_string()),
-            video_codec: Some("h264".to_string()),
-            created_at: Utc::now(),
-            metadata: json!({}),
-        },
-        stream_variant::Model {
-            id: Uuid::new_v4(),
-            name: "video-only".to_string(),
-            stream_id: s.id,
-            audio_bitrate: None,
-            audio_channels: None,
-            audio_sample_rate: None,
-            video_bitrate: Some(12800),
-            video_framerate: Some(30),
-            video_height: Some(720),
-            video_width: Some(1280),
-            audio_codec: None,
-            video_codec: Some("h264".to_string()),
-            created_at: Utc::now(),
-            metadata: json!({}),
-        },
-        stream_variant::Model {
-            id: Uuid::new_v4(),
-            name: "audio-only".to_string(),
-            stream_id: s.id,
-            audio_bitrate: Some(128),
-            audio_channels: Some(2),
-            audio_sample_rate: Some(44100),
-            video_bitrate: None,
-            video_framerate: None,
-            video_height: None,
-            video_width: None,
-            audio_codec: Some("aac".to_string()),
-            video_codec: None,
-            created_at: Utc::now(),
-            metadata: json!({}),
-        },
-    ];
+    let source_id = Uuid::new_v4().to_string();
+    let audio_id = Uuid::new_v4().to_string();
+
+    let variants = StreamVariants {
+        stream_variants: vec![
+            stream_variants::StreamVariant {
+                name: "source".to_string(),
+                group: "aac".to_string(),
+                transcode_state_ids: vec![source_id.to_string(), audio_id.to_string()],
+            },
+            stream_variants::StreamVariant {
+                name: "audio-only".to_string(),
+                group: "aac".to_string(),
+                transcode_state_ids: vec![audio_id.to_string()],
+            },
+        ],
+        transcode_states: vec![
+            stream_variants::TranscodeState {
+                bitrate: 8000 * 1024,
+                codec: "avc1.640028".to_string(),
+                id: source_id.to_string(),
+                copy: true,
+                settings: Some(stream_variants::transcode_state::Settings::Video(
+                    VideoSettings {
+                        framerate: 60,
+                        height: 1080,
+                        width: 1920,
+                    },
+                )),
+            },
+            stream_variants::TranscodeState {
+                bitrate: 128 * 1024,
+                codec: "mp4a.40.2".to_string(),
+                id: audio_id.to_string(),
+                copy: false,
+                settings: Some(stream_variants::transcode_state::Settings::Audio(
+                    AudioSettings {
+                        channels: 2,
+                        sample_rate: 48000,
+                    },
+                )),
+            },
+        ],
+    };
 
     let response = client
         .new_live_stream(NewLiveStreamRequest {
             old_stream_id: s.id.to_string(),
-            variants: variants
-                .iter()
-                .map(|v| {
-                    let audio_settings = v.audio_bitrate.map(|audio_bitrate| AudioSettings {
-                        bitrate: audio_bitrate as u32,
-                        channels: v.audio_channels.unwrap() as u32,
-                        sample_rate: v.audio_sample_rate.unwrap() as u32,
-                        codec: v.audio_codec.clone().unwrap(),
-                    });
-
-                    let video_settings = v.video_bitrate.map(|video_bitrate| VideoSettings {
-                        bitrate: video_bitrate as u32,
-                        framerate: v.video_framerate.unwrap() as u32,
-                        height: v.video_height.unwrap() as u32,
-                        width: v.video_width.unwrap() as u32,
-                        codec: v.video_codec.clone().unwrap(),
-                    });
-
-                    StreamVariant {
-                        name: v.name.clone(),
-                        id: v.id.to_string(),
-                        metadata: v.metadata.to_string(),
-                        audio_settings,
-                        video_settings,
-                    }
-                })
-                .collect(),
+            variants: Some(variants.clone()),
         })
         .await
         .unwrap()
         .into_inner();
 
-    let s = sqlx::query_as!(stream::Model, "SELECT * FROM streams WHERE id = $1", s.id,)
+    let s = sqlx::query_as!(stream::Model, "SELECT * FROM streams WHERE id = $1", s.id)
         .fetch_one(&*db)
         .await
         .unwrap();
@@ -1191,54 +1079,7 @@ async fn test_serial_grpc_new_live_stream() {
     assert_eq!(s.ingest_address, "some address");
     assert_eq!(s.connection_id, conn_id);
     assert_eq!(s.state, stream::State::NotReady);
-
-    let s = sqlx::query_as!(
-        stream_variant::Model,
-        "SELECT * FROM stream_variants WHERE stream_id = $1",
-        stream_id,
-    )
-    .fetch_all(&*db)
-    .await
-    .unwrap();
-
-    let v = s.iter().find(|v| v.name == "video-audio").unwrap();
-    assert_eq!(v.id, variants[0].id);
-    assert_eq!(v.audio_bitrate, Some(128));
-    assert_eq!(v.audio_channels, Some(2));
-    assert_eq!(v.audio_sample_rate, Some(44100));
-    assert_eq!(v.video_bitrate, Some(12800));
-    assert_eq!(v.video_framerate, Some(30));
-    assert_eq!(v.video_height, Some(720));
-    assert_eq!(v.video_width, Some(1280));
-    assert_eq!(v.audio_codec, Some("aac".to_string()));
-    assert_eq!(v.video_codec, Some("h264".to_string()));
-    assert_eq!(v.metadata, json!({}));
-
-    let v = s.iter().find(|v| v.name == "video-only").unwrap();
-    assert_eq!(v.id, variants[1].id);
-    assert_eq!(v.audio_bitrate, None);
-    assert_eq!(v.audio_channels, None);
-    assert_eq!(v.audio_sample_rate, None);
-    assert_eq!(v.video_bitrate, Some(12800));
-    assert_eq!(v.video_framerate, Some(30));
-    assert_eq!(v.video_height, Some(720));
-    assert_eq!(v.video_width, Some(1280));
-    assert_eq!(v.audio_codec, None);
-    assert_eq!(v.video_codec, Some("h264".to_string()));
-    assert_eq!(v.metadata, json!({}));
-
-    let v = s.iter().find(|v| v.name == "audio-only").unwrap();
-    assert_eq!(v.id, variants[2].id);
-    assert_eq!(v.audio_bitrate, Some(128));
-    assert_eq!(v.audio_channels, Some(2));
-    assert_eq!(v.audio_sample_rate, Some(44100));
-    assert_eq!(v.video_bitrate, None);
-    assert_eq!(v.video_framerate, None);
-    assert_eq!(v.video_height, None);
-    assert_eq!(v.video_width, None);
-    assert_eq!(v.audio_codec, Some("aac".to_string()));
-    assert_eq!(v.video_codec, None);
-    assert_eq!(v.metadata, json!({}));
+    assert_eq!(s.variants, Some(variants));
 
     handler
         .cancel()

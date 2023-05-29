@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use async_stream::stream;
 use async_trait::async_trait;
+use common::prelude::FutureTimeout;
 use futures::StreamExt;
 use lapin::options::QueueDeclareOptions;
 use prost::Message;
@@ -28,8 +29,8 @@ use crate::pb::scuffle::backend::{
     UpdateLiveStreamRequest, UpdateLiveStreamResponse,
 };
 use crate::pb::scuffle::events::{transcoder_message, TranscoderMessage};
-use crate::pb::scuffle::types::stream_variant::{AudioSettings, VideoSettings};
-use crate::pb::scuffle::types::StreamVariant;
+use crate::pb::scuffle::types::stream_variants::{transcode_state, StreamVariant, TranscodeState};
+use crate::pb::scuffle::types::StreamVariants;
 use crate::tests::global::mock_global_state;
 
 #[derive(Debug)]
@@ -343,8 +344,7 @@ impl TestState {
             stream_id: stream_id.to_string(),
             record,
             transcode,
-            try_resume: false,
-            variants: vec![],
+            variants: None,
         }))
         .await;
         stream_id
@@ -364,36 +364,39 @@ async fn test_ingest_stream() {
             assert_eq!(request.stream_id, stream_id.to_string());
             match &request.updates[0].update {
                 Some(crate::pb::scuffle::backend::update_live_stream_request::update::Update::Variants(v)) => {
-                    assert_eq!(v.variants.len(), 2); // We are not transcoding so this is source and audio only
-                    assert_eq!(v.variants[0].name, "source");
-                    assert_eq!(v.variants[0].video_settings, Some(VideoSettings {
+                    assert_eq!(v.transcode_states.len(), 2); // We are not transcoding so this is source and audio only
+                    assert_eq!(v.stream_variants.len(), 2); // We are not transcoding so this is source and audio only
+
+                    let source_variant = v.stream_variants.iter().find(|v| v.name == "source").unwrap();
+                    assert_eq!(source_variant.group, "aac");
+                    assert_eq!(source_variant.transcode_state_ids.len(), 2);
+
+                    let audio_only_variant = v.stream_variants.iter().find(|v| v.name == "audio-only").unwrap();
+                    assert_eq!(audio_only_variant.group, "aac");
+                    assert_eq!(audio_only_variant.transcode_state_ids.len(), 1);
+
+                    let audio_transcode_state = v.transcode_states.iter().find(|s| s.id == audio_only_variant.transcode_state_ids[0]).unwrap();
+
+                    assert_eq!(audio_transcode_state.bitrate, 128 * 1024);
+                    assert_eq!(audio_transcode_state.codec, "mp4a.40.2");
+                    assert_eq!(audio_transcode_state.settings, Some(transcode_state::Settings::Audio(transcode_state::AudioSettings {
+                        channels: 2,
+                        sample_rate: 48000,
+                    })));
+                    assert!(!audio_transcode_state.copy);
+
+                    let source_transcode_state = v.transcode_states.iter().find(|s| s.id == source_variant.transcode_state_ids[0]).unwrap();
+
+                    assert_eq!(source_transcode_state.codec, "avc1.64001f");
+                    assert_eq!(source_transcode_state.bitrate, 1276158);
+                    assert_eq!(source_transcode_state.settings, Some(transcode_state::Settings::Video(transcode_state::VideoSettings {
                         width: 468,
                         height: 864,
                         framerate: 30,
-                        bitrate: 1276158,
-                        codec: "avc1.64001f".to_string(),
-                    }));
-                    assert_eq!(v.variants[0].audio_settings, Some(AudioSettings {
-                        sample_rate: 44100,
-                        channels: 2,
-                        bitrate: 69568,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[0].metadata, "{}");
-                    assert!(!v.variants[0].id.is_empty());
+                    })));
+                    assert!(source_transcode_state.copy);
 
-                    assert_eq!(v.variants[1].name, "audio");
-                    assert_eq!(v.variants[1].video_settings, None);
-                    assert_eq!(v.variants[1].audio_settings, Some(AudioSettings {
-                        sample_rate: 44100,
-                        channels: 2,
-                        bitrate: 69568,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[1].metadata, "{}");
-                    assert!(!v.variants[1].id.is_empty());
-
-                    variants = v.variants.clone();
+                    variants = Some(v.clone());
 
                     send.send(Ok(UpdateLiveStreamResponse {})).unwrap();
                 },
@@ -465,7 +468,10 @@ async fn test_ingest_stream() {
     state
         .global
         .connection_manager
-        .submit_request(stream_id, GrpcRequest::ShuttingDown { id: request_id })
+        .submit_request(
+            stream_id,
+            GrpcRequest::TranscoderShuttingDown { id: request_id },
+        )
         .await;
 
     match state.api_recv().await {
@@ -588,7 +594,7 @@ async fn test_ingest_stream() {
         !state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -633,53 +639,74 @@ async fn test_ingest_stream_transcoder_disconnect() {
             assert_eq!(request.stream_id, stream_id.to_string());
             match &request.updates[0].update {
                 Some(crate::pb::scuffle::backend::update_live_stream_request::update::Update::Variants(v)) => {
-                    assert_eq!(v.variants.len(), 3); // We are not transcoding so this is source and audio only
-                    assert_eq!(v.variants[0].name, "source");
-                    assert_eq!(v.variants[0].video_settings, Some(VideoSettings {
+                    assert_eq!(v.transcode_states.len(), 4); // We are not transcoding so this is source and audio only
+                    assert_eq!(v.stream_variants.len(), 6); // We are not transcoding so this is source and audio only
+
+                    let audio_only_aac = v.stream_variants.iter().find(|v| v.name == "audio-only" && v.group == "aac").unwrap();
+                    assert_eq!(audio_only_aac.transcode_state_ids.len(), 1);
+
+                    let audio_only_opus = v.stream_variants.iter().find(|v| v.name == "audio-only" && v.group == "opus").unwrap();
+                    assert_eq!(audio_only_opus.transcode_state_ids.len(), 1);
+
+                    let source_aac = v.stream_variants.iter().find(|v| v.name == "source" && v.group == "aac").unwrap();
+                    assert_eq!(source_aac.transcode_state_ids.len(), 2);
+
+                    let source_opus = v.stream_variants.iter().find(|v| v.name == "source" && v.group == "opus").unwrap();
+                    assert_eq!(source_opus.transcode_state_ids.len(), 2);
+
+                    let _360p_aac = v.stream_variants.iter().find(|v| v.name == "360p" && v.group == "aac").unwrap();
+                    assert_eq!(_360p_aac.transcode_state_ids.len(), 2);
+
+                    let _360p_opus = v.stream_variants.iter().find(|v| v.name == "360p" && v.group == "opus").unwrap();
+                    assert_eq!(_360p_opus.transcode_state_ids.len(), 2);
+
+                    let audio_aac_transcode_state = v.transcode_states.iter().find(|s| s.id == audio_only_aac.transcode_state_ids[0]).unwrap();
+                    assert!(!audio_aac_transcode_state.copy);
+                    assert_eq!(audio_aac_transcode_state.codec, "mp4a.40.2");
+                    assert_eq!(audio_aac_transcode_state.bitrate, 128 * 1024);
+                    assert_eq!(audio_aac_transcode_state.settings, Some(transcode_state::Settings::Audio(transcode_state::AudioSettings {
+                        channels: 2,
+                        sample_rate: 48000,
+                    })));
+
+                    let audio_opus_transcode_state = v.transcode_states.iter().find(|s| s.id == audio_only_opus.transcode_state_ids[0]).unwrap();
+                    assert!(!audio_opus_transcode_state.copy);
+                    assert_eq!(audio_opus_transcode_state.codec, "opus");
+                    assert_eq!(audio_opus_transcode_state.bitrate, 96 * 1024);
+                    assert_eq!(audio_opus_transcode_state.settings, Some(transcode_state::Settings::Audio(transcode_state::AudioSettings {
+                        channels: 2,
+                        sample_rate: 48000,
+                    })));
+
+                    let source_video_transcode_state = v.transcode_states.iter().find(|s| s.id == source_aac.transcode_state_ids[0]).unwrap();
+                    assert!(source_video_transcode_state.copy);
+                    assert_eq!(source_video_transcode_state.codec, "avc1.64001f");
+                    assert_eq!(source_video_transcode_state.bitrate, 1276158);
+                    assert_eq!(source_video_transcode_state.settings, Some(transcode_state::Settings::Video(transcode_state::VideoSettings {
                         width: 468,
                         height: 864,
                         framerate: 30,
-                        bitrate: 1276158,
-                        codec: "avc1.64001f".to_string(),
-                    }));
-                    assert_eq!(v.variants[0].audio_settings, Some(AudioSettings {
-                        sample_rate: 44100,
-                        channels: 2,
-                        bitrate: 69568,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[0].metadata, "{}");
-                    assert!(!v.variants[0].id.is_empty());
+                    })));
 
-                    assert_eq!(v.variants[1].name, "audio");
-                    assert_eq!(v.variants[1].video_settings, None);
-                    assert_eq!(v.variants[1].audio_settings, Some(AudioSettings {
-                        sample_rate: 44100,
-                        channels: 2,
-                        bitrate: 69568,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[1].metadata, "{}");
-                    assert!(!v.variants[1].id.is_empty());
+                    assert_eq!(source_aac.transcode_state_ids[0], source_opus.transcode_state_ids[0]);
+                    assert_eq!(source_aac.transcode_state_ids[1], audio_aac_transcode_state.id);
+                    assert_eq!(source_opus.transcode_state_ids[1], audio_opus_transcode_state.id);
 
-                    assert_eq!(v.variants[2].name, "360p");
-                    assert_eq!(v.variants[2].video_settings, Some(VideoSettings {
+                    let _360p_video_transcode_state = v.transcode_states.iter().find(|s| s.id == _360p_aac.transcode_state_ids[0]).unwrap();
+                    assert!(!_360p_video_transcode_state.copy);
+                    assert_eq!(_360p_video_transcode_state.codec, "avc1.640033");
+                    assert_eq!(_360p_video_transcode_state.bitrate, 1024000);
+                    assert_eq!(_360p_video_transcode_state.settings, Some(transcode_state::Settings::Video(transcode_state::VideoSettings {
                         width: 360,
                         height: 665,
                         framerate: 30,
-                        bitrate: 1024000,
-                        codec: "avc1.640033".to_string(),
-                    }));
-                    assert_eq!(v.variants[2].audio_settings, Some(AudioSettings {
-                        sample_rate: 44100,
-                        channels: 2,
-                        bitrate: 69568,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[2].metadata, "{}");
-                    assert!(!v.variants[2].id.is_empty());
+                    })));
 
-                    variants = v.variants.clone();
+                    assert_eq!(_360p_aac.transcode_state_ids[0], _360p_opus.transcode_state_ids[0]);
+                    assert_eq!(_360p_aac.transcode_state_ids[1], audio_aac_transcode_state.id);
+                    assert_eq!(_360p_opus.transcode_state_ids[1], audio_opus_transcode_state.id);
+
+                    variants = Some(v.clone());
 
                     send.send(Ok(UpdateLiveStreamResponse {})).unwrap();
                 },
@@ -839,7 +866,7 @@ async fn test_ingest_stream_transcoder_disconnect() {
         !state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -881,35 +908,8 @@ async fn test_ingest_stream_shutdown() {
             assert_eq!(request.stream_id, stream_id.to_string());
             match &request.updates[0].update {
                 Some(crate::pb::scuffle::backend::update_live_stream_request::update::Update::Variants(v)) => {
-                    assert_eq!(v.variants.len(), 2); // We are not transcoding so this is source and audio only
-                    assert_eq!(v.variants[0].name, "source");
-                    assert_eq!(v.variants[0].video_settings, Some(VideoSettings {
-                        width: 468,
-                        height: 864,
-                        framerate: 30,
-                        bitrate: 1276158,
-                        codec: "avc1.64001f".to_string(),
-                    }));
-                    assert_eq!(v.variants[0].audio_settings, Some(AudioSettings {
-                        sample_rate: 44100,
-                        channels: 2,
-                        bitrate: 69568,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[0].metadata, "{}");
-                    assert!(!v.variants[0].id.is_empty());
-
-                    assert_eq!(v.variants[1].name, "audio");
-                    assert_eq!(v.variants[1].video_settings, None);
-                    assert_eq!(v.variants[1].audio_settings, Some(AudioSettings {
-                        sample_rate: 44100,
-                        channels: 2,
-                        bitrate: 69568,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[1].metadata, "{}");
-                    assert!(!v.variants[1].id.is_empty());
-
+                    assert_eq!(v.stream_variants.len(), 2);
+                    assert_eq!(v.transcode_states.len(), 2);
                     send.send(Ok(UpdateLiveStreamResponse {})).unwrap();
                 },
                 _ => panic!("unexpected update"),
@@ -945,29 +945,18 @@ async fn test_ingest_stream_shutdown() {
         _ => panic!("unexpected event"),
     }
 
-    // state.global
-    //     .nats
-    //     .publish(
-    //         format!(
-    //             "{}.{}",
-    //             state.global.config.nats.connection_subject_prefix, stream_id
-    //         ),
-    //         IngestMessage {
-    //             timestamp: 0,
-    //             id: Uuid::new_v4().to_string(),
-    //             data: Some(ingest_message::Data::DropStream(IngestMessageDropStream {
-    //                 id: stream_id.to_string(),
-    //             })),
-    //         }
-    //         .encode_to_vec()
-    //         .into(),
-    //     )
-    //     .await
-    //     .unwrap();
+    assert!(
+        state
+            .global
+            .connection_manager
+            .submit_request(stream_id, GrpcRequest::ShutdownStream)
+            .await
+    );
 
-    assert!(ffmpeg.wait().await.is_ok());
+    tracing::info!("waiting for transcoder to exit");
 
-    // drop(transcoder_stream);
+    assert!(ffmpeg.wait().timeout(Duration::from_secs(1)).await.is_ok());
+
     state.finish().await;
 }
 
@@ -984,87 +973,112 @@ async fn test_ingest_stream_transcoder_full() {
             assert_eq!(request.stream_id, stream_id.to_string());
             match &request.updates[0].update {
                 Some(crate::pb::scuffle::backend::update_live_stream_request::update::Update::Variants(v)) => {
-                    assert_eq!(v.variants.len(), 5); // We are not transcoding so this is source and audio only
-                    assert_eq!(v.variants[0].name, "source");
-                    assert_eq!(v.variants[0].video_settings, Some(VideoSettings {
-                        width: 3840,
+                    let aac_audio_only = v.stream_variants.iter().find(|v| v.name == "audio-only" && v.group == "aac").unwrap();
+                    assert_eq!(aac_audio_only.transcode_state_ids.len(), 1);
+
+                    let opus_audio_only = v.stream_variants.iter().find(|v| v.name == "audio-only" && v.group == "opus").unwrap();
+                    assert_eq!(opus_audio_only.transcode_state_ids.len(), 1);
+
+                    let aac_source = v.stream_variants.iter().find(|v| v.name == "source" && v.group == "aac").unwrap();
+                    assert_eq!(aac_source.transcode_state_ids.len(), 2);
+
+                    let opus_source = v.stream_variants.iter().find(|v| v.name == "source" && v.group == "opus").unwrap();
+                    assert_eq!(opus_source.transcode_state_ids.len(), 2);
+
+                    let aac_720p = v.stream_variants.iter().find(|v| v.name == "720p" && v.group == "aac").unwrap();
+                    assert_eq!(aac_720p.transcode_state_ids.len(), 2);
+
+                    let opus_720p = v.stream_variants.iter().find(|v| v.name == "720p" && v.group == "opus").unwrap();
+                    assert_eq!(opus_720p.transcode_state_ids.len(), 2);
+
+                    let aac_480p = v.stream_variants.iter().find(|v| v.name == "480p" && v.group == "aac").unwrap();
+                    assert_eq!(aac_480p.transcode_state_ids.len(), 2);
+
+                    let opus_480p = v.stream_variants.iter().find(|v| v.name == "480p" && v.group == "opus").unwrap();
+                    assert_eq!(opus_480p.transcode_state_ids.len(), 2);
+
+                    let aac_360p = v.stream_variants.iter().find(|v| v.name == "360p" && v.group == "aac").unwrap();
+                    assert_eq!(aac_360p.transcode_state_ids.len(), 2);
+
+                    let opus_360p = v.stream_variants.iter().find(|v| v.name == "360p" && v.group == "opus").unwrap();
+                    assert_eq!(opus_360p.transcode_state_ids.len(), 2);
+
+                    let aac_transcode_state = v.transcode_states.iter().find(|s| s.id == aac_audio_only.transcode_state_ids[0]).unwrap();
+                    assert_eq!(aac_transcode_state.codec, "mp4a.40.2".to_string());
+                    assert_eq!(aac_transcode_state.bitrate, 128 * 1024);
+                    assert!(!aac_transcode_state.copy);
+                    assert_eq!(aac_transcode_state.settings, Some(transcode_state::Settings::Audio(transcode_state::AudioSettings {
+                        channels: 2,
+                        sample_rate: 48_000,
+                    })));
+
+                    let opus_transcode_state = v.transcode_states.iter().find(|s| s.id == opus_audio_only.transcode_state_ids[0]).unwrap();
+                    assert_eq!(opus_transcode_state.codec, "opus".to_string());
+                    assert_eq!(opus_transcode_state.bitrate, 96 * 1024);
+                    assert!(!opus_transcode_state.copy);
+                    assert_eq!(opus_transcode_state.settings, Some(transcode_state::Settings::Audio(transcode_state::AudioSettings {
+                        channels: 2,
+                        sample_rate: 48_000,
+                    })));
+
+                    // Now for the video source
+                    let source_video_transcode_state = v.transcode_states.iter().find(|s| s.id == aac_source.transcode_state_ids[0]).unwrap();
+                    assert_eq!(source_video_transcode_state.codec, "avc1.640034".to_string());
+                    assert_eq!(source_video_transcode_state.bitrate, 1740285);
+                    assert!(source_video_transcode_state.copy);
+                    assert_eq!(source_video_transcode_state.settings, Some(transcode_state::Settings::Video(transcode_state::VideoSettings {
+                        framerate: 60,
                         height: 2160,
+                        width: 3840,
+                    })));
+
+                    assert_eq!(aac_source.transcode_state_ids[0], opus_source.transcode_state_ids[0]);
+                    assert_eq!(aac_source.transcode_state_ids[1], aac_transcode_state.id);
+                    assert_eq!(opus_source.transcode_state_ids[1], opus_transcode_state.id);
+
+                    let _720p_video_transcode_state = v.transcode_states.iter().find(|s| s.id == aac_720p.transcode_state_ids[0]).unwrap();
+                    assert_eq!(_720p_video_transcode_state.codec, "avc1.640033".to_string());
+                    assert_eq!(_720p_video_transcode_state.bitrate, 4000 * 1024);
+                    assert!(!_720p_video_transcode_state.copy);
+                    assert_eq!(_720p_video_transcode_state.settings, Some(transcode_state::Settings::Video(transcode_state::VideoSettings {
                         framerate: 60,
-                        bitrate: 1740285,
-                        codec: "avc1.640034".to_string(),
-                    }));
-                    assert_eq!(v.variants[0].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[0].metadata, "{}");
-                    assert!(!v.variants[0].id.is_empty());
-
-                    assert_eq!(v.variants[1].name, "audio");
-                    assert_eq!(v.variants[1].video_settings, None);
-                    assert_eq!(v.variants[1].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[1].metadata, "{}");
-                    assert!(!v.variants[1].id.is_empty());
-
-                    assert_eq!(v.variants[2].name, "720p");
-                    assert_eq!(v.variants[2].video_settings, Some(VideoSettings {
-                        width: 1280,
                         height: 720,
-                        framerate: 60,
-                        bitrate: 4096000,
-                        codec: "avc1.640033".to_string(),
-                    }));
-                    assert_eq!(v.variants[2].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[2].metadata, "{}");
-                    assert!(!v.variants[2].id.is_empty());
+                        width: 1280,
+                    })));
 
-                    assert_eq!(v.variants[3].name, "480p");
-                    assert_eq!(v.variants[3].video_settings, Some(VideoSettings {
-                        width: 853,
+                    assert_eq!(aac_720p.transcode_state_ids[0], opus_720p.transcode_state_ids[0]);
+                    assert_eq!(aac_720p.transcode_state_ids[1], aac_transcode_state.id);
+                    assert_eq!(opus_720p.transcode_state_ids[1], opus_transcode_state.id);
+
+                    let _480p_video_transcode_state = v.transcode_states.iter().find(|s| s.id == aac_480p.transcode_state_ids[0]).unwrap();
+                    assert_eq!(_480p_video_transcode_state.codec, "avc1.640033".to_string());
+                    assert_eq!(_480p_video_transcode_state.bitrate, 2000 * 1024);
+                    assert!(!_480p_video_transcode_state.copy);
+                    assert_eq!(_480p_video_transcode_state.settings, Some(transcode_state::Settings::Video(transcode_state::VideoSettings {
+                        framerate: 30,
                         height: 480,
-                        framerate: 30,
-                        bitrate: 2048000,
-                        codec: "avc1.640033".to_string(),
-                    }));
-                    assert_eq!(v.variants[3].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[3].metadata, "{}");
-                    assert!(!v.variants[3].id.is_empty());
+                        width: 853,
+                    })));
 
-                    assert_eq!(v.variants[4].name, "360p");
-                    assert_eq!(v.variants[4].video_settings, Some(VideoSettings {
-                        width: 640,
+                    assert_eq!(aac_480p.transcode_state_ids[0], opus_480p.transcode_state_ids[0]);
+                    assert_eq!(aac_480p.transcode_state_ids[1], aac_transcode_state.id);
+                    assert_eq!(opus_480p.transcode_state_ids[1], opus_transcode_state.id);
+
+                    let _360p_video_transcode_state = v.transcode_states.iter().find(|s| s.id == aac_360p.transcode_state_ids[0]).unwrap();
+                    assert_eq!(_360p_video_transcode_state.codec, "avc1.640033".to_string());
+                    assert_eq!(_360p_video_transcode_state.bitrate, 1000 * 1024);
+                    assert!(!_360p_video_transcode_state.copy);
+                    assert_eq!(_360p_video_transcode_state.settings, Some(transcode_state::Settings::Video(transcode_state::VideoSettings {
+                        framerate: 30,
                         height: 360,
-                        framerate: 30,
-                        bitrate: 1024000,
-                        codec: "avc1.640033".to_string(),
-                    }));
-                    assert_eq!(v.variants[4].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[4].metadata, "{}");
-                    assert!(!v.variants[4].id.is_empty());
+                        width: 640,
+                    })));
 
-                    variants = v.variants.clone();
+                    assert_eq!(aac_360p.transcode_state_ids[0], opus_360p.transcode_state_ids[0]);
+                    assert_eq!(aac_360p.transcode_state_ids[1], aac_transcode_state.id);
+                    assert_eq!(opus_360p.transcode_state_ids[1], opus_transcode_state.id);
+
+                    variants = Some(v.clone());
 
                     send.send(Ok(UpdateLiveStreamResponse {})).unwrap();
                 },
@@ -1135,7 +1149,7 @@ async fn test_ingest_stream_transcoder_full() {
         state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -1185,7 +1199,7 @@ async fn test_ingest_stream_transcoder_full() {
         !state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -1238,7 +1252,10 @@ async fn test_ingest_stream_reject() {
         !state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: Uuid::new_v4() })
+            .submit_request(
+                stream_id,
+                GrpcRequest::TranscoderStarted { id: Uuid::new_v4() }
+            )
             .await
     );
 
@@ -1258,87 +1275,7 @@ async fn test_ingest_stream_transcoder_error() {
             assert_eq!(request.stream_id, stream_id.to_string());
             match &request.updates[0].update {
                 Some(crate::pb::scuffle::backend::update_live_stream_request::update::Update::Variants(v)) => {
-                    assert_eq!(v.variants.len(), 5); // We are not transcoding so this is source and audio only
-                    assert_eq!(v.variants[0].name, "source");
-                    assert_eq!(v.variants[0].video_settings, Some(VideoSettings {
-                        width: 3840,
-                        height: 2160,
-                        framerate: 60,
-                        bitrate: 1740285,
-                        codec: "avc1.640034".to_string(),
-                    }));
-                    assert_eq!(v.variants[0].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[0].metadata, "{}");
-                    assert!(!v.variants[0].id.is_empty());
-
-                    assert_eq!(v.variants[1].name, "audio");
-                    assert_eq!(v.variants[1].video_settings, None);
-                    assert_eq!(v.variants[1].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[1].metadata, "{}");
-                    assert!(!v.variants[1].id.is_empty());
-
-                    assert_eq!(v.variants[2].name, "720p");
-                    assert_eq!(v.variants[2].video_settings, Some(VideoSettings {
-                        width: 1280,
-                        height: 720,
-                        framerate: 60,
-                        bitrate: 4096000,
-                        codec: "avc1.640033".to_string(),
-                    }));
-                    assert_eq!(v.variants[2].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[2].metadata, "{}");
-                    assert!(!v.variants[2].id.is_empty());
-
-                    assert_eq!(v.variants[3].name, "480p");
-                    assert_eq!(v.variants[3].video_settings, Some(VideoSettings {
-                        width: 853,
-                        height: 480,
-                        framerate: 30,
-                        bitrate: 2048000,
-                        codec: "avc1.640033".to_string(),
-                    }));
-                    assert_eq!(v.variants[3].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[3].metadata, "{}");
-                    assert!(!v.variants[3].id.is_empty());
-
-                    assert_eq!(v.variants[4].name, "360p");
-                    assert_eq!(v.variants[4].video_settings, Some(VideoSettings {
-                        width: 640,
-                        height: 360,
-                        framerate: 30,
-                        bitrate: 1024000,
-                        codec: "avc1.640033".to_string(),
-                    }));
-                    assert_eq!(v.variants[4].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[4].metadata, "{}");
-                    assert!(!v.variants[4].id.is_empty());
-
-                    variants = v.variants.clone();
+                    variants = v.clone();
 
                     send.send(Ok(UpdateLiveStreamResponse {})).unwrap();
                 },
@@ -1385,7 +1322,7 @@ async fn test_ingest_stream_transcoder_error() {
 
     assert!(!data.request_id.is_empty());
     assert_eq!(data.stream_id, stream_id.to_string());
-    assert_eq!(data.variants, variants);
+    assert_eq!(data.variants, Some(variants));
 
     // We should now be able to join the stream
     let stream_id = data.stream_id.parse().unwrap();
@@ -1411,7 +1348,7 @@ async fn test_ingest_stream_transcoder_error() {
             .connection_manager
             .submit_request(
                 stream_id,
-                GrpcRequest::Error {
+                GrpcRequest::TranscoderError {
                     id: request_id,
                     message: "test".to_string(),
                     fatal: false,
@@ -1480,7 +1417,7 @@ async fn test_ingest_stream_transcoder_error() {
         !state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -1499,45 +1436,61 @@ async fn test_ingest_stream_try_resume_success() {
     let mut ffmpeg = stream_with_ffmpeg(state.rtmp_port, "avc_aac_large.mp4");
 
     let stream_id = Uuid::new_v4();
-    let variants = vec![
-        StreamVariant {
-            id: Uuid::new_v4().to_string(),
-            metadata: "{}".to_string(),
-            name: "source".to_string(),
-            audio_settings: Some(AudioSettings {
-                bitrate: 140304,
-                channels: 2,
-                sample_rate: 48000,
-                codec: "opus".to_string(),
-            }),
-            video_settings: Some(VideoSettings {
-                width: 3840,
-                height: 2160,
-                framerate: 60,
-                bitrate: 1740285,
+
+    let audio_transcode_id = Uuid::new_v4();
+    let source_transcode_id = Uuid::new_v4();
+
+    let variants = StreamVariants {
+        stream_variants: vec![
+            StreamVariant {
+                group: "aac".to_string(),
+                name: "source".to_string(),
+                transcode_state_ids: vec![
+                    source_transcode_id.to_string(),
+                    audio_transcode_id.to_string(),
+                ],
+            },
+            StreamVariant {
+                group: "aac".to_string(),
+                name: "audio-only".to_string(),
+                transcode_state_ids: vec![audio_transcode_id.to_string()],
+            },
+        ],
+        transcode_states: vec![
+            TranscodeState {
+                id: source_transcode_id.to_string(),
                 codec: "avc1.640034".to_string(),
-            }),
-        },
-        StreamVariant {
-            id: Uuid::new_v4().to_string(),
-            metadata: "{}".to_string(),
-            name: "audio".to_string(),
-            video_settings: None,
-            audio_settings: Some(AudioSettings {
-                bitrate: 140304,
-                channels: 2,
-                sample_rate: 48000,
-                codec: "opus".to_string(),
-            }),
-        },
-    ];
+                bitrate: 1740285,
+                copy: true,
+                settings: Some(transcode_state::Settings::Video(
+                    transcode_state::VideoSettings {
+                        width: 3840,
+                        height: 2160,
+                        framerate: 60,
+                    },
+                )),
+            },
+            TranscodeState {
+                id: audio_transcode_id.to_string(),
+                codec: "mp4a.40.2".to_string(),
+                bitrate: 128 * 1024,
+                copy: false,
+                settings: Some(transcode_state::Settings::Audio(
+                    transcode_state::AudioSettings {
+                        channels: 2,
+                        sample_rate: 48000,
+                    },
+                )),
+            },
+        ],
+    };
+
     state
         .api_assert_authenticate(Ok(AuthenticateLiveStreamResponse {
             stream_id: stream_id.to_string(),
             record: false,
             transcode: false,
-            try_resume: true,
-            variants: variants.clone(),
+            variants: Some(variants.clone()),
         }))
         .await;
 
@@ -1578,7 +1531,7 @@ async fn test_ingest_stream_try_resume_success() {
 
     assert!(!data.request_id.is_empty());
     assert_eq!(data.stream_id, stream_id.to_string());
-    assert_eq!(data.variants, variants);
+    assert_eq!(data.variants, Some(variants));
 
     // We should now be able to join the stream
     let stream_id = data.stream_id.parse().unwrap();
@@ -1602,7 +1555,7 @@ async fn test_ingest_stream_try_resume_success() {
         state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -1652,7 +1605,7 @@ async fn test_ingest_stream_try_resume_success() {
         !state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -1688,44 +1641,59 @@ async fn test_ingest_stream_try_resume_failed() {
     let mut ffmpeg = stream_with_ffmpeg(state.rtmp_port, "avc_aac_large.mp4");
 
     let mut stream_id = Uuid::new_v4();
+
+    let audio_transcode_id = Uuid::new_v4();
+    let source_transcode_id = Uuid::new_v4();
+
     state
         .api_assert_authenticate(Ok(AuthenticateLiveStreamResponse {
             stream_id: stream_id.to_string(),
             record: false,
             transcode: false,
-            try_resume: true,
-            variants: vec![
-                StreamVariant {
-                    id: Uuid::new_v4().to_string(),
-                    metadata: "{}".to_string(),
-                    name: "source".to_string(),
-                    audio_settings: Some(AudioSettings {
-                        bitrate: 140304,
-                        channels: 2,
-                        sample_rate: 48000,
-                        codec: "opus".to_string(),
-                    }),
-                    video_settings: Some(VideoSettings {
-                        width: 1920,
-                        height: 1080,
-                        framerate: 60,
-                        bitrate: 1740285,
+            variants: Some(StreamVariants {
+                stream_variants: vec![
+                    StreamVariant {
+                        group: "aac".to_string(),
+                        name: "source".to_string(),
+                        transcode_state_ids: vec![
+                            source_transcode_id.to_string(),
+                            audio_transcode_id.to_string(),
+                        ],
+                    },
+                    StreamVariant {
+                        group: "aac".to_string(),
+                        name: "audio-only".to_string(),
+                        transcode_state_ids: vec![audio_transcode_id.to_string()],
+                    },
+                ],
+                transcode_states: vec![
+                    TranscodeState {
+                        id: source_transcode_id.to_string(),
                         codec: "avc1.640034".to_string(),
-                    }),
-                },
-                StreamVariant {
-                    id: Uuid::new_v4().to_string(),
-                    metadata: "{}".to_string(),
-                    name: "audio".to_string(),
-                    video_settings: None,
-                    audio_settings: Some(AudioSettings {
-                        bitrate: 140304,
-                        channels: 2,
-                        sample_rate: 48000,
-                        codec: "opus".to_string(),
-                    }),
-                },
-            ],
+                        bitrate: 1740285,
+                        copy: true,
+                        settings: Some(transcode_state::Settings::Video(
+                            transcode_state::VideoSettings {
+                                width: 3840,
+                                height: 2160,
+                                framerate: 30, // Note we changed this to 30fps from 60 so that we could cause the stream to fail
+                            },
+                        )),
+                    },
+                    TranscodeState {
+                        id: audio_transcode_id.to_string(),
+                        codec: "mp4a.40.2".to_string(),
+                        bitrate: 128 * 1024,
+                        copy: false,
+                        settings: Some(transcode_state::Settings::Audio(
+                            transcode_state::AudioSettings {
+                                channels: 2,
+                                sample_rate: 48000,
+                            },
+                        )),
+                    },
+                ],
+            }),
         }))
         .await;
 
@@ -1733,59 +1701,8 @@ async fn test_ingest_stream_try_resume_failed() {
     match state.api_recv().await {
         IncomingRequest::New((new, response)) => {
             assert_eq!(new.old_stream_id, stream_id.to_string());
-            assert_eq!(new.variants.len(), 2);
 
-            assert_eq!(new.variants[0].name, "source");
-            assert_eq!(
-                new.variants[0].audio_settings.as_ref().unwrap().bitrate,
-                140304
-            );
-            assert_eq!(
-                new.variants[0].video_settings.as_ref().unwrap().bitrate,
-                1740285
-            );
-            assert_eq!(
-                new.variants[0].video_settings.as_ref().unwrap().framerate,
-                60
-            );
-            assert_eq!(new.variants[0].video_settings.as_ref().unwrap().width, 3840);
-            assert_eq!(
-                new.variants[0].video_settings.as_ref().unwrap().height,
-                2160
-            );
-            assert_eq!(
-                new.variants[0].video_settings.as_ref().unwrap().codec,
-                "avc1.640034"
-            );
-            assert_eq!(
-                new.variants[0].audio_settings.as_ref().unwrap().codec,
-                "opus"
-            );
-            assert_eq!(new.variants[0].audio_settings.as_ref().unwrap().channels, 2);
-            assert_eq!(
-                new.variants[0].audio_settings.as_ref().unwrap().sample_rate,
-                48000
-            );
-            assert_eq!(new.variants[0].metadata, "{}");
-
-            assert_eq!(new.variants[1].name, "audio");
-            assert_eq!(
-                new.variants[1].audio_settings.as_ref().unwrap().bitrate,
-                140304
-            );
-            assert_eq!(new.variants[1].video_settings, None);
-            assert_eq!(
-                new.variants[1].audio_settings.as_ref().unwrap().codec,
-                "opus"
-            );
-            assert_eq!(new.variants[1].audio_settings.as_ref().unwrap().channels, 2);
-            assert_eq!(
-                new.variants[1].audio_settings.as_ref().unwrap().sample_rate,
-                48000
-            );
-            assert_eq!(new.variants[1].metadata, "{}");
-
-            variants = new.variants;
+            variants = Some(new.variants.unwrap());
 
             stream_id = Uuid::new_v4();
 
@@ -1859,7 +1776,7 @@ async fn test_ingest_stream_try_resume_failed() {
         state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -1909,7 +1826,7 @@ async fn test_ingest_stream_try_resume_failed() {
         !state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -1954,8 +1871,7 @@ async fn test_ingest_stream_transcoder_full_tls(tls_dir: PathBuf) {
                 stream_id: stream_id.to_string(),
                 record: false,
                 transcode: true,
-                try_resume: false,
-                variants: vec![],
+                variants: None,
             }))
             .unwrap();
         }
@@ -1968,88 +1884,7 @@ async fn test_ingest_stream_transcoder_full_tls(tls_dir: PathBuf) {
             assert_eq!(request.stream_id, stream_id.to_string());
             match &request.updates[0].update {
                 Some(crate::pb::scuffle::backend::update_live_stream_request::update::Update::Variants(v)) => {
-                    assert_eq!(v.variants.len(), 5); // We are not transcoding so this is source and audio only
-                    assert_eq!(v.variants[0].name, "source");
-                    assert_eq!(v.variants[0].video_settings, Some(VideoSettings {
-                        width: 3840,
-                        height: 2160,
-                        framerate: 60,
-                        bitrate: 1740285,
-                        codec: "avc1.640034".to_string(),
-                    }));
-                    assert_eq!(v.variants[0].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[0].metadata, "{}");
-                    assert!(!v.variants[0].id.is_empty());
-
-                    assert_eq!(v.variants[1].name, "audio");
-                    assert_eq!(v.variants[1].video_settings, None);
-                    assert_eq!(v.variants[1].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[1].metadata, "{}");
-                    assert!(!v.variants[1].id.is_empty());
-
-                    assert_eq!(v.variants[2].name, "720p");
-                    assert_eq!(v.variants[2].video_settings, Some(VideoSettings {
-                        width: 1280,
-                        height: 720,
-                        framerate: 60,
-                        bitrate: 4096000,
-                        codec: "avc1.640033".to_string(),
-                    }));
-                    assert_eq!(v.variants[2].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[2].metadata, "{}");
-                    assert!(!v.variants[2].id.is_empty());
-
-                    assert_eq!(v.variants[3].name, "480p");
-                    assert_eq!(v.variants[3].video_settings, Some(VideoSettings {
-                        width: 853,
-                        height: 480,
-                        framerate: 30,
-                        bitrate: 2048000,
-                        codec: "avc1.640033".to_string(),
-                    }));
-                    assert_eq!(v.variants[3].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[3].metadata, "{}");
-                    assert!(!v.variants[3].id.is_empty());
-
-                    assert_eq!(v.variants[4].name, "360p");
-                    assert_eq!(v.variants[4].video_settings, Some(VideoSettings {
-                        width: 640,
-                        height: 360,
-                        framerate: 30,
-                        bitrate: 1024000,
-                        codec: "avc1.640033".to_string(),
-                    }));
-                    assert_eq!(v.variants[4].audio_settings, Some(AudioSettings {
-                        sample_rate: 48000,
-                        channels: 2,
-                        bitrate: 140304,
-                        codec: "opus".to_string(),
-                    }));
-                    assert_eq!(v.variants[4].metadata, "{}");
-                    assert!(!v.variants[4].id.is_empty());
-
-                    variants = v.variants.clone();
-
+                    variants = Some(v.clone());
                     send.send(Ok(UpdateLiveStreamResponse {})).unwrap();
                 },
                 _ => panic!("unexpected update"),
@@ -2119,7 +1954,7 @@ async fn test_ingest_stream_transcoder_full_tls(tls_dir: PathBuf) {
         state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -2169,7 +2004,7 @@ async fn test_ingest_stream_transcoder_full_tls(tls_dir: PathBuf) {
         !state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -2271,7 +2106,7 @@ async fn test_ingest_stream_transcoder_probe() {
         state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -2341,7 +2176,7 @@ async fn test_ingest_stream_transcoder_probe() {
         !state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -2420,7 +2255,7 @@ async fn test_ingest_stream_transcoder_probe_reconnect() {
         state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -2486,7 +2321,10 @@ async fn test_ingest_stream_transcoder_probe_reconnect() {
         state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::ShuttingDown { id: request_id })
+            .submit_request(
+                stream_id,
+                GrpcRequest::TranscoderShuttingDown { id: request_id }
+            )
             .await
     );
 
@@ -2539,7 +2377,7 @@ async fn test_ingest_stream_transcoder_probe_reconnect() {
         state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -2609,7 +2447,7 @@ async fn test_ingest_stream_transcoder_probe_reconnect() {
         !state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -2688,7 +2526,7 @@ async fn test_ingest_stream_transcoder_probe_reconnect_unexpected() {
         state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -2795,7 +2633,7 @@ async fn test_ingest_stream_transcoder_probe_reconnect_unexpected() {
         state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 
@@ -2865,7 +2703,7 @@ async fn test_ingest_stream_transcoder_probe_reconnect_unexpected() {
         !state
             .global
             .connection_manager
-            .submit_request(stream_id, GrpcRequest::Started { id: request_id })
+            .submit_request(stream_id, GrpcRequest::TranscoderStarted { id: request_id })
             .await
     );
 

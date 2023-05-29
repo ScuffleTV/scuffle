@@ -24,12 +24,15 @@ use crate::{
     pb::scuffle::{
         backend::{
             api_client::ApiClient,
-            update_live_stream_request::{self, event, update, Bitrate, Event, Update},
+            update_live_stream_request::{event, update, Bitrate, Event, Update},
             AuthenticateLiveStreamRequest, LiveStreamState, NewLiveStreamRequest,
             UpdateLiveStreamRequest,
         },
         events::{self, transcoder_message},
-        types::StreamVariant,
+        types::{
+            stream_variants::{StreamVariant, TranscodeState},
+            StreamVariants,
+        },
     },
 };
 
@@ -69,8 +72,7 @@ struct ApiResponse {
     id: Uuid,
     transcode: bool,
     record: bool,
-    try_resume: bool,
-    variants: Vec<StreamVariant>,
+    variants: Option<StreamVariants>,
 }
 
 const BITRATE_UPDATE_INTERVAL: u64 = 5;
@@ -237,7 +239,6 @@ impl Connection {
             id,
             transcode: response.transcode,
             record: response.record,
-            try_resume: response.try_resume,
             variants: response.variants,
         };
 
@@ -466,7 +467,12 @@ impl Connection {
         };
 
         match req {
-            GrpcRequest::Started { id } => {
+            GrpcRequest::ShutdownStream => {
+                tracing::info!("shutdown stream request");
+                self.report_shutdown = false;
+                return false;
+            }
+            GrpcRequest::TranscoderStarted { id } => {
                 tracing::info!("transcoder started: {}", id);
                 if update_channel
                     .try_send(vec![Update {
@@ -479,7 +485,7 @@ impl Connection {
                     return false;
                 }
             }
-            GrpcRequest::Error {
+            GrpcRequest::TranscoderError {
                 id,
                 message,
                 fatal: _,
@@ -517,7 +523,7 @@ impl Connection {
                     tracing::warn!("transcoder request failure id mismatch");
                 }
             }
-            GrpcRequest::ShuttingDown { id } => {
+            GrpcRequest::TranscoderShuttingDown { id } => {
                 if self.current_transcoder_id == Some(id) {
                     tracing::info!("transcoder shutting down");
                     return self.request_transcoder(update_channel, global).await;
@@ -604,61 +610,73 @@ impl Connection {
         audio_settings: &AudioSettings,
         init_data: Bytes,
     ) -> bool {
-        let variants = generate_variants(video_settings, audio_settings, self.api_resp.transcode);
+        let new_variants =
+            generate_variants(video_settings, audio_settings, self.api_resp.transcode);
 
         // We can now at this point decide what we want to do with the stream.
         // What variants should be transcoded, ect...
-        if self.api_resp.try_resume {
-            // Check if the new variants are the same as the old ones.
-            let mut old_map = self
-                .api_resp
-                .variants
-                .iter()
-                .map(|v| (v.name.clone(), v))
-                .collect::<HashMap<_, _>>();
+        if let Some(old_variants) = self.api_resp.variants.take() {
+            let mut can_resume = true;
 
-            for new_variant in &variants {
-                if let Some(old_variant) = old_map.remove(&new_variant.name) {
-                    let video_same = if let Some(old_video) = &old_variant.video_settings {
-                        if let Some(new_video) = &new_variant.video_settings {
-                            old_video.codec == new_video.codec
-                                && old_video.bitrate == new_video.bitrate
-                                && old_video.width == new_video.width
-                                && old_video.height == new_video.height
+            fn make_map(
+                variants: &StreamVariants,
+            ) -> HashMap<(&str, &str), (&StreamVariant, Vec<&TranscodeState>)> {
+                let transcode_state_map = variants
+                    .transcode_states
+                    .iter()
+                    .map(|s| (s.id.as_str(), s))
+                    .collect::<HashMap<_, _>>();
+
+                variants
+                    .stream_variants
+                    .iter()
+                    .map(|v| {
+                        let states = v
+                            .transcode_state_ids
+                            .iter()
+                            .map(|id| *transcode_state_map.get(id.as_str()).unwrap())
+                            .collect::<Vec<_>>();
+                        ((v.group.as_str(), v.name.as_str()), (v, states))
+                    })
+                    .collect()
+            }
+
+            let new_map = make_map(&new_variants);
+            let mut old_map = make_map(&old_variants);
+
+            for (key, (_, new_transcode_states)) in new_map.iter() {
+                if let Some((_, mut old_transcode_states)) = old_map.remove(key) {
+                    if new_transcode_states.iter().all(|new| {
+                        let pos = old_transcode_states.iter().position(|old| {
+                            new.copy == old.copy
+                                && new.codec == old.codec
+                                && new.settings == old.settings
+                        });
+
+                        if let Some(pos) = pos {
+                            old_transcode_states.remove(pos);
+                            true
                         } else {
                             false
                         }
-                    } else {
-                        new_variant.video_settings.is_none()
-                    };
-
-                    let audio_same = if let Some(old_audio) = &old_variant.audio_settings {
-                        if let Some(new_audio) = &new_variant.audio_settings {
-                            old_audio.codec == new_audio.codec
-                                && old_audio.bitrate == new_audio.bitrate
-                                && old_audio.channels == new_audio.channels
-                                && old_audio.sample_rate == new_audio.sample_rate
-                        } else {
-                            false
-                        }
-                    } else {
-                        new_variant.audio_settings.is_none()
-                    };
-
-                    if video_same && audio_same && old_variant.metadata == new_variant.metadata {
+                    }) && old_transcode_states.is_empty()
+                    {
+                        // This is resumable, so we can just continue.
                         continue;
                     }
                 }
 
                 // If we get here, we need to start a new transcode.
                 tracing::info!("new variant detected, starting new transcode");
-                self.api_resp.try_resume = false;
+                can_resume = false;
                 break;
             }
 
-            self.api_resp.try_resume = self.api_resp.try_resume && old_map.is_empty();
+            can_resume = can_resume && old_map.is_empty();
 
-            if !self.api_resp.try_resume {
+            if can_resume {
+                self.api_resp.variants = Some(old_variants);
+            } else {
                 // Report to API to get a new stream id.
                 // This is because the variants have changed and therefore the client player wont be able to resume.
                 // We need to get a new stream id so that the player can start a new session.
@@ -667,7 +685,7 @@ impl Connection {
                     .api_client
                     .new_live_stream(NewLiveStreamRequest {
                         old_stream_id: self.api_resp.id.to_string(),
-                        variants: variants.clone(),
+                        variants: Some(new_variants.clone()),
                     })
                     .await
                 {
@@ -684,7 +702,7 @@ impl Connection {
                 };
 
                 self.api_resp.id = stream_id;
-                self.api_resp.variants = variants;
+                self.api_resp.variants = Some(new_variants);
             }
         } else if let Err(e) = self
             .api_client
@@ -693,11 +711,7 @@ impl Connection {
                 connection_id: self.id.to_string(),
                 updates: vec![Update {
                     timestamp: Utc::now().timestamp() as u64,
-                    update: Some(update::Update::Variants(
-                        update_live_stream_request::Variants {
-                            variants: variants.clone(),
-                        },
-                    )),
+                    update: Some(update::Update::Variants(new_variants.clone())),
                 }],
             })
             .await
@@ -705,7 +719,7 @@ impl Connection {
             tracing::error!("Failed to report new stream to API: {}", e);
             return false;
         } else {
-            self.api_resp.variants = variants;
+            self.api_resp.variants = Some(new_variants);
         }
 
         // At this point now we need to create a new job for a transcoder to pick up and start transcoding.

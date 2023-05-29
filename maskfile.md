@@ -159,11 +159,6 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-if [ "$no_rust" != "true" ]; then
-    cargo fmt --all
-    cargo clippy --fix --allow-dirty --allow-staged
-fi
-
 if [ "$no_js" != "true" ]; then
     pnpm --recursive --parallel --stream run format
 fi
@@ -174,6 +169,11 @@ fi
 
 if [ "$no_proto" != "true" ]; then
     find . -name '*.proto' -exec clang-format -i {} \;
+fi
+
+if [ "$no_rust" != "true" ]; then
+    cargo fmt --all
+    cargo clippy --fix --allow-dirty --allow-staged
 fi
 ```
 

@@ -13,6 +13,7 @@ mod database;
 mod dataloader;
 mod global;
 mod grpc;
+mod pb;
 
 #[cfg(test)]
 mod tests;

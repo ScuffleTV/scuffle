@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io;
 use std::process::Output;
 use std::{
@@ -12,6 +13,7 @@ use fred::types::Expiration;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use lapin::message::Delivery;
 use lapin::options::BasicAckOptions;
+use mp4::codec::{AudioCodec, VideoCodec};
 use nix::sys::signal;
 use nix::unistd::Pid;
 use prost::Message as _;
@@ -25,7 +27,7 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use tonic::{transport::Channel, Status};
 
-use crate::pb::scuffle::types::StreamVariant;
+use crate::pb::scuffle::types::{stream_variants, StreamVariants};
 use crate::transcoder::job::utils::{release_lock, set_lock, SharedFuture};
 use crate::{
     global::GlobalState,
@@ -119,7 +121,7 @@ fn redis_master_playlist_key(stream_id: &str) -> String {
 fn set_master_playlist(
     global: Arc<GlobalState>,
     stream_id: &str,
-    variants: &[StreamVariant],
+    state: &StreamVariants,
     lock: CancellationToken,
 ) -> impl futures::Future<Output = Result<()>> + Send + 'static {
     let playlist_key = redis_master_playlist_key(stream_id);
@@ -128,62 +130,85 @@ fn set_master_playlist(
 
     playlist.push_str("#EXTM3U\n");
 
-    // Find audio only variant
-    let audio_variant = variants
-        .iter()
-        .find(|v| v.video_settings.is_none())
-        .expect("no audio only variant found");
+    let mut state_map = HashMap::new();
 
-    playlist.push_str(&format!("#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"{}\",NAME=\"{}\",AUTOSELECT=YES,DEFAULT=YES,URI=\"{}/index.m3u8\"\n", audio_variant.name, audio_variant.name, audio_variant.id));
+    for transcode_state in state.transcode_states.iter() {
+        playlist.push_str(format!("#EXT-X-MEDIA:TYPE={},GROUP-ID=\"{}\",NAME=\"{}\",AUTOSELECT=YES,DEFAULT=YES,URI=\"{}/index.m3u8\"\n", match transcode_state.settings.as_ref().unwrap() {
+            stream_variants::transcode_state::Settings::Video(_) => {
+                "VIDEO"
+            },
+            stream_variants::transcode_state::Settings::Audio(_) => {
+                "AUDIO"
+            },
+        }, transcode_state.id, transcode_state.id, transcode_state.id).as_str());
 
-    for variant in variants {
-        let mut options = vec![
-            format!(
-                "BANDWIDTH={}",
-                variant
-                    .audio_settings
-                    .as_ref()
-                    .map(|a| a.bitrate)
-                    .unwrap_or_default()
-                    + variant
-                        .video_settings
-                        .as_ref()
-                        .map(|v| v.bitrate)
-                        .unwrap_or_default()
-            ),
-            format!(
-                "CODECS=\"{}\"",
-                variant
-                    .video_settings
-                    .as_ref()
-                    .map(|v| v.codec.clone())
-                    .into_iter()
-                    .chain(
-                        variant
-                            .audio_settings
-                            .as_ref()
-                            .map(|a| a.codec.clone())
-                            .into_iter()
-                    )
-                    .collect::<Vec<_>>()
-                    .join(",")
-            ),
+        state_map.insert(transcode_state.id.as_str(), transcode_state);
+    }
+
+    for stream_variant in state.stream_variants.iter() {
+        let video_transcode_state = stream_variant.transcode_state_ids.iter().find_map(|id| {
+            let t = state_map.get(id.as_str()).unwrap();
+            if matches!(
+                t.settings,
+                Some(stream_variants::transcode_state::Settings::Video(_))
+            ) {
+                Some(t)
+            } else {
+                None
+            }
+        });
+
+        let audio_transcode_state = stream_variant.transcode_state_ids.iter().find_map(|id| {
+            let t = state_map.get(id.as_str()).unwrap();
+            if matches!(
+                t.settings,
+                Some(stream_variants::transcode_state::Settings::Audio(_))
+            ) {
+                Some(t)
+            } else {
+                None
+            }
+        });
+
+        let bandwidth = video_transcode_state.map(|t| t.bitrate).unwrap_or(0)
+            + audio_transcode_state.map(|t| t.bitrate).unwrap_or(0);
+        let codecs = video_transcode_state
+            .iter()
+            .chain(audio_transcode_state.iter())
+            .map(|t| t.codec.as_str())
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let mut tags = vec![
+            format!("GROUP=\"{}\"", stream_variant.group),
+            format!("NAME=\"{}\"", stream_variant.name),
+            format!("BANDWIDTH={}", bandwidth),
+            format!("CODECS=\"{}\"", codecs),
         ];
 
-        options.push(format!("AUDIO=\"{}\"", audio_variant.name));
+        if let Some(video) = video_transcode_state {
+            let settings = match video.settings.as_ref() {
+                Some(stream_variants::transcode_state::Settings::Video(settings)) => settings,
+                _ => unreachable!(),
+            };
 
-        if let Some(video_settings) = &variant.video_settings {
-            options.push(format!(
-                "RESOLUTION={}x{}",
-                video_settings.width, video_settings.height
-            ));
-            options.push(format!("FRAME-RATE={}", video_settings.framerate));
-            options.push(format!("VIDEO=\"{}\"", variant.name));
-            playlist.push_str(format!("#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID=\"{}\",NAME=\"{}\",AUTOSELECT=YES,DEFAULT=YES\n", variant.name, variant.name).as_str());
+            tags.push(format!("RESOLUTION={}x{}", settings.width, settings.height));
+            tags.push(format!("FRAME-RATE={}", settings.framerate));
+            tags.push(format!("VIDEO=\"{}\"", video.id));
         }
 
-        playlist.push_str(&format!("#EXT-X-STREAM-INF:{}\n", options.join(",")));
-        playlist.push_str(&format!("{}/index.m3u8\n", variant.id))
+        if let Some(audio) = audio_transcode_state {
+            tags.push(format!("AUDIO=\"{}\"", audio.id));
+        }
+
+        playlist.push_str(
+            format!(
+                "#EXT-X-STREAM-INF:{}\n{}/index.m3u8\n",
+                tags.join(","),
+                video_transcode_state.or(audio_transcode_state).unwrap().id
+            )
+            .as_str(),
+        );
     }
 
     async move {
@@ -209,6 +234,10 @@ fn set_master_playlist(
 }
 
 impl Job {
+    fn variants(&self) -> &StreamVariants {
+        self.req.variants.as_ref().unwrap()
+    }
+
     async fn run(&mut self, global: Arc<GlobalState>, shutdown_token: CancellationToken) {
         tracing::info!("starting transcode job");
         let mut set_lock_fut = pin!(set_lock(
@@ -221,7 +250,7 @@ impl Job {
         let mut update_playlist_fut = pin!(set_master_playlist(
             global.clone(),
             &self.req.stream_id,
-            &self.req.variants,
+            self.req.variants.as_ref().unwrap(),
             self.lock_owner.child_token(),
         ));
 
@@ -236,60 +265,49 @@ impl Job {
 
         let mut futures = FuturesUnordered::new();
 
-        for v in &self.req.variants {
-            let socket = match UnixListener::bind(socket_dir.join(format!("{}.sock", v.id))) {
-                Ok(s) => s,
-                Err(err) => {
-                    tracing::error!("failed to bind socket: {}", err);
-                    self.report_error("Failed to bind socket", false).await;
-                    return;
-                }
-            };
+        let variants = self.variants();
+
+        for transcode_state in variants.transcode_states.iter() {
+            let socket =
+                match UnixListener::bind(socket_dir.join(format!("{}.sock", transcode_state.id))) {
+                    Ok(s) => s,
+                    Err(err) => {
+                        tracing::error!("failed to bind socket: {}", err);
+                        self.report_error("Failed to bind socket", false).await;
+                        return;
+                    }
+                };
 
             futures.push(variant::handle_variant(
                 global.clone(),
                 self.req.stream_id.clone(),
-                v.id.clone(),
+                transcode_state.id.clone(),
                 self.req.request_id.clone(),
                 socket,
             ));
         }
 
-        let custom_variants = self
-            .req
-            .variants
+        let filter_graph_items = self
+            .variants()
+            .transcode_states
             .iter()
-            .filter(|v| v.name != "source" && v.video_settings.is_some())
+            .filter(|v| {
+                !v.copy
+                    && matches!(
+                        v.settings,
+                        Some(stream_variants::transcode_state::Settings::Video(_))
+                    )
+            })
             .collect::<Vec<_>>();
 
-        let Some(source_variant) = self
-            .req
-            .variants
-            .iter()
-            .find(|v| v.name == "source") else {
-                self.report_error("no source variant", true).await;
-            tracing::error!("no source variant");
-            return;
-        };
-
-        let Some(audio_variant) = self
-            .req
-            .variants
-            .iter()
-            .find(|v| v.name == "audio") else {
-                self.report_error("no audio variant", true).await;
-            tracing::error!("no audio variant");
-            return;
-        };
-
-        let filter_graph = custom_variants
+        let filter_graph = filter_graph_items
             .iter()
             .enumerate()
             .map(|(i, v)| {
-                let video = v
-                    .video_settings
-                    .as_ref()
-                    .expect("video settings checked above");
+                let settings = match v.settings.as_ref().unwrap() {
+                    stream_variants::transcode_state::Settings::Video(v) => v,
+                    _ => unreachable!(),
+                };
 
                 let previous = if i == 0 {
                     "[0:v]".to_string()
@@ -300,26 +318,17 @@ impl Job {
                 format!(
                     "{}scale={}:{},pad=ceil(iw/2)*2:ceil(ih/2)*2{}",
                     previous,
-                    video.width,
-                    video.height,
-                    if i == custom_variants.len() - 1 {
-                        format!("[{}]", v.name)
+                    settings.width,
+                    settings.height,
+                    if i == filter_graph_items.len() - 1 {
+                        format!("[{}]", v.id)
                     } else {
-                        format!(",split=2[{}][{}_out]", v.name, i)
+                        format!(",split=2[{}][{}_out]", v.id, i)
                     }
                 )
             })
             .collect::<Vec<_>>()
             .join(";");
-
-        // We need to build a ffmpeg command.
-        let Some(audio_settings) = audio_variant
-            .audio_settings
-            .as_ref() else {
-                self.report_error("no audio settings", true).await;
-            tracing::error!("no audio settings");
-            return;
-            };
 
         const MP4_FLAGS: &str = "+frag_keyframe+empty_moov+default_base_moof";
 
@@ -329,63 +338,169 @@ impl Job {
             "-i", "-",
             "-probesize", "250M",
             "-analyzeduration", "250M",
-            "-map", "0:v",
-            "-c:v", "copy",
-            "-f", "mp4",
-            "-movflags", MP4_FLAGS,
-            "-frag_duration", "1",
-            format!(
-                "unix://{}",
-                socket_dir
-                    .join(format!("{}.sock", source_variant.id))
-                    .display()
-            ),
-            "-map", "0:a",
-            "-c:a", "libopus",
-            "-b:a", format!("{}", audio_settings.bitrate),
-            "-ac:a", format!("{}", audio_settings.channels),
-            "-ar:a", format!("{}", audio_settings.sample_rate),
-            "-f", "mp4",
-            "-movflags", MP4_FLAGS,
-            "-frag_duration", "1",
-            format!(
-                "unix://{}",
-                socket_dir
-                    .join(format!("{}.sock", audio_variant.id))
-                    .display()
-            ),
         ];
 
         if !filter_graph.is_empty() {
             args.extend(vec_of_strings!["-filter_complex", filter_graph]);
         }
 
-        for v in custom_variants {
-            let video = v.video_settings.as_ref().expect("video settings");
+        for state in variants.transcode_states.iter() {
+            match state.settings {
+                Some(stream_variants::transcode_state::Settings::Video(ref video)) => {
+                    if state.copy {
+                        #[rustfmt::skip]
+                        args.extend(vec_of_strings![
+                            "-map", "0:v",
+                            "-c:v", "copy",
+                        ]);
+                    } else {
+                        let codec: VideoCodec = match state.codec.parse() {
+                            Ok(c) => c,
+                            Err(err) => {
+                                tracing::error!("invalid video codec: {}", err);
+                                self.report_error("Invalid video codec", false).await;
+                                return;
+                            }
+                        };
 
+                        match codec {
+                            VideoCodec::Avc { profile, level, .. } => {
+                                #[rustfmt::skip]
+                                args.extend(vec_of_strings![
+                                    "-map", format!("[{}]", state.id),
+                                    "-c:v", "libx264",
+                                    "-preset", "medium",
+                                    "-b:v", format!("{}", state.bitrate),
+                                    "-maxrate", format!("{}", state.bitrate),
+                                    "-bufsize", format!("{}", state.bitrate * 2),
+                                    "-profile:v", match profile {
+                                        66 => "baseline",
+                                        77 => "main",
+                                        100 => "high",
+                                        _ => {
+                                            tracing::error!("invalid avc profile: {}", profile);
+                                            self.report_error("Invalid avc profile", false).await;
+                                            return;
+                                        },
+                                    },
+                                    "-level:v", match level {
+                                        30 => "3.0",
+                                        31 => "3.1",
+                                        32 => "3.2",
+                                        40 => "4.0",
+                                        41 => "4.1",
+                                        50 => "5.0",
+                                        51 => "5.1",
+                                        52 => "5.2",
+                                        60 => "6.0",
+                                        61 => "6.1",
+                                        62 => "6.2",
+                                        _ => {
+                                            tracing::error!("invalid avc level: {}", level);
+                                            self.report_error("Invalid avc level", false).await;
+                                            return;
+                                        },
+                                    },
+                                    "-pix_fmt", "yuv420p",
+                                    "-g", format!("{}", video.framerate * 2),
+                                    "-keyint_min", format!("{}", video.framerate * 2),
+                                    "-sc_threshold", "0",
+                                    "-r", format!("{}", video.framerate),
+                                    "-crf", "23",
+                                    "-tune", "zerolatency",
+                                ]);
+                            }
+                            VideoCodec::Av1 { .. } => {
+                                tracing::error!("av1 is not supported");
+                                self.report_error("AV1 is not supported", false).await;
+                                return;
+                            }
+                            VideoCodec::Hevc { .. } => {
+                                tracing::error!("hevc is not supported");
+                                self.report_error("HEVC is not supported", false).await;
+                                return;
+                            }
+                        }
+                    }
+                }
+                Some(stream_variants::transcode_state::Settings::Audio(ref audio)) => {
+                    if state.copy {
+                        tracing::error!("audio copy is not supported");
+                        self.report_error("Audio copy is not supported", false)
+                            .await;
+                        return;
+                    } else {
+                        let codec: AudioCodec = match state.codec.parse() {
+                            Ok(c) => c,
+                            Err(err) => {
+                                tracing::error!("invalid audio codec: {}", err);
+                                self.report_error("Invalid audio codec", false).await;
+                                return;
+                            }
+                        };
+
+                        match codec {
+                            AudioCodec::Aac { object_type } => {
+                                args.extend(vec_of_strings![
+                                    "-map",
+                                    "0:a",
+                                    "-c:a",
+                                    "aac",
+                                    "-b:a",
+                                    format!("{}", state.bitrate),
+                                    "-ar",
+                                    format!("{}", audio.sample_rate),
+                                    "-ac",
+                                    format!("{}", audio.channels),
+                                    "-profile:a",
+                                    match object_type {
+                                        aac::AudioObjectType::AacLowComplexity => {
+                                            "aac_low"
+                                        }
+                                        aac::AudioObjectType::AacMain => {
+                                            "aac_main"
+                                        }
+                                        aac::AudioObjectType::Unknown(profile) => {
+                                            tracing::error!("invalid aac profile: {}", profile);
+                                            self.report_error("Invalid aac profile", false).await;
+                                            return;
+                                        }
+                                    },
+                                ]);
+                            }
+                            AudioCodec::Opus => {
+                                args.extend(vec_of_strings![
+                                    "-map",
+                                    "0:a",
+                                    "-c:a",
+                                    "libopus",
+                                    "-b:a",
+                                    format!("{}", state.bitrate),
+                                    "-ar",
+                                    format!("{}", audio.sample_rate),
+                                    "-ac",
+                                    format!("{}", audio.channels),
+                                ]);
+                            }
+                        }
+                    }
+                }
+                None => {
+                    tracing::error!("no settings for variant {}", state.id);
+                    self.report_error("No settings for variant", true).await;
+                    return;
+                }
+            }
+
+            // Common args regardless of copy or transcode mode
             #[rustfmt::skip]
             args.extend(vec_of_strings![
-                "-map", format!("[{}]", v.name),
-                "-c:v", "libx264",
-                "-preset", "medium",
-                "-b:v", format!("{}", video.bitrate),
-                "-maxrate", format!("{}", video.bitrate),
-                "-bufsize", format!("{}", video.bitrate * 2),
-                "-profile:v", "high",
-                "-level:v", "5.1",
-                "-pix_fmt", "yuv420p",
-                "-g", format!("{}", video.framerate * 2),
-                "-keyint_min", format!("{}", video.framerate * 2),
-                "-sc_threshold", "0",
-                "-r", format!("{}", video.framerate),
-                "-crf", "23",
-                "-tune", "zerolatency",
                 "-f", "mp4",
                 "-movflags", MP4_FLAGS,
                 "-frag_duration", "1",
                 format!(
                     "unix://{}",
-                    socket_dir.join(format!("{}.sock", v.id)).display()
+                    socket_dir.join(format!("{}.sock", state.id)).display()
                 ),
             ]);
         }

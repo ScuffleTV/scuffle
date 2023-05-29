@@ -7,5 +7,4 @@ DROP TABLE IF EXISTS channel_roles CASCADE;
 DROP TABLE IF EXISTS channel_role_grants CASCADE;
 DROP TABLE IF EXISTS streams CASCADE;
 DROP TABLE IF EXISTS stream_bitrate_updates CASCADE;
-DROP TABLE IF EXISTS stream_variants CASCADE;
 DROP TABLE IF EXISTS stream_events CASCADE;

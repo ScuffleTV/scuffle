@@ -4,22 +4,18 @@ use std::sync::{Arc, Weak};
 use crate::database::{
     global_role,
     stream::{self, State},
-    stream_event, stream_variant,
+    stream_event,
 };
 use chrono::{Duration, TimeZone, Utc};
-use sqlx::{Executor, Postgres, QueryBuilder};
+use prost::Message;
 use tonic::{async_trait, Request, Response, Status};
 use uuid::Uuid;
 
-use super::pb::scuffle::{
-    backend::{
-        api_server,
-        update_live_stream_request::{event::Level, update::Update},
-        AuthenticateLiveStreamRequest, AuthenticateLiveStreamResponse, LiveStreamState,
-        NewLiveStreamRequest, NewLiveStreamResponse, UpdateLiveStreamRequest,
-        UpdateLiveStreamResponse,
-    },
-    types::StreamVariant,
+use crate::pb::scuffle::backend::{
+    api_server,
+    update_live_stream_request::{event::Level, update::Update},
+    AuthenticateLiveStreamRequest, AuthenticateLiveStreamResponse, LiveStreamState,
+    NewLiveStreamRequest, NewLiveStreamResponse, UpdateLiveStreamRequest, UpdateLiveStreamResponse,
 };
 
 type Result<T> = std::result::Result<T, Status>;
@@ -37,88 +33,6 @@ impl ApiServer {
 
     pub fn into_service(self) -> api_server::ApiServer<Self> {
         api_server::ApiServer::new(self)
-    }
-
-    async fn insert_stream_variants<'c, T: Executor<'c, Database = Postgres>>(
-        tx: T,
-        stream_id: Uuid,
-        variants: &Vec<StreamVariant>,
-    ) -> Result<()> {
-        // Insert the new stream variants
-        let mut values = Vec::new();
-
-        // Unfortunately, we can't use the `sqlx::query!` macro here because it doesn't support
-        // batch inserts. So we have to build the query manually. This is a bit of a pain, because
-        // the query is not compile time checked, but it's better than nothing.
-        let mut query_builder = QueryBuilder::new(
-            "
-        INSERT INTO stream_variants (
-            id,
-            stream_id,
-            name,
-            video_framerate,
-            video_height,
-            video_width,
-            video_bitrate,
-            video_codec,
-            audio_bitrate,
-            audio_channels,
-            audio_sample_rate,
-            audio_codec,
-            metadata,
-            created_at
-        ) ",
-        );
-
-        for variant in variants {
-            let variant_id = variant.id.parse::<Uuid>().map_err(|_| {
-                Status::invalid_argument("invalid variant ID: must be a valid UUID")
-            })?;
-
-            values.push(stream_variant::Model {
-                id: variant_id,
-                stream_id,
-                name: variant.name.clone(),
-                video_framerate: variant.video_settings.as_ref().map(|v| v.framerate as i64),
-                video_height: variant.video_settings.as_ref().map(|v| v.height as i64),
-                video_width: variant.video_settings.as_ref().map(|v| v.width as i64),
-                video_bitrate: variant.video_settings.as_ref().map(|v| v.bitrate as i64),
-                video_codec: variant.video_settings.as_ref().map(|v| v.codec.clone()),
-                audio_bitrate: variant.audio_settings.as_ref().map(|a| a.bitrate as i64),
-                audio_channels: variant.audio_settings.as_ref().map(|a| a.channels as i64),
-                audio_sample_rate: variant
-                    .audio_settings
-                    .as_ref()
-                    .map(|a| a.sample_rate as i64),
-                audio_codec: variant.audio_settings.as_ref().map(|a| a.codec.clone()),
-                metadata: serde_json::from_str(&variant.metadata).unwrap_or_default(),
-                created_at: Utc::now(),
-            })
-        }
-
-        query_builder.push_values(values, |mut b, variant| {
-            b.push_bind(variant.id)
-                .push_bind(variant.stream_id)
-                .push_bind(variant.name)
-                .push_bind(variant.video_framerate)
-                .push_bind(variant.video_height)
-                .push_bind(variant.video_width)
-                .push_bind(variant.video_bitrate)
-                .push_bind(variant.video_codec)
-                .push_bind(variant.audio_bitrate)
-                .push_bind(variant.audio_channels)
-                .push_bind(variant.audio_sample_rate)
-                .push_bind(variant.audio_codec)
-                .push_bind(variant.metadata)
-                .push_bind(variant.created_at);
-        });
-
-        query_builder.build().execute(tx).await.map_err(|e| {
-            tracing::error!("failed to insert stream variants: {}", e);
-            Status::internal("internal server error")
-        })?;
-
-        Ok(())
     }
 }
 #[async_trait]
@@ -230,8 +144,7 @@ impl api_server::Api for ApiServer {
             stream_id: stream.id.to_string(),
             record,
             transcode,
-            try_resume: false,
-            variants: vec![],
+            variants: None,
         }))
     }
 
@@ -396,11 +309,10 @@ impl api_server::Api for ApiServer {
                     })?;
                 }
                 Update::Variants(v) => {
-                    ApiServer::insert_stream_variants(&mut *tx, stream_id, &v.variants).await?;
-
                     sqlx::query!(
-                        "UPDATE streams SET updated_at = NOW() WHERE id = $1",
+                        "UPDATE streams SET updated_at = NOW(), variants = $2 WHERE id = $1",
                         stream_id,
+                        v.encode_to_vec(),
                     )
                     .execute(&mut *tx)
                     .await
@@ -485,11 +397,10 @@ impl api_server::Api for ApiServer {
             Status::internal("internal server error")
         })?;
 
-        ApiServer::insert_stream_variants(&mut *tx, stream_id, &request.variants).await?;
-
         sqlx::query!(
-            "UPDATE streams SET updated_at = NOW() WHERE id = $1",
+            "UPDATE streams SET updated_at = NOW(), variants = $2 WHERE id = $1",
             stream_id,
+            request.variants.unwrap_or_default().encode_to_vec(),
         )
         .execute(&mut *tx)
         .await

@@ -64,7 +64,7 @@ async fn test_grpc_ingest_transcoder_event() {
         .expect("failed to receive event");
 
     match event {
-        GrpcRequest::Started { id } => {
+        GrpcRequest::TranscoderStarted { id } => {
             assert_eq!(id, request_id);
         }
         _ => panic!("wrong request"),
@@ -87,7 +87,7 @@ async fn test_grpc_ingest_transcoder_event() {
         .expect("failed to receive event");
 
     match event {
-        GrpcRequest::ShuttingDown { id } => {
+        GrpcRequest::TranscoderShuttingDown { id } => {
             assert_eq!(id, request_id);
         }
         _ => panic!("wrong request"),
@@ -115,7 +115,7 @@ async fn test_grpc_ingest_transcoder_event() {
         .expect("failed to receive event");
 
     match event {
-        GrpcRequest::Error {
+        GrpcRequest::TranscoderError {
             id,
             message,
             fatal: _,

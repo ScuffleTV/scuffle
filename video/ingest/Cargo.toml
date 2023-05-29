@@ -34,6 +34,7 @@ bytesio = { path = "../bytesio" }
 flv = { path = "../container/flv" }
 transmuxer = { path = "../transmuxer" }
 mp4 = { path = "../container/mp4" }
+aac = { path = "../codec/aac" }
 
 [dev-dependencies]
 dotenvy = "0"

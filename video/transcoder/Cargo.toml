@@ -28,7 +28,9 @@ sha2 = "0"
 tokio-util = "0"
 tokio-stream = "0"
 lapin = { version = "2.0.3", features = ["native-tls"] }
+uuid = { version = "1", features = ["v4"] }
 
+aac = { path = "../codec/aac" }
 mp4 = { path = "../container/mp4" }
 common = { path = "../../common" }
 bytesio = { path = "../bytesio" }

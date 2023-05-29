@@ -14,6 +14,8 @@ service Ingest {
   // Ingest service.
   rpc TranscoderEvent(TranscoderEventRequest)
       returns (TranscoderEventResponse) {}
+
+  rpc ShutdownStream(ShutdownStreamRequest) returns (ShutdownStreamResponse) {}
 }
 
 message WatchStreamRequest {
@@ -76,3 +78,10 @@ message TranscoderEventRequest {
 }
 
 message TranscoderEventResponse {}
+
+message ShutdownStreamRequest {
+  // Stream id of the stream that is being transcoded.
+  string stream_id = 1;
+}
+
+message ShutdownStreamResponse {}

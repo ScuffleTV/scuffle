@@ -1,0 +1,12 @@
+{
+	"db_name": "PostgreSQL",
+	"query": "UPDATE streams SET updated_at = NOW(), variants = $2 WHERE id = $1",
+	"describe": {
+		"columns": [],
+		"parameters": {
+			"Left": ["Uuid", "Bytea"]
+		},
+		"nullable": []
+	},
+	"hash": "cd49a2fd3f74b7b41513a464aa2083b6f3d958a58a39bfa11e52a794ee9c15eb"
+}

@@ -55,16 +55,21 @@
 			},
 			{
 				"ordinal": 10,
+				"name": "variants",
+				"type_info": "Bytea"
+			},
+			{
+				"ordinal": 11,
 				"name": "created_at",
 				"type_info": "Timestamptz"
 			},
 			{
-				"ordinal": 11,
+				"ordinal": 12,
 				"name": "updated_at",
 				"type_info": "Timestamptz"
 			},
 			{
-				"ordinal": 12,
+				"ordinal": 13,
 				"name": "ended_at",
 				"type_info": "Timestamptz"
 			}
@@ -83,6 +88,7 @@
 			false,
 			false,
 			false,
+			true,
 			false,
 			true,
 			false

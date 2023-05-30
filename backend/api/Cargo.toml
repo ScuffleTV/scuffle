@@ -59,3 +59,4 @@ serial_test = "2"
 
 [build-dependencies]
 tonic-build = "0"
+prost-build = "0"

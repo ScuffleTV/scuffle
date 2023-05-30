@@ -153,6 +153,7 @@ dependencies = [
  "negative-impl",
  "portpicker",
  "prost",
+ "prost-build",
  "rand",
  "reqwest",
  "routerify",

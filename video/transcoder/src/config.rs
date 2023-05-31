@@ -165,12 +165,19 @@ impl Default for LoggingConfig {
 pub struct TranscoderConfig {
     /// The direcory to create unix sockets in
     pub socket_dir: String,
+
+    /// The uid to use for the unix socket and ffmpeg process
+    pub uid: u32,
+    /// The gid to use for the unix socket and ffmpeg process
+    pub gid: u32,
 }
 
 impl Default for TranscoderConfig {
     fn default() -> Self {
         Self {
             socket_dir: "/tmp".to_string(),
+            uid: 1000,
+            gid: 1000,
         }
     }
 }

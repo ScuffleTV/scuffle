@@ -306,15 +306,26 @@ impl Job {
         let (ready_tx, mut ready_recv) = mpsc::channel(16);
 
         for transcode_state in variants.transcode_states.iter() {
-            let socket =
-                match UnixListener::bind(socket_dir.join(format!("{}.sock", transcode_state.id))) {
-                    Ok(s) => s,
-                    Err(err) => {
-                        tracing::error!("failed to bind socket: {}", err);
-                        self.report_error("Failed to bind socket", false).await;
-                        return;
-                    }
-                };
+            let sock_path = socket_dir.join(format!("{}.sock", transcode_state.id));
+            let socket = match UnixListener::bind(&sock_path) {
+                Ok(s) => s,
+                Err(err) => {
+                    tracing::error!("failed to bind socket: {}", err);
+                    self.report_error("Failed to bind socket", false).await;
+                    return;
+                }
+            };
+
+            // Change user and group of the socket.
+            if let Err(err) = nix::unistd::chown(
+                sock_path.as_os_str(),
+                Some(nix::unistd::Uid::from_raw(global.config.transcoder.uid)),
+                Some(nix::unistd::Gid::from_raw(global.config.transcoder.gid)),
+            ) {
+                tracing::error!("failed to chown socket: {}", err);
+                self.report_error("Failed to chown socket", false).await;
+                return;
+            }
 
             futures.push(variant::handle_variant(
                 global.clone(),
@@ -552,7 +563,11 @@ impl Job {
             .stdin(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .stdout(std::process::Stdio::null())
-            .process_group(0);
+            .process_group(0)
+            .uid(global.config.transcoder.uid)
+            .gid(global.config.transcoder.gid)
+            .env_clear()
+            .env("PATH", std::env::var("PATH").unwrap_or_default());
 
         let mut child = match Command::from(child).spawn() {
             Ok(c) => c,

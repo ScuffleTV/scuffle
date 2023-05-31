@@ -8,7 +8,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{global::GlobalState, transcoder::job::handle_message};
 
-mod job;
+pub(crate) mod job;
 
 pub async fn run(global: Arc<GlobalState>) -> Result<()> {
     let mut consumer = pin!(global.rmq.basic_consume(

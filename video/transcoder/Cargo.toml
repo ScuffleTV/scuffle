@@ -44,3 +44,5 @@ dotenvy = "0"
 portpicker = "0"
 serial_test = "2"
 tempfile = "3"
+transmuxer = { path = "../transmuxer" }
+flv = { path = "../container/flv" }

@@ -2,30 +2,45 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
-use std::{net::SocketAddr, pin::Pin, sync::Arc};
+use std::{
+    collections::HashMap, io::Cursor, net::SocketAddr, path::PathBuf, pin::Pin, sync::Arc,
+    time::Duration,
+};
 
 use async_trait::async_trait;
+use bytes::{Buf, Bytes};
 use chrono::Utc;
+use fred::prelude::{HashesInterface, KeysInterface};
 use futures_util::Stream;
 use lapin::BasicProperties;
+use mp4::DynBox;
 use prost::Message;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response};
+use transmuxer::{MediaType, TransmuxResult, Transmuxer};
 use uuid::Uuid;
 
 use crate::{
-    config::{AppConfig, RmqConfig},
+    config::{AppConfig, LoggingConfig, RmqConfig},
     global::{self, GlobalState},
     pb::scuffle::{
         events::{self, transcoder_message},
+        types::{
+            stream_variants::{transcode_state, StreamVariant, TranscodeState},
+            StreamVariants,
+        },
         video::{
             ingest_server::{Ingest, IngestServer},
-            ShutdownStreamRequest, ShutdownStreamResponse, TranscoderEventRequest,
-            TranscoderEventResponse, WatchStreamRequest, WatchStreamResponse,
+            transcoder_event_request, watch_stream_response, ShutdownStreamRequest,
+            ShutdownStreamResponse, TranscoderEventRequest, TranscoderEventResponse,
+            WatchStreamRequest, WatchStreamResponse,
         },
     },
-    transcoder,
+    transcoder::{
+        self,
+        job::variant::state::{PlaylistState, SegmentState},
+    },
 };
 
 struct ImplIngestServer {
@@ -118,68 +133,387 @@ fn setup_ingest_server(
     rx
 }
 
-// #[tokio::test]
-// async fn test_transcode() {
-//     let port = portpicker::pick_unused_port().unwrap();
+#[tokio::test]
+async fn test_transcode() {
+    let port = portpicker::pick_unused_port().unwrap();
 
-//     let (global, handler) = crate::tests::global::mock_global_state(AppConfig {
-//         rmq: RmqConfig {
-//             transcoder_queue: Uuid::new_v4().to_string(),
-//             uri: "".to_string(),
-//         },
-//         ..Default::default()
-//     })
-//     .await;
+    let (global, handler) = crate::tests::global::mock_global_state(AppConfig {
+        rmq: RmqConfig {
+            transcoder_queue: Uuid::new_v4().to_string(),
+            uri: "".to_string(),
+        },
+        logging: LoggingConfig {
+            level: "info,transcoder=debug".to_string(),
+            json: false,
+        },
+        ..Default::default()
+    })
+    .await;
 
-//     global::init_rmq(&global, false).await;
+    global::init_rmq(&global, true).await;
 
-//     let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
 
-//     let mut rx = setup_ingest_server(global.clone(), addr);
+    let mut rx = setup_ingest_server(global.clone(), addr);
 
-//     let transcoder_run_handle = tokio::spawn(transcoder::run(global.clone()));
+    let transcoder_run_handle = tokio::spawn(transcoder::run(global.clone()));
 
-//     let channel = global.rmq.aquire().await.unwrap();
+    let channel = global.rmq.aquire().await.unwrap();
 
-//     let req_id = Uuid::new_v4();
+    let req_id = Uuid::new_v4();
 
-//     channel
-//         .basic_publish(
-//             "",
-//             &global.config.rmq.transcoder_queue,
-//             lapin::options::BasicPublishOptions::default(),
-//             events::TranscoderMessage {
-//                 id: req_id.to_string(),
-//                 timestamp: Utc::now().timestamp() as u64,
-//                 data: Some(transcoder_message::Data::NewStream(
-//                     events::TranscoderMessageNewStream {
-//                         request_id: req_id.to_string(),
-//                         stream_id: req_id.to_string(),
-//                         ingest_address: addr.to_string(),
-//                         variants: None,
-//                     },
-//                 )),
-//             }
-//             .encode_to_vec()
-//             .as_slice(),
-//             BasicProperties::default()
-//                 .with_message_id(req_id.to_string().into())
-//                 .with_content_type("application/octet-stream".into())
-//                 .with_expiration("60000".into()),
-//         )
-//         .await
-//         .unwrap();
+    let source_video_id = Uuid::new_v4();
+    let aac_audio_id = Uuid::new_v4();
+    let opus_audio_id = Uuid::new_v4();
+    let video_id_360p = Uuid::new_v4();
 
-//     let watch_stream_req = match rx.recv().await.unwrap() {
-//         IngestRequest::WatchStream { request, tx } => {
-//             assert_eq!(request.stream_id, req_id.to_string());
-//             assert_eq!(request.request_id, req_id.to_string());
+    channel
+        .basic_publish(
+            "",
+            &global.config.rmq.transcoder_queue,
+            lapin::options::BasicPublishOptions::default(),
+            events::TranscoderMessage {
+                id: req_id.to_string(),
+                timestamp: Utc::now().timestamp() as u64,
+                data: Some(transcoder_message::Data::NewStream(
+                    events::TranscoderMessageNewStream {
+                        request_id: req_id.to_string(),
+                        stream_id: req_id.to_string(),
+                        ingest_address: addr.to_string(),
+                        variants: Some(StreamVariants {
+                            transcode_states: vec![
+                                TranscodeState {
+                                    bitrate: 1000,
+                                    codec: "avc1.64002a".to_string(),
+                                    id: source_video_id.to_string(),
+                                    copy: true,
+                                    settings: Some(transcode_state::Settings::Video(
+                                        transcode_state::VideoSettings {
+                                            framerate: 30,
+                                            height: 1080,
+                                            width: 1920,
+                                        },
+                                    )),
+                                },
+                                TranscodeState {
+                                    bitrate: 1024 * 1024,
+                                    codec: "avc1.64002a".to_string(),
+                                    id: video_id_360p.to_string(),
+                                    copy: false,
+                                    settings: Some(transcode_state::Settings::Video(
+                                        transcode_state::VideoSettings {
+                                            framerate: 30,
+                                            height: 360,
+                                            width: 640,
+                                        },
+                                    )),
+                                },
+                                TranscodeState {
+                                    bitrate: 96 * 1024,
+                                    codec: "opus".to_string(),
+                                    id: opus_audio_id.to_string(),
+                                    copy: false,
+                                    settings: Some(transcode_state::Settings::Audio(
+                                        transcode_state::AudioSettings {
+                                            channels: 2,
+                                            sample_rate: 48000,
+                                        },
+                                    )),
+                                },
+                                TranscodeState {
+                                    bitrate: 96 * 1024,
+                                    codec: "mp4a.40.2".to_string(),
+                                    id: aac_audio_id.to_string(),
+                                    copy: false,
+                                    settings: Some(transcode_state::Settings::Audio(
+                                        transcode_state::AudioSettings {
+                                            channels: 2,
+                                            sample_rate: 48000,
+                                        },
+                                    )),
+                                },
+                            ],
+                            stream_variants: vec![
+                                StreamVariant {
+                                    name: "source".to_string(),
+                                    group: "aac".to_string(),
+                                    transcode_state_ids: vec![
+                                        source_video_id.to_string(),
+                                        aac_audio_id.to_string(),
+                                    ],
+                                },
+                                StreamVariant {
+                                    name: "source".to_string(),
+                                    group: "opus".to_string(),
+                                    transcode_state_ids: vec![
+                                        source_video_id.to_string(),
+                                        opus_audio_id.to_string(),
+                                    ],
+                                },
+                                StreamVariant {
+                                    name: "360p".to_string(),
+                                    group: "aac".to_string(),
+                                    transcode_state_ids: vec![
+                                        video_id_360p.to_string(),
+                                        aac_audio_id.to_string(),
+                                    ],
+                                },
+                                StreamVariant {
+                                    name: "360p".to_string(),
+                                    group: "opus".to_string(),
+                                    transcode_state_ids: vec![
+                                        video_id_360p.to_string(),
+                                        opus_audio_id.to_string(),
+                                    ],
+                                },
+                                StreamVariant {
+                                    name: "audio-only".to_string(),
+                                    group: "aac".to_string(),
+                                    transcode_state_ids: vec![aac_audio_id.to_string()],
+                                },
+                                StreamVariant {
+                                    name: "audio-only".to_string(),
+                                    group: "opus".to_string(),
+                                    transcode_state_ids: vec![opus_audio_id.to_string()],
+                                },
+                            ],
+                        }),
+                    },
+                )),
+            }
+            .encode_to_vec()
+            .as_slice(),
+            BasicProperties::default()
+                .with_message_id(req_id.to_string().into())
+                .with_content_type("application/octet-stream".into())
+                .with_expiration("60000".into()),
+        )
+        .await
+        .unwrap();
 
-//             tx
-//         }
-//         _ => panic!("unexpected request"),
-//     };
+    let watch_stream_req = match rx.recv().await.unwrap() {
+        IngestRequest::WatchStream { request, tx } => {
+            assert_eq!(request.stream_id, req_id.to_string());
+            assert_eq!(request.request_id, req_id.to_string());
 
-//     drop(global);
-//     handler.cancel().await;
-// }
+            tx
+        }
+        _ => panic!("unexpected request"),
+    };
+
+    // This is now a stream we can write frames to.
+    // We now need to demux the video into fragmnts to send to the transcoder.
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../assets");
+    let data = std::fs::read(dir.join("avc_aac.flv").to_str().unwrap()).unwrap();
+
+    let mut cursor = Cursor::new(Bytes::from(data));
+    let mut transmuxer = Transmuxer::new();
+
+    let flv = flv::Flv::demux(&mut cursor).unwrap();
+
+    for tag in flv.tags {
+        transmuxer.add_tag(tag);
+        tracing::debug!("added tag");
+        // We dont want to send too many frames at once, so we sleep a bit.
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        if let Some(data) = transmuxer.mux().unwrap() {
+            match data {
+                TransmuxResult::InitSegment { data, .. } => {
+                    watch_stream_req
+                        .send(Ok(WatchStreamResponse {
+                            data: Some(watch_stream_response::Data::InitSegment(data)),
+                        }))
+                        .await
+                        .unwrap();
+                }
+                TransmuxResult::MediaSegment(ms) => {
+                    watch_stream_req
+                        .send(Ok(WatchStreamResponse {
+                            data: Some(watch_stream_response::Data::MediaSegment(
+                                watch_stream_response::MediaSegment {
+                                    timestamp: ms.timestamp,
+                                    data: ms.data,
+                                    keyframe: ms.keyframe,
+                                    data_type: match ms.ty {
+                                        MediaType::Audio => {
+                                            watch_stream_response::media_segment::DataType::Audio
+                                                as i32
+                                        }
+                                        MediaType::Video => {
+                                            watch_stream_response::media_segment::DataType::Video
+                                                as i32
+                                        }
+                                    },
+                                },
+                            )),
+                        }))
+                        .await
+                        .unwrap();
+                }
+            }
+        }
+    }
+
+    match rx.recv().await.unwrap() {
+        IngestRequest::TranscoderEvent { request, tx } => {
+            assert_eq!(request.stream_id, req_id.to_string());
+            assert_eq!(request.request_id, req_id.to_string());
+
+            assert_eq!(
+                request.event,
+                Some(transcoder_event_request::Event::Started(true))
+            );
+
+            tx.send(TranscoderEventResponse {}).unwrap();
+        }
+        _ => panic!("unexpected request"),
+    };
+
+    tracing::debug!("finished sending frames");
+
+    watch_stream_req
+        .send(Ok(WatchStreamResponse {
+            data: Some(watch_stream_response::Data::ShuttingDown(true)),
+        }))
+        .await
+        .unwrap();
+
+    let redis = global.redis.clone();
+    drop(watch_stream_req);
+    drop(global);
+    handler.cancel().await;
+    transcoder_run_handle.await.unwrap().unwrap();
+
+    // Validate data
+    let resp: String = redis
+        .get(format!("transcoder:{}:playlist", req_id))
+        .await
+        .unwrap();
+
+    // Assert that the master playlist is correct.
+    assert_eq!(
+        resp,
+        format!(
+            r#"#EXTM3U
+#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="{source_video_id}",NAME="{source_video_id}",AUTOSELECT=YES,DEFAULT=YES,URI="{source_video_id}/index.m3u8"
+#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="{video_id_360p}",NAME="{video_id_360p}",AUTOSELECT=YES,DEFAULT=YES,URI="{video_id_360p}/index.m3u8"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="{opus_audio_id}",NAME="{opus_audio_id}",AUTOSELECT=YES,DEFAULT=YES,URI="{opus_audio_id}/index.m3u8"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="{aac_audio_id}",NAME="{aac_audio_id}",AUTOSELECT=YES,DEFAULT=YES,URI="{aac_audio_id}/index.m3u8"
+#EXT-X-STREAM-INF:GROUP="aac",NAME="source",BANDWIDTH=99304,CODECS="avc1.64002a,mp4a.40.2",RESOLUTION=1920x1080,FRAME-RATE=30,VIDEO="{source_video_id}",AUDIO="{aac_audio_id}"
+{source_video_id}/index.m3u8
+#EXT-X-STREAM-INF:GROUP="opus",NAME="source",BANDWIDTH=99304,CODECS="avc1.64002a,opus",RESOLUTION=1920x1080,FRAME-RATE=30,VIDEO="{source_video_id}",AUDIO="{opus_audio_id}"
+{source_video_id}/index.m3u8
+#EXT-X-STREAM-INF:GROUP="aac",NAME="360p",BANDWIDTH=1146880,CODECS="avc1.64002a,mp4a.40.2",RESOLUTION=640x360,FRAME-RATE=30,VIDEO="{video_id_360p}",AUDIO="{aac_audio_id}"
+{video_id_360p}/index.m3u8
+#EXT-X-STREAM-INF:GROUP="opus",NAME="360p",BANDWIDTH=1146880,CODECS="avc1.64002a,opus",RESOLUTION=640x360,FRAME-RATE=30,VIDEO="{video_id_360p}",AUDIO="{opus_audio_id}"
+{video_id_360p}/index.m3u8
+#EXT-X-STREAM-INF:GROUP="aac",NAME="audio-only",BANDWIDTH=98304,CODECS="mp4a.40.2",AUDIO="{aac_audio_id}"
+{aac_audio_id}/index.m3u8
+#EXT-X-STREAM-INF:GROUP="opus",NAME="audio-only",BANDWIDTH=98304,CODECS="opus",AUDIO="{opus_audio_id}"
+{opus_audio_id}/index.m3u8
+"#
+        )
+    );
+
+    let source_state: HashMap<String, String> = redis
+        .hgetall(format!("transcoder:{}:{}:state", req_id, source_video_id))
+        .await
+        .unwrap();
+    let source_state = PlaylistState::from(source_state);
+
+    assert_eq!(source_state.current_fragment_idx(), 0);
+    assert_eq!(source_state.current_segment_idx(), 1);
+    assert_eq!(source_state.discontinuity_sequence(), 0);
+    assert_eq!(source_state.track_count(), 1);
+    assert_eq!(source_state.track_duration(0), Some(59000));
+    assert_eq!(source_state.track_timescale(0), Some(60000));
+    assert_eq!(source_state.longest_segment(), 59000.0 / 60000.0);
+
+    let video_360p_state: HashMap<String, String> = redis
+        .hgetall(format!("transcoder:{}:{}:state", req_id, video_id_360p))
+        .await
+        .unwrap();
+    let video_360p_state = PlaylistState::from(video_360p_state);
+
+    assert_eq!(video_360p_state.current_fragment_idx(), 0);
+    assert_eq!(video_360p_state.current_segment_idx(), 1);
+    assert_eq!(video_360p_state.discontinuity_sequence(), 0);
+    assert_eq!(video_360p_state.track_count(), 1);
+    assert_eq!(video_360p_state.track_duration(0), Some(15872));
+    assert_eq!(video_360p_state.track_timescale(0), Some(15360));
+    assert_eq!(video_360p_state.longest_segment(), 15872.0 / 15360.0);
+
+    let opus_audio_state: HashMap<String, String> = redis
+        .hgetall(format!("transcoder:{}:{}:state", req_id, opus_audio_id))
+        .await
+        .unwrap();
+    let opus_audio_state = PlaylistState::from(opus_audio_state);
+
+    assert_eq!(opus_audio_state.current_fragment_idx(), 0);
+    assert_eq!(opus_audio_state.current_segment_idx(), 1);
+    assert_eq!(opus_audio_state.discontinuity_sequence(), 0);
+    assert_eq!(opus_audio_state.track_count(), 1);
+    assert_eq!(opus_audio_state.track_duration(0), Some(48440));
+    assert_eq!(opus_audio_state.track_timescale(0), Some(48000));
+    assert_eq!(opus_audio_state.longest_segment(), 48440.0 / 48000.0);
+
+    let aac_audio_state: HashMap<String, String> = redis
+        .hgetall(format!("transcoder:{}:{}:state", req_id, aac_audio_id))
+        .await
+        .unwrap();
+    let aac_audio_state = PlaylistState::from(aac_audio_state);
+
+    assert_eq!(aac_audio_state.current_fragment_idx(), 0);
+    assert_eq!(aac_audio_state.current_segment_idx(), 1);
+    assert_eq!(aac_audio_state.discontinuity_sequence(), 0);
+    assert_eq!(aac_audio_state.track_count(), 1);
+    assert_eq!(aac_audio_state.track_duration(0), Some(49152));
+    assert_eq!(aac_audio_state.track_timescale(0), Some(48000));
+    assert_eq!(aac_audio_state.longest_segment(), 49152.0 / 48000.0);
+
+    {
+        let segment_state: HashMap<String, String> = redis
+            .hgetall(format!("transcoder:{}:{}:0:state", req_id, source_video_id))
+            .await
+            .unwrap();
+        let segment_state = SegmentState::from(segment_state);
+
+        assert_eq!(segment_state.fragments().len(), 4);
+        assert!(segment_state.fragments()[0].keyframe);
+    }
+
+    {
+        let segment_state: HashMap<String, String> = redis
+            .hgetall(format!("transcoder:{}:{}:0:state", req_id, aac_audio_id))
+            .await
+            .unwrap();
+        let segment_state = SegmentState::from(segment_state);
+
+        assert_eq!(segment_state.fragments().len(), 4);
+        assert!(segment_state.fragments().iter().all(|f| f.keyframe));
+    }
+
+    {
+        let segment_state: HashMap<String, String> = redis
+            .hgetall(format!("transcoder:{}:{}:0:state", req_id, opus_audio_id))
+            .await
+            .unwrap();
+        let segment_state = SegmentState::from(segment_state);
+
+        assert_eq!(segment_state.fragments().len(), 4);
+        assert!(segment_state.fragments().iter().all(|f| f.keyframe));
+    }
+
+    {
+        let segment_state: HashMap<String, String> = redis
+            .hgetall(format!("transcoder:{}:{}:0:state", req_id, video_id_360p))
+            .await
+            .unwrap();
+        let segment_state = SegmentState::from(segment_state);
+
+        assert_eq!(segment_state.fragments().len(), 4);
+        assert!(segment_state.fragments()[0].keyframe);
+    }
+
+    tracing::info!("done");
+}

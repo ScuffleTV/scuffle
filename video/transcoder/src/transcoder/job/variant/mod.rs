@@ -27,7 +27,7 @@ use mp4::{
     BoxType,
 };
 use std::{collections::HashMap, io, pin::pin, sync::Arc, time::Duration};
-use tokio::{net::UnixListener, select};
+use tokio::{net::UnixListener, select, sync::mpsc};
 use tokio_util::sync::CancellationToken;
 
 use super::{
@@ -36,7 +36,7 @@ use super::{
 };
 
 mod consts;
-mod state;
+pub(crate) mod state;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Operation {
@@ -61,16 +61,19 @@ struct Variant {
     redis_state: state::PlaylistState,
     should_discontinuity: bool,
     segment_state: HashMap<u32, (state::SegmentState, HashMap<u32, Bytes>)>,
+    ready: mpsc::Sender<()>,
+    is_ready: bool,
 }
 
 pub async fn handle_variant(
     global: Arc<GlobalState>,
+    ready: mpsc::Sender<()>,
     stream_id: String,
     variant_id: String,
     request_id: String,
     track: UnixListener,
 ) -> Result<String, ()> {
-    let mut variant = Variant::new(1, stream_id, variant_id, request_id);
+    let mut variant = Variant::new(ready, 1, stream_id, variant_id, request_id);
 
     variant
         .run(
@@ -83,7 +86,13 @@ pub async fn handle_variant(
 }
 
 impl Variant {
-    pub fn new(trak_count: u32, stream_id: String, variant_id: String, request_id: String) -> Self {
+    pub fn new(
+        ready: mpsc::Sender<()>,
+        trak_count: u32,
+        stream_id: String,
+        variant_id: String,
+        request_id: String,
+    ) -> Self {
         Self {
             stream_id,
             variant_id,
@@ -94,6 +103,8 @@ impl Variant {
             redis_state: state::PlaylistState::default(),
             segment_state: HashMap::new(),
             should_discontinuity: false,
+            ready,
+            is_ready: false,
         }
     }
 
@@ -182,9 +193,13 @@ impl Variant {
             }
         }
 
+        tracing::debug!("track closed");
+
         if let Err(err) = self.handle_shutdown(&global).await {
             tracing::error!("handle shutdown error: {:#}", err);
         }
+
+        tracing::debug!("track flushed");
 
         if let Err(err) = release_lock(
             &global,
@@ -196,7 +211,7 @@ impl Variant {
             tracing::error!("release lock error: {:#}", err);
         }
 
-        tracing::info!("variant {} done", self.variant_id);
+        tracing::debug!("track complete");
 
         result
     }
@@ -228,14 +243,19 @@ impl Variant {
             self.create_fragment(samples)?;
         }
 
-        self.segment_state
-            .get_mut(&self.redis_state.current_segment_idx())
-            .unwrap()
-            .0
-            .set_ready(true);
-        self.redis_state.set_current_fragment_idx(0);
-        self.redis_state
-            .set_current_segment_idx(self.redis_state.current_segment_idx() + 1);
+        if self
+            .segment_state
+            .contains_key(&self.redis_state.current_segment_idx())
+        {
+            self.segment_state
+                .get_mut(&self.redis_state.current_segment_idx())
+                .unwrap()
+                .0
+                .set_ready(true);
+            self.redis_state.set_current_fragment_idx(0);
+            self.redis_state
+                .set_current_segment_idx(self.redis_state.current_segment_idx() + 1);
+        }
 
         let pipeline = global.redis.pipeline();
         if self.update_keys(&pipeline).await? {
@@ -258,6 +278,11 @@ impl Variant {
                 if self.update_keys(&pipeline).await? {
                     self.refresh_keys(&pipeline).await?;
                     pipeline.all().await?;
+
+                    if !self.is_ready {
+                        self.is_ready = true;
+                        self.ready.send(()).await?;
+                    }
                 }
             }
         }

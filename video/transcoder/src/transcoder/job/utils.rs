@@ -3,9 +3,11 @@ use anyhow::{anyhow, Result};
 use async_stream::stream;
 use bytes::Bytes;
 use bytesio::{bytesio::BytesIO, bytesio_errors::BytesIOError};
+use common::prelude::FutureTimeout;
 use fred::interfaces::KeysInterface;
 use fred::types::{Expiration, SetOptions};
 use futures_util::FutureExt;
+use std::time::Duration;
 use std::{io, sync::Arc};
 use tokio::net::UnixListener;
 use tokio_util::sync::CancellationToken;
@@ -15,13 +17,20 @@ pub fn unix_stream(
     buffer_size: usize,
 ) -> impl futures::Stream<Item = io::Result<Bytes>> {
     stream! {
-        let (sock, _) = match listener.accept().await {
-            Ok(connection) => connection,
-            Err(err) => {
+        let (sock, _) = match listener.accept().timeout(Duration::from_secs(1)).await {
+            Ok(Ok(connection)) => connection,
+            Ok(Err(err)) => {
                 yield Err(err);
+                return;
+            },
+            Err(_) => {
+                // Timeout
+                tracing::debug!("unix stream timeout");
                 return;
             }
         };
+
+        tracing::debug!("accepted connection");
 
         let mut bio = BytesIO::with_capacity(sock, buffer_size);
 
@@ -125,16 +134,7 @@ pub async fn set_lock(
 }
 
 pub async fn release_lock(global: &Arc<GlobalState>, key: &str, request_id: &str) -> Result<()> {
-    let lock_owner: String = global
-        .redis
-        .set(
-            key,
-            request_id,
-            Some(Expiration::EX(5)),
-            Some(SetOptions::XX),
-            true,
-        )
-        .await?;
+    let lock_owner: String = global.redis.get(key).await?;
 
     if lock_owner == request_id {
         global.redis.del(key).await?;

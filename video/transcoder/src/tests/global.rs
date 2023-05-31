@@ -41,6 +41,12 @@ pub async fn mock_global_state(config: AppConfig) -> (Arc<GlobalState>, Handler)
     )
     .expect("failed to create redis pool");
 
+    redis.connect();
+    redis
+        .wait_for_connect()
+        .await
+        .expect("failed to connect to redis");
+
     let global = Arc::new(GlobalState::new(config, ctx, rmq, redis));
 
     (global, handler)

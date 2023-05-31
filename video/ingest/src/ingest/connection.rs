@@ -312,7 +312,7 @@ impl Connection {
                 api_update_failed = true;
                 false
             }
-            event = self.transcoder_req_rx.recv() => self.on_transcoder_request(&update_channel, &global, event.expect("transcoder closed")).await,
+            event = self.transcoder_req_rx.recv() => self.on_grpc_request(&update_channel, &global, event.expect("transcoder closed")).await,
         } {}
 
         if let Some(transcoder) = self.current_transcoder.take() {
@@ -451,7 +451,7 @@ impl Connection {
         true
     }
 
-    async fn on_transcoder_request(
+    async fn on_grpc_request(
         &mut self,
         update_channel: &mpsc::Sender<Vec<Update>>,
         global: &Arc<GlobalState>,

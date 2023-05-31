@@ -16,4 +16,5 @@ yarn.lock
 wasm.d.ts
 target/
 dist/
+demo-dist/
 pkg/

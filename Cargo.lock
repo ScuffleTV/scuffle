@@ -4000,6 +4000,7 @@ dependencies = [
  "chrono",
  "common",
  "dotenvy",
+ "flv",
  "fred",
  "futures",
  "futures-util",
@@ -4022,6 +4023,7 @@ dependencies = [
  "tonic",
  "tonic-build",
  "tracing",
+ "transmuxer",
  "url-parse",
  "uuid",
 ]

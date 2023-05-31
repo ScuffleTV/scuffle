@@ -7,19 +7,21 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
+use async_stream::stream;
 use common::prelude::*;
 use common::vec_of_strings;
 use fred::types::Expiration;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
+use futures_util::Stream;
 use lapin::message::Delivery;
 use lapin::options::BasicAckOptions;
 use mp4::codec::{AudioCodec, VideoCodec};
 use nix::sys::signal;
 use nix::unistd::Pid;
 use prost::Message as _;
+use tokio::sync::mpsc;
 use tokio::{
     io::AsyncWriteExt,
-    join,
     net::UnixListener,
     process::{ChildStdin, Command},
     select,
@@ -43,7 +45,7 @@ use fred::interfaces::KeysInterface;
 
 mod track_parser;
 mod utils;
-mod variant;
+pub(crate) mod variant;
 
 pub async fn handle_message(
     global: Arc<GlobalState>,
@@ -233,6 +235,40 @@ fn set_master_playlist(
     }
 }
 
+fn report_to_ingest(
+    global: Arc<GlobalState>,
+    mut client: IngestClient<Channel>,
+    mut channel: mpsc::Receiver<TranscoderEventRequest>,
+) -> impl Stream<Item = Result<()>> + Send + 'static {
+    stream! {
+        loop {
+            select! {
+                msg = channel.recv() => {
+                    match msg {
+                        Some(msg) => {
+                            match client.transcoder_event(msg).timeout(Duration::from_secs(5)).await {
+                                Ok(Ok(_)) => {},
+                                Ok(Err(e)) => {
+                                    yield Err(e.into());
+                                }
+                                Err(e) => {
+                                    yield Err(e.into());
+                                }
+                            }
+                        },
+                        None => {
+                            break;
+                        }
+                    }
+                },
+                _ = global.ctx.done() => {
+                    break;
+                }
+            }
+        }
+    }
+}
+
 impl Job {
     fn variants(&self) -> &StreamVariants {
         self.req.variants.as_ref().unwrap()
@@ -267,6 +303,8 @@ impl Job {
 
         let variants = self.variants();
 
+        let (ready_tx, mut ready_recv) = mpsc::channel(16);
+
         for transcode_state in variants.transcode_states.iter() {
             let socket =
                 match UnixListener::bind(socket_dir.join(format!("{}.sock", transcode_state.id))) {
@@ -280,6 +318,7 @@ impl Job {
 
             futures.push(variant::handle_variant(
                 global.clone(),
+                ready_tx.clone(),
                 self.req.stream_id.clone(),
                 transcode_state.id.clone(),
                 self.req.request_id.clone(),
@@ -389,6 +428,7 @@ impl Job {
                                         32 => "3.2",
                                         40 => "4.0",
                                         41 => "4.1",
+                                        42 => "4.2",
                                         50 => "5.0",
                                         51 => "5.1",
                                         52 => "5.2",
@@ -539,13 +579,22 @@ impl Job {
 
         let mut shutdown_fuse = pin!(shutdown_token.cancelled().fuse());
 
+        let mut ready_count = 0;
+
+        let (report, rx) = mpsc::channel(10);
+        let mut report_fut = pin!(report_to_ingest(global.clone(), self.client.clone(), rx));
+
         while select! {
+            r = report_fut.next() => {
+                tracing::info!("reporting to ingest failed: {:#?}", r);
+                false
+            },
             _ = &mut shutdown_fuse => {
-                self.client.transcoder_event(TranscoderEventRequest {
+                report.try_send(TranscoderEventRequest {
                     request_id: self.req.request_id.clone(),
                     stream_id: self.req.stream_id.clone(),
                     event: Some(transcoder_event_request::Event::ShuttingDown(true)),
-                }).await.is_ok()
+                }).is_ok()
             },
             msg = self.stream.next() => self.handle_msg(msg, &mut stdin).await,
             // When FFmpeg exits, we need to exit as well.
@@ -579,11 +628,23 @@ impl Job {
                 }
                 false
             },
+            _ = ready_recv.recv() => {
+                ready_count += 1;
+                if ready_count == self.variants().transcode_states.len() {
+                    tracing::info!("all variants ready");
+                    report.try_send(TranscoderEventRequest {
+                        request_id: self.req.request_id.clone(),
+                        stream_id: self.req.stream_id.clone(),
+                        event: Some(transcoder_event_request::Event::Started(true)),
+                    }).is_ok()
+                } else {
+                    true
+                }
+            }
         } {}
 
-        tracing::info!("shutting down stream");
+        tracing::debug!("shutting down");
         drop(stdin);
-        signal::kill(pid, signal::Signal::SIGTERM).ok();
 
         select! {
             r = self.complete_loop(pid, child, futures.collect::<Vec<_>>()).timeout(Duration::from_secs(5)) => {
@@ -601,11 +662,19 @@ impl Job {
             },
         }
 
+        drop(report);
+
+        // Finish all the report futures
+        while report_fut.next().await.is_some() {}
+
+        tracing::info!("waiting for playlist update to exit");
+
         if let Err(err) = release_lock(
             &global,
             &redis_mutex_key(&self.req.stream_id),
             &self.req.request_id,
         )
+        .timeout(Duration::from_secs(2))
         .await
         {
             tracing::error!("failed to release lock: {:#}", err);
@@ -617,30 +686,76 @@ impl Job {
     async fn complete_loop<V>(
         &mut self,
         pid: Pid,
-        ffmpeg: impl futures::Future<Output = Arc<Result<Output, io::Error>>> + Unpin,
-        variants: impl futures::Future<Output = V> + Unpin,
+        mut ffmpeg: impl futures::Future<Output = Arc<Result<Output, io::Error>>> + Unpin,
+        mut variants: impl futures::Future<Output = V> + Unpin,
     ) {
         tracing::info!("waiting for ffmpeg to exit");
 
-        let timeout = ffmpeg.timeout(Duration::from_secs(2)).then(|r| async move {
-            if let Ok(r) = r {
-                tracing::info!("ffmpeg exited: {:?}", r);
+        let pid = pid.as_raw();
 
-                match r.as_ref() {
-                    Ok(r) => !r.status.success(),
-                    Err(_) => true,
+        let mut timeout = pin!((&mut ffmpeg)
+            .timeout(Duration::from_millis(400))
+            .then(|r| async {
+                if let Ok(r) = r {
+                    tracing::info!("ffmpeg exited: {:?}", r);
+
+                    Some(match r.as_ref() {
+                        Ok(r) => !r.status.success(),
+                        Err(_) => true,
+                    })
+                } else {
+                    signal::kill(Pid::from_raw(pid), signal::Signal::SIGTERM).ok();
+                    tracing::debug!("ffmpeg did not exit in time, sending SIGTERM");
+
+                    None
                 }
+            }));
+
+        let mut variants_done = false;
+        let r = select! {
+            r = &mut timeout => r,
+            _ = &mut variants => {
+                tracing::info!("variants exited");
+                variants_done = true;
+                timeout.await
+            },
+        };
+
+        let failed = if let Some(r) = r {
+            Some(r)
+        } else {
+            let timeout = ffmpeg.timeout(Duration::from_secs(2)).then(|r| async {
+                if let Ok(r) = r {
+                    tracing::info!("ffmpeg exited: {:?}", r);
+
+                    Some(match r.as_ref() {
+                        Ok(r) => !r.status.success(),
+                        Err(_) => true,
+                    })
+                } else {
+                    None
+                }
+            });
+
+            if variants_done {
+                timeout.await
             } else {
-                tracing::warn!("ffmpeg did not exit in time, killing");
-                if let Err(err) = signal::kill(pid, signal::Signal::SIGKILL) {
-                    tracing::error!("failed to kill ffmpeg: {}", err);
-                }
-
-                true
+                variants_done = true;
+                tokio::join!(timeout, &mut variants).0
             }
+        };
+
+        let failed = failed.unwrap_or_else(|| {
+            tracing::error!("ffmpeg did not exit in time, sending SIGKILL");
+            signal::kill(Pid::from_raw(pid), signal::Signal::SIGKILL).ok();
+            true
         });
 
-        let (failed, _) = join!(timeout, variants);
+        if !variants_done {
+            tracing::info!("waiting for variants to exit");
+            variants.await;
+        }
+
         if failed {
             self.report_error("ffmpeg exited with non-zero status", false)
                 .await;
@@ -652,6 +767,7 @@ impl Job {
         msg: Option<Result<WatchStreamResponse, Status>>,
         stdin: &mut ChildStdin,
     ) -> bool {
+        tracing::debug!("recieved message");
         let msg = match msg {
             Some(Ok(msg)) => msg.data,
             _ => {
@@ -704,6 +820,7 @@ impl Job {
                     },
                 )),
             })
+            .timeout(Duration::from_secs(2))
             .await
         {
             tracing::error!("failed to report error: {}", err);

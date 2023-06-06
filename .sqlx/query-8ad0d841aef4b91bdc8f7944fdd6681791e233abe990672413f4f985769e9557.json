@@ -40,7 +40,7 @@
 			},
 			{
 				"ordinal": 7,
-				"name": "state",
+				"name": "ready_state",
 				"type_info": "Int8"
 			},
 			{
@@ -55,7 +55,7 @@
 			},
 			{
 				"ordinal": 10,
-				"name": "variants",
+				"name": "state",
 				"type_info": "Bytea"
 			},
 			{

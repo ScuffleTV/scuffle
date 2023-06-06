@@ -2,10 +2,10 @@ syntax = "proto3";
 
 package scuffle.types;
 
-message StreamVariants {
+message StreamState {
   // A variant is a transcoded version of the stream.
   // A stream variant is unique by its name and group.
-  message StreamVariant {
+  message Variant {
     // The name of the variant.
     string name = 1;
 
@@ -13,12 +13,12 @@ message StreamVariants {
     string group = 2;
 
     // The transcode states of the variant.
-    repeated string transcode_state_ids = 3;
+    repeated string transcode_ids = 3;
   }
 
   // A state that the transcoder should transcode to.
   // A transcode state is unique by its id.
-  message TranscodeState {
+  message Transcode {
     // The id of the variant.
     string id = 1;
 
@@ -54,6 +54,15 @@ message StreamVariants {
     bool copy = 6;
   }
 
-  repeated StreamVariant stream_variants = 1;
-  repeated TranscodeState transcode_states = 2;
+  message Group {
+    // The name of the group.
+    string name = 1;
+
+    // The priority of the group.
+    int32 priority = 2;
+  }
+
+  repeated Variant variants = 1;
+  repeated Transcode transcodes = 2;
+  repeated Group groups = 3;
 }

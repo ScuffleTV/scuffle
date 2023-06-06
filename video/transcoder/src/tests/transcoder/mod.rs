@@ -26,10 +26,7 @@ use crate::{
     global::{self, GlobalState},
     pb::scuffle::{
         events::{self, transcoder_message},
-        types::{
-            stream_variants::{transcode_state, StreamVariant, TranscodeState},
-            StreamVariants,
-        },
+        types::{stream_state, StreamState},
         video::{
             ingest_server::{Ingest, IngestServer},
             transcoder_event_request, watch_stream_response, ShutdownStreamRequest,
@@ -180,101 +177,111 @@ async fn test_transcode() {
                         request_id: req_id.to_string(),
                         stream_id: req_id.to_string(),
                         ingest_address: addr.to_string(),
-                        variants: Some(StreamVariants {
-                            transcode_states: vec![
-                                TranscodeState {
+                        state: Some(StreamState {
+                            transcodes: vec![
+                                stream_state::Transcode {
                                     bitrate: 1000,
                                     codec: "avc1.64002a".to_string(),
                                     id: source_video_id.to_string(),
                                     copy: true,
-                                    settings: Some(transcode_state::Settings::Video(
-                                        transcode_state::VideoSettings {
+                                    settings: Some(stream_state::transcode::Settings::Video(
+                                        stream_state::transcode::VideoSettings {
                                             framerate: 30,
                                             height: 1080,
                                             width: 1920,
                                         },
                                     )),
                                 },
-                                TranscodeState {
+                                stream_state::Transcode {
                                     bitrate: 1024 * 1024,
                                     codec: "avc1.64002a".to_string(),
                                     id: video_id_360p.to_string(),
                                     copy: false,
-                                    settings: Some(transcode_state::Settings::Video(
-                                        transcode_state::VideoSettings {
+                                    settings: Some(stream_state::transcode::Settings::Video(
+                                        stream_state::transcode::VideoSettings {
                                             framerate: 30,
                                             height: 360,
                                             width: 640,
                                         },
                                     )),
                                 },
-                                TranscodeState {
+                                stream_state::Transcode {
                                     bitrate: 96 * 1024,
                                     codec: "opus".to_string(),
                                     id: opus_audio_id.to_string(),
                                     copy: false,
-                                    settings: Some(transcode_state::Settings::Audio(
-                                        transcode_state::AudioSettings {
+                                    settings: Some(stream_state::transcode::Settings::Audio(
+                                        stream_state::transcode::AudioSettings {
                                             channels: 2,
                                             sample_rate: 48000,
                                         },
                                     )),
                                 },
-                                TranscodeState {
+                                stream_state::Transcode {
                                     bitrate: 96 * 1024,
                                     codec: "mp4a.40.2".to_string(),
                                     id: aac_audio_id.to_string(),
                                     copy: false,
-                                    settings: Some(transcode_state::Settings::Audio(
-                                        transcode_state::AudioSettings {
+                                    settings: Some(stream_state::transcode::Settings::Audio(
+                                        stream_state::transcode::AudioSettings {
                                             channels: 2,
                                             sample_rate: 48000,
                                         },
                                     )),
                                 },
                             ],
-                            stream_variants: vec![
-                                StreamVariant {
+                            variants: vec![
+                                stream_state::Variant {
                                     name: "source".to_string(),
                                     group: "aac".to_string(),
-                                    transcode_state_ids: vec![
+                                    transcode_ids: vec![
                                         source_video_id.to_string(),
                                         aac_audio_id.to_string(),
                                     ],
                                 },
-                                StreamVariant {
+                                stream_state::Variant {
                                     name: "source".to_string(),
                                     group: "opus".to_string(),
-                                    transcode_state_ids: vec![
+                                    transcode_ids: vec![
                                         source_video_id.to_string(),
                                         opus_audio_id.to_string(),
                                     ],
                                 },
-                                StreamVariant {
+                                stream_state::Variant {
                                     name: "360p".to_string(),
                                     group: "aac".to_string(),
-                                    transcode_state_ids: vec![
+                                    transcode_ids: vec![
                                         video_id_360p.to_string(),
                                         aac_audio_id.to_string(),
                                     ],
                                 },
-                                StreamVariant {
+                                stream_state::Variant {
                                     name: "360p".to_string(),
                                     group: "opus".to_string(),
-                                    transcode_state_ids: vec![
+                                    transcode_ids: vec![
                                         video_id_360p.to_string(),
                                         opus_audio_id.to_string(),
                                     ],
                                 },
-                                StreamVariant {
+                                stream_state::Variant {
                                     name: "audio-only".to_string(),
                                     group: "aac".to_string(),
-                                    transcode_state_ids: vec![aac_audio_id.to_string()],
+                                    transcode_ids: vec![aac_audio_id.to_string()],
                                 },
-                                StreamVariant {
+                                stream_state::Variant {
                                     name: "audio-only".to_string(),
                                     group: "opus".to_string(),
-                                    transcode_state_ids: vec![opus_audio_id.to_string()],
+                                    transcode_ids: vec![opus_audio_id.to_string()],
+                                },
+                            ],
+                            groups: vec![
+                                stream_state::Group {
+                                    name: "opus".to_string(),
+                                    priority: 1,
+                                },
+                                stream_state::Group {
+                                    name: "aac".to_string(),
+                                    priority: 2,
                                 },
                             ],
                         }),
@@ -411,6 +418,8 @@ async fn test_transcode() {
 {aac_audio_id}/index.m3u8
 #EXT-X-STREAM-INF:GROUP="opus",NAME="audio-only",BANDWIDTH=98304,CODECS="opus",AUDIO="{opus_audio_id}"
 {opus_audio_id}/index.m3u8
+#EXT-X-SCUF-GROUP:GROUP="opus",PRIORITY=1
+#EXT-X-SCUF-GROUP:GROUP="aac",PRIORITY=2
 "#
         )
     );

@@ -25,14 +25,11 @@ use crate::{
         backend::{
             api_client::ApiClient,
             update_live_stream_request::{event, update, Bitrate, Event, Update},
-            AuthenticateLiveStreamRequest, LiveStreamState, NewLiveStreamRequest,
+            AuthenticateLiveStreamRequest, NewLiveStreamRequest, StreamReadyState,
             UpdateLiveStreamRequest,
         },
         events::{self, transcoder_message},
-        types::{
-            stream_variants::{StreamVariant, TranscodeState},
-            StreamVariants,
-        },
+        types::{stream_state, StreamState},
     },
 };
 
@@ -72,7 +69,7 @@ struct ApiResponse {
     id: Uuid,
     transcode: bool,
     record: bool,
-    variants: Option<StreamVariants>,
+    stream_state: Option<StreamState>,
 }
 
 const BITRATE_UPDATE_INTERVAL: u64 = 5;
@@ -239,7 +236,7 @@ impl Connection {
             id,
             transcode: response.transcode,
             record: response.record,
-            variants: response.variants,
+            stream_state: response.state,
         };
 
         true
@@ -344,10 +341,10 @@ impl Connection {
             select! {
                 r = update_channel.send(vec![Update {
                     timestamp: Utc::now().timestamp() as u64,
-                    update: Some(update::Update::State(if clean_shutdown {
-                        LiveStreamState::Stopped
+                    update: Some(update::Update::ReadyState(if clean_shutdown {
+                        StreamReadyState::Stopped
                     } else {
-                        LiveStreamState::StoppedResumable
+                        StreamReadyState::StoppedResumable
                     } as i32)),
                 }]) => {
                     if r.is_err() {
@@ -414,7 +411,7 @@ impl Connection {
                             request_id: request_id.to_string(),
                             stream_id: self.api_resp.id.to_string(),
                             ingest_address: global.config.grpc.advertise_address.clone(),
-                            variants: self.api_resp.variants.clone(),
+                            state: self.api_resp.stream_state.clone(),
                         },
                     )),
                 }
@@ -477,7 +474,7 @@ impl Connection {
                 if update_channel
                     .try_send(vec![Update {
                         timestamp: Utc::now().timestamp() as u64,
-                        update: Some(update::Update::State(LiveStreamState::Ready as i32)),
+                        update: Some(update::Update::ReadyState(StreamReadyState::Ready as i32)),
                     }])
                     .is_err()
                 {
@@ -509,7 +506,9 @@ impl Connection {
                             },
                             Update {
                                 timestamp: Utc::now().timestamp() as u64,
-                                update: Some(update::Update::State(LiveStreamState::Failed as i32)),
+                                update: Some(update::Update::ReadyState(
+                                    StreamReadyState::Failed as i32,
+                                )),
                             },
                         ])
                         .is_err()
@@ -610,29 +609,30 @@ impl Connection {
         audio_settings: &AudioSettings,
         init_data: Bytes,
     ) -> bool {
-        let new_variants =
+        let new_stream_state =
             generate_variants(video_settings, audio_settings, self.api_resp.transcode);
 
         // We can now at this point decide what we want to do with the stream.
         // What variants should be transcoded, ect...
-        if let Some(old_variants) = self.api_resp.variants.take() {
+        if let Some(old_variants) = self.api_resp.stream_state.take() {
             let mut can_resume = true;
 
             fn make_map(
-                variants: &StreamVariants,
-            ) -> HashMap<(&str, &str), (&StreamVariant, Vec<&TranscodeState>)> {
-                let transcode_state_map = variants
-                    .transcode_states
+                state: &StreamState,
+            ) -> HashMap<(&str, &str), (&stream_state::Variant, Vec<&stream_state::Transcode>)>
+            {
+                let transcode_state_map = state
+                    .transcodes
                     .iter()
                     .map(|s| (s.id.as_str(), s))
                     .collect::<HashMap<_, _>>();
 
-                variants
-                    .stream_variants
+                state
+                    .variants
                     .iter()
                     .map(|v| {
                         let states = v
-                            .transcode_state_ids
+                            .transcode_ids
                             .iter()
                             .map(|id| *transcode_state_map.get(id.as_str()).unwrap())
                             .collect::<Vec<_>>();
@@ -641,7 +641,7 @@ impl Connection {
                     .collect()
             }
 
-            let new_map = make_map(&new_variants);
+            let new_map = make_map(&new_stream_state);
             let mut old_map = make_map(&old_variants);
 
             for (key, (_, new_transcode_states)) in new_map.iter() {
@@ -675,7 +675,7 @@ impl Connection {
             can_resume = can_resume && old_map.is_empty();
 
             if can_resume {
-                self.api_resp.variants = Some(old_variants);
+                self.api_resp.stream_state = Some(old_variants);
             } else {
                 // Report to API to get a new stream id.
                 // This is because the variants have changed and therefore the client player wont be able to resume.
@@ -685,7 +685,7 @@ impl Connection {
                     .api_client
                     .new_live_stream(NewLiveStreamRequest {
                         old_stream_id: self.api_resp.id.to_string(),
-                        variants: Some(new_variants.clone()),
+                        state: Some(new_stream_state.clone()),
                     })
                     .await
                 {
@@ -702,7 +702,7 @@ impl Connection {
                 };
 
                 self.api_resp.id = stream_id;
-                self.api_resp.variants = Some(new_variants);
+                self.api_resp.stream_state = Some(new_stream_state);
             }
         } else if let Err(e) = self
             .api_client
@@ -711,7 +711,7 @@ impl Connection {
                 connection_id: self.id.to_string(),
                 updates: vec![Update {
                     timestamp: Utc::now().timestamp() as u64,
-                    update: Some(update::Update::Variants(new_variants.clone())),
+                    update: Some(update::Update::State(new_stream_state.clone())),
                 }],
             })
             .await
@@ -719,7 +719,7 @@ impl Connection {
             tracing::error!("Failed to report new stream to API: {}", e);
             return false;
         } else {
-            self.api_resp.variants = Some(new_variants);
+            self.api_resp.stream_state = Some(new_stream_state);
         }
 
         // At this point now we need to create a new job for a transcoder to pick up and start transcoding.

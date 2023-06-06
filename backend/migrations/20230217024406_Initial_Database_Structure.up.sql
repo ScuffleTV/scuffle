@@ -79,10 +79,10 @@ CREATE TABLE streams (
     recorded boolean NOT NULL DEFAULT FALSE,
     transcoded boolean NOT NULL DEFAULT FALSE,
     deleted boolean NOT NULL DEFAULT FALSE,
-    state int NOT NULL DEFAULT 0, -- 0 = not ready, 1 = ready, 2 = stopped, 3 = stopped resumable, 4 = failed, 5 = was ready
+    ready_state int NOT NULL DEFAULT 0, -- 0 = not ready, 1 = ready, 2 = stopped, 3 = stopped resumable, 4 = failed, 5 = was ready
     ingest_address varchar(255) NOT NULL,
     connection_id uuid NOT NULL,
-    variants bytea,
+    state bytea,
     -- Timestamps
     created_at timestamptz NOT NULL DEFAULT NOW(),
     updated_at timestamptz DEFAULT NULL, -- NULL = not started (last bitrate is report)

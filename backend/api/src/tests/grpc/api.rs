@@ -4,10 +4,9 @@ use crate::database::{stream, stream_bitrate_update, stream_event};
 use crate::grpc::run;
 use crate::pb;
 use crate::pb::scuffle::backend::{
-    update_live_stream_request, LiveStreamState, NewLiveStreamRequest,
+    update_live_stream_request, NewLiveStreamRequest, StreamReadyState,
 };
-use crate::pb::scuffle::types::stream_variants::transcode_state::{AudioSettings, VideoSettings};
-use crate::pb::scuffle::types::{stream_variants, StreamVariants};
+use crate::pb::scuffle::types::{stream_state, StreamState};
 use crate::tests::global::mock_global_state;
 use chrono::Utc;
 use common::grpc::make_channel;
@@ -430,8 +429,8 @@ async fn test_serial_grpc_update_live_stream_state() {
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
                     timestamp,
-                    update: Some(update_live_stream_request::update::Update::State(
-                        LiveStreamState::Ready as i32
+                    update: Some(update_live_stream_request::update::Update::ReadyState(
+                        StreamReadyState::Ready as i32
                     )),
                 }]
             })
@@ -443,7 +442,7 @@ async fn test_serial_grpc_update_live_stream_state() {
             .await
             .unwrap();
 
-        assert_eq!(s.state, stream::State::Ready);
+        assert_eq!(s.ready_state, stream::ReadyState::Ready);
         assert_eq!(s.updated_at.unwrap().timestamp() as u64, timestamp);
     }
 
@@ -456,8 +455,8 @@ async fn test_serial_grpc_update_live_stream_state() {
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
                     timestamp,
-                    update: Some(update_live_stream_request::update::Update::State(
-                        LiveStreamState::NotReady as i32
+                    update: Some(update_live_stream_request::update::Update::ReadyState(
+                        StreamReadyState::NotReady as i32
                     )),
                 }]
             })
@@ -469,7 +468,7 @@ async fn test_serial_grpc_update_live_stream_state() {
             .await
             .unwrap();
 
-        assert_eq!(s.state, stream::State::NotReady);
+        assert_eq!(s.ready_state, stream::ReadyState::NotReady);
         assert_eq!(s.updated_at.unwrap().timestamp() as u64, timestamp);
     }
 
@@ -482,8 +481,8 @@ async fn test_serial_grpc_update_live_stream_state() {
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
                     timestamp,
-                    update: Some(update_live_stream_request::update::Update::State(
-                        LiveStreamState::Failed as i32
+                    update: Some(update_live_stream_request::update::Update::ReadyState(
+                        StreamReadyState::Failed as i32
                     )),
                 }]
             })
@@ -495,7 +494,7 @@ async fn test_serial_grpc_update_live_stream_state() {
             .await
             .unwrap();
 
-        assert_eq!(s.state, stream::State::Failed);
+        assert_eq!(s.ready_state, stream::ReadyState::Failed);
         assert_eq!(s.updated_at.unwrap().timestamp() as u64, timestamp);
         assert_eq!(s.ended_at.timestamp() as u64, timestamp);
     }
@@ -509,8 +508,8 @@ async fn test_serial_grpc_update_live_stream_state() {
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
                     timestamp,
-                    update: Some(update_live_stream_request::update::Update::State(
-                        LiveStreamState::Stopped as i32,
+                    update: Some(update_live_stream_request::update::Update::ReadyState(
+                        StreamReadyState::Stopped as i32,
                     )),
                 }],
             })
@@ -519,7 +518,7 @@ async fn test_serial_grpc_update_live_stream_state() {
         if i == 0 {
             assert!(res.is_err());
             sqlx::query!(
-                "UPDATE streams SET state = 0, ended_at = $2 WHERE id = $1;",
+                "UPDATE streams SET ready_state = 0, ended_at = $2 WHERE id = $1;",
                 s.id,
                 Utc::now() + chrono::Duration::seconds(300)
             )
@@ -533,7 +532,7 @@ async fn test_serial_grpc_update_live_stream_state() {
                 .await
                 .unwrap();
 
-            assert_eq!(s.state, stream::State::Stopped);
+            assert_eq!(s.ready_state, stream::ReadyState::Stopped);
             assert_eq!(s.updated_at.unwrap().timestamp() as u64, timestamp);
             assert_eq!(s.ended_at.timestamp() as u64, timestamp);
         }
@@ -548,8 +547,8 @@ async fn test_serial_grpc_update_live_stream_state() {
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
                     timestamp,
-                    update: Some(update_live_stream_request::update::Update::State(
-                        LiveStreamState::StoppedResumable as i32,
+                    update: Some(update_live_stream_request::update::Update::ReadyState(
+                        StreamReadyState::StoppedResumable as i32,
                     )),
                 }],
             })
@@ -558,7 +557,7 @@ async fn test_serial_grpc_update_live_stream_state() {
         if i == 0 {
             assert!(res.is_err());
             sqlx::query!(
-                "UPDATE streams SET state = 0, ended_at = $2 WHERE id = $1;",
+                "UPDATE streams SET ready_state = 0, ended_at = $2 WHERE id = $1;",
                 s.id,
                 Utc::now() + chrono::Duration::seconds(300)
             )
@@ -572,7 +571,7 @@ async fn test_serial_grpc_update_live_stream_state() {
                 .await
                 .unwrap();
 
-            assert_eq!(s.state, stream::State::StoppedResumable);
+            assert_eq!(s.ready_state, stream::ReadyState::StoppedResumable);
             assert_eq!(s.updated_at.unwrap().timestamp() as u64, timestamp);
             assert_eq!(s.ended_at.timestamp() as u64, timestamp + 300);
         }
@@ -860,44 +859,54 @@ async fn test_serial_grpc_update_live_stream_variants() {
         let source_id = Uuid::new_v4().to_string();
         let audio_id = Uuid::new_v4().to_string();
 
-        let variants = StreamVariants {
-            stream_variants: vec![
-                stream_variants::StreamVariant {
+        let stream_state = StreamState {
+            variants: vec![
+                stream_state::Variant {
                     name: "source".to_string(),
                     group: "aac".to_string(),
-                    transcode_state_ids: vec![source_id.to_string(), audio_id.to_string()],
+                    transcode_ids: vec![source_id.to_string(), audio_id.to_string()],
                 },
-                stream_variants::StreamVariant {
+                stream_state::Variant {
                     name: "audio-only".to_string(),
                     group: "aac".to_string(),
-                    transcode_state_ids: vec![audio_id.to_string()],
+                    transcode_ids: vec![audio_id.to_string()],
                 },
             ],
-            transcode_states: vec![
-                stream_variants::TranscodeState {
+            transcodes: vec![
+                stream_state::Transcode {
                     bitrate: 8000 * 1024,
                     codec: "avc1.640028".to_string(),
                     id: source_id.to_string(),
                     copy: true,
-                    settings: Some(stream_variants::transcode_state::Settings::Video(
-                        VideoSettings {
+                    settings: Some(stream_state::transcode::Settings::Video(
+                        stream_state::transcode::VideoSettings {
                             framerate: 60,
                             height: 1080,
                             width: 1920,
                         },
                     )),
                 },
-                stream_variants::TranscodeState {
+                stream_state::Transcode {
                     bitrate: 128 * 1024,
                     codec: "mp4a.40.2".to_string(),
                     id: audio_id.to_string(),
                     copy: false,
-                    settings: Some(stream_variants::transcode_state::Settings::Audio(
-                        AudioSettings {
+                    settings: Some(stream_state::transcode::Settings::Audio(
+                        stream_state::transcode::AudioSettings {
                             channels: 2,
                             sample_rate: 48000,
                         },
                     )),
+                },
+            ],
+            groups: vec![
+                stream_state::Group {
+                    name: "opus".to_string(),
+                    priority: 1,
+                },
+                stream_state::Group {
+                    name: "aac".to_string(),
+                    priority: 2,
                 },
             ],
         };
@@ -908,8 +917,8 @@ async fn test_serial_grpc_update_live_stream_variants() {
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
                     timestamp,
-                    update: Some(update_live_stream_request::update::Update::Variants(
-                        variants.clone()
+                    update: Some(update_live_stream_request::update::Update::State(
+                        stream_state.clone()
                     )),
                 }]
             })
@@ -921,7 +930,7 @@ async fn test_serial_grpc_update_live_stream_variants() {
             .await
             .unwrap();
 
-        assert_eq!(s.variants, Some(variants));
+        assert_eq!(s.state, Some(stream_state));
     }
 
     handler
@@ -995,52 +1004,56 @@ async fn test_serial_grpc_new_live_stream() {
     let source_id = Uuid::new_v4().to_string();
     let audio_id = Uuid::new_v4().to_string();
 
-    let variants = StreamVariants {
-        stream_variants: vec![
-            stream_variants::StreamVariant {
+    let stream_state = StreamState {
+        variants: vec![
+            stream_state::Variant {
                 name: "source".to_string(),
                 group: "aac".to_string(),
-                transcode_state_ids: vec![source_id.to_string(), audio_id.to_string()],
+                transcode_ids: vec![source_id.to_string(), audio_id.to_string()],
             },
-            stream_variants::StreamVariant {
+            stream_state::Variant {
                 name: "audio-only".to_string(),
                 group: "aac".to_string(),
-                transcode_state_ids: vec![audio_id.to_string()],
+                transcode_ids: vec![audio_id.to_string()],
             },
         ],
-        transcode_states: vec![
-            stream_variants::TranscodeState {
+        transcodes: vec![
+            stream_state::Transcode {
                 bitrate: 8000 * 1024,
                 codec: "avc1.640028".to_string(),
                 id: source_id.to_string(),
                 copy: true,
-                settings: Some(stream_variants::transcode_state::Settings::Video(
-                    VideoSettings {
+                settings: Some(stream_state::transcode::Settings::Video(
+                    stream_state::transcode::VideoSettings {
                         framerate: 60,
                         height: 1080,
                         width: 1920,
                     },
                 )),
             },
-            stream_variants::TranscodeState {
+            stream_state::Transcode {
                 bitrate: 128 * 1024,
                 codec: "mp4a.40.2".to_string(),
                 id: audio_id.to_string(),
                 copy: false,
-                settings: Some(stream_variants::transcode_state::Settings::Audio(
-                    AudioSettings {
+                settings: Some(stream_state::transcode::Settings::Audio(
+                    stream_state::transcode::AudioSettings {
                         channels: 2,
                         sample_rate: 48000,
                     },
                 )),
             },
         ],
+        groups: vec![stream_state::Group {
+            name: "aac".to_string(),
+            priority: 1,
+        }],
     };
 
     let response = client
         .new_live_stream(NewLiveStreamRequest {
             old_stream_id: s.id.to_string(),
-            variants: Some(variants.clone()),
+            state: Some(stream_state.clone()),
         })
         .await
         .unwrap()
@@ -1058,7 +1071,7 @@ async fn test_serial_grpc_new_live_stream() {
     assert!(!s.transcoded);
     assert_eq!(s.ingest_address, "some address");
     assert_eq!(s.connection_id, conn_id);
-    assert_eq!(s.state, stream::State::Stopped);
+    assert_eq!(s.ready_state, stream::ReadyState::Stopped);
 
     let stream_id = Uuid::parse_str(&response.stream_id).unwrap();
 
@@ -1078,8 +1091,8 @@ async fn test_serial_grpc_new_live_stream() {
     assert!(!s.transcoded);
     assert_eq!(s.ingest_address, "some address");
     assert_eq!(s.connection_id, conn_id);
-    assert_eq!(s.state, stream::State::NotReady);
-    assert_eq!(s.variants, Some(variants));
+    assert_eq!(s.ready_state, stream::ReadyState::NotReady);
+    assert_eq!(s.state, Some(stream_state));
 
     handler
         .cancel()

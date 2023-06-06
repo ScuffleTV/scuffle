@@ -3,27 +3,24 @@ use mp4::codec::{AudioCodec, VideoCodec};
 use transmuxer::{AudioSettings, VideoSettings};
 use uuid::Uuid;
 
-use crate::pb::scuffle::types::{
-    stream_variants::{transcode_state, StreamVariant, TranscodeState},
-    StreamVariants,
-};
+use crate::pb::scuffle::types::{stream_state, StreamState};
 
 pub fn generate_variants(
     video_settings: &VideoSettings,
     _audio_settings: &AudioSettings,
     transcode: bool,
-) -> StreamVariants {
-    let mut variants = StreamVariants::default();
+) -> StreamState {
+    let mut stream_state = StreamState::default();
 
     let mut audio_tracks = vec![];
 
     if transcode {
         let id = Uuid::new_v4().to_string();
 
-        variants.transcode_states.push(TranscodeState {
+        stream_state.transcodes.push(stream_state::Transcode {
             id: id.clone(),
-            settings: Some(transcode_state::Settings::Audio(
-                transcode_state::AudioSettings {
+            settings: Some(stream_state::transcode::Settings::Audio(
+                stream_state::transcode::AudioSettings {
                     channels: 2,
                     sample_rate: 48000,
                 },
@@ -33,16 +30,21 @@ pub fn generate_variants(
             copy: false,
         });
 
+        stream_state.groups.push(stream_state::Group {
+            name: "opus".to_string(),
+            priority: 1,
+        });
+
         audio_tracks.push((id, "opus"));
     };
 
     {
         let id = Uuid::new_v4().to_string();
 
-        variants.transcode_states.push(TranscodeState {
+        stream_state.transcodes.push(stream_state::Transcode {
             id: id.clone(),
-            settings: Some(transcode_state::Settings::Audio(
-                transcode_state::AudioSettings {
+            settings: Some(stream_state::transcode::Settings::Audio(
+                stream_state::transcode::AudioSettings {
                     channels: 2,
                     sample_rate: 48000,
                 },
@@ -55,24 +57,31 @@ pub fn generate_variants(
             copy: false,
         });
 
+        stream_state.groups.push(stream_state::Group {
+            name: "aac".to_string(),
+            priority: stream_state.groups.len() as i32 + 1,
+        });
+
         audio_tracks.push((id, "aac"));
     };
 
-    variants
-        .stream_variants
-        .extend(audio_tracks.iter().map(|(id, group)| StreamVariant {
-            name: "audio-only".to_string(),
-            group: group.to_string(),
-            transcode_state_ids: vec![id.clone()],
-        }));
+    stream_state.variants.extend(
+        audio_tracks
+            .iter()
+            .map(|(id, group)| stream_state::Variant {
+                name: "audio-only".to_string(),
+                group: group.to_string(),
+                transcode_ids: vec![id.clone()],
+            }),
+    );
 
     {
         let id = Uuid::new_v4().to_string();
 
-        variants.transcode_states.push(TranscodeState {
+        stream_state.transcodes.push(stream_state::Transcode {
             id: id.clone(),
-            settings: Some(transcode_state::Settings::Video(
-                transcode_state::VideoSettings {
+            settings: Some(stream_state::transcode::Settings::Video(
+                stream_state::transcode::VideoSettings {
                     framerate: video_settings.framerate as u32,
                     height: video_settings.height,
                     width: video_settings.width,
@@ -83,13 +92,17 @@ pub fn generate_variants(
             copy: true,
         });
 
-        variants
-            .stream_variants
-            .extend(audio_tracks.iter().map(|(track_id, group)| StreamVariant {
-                name: "source".to_string(),
-                group: group.to_string(),
-                transcode_state_ids: vec![id.clone(), track_id.clone()],
-            }));
+        stream_state
+            .variants
+            .extend(
+                audio_tracks
+                    .iter()
+                    .map(|(track_id, group)| stream_state::Variant {
+                        name: "source".to_string(),
+                        group: group.to_string(),
+                        transcode_ids: vec![id.clone(), track_id.clone()],
+                    }),
+            );
     }
 
     if transcode {
@@ -143,7 +156,7 @@ pub fn generate_variants(
 
             let id = Uuid::new_v4().to_string();
 
-            variants.transcode_states.push(TranscodeState {
+            stream_state.transcodes.push(stream_state::Transcode {
                 id: id.clone(),
                 bitrate: res.bitrate,
                 codec: VideoCodec::Avc {
@@ -153,8 +166,8 @@ pub fn generate_variants(
                 }
                 .to_string(),
                 copy: false,
-                settings: Some(transcode_state::Settings::Video(
-                    transcode_state::VideoSettings {
+                settings: Some(stream_state::transcode::Settings::Video(
+                    stream_state::transcode::VideoSettings {
                         framerate: res.framerate,
                         height,
                         width,
@@ -162,15 +175,19 @@ pub fn generate_variants(
                 )),
             });
 
-            variants
-                .stream_variants
-                .extend(audio_tracks.iter().map(|(track_id, group)| StreamVariant {
-                    name: format!("{}p", res.side),
-                    group: group.to_string(),
-                    transcode_state_ids: vec![id.clone(), track_id.clone()],
-                }));
+            stream_state
+                .variants
+                .extend(
+                    audio_tracks
+                        .iter()
+                        .map(|(track_id, group)| stream_state::Variant {
+                            name: format!("{}p", res.side),
+                            group: group.to_string(),
+                            transcode_ids: vec![id.clone(), track_id.clone()],
+                        }),
+                );
         }
     }
 
-    variants
+    stream_state
 }

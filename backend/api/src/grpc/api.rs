@@ -3,7 +3,7 @@ use std::sync::{Arc, Weak};
 
 use crate::database::{
     global_role,
-    stream::{self, State},
+    stream::{self, ReadyState},
     stream_event,
 };
 use chrono::{Duration, TimeZone, Utc};
@@ -14,8 +14,8 @@ use uuid::Uuid;
 use crate::pb::scuffle::backend::{
     api_server,
     update_live_stream_request::{event::Level, update::Update},
-    AuthenticateLiveStreamRequest, AuthenticateLiveStreamResponse, LiveStreamState,
-    NewLiveStreamRequest, NewLiveStreamResponse, UpdateLiveStreamRequest, UpdateLiveStreamResponse,
+    AuthenticateLiveStreamRequest, AuthenticateLiveStreamResponse, NewLiveStreamRequest,
+    NewLiveStreamResponse, StreamReadyState, UpdateLiveStreamRequest, UpdateLiveStreamResponse,
 };
 
 type Result<T> = std::result::Result<T, Status>;
@@ -144,7 +144,7 @@ impl api_server::Api for ApiServer {
             stream_id: stream.id.to_string(),
             record,
             transcode,
-            variants: None,
+            state: None,
         }))
     }
 
@@ -185,9 +185,9 @@ impl api_server::Api for ApiServer {
         }
 
         if stream.ended_at < Utc::now()
-            || stream.state == State::Stopped
-            || stream.state == State::Failed
-            || stream.state == State::StoppedResumable
+            || stream.ready_state == ReadyState::Stopped
+            || stream.ready_state == ReadyState::Failed
+            || stream.ready_state == ReadyState::StoppedResumable
         {
             return Err(Status::invalid_argument("stream has ended"));
         }
@@ -230,18 +230,18 @@ impl api_server::Api for ApiServer {
                         Status::internal("internal server error")
                     })?;
                 }
-                Update::State(st) => {
-                    let state = LiveStreamState::from_i32(st).ok_or_else(|| {
-                        Status::invalid_argument("invalid state: must be a valid state")
+                Update::ReadyState(st) => {
+                    let state = StreamReadyState::from_i32(st).ok_or_else(|| {
+                        Status::invalid_argument("invalid ready_state: must be a valid ready_state")
                     })?;
                     match state {
-                        LiveStreamState::NotReady | LiveStreamState::Ready => {
+                        StreamReadyState::NotReady | StreamReadyState::Ready => {
                             sqlx::query!(
-                                "UPDATE streams SET state = $2, updated_at = $3, ended_at = $4 WHERE id = $1",
+                                "UPDATE streams SET ready_state = $2, updated_at = $3, ended_at = $4 WHERE id = $1",
                                 stream_id,
                                 match state {
-                                    LiveStreamState::NotReady => State::NotReady as i64,
-                                    LiveStreamState::Ready => State::Ready as i64,
+                                    StreamReadyState::NotReady => ReadyState::NotReady as i64,
+                                    StreamReadyState::Ready => ReadyState::Ready as i64,
                                     _ => unreachable!(),
                                 },
                                 Utc.timestamp_opt(u.timestamp as i64, 0).unwrap(),
@@ -254,11 +254,11 @@ impl api_server::Api for ApiServer {
                                 Status::internal("internal server error")
                             })?;
                         }
-                        LiveStreamState::StoppedResumable => {
+                        StreamReadyState::StoppedResumable => {
                             sqlx::query!(
-                                "UPDATE streams SET state = $2, updated_at = $3, ended_at = $4 WHERE id = $1",
+                                "UPDATE streams SET ready_state = $2, updated_at = $3, ended_at = $4 WHERE id = $1",
                                 stream_id,
-                                State::StoppedResumable as i64,
+                                ReadyState::StoppedResumable as i64,
                                 Utc.timestamp_opt(u.timestamp as i64, 0).unwrap(),
                                 Utc.timestamp_opt(u.timestamp as i64, 0).unwrap() + Duration::seconds(300),
                             ).execute(&*global.db).await.map_err(|e| {
@@ -266,13 +266,13 @@ impl api_server::Api for ApiServer {
                                 Status::internal("internal server error")
                             })?;
                         }
-                        LiveStreamState::Stopped | LiveStreamState::Failed => {
+                        StreamReadyState::Stopped | StreamReadyState::Failed => {
                             sqlx::query!(
-                                "UPDATE streams SET state = $2, updated_at = $3, ended_at = $3 WHERE id = $1",
+                                "UPDATE streams SET ready_state = $2, updated_at = $3, ended_at = $3 WHERE id = $1",
                                 stream_id,
                                 match state {
-                                    LiveStreamState::Stopped => State::Stopped as i64,
-                                    LiveStreamState::Failed => State::Failed as i64,
+                                    StreamReadyState::Stopped => ReadyState::Stopped as i64,
+                                    StreamReadyState::Failed => ReadyState::Failed as i64,
                                     _ => unreachable!(),
                                 },
                                 Utc.timestamp_opt(u.timestamp as i64, 0).unwrap()
@@ -308,9 +308,9 @@ impl api_server::Api for ApiServer {
                         Status::internal("internal server error")
                     })?;
                 }
-                Update::Variants(v) => {
+                Update::State(v) => {
                     sqlx::query!(
-                        "UPDATE streams SET updated_at = NOW(), variants = $2 WHERE id = $1",
+                        "UPDATE streams SET updated_at = NOW(), state = $2 WHERE id = $1",
                         stream_id,
                         v.encode_to_vec(),
                     )
@@ -356,8 +356,8 @@ impl api_server::Api for ApiServer {
         };
 
         if old_stream.ended_at < Utc::now()
-            || old_stream.state == State::Stopped
-            || old_stream.state == State::Failed
+            || old_stream.ready_state == ReadyState::Stopped
+            || old_stream.ready_state == ReadyState::Failed
         {
             return Err(Status::failed_precondition("stream has already ended"));
         }
@@ -371,12 +371,12 @@ impl api_server::Api for ApiServer {
 
         // Insert the new stream
         sqlx::query!(
-            "INSERT INTO streams (id, channel_id, title, description, state, ingest_address, connection_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            "INSERT INTO streams (id, channel_id, title, description, ready_state, ingest_address, connection_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
             stream_id,
             old_stream.channel_id,
             old_stream.title,
             old_stream.description,
-            State::NotReady as i64,
+            ReadyState::NotReady as i64,
             old_stream.ingest_address,
             old_stream.connection_id,
         ).execute(&mut *tx).await.map_err(|e| {
@@ -386,9 +386,9 @@ impl api_server::Api for ApiServer {
 
         // Update the old stream
         sqlx::query!(
-            "UPDATE streams SET state = $2, ended_at = NOW(), updated_at = NOW() WHERE id = $1",
+            "UPDATE streams SET ready_state = $2, ended_at = NOW(), updated_at = NOW() WHERE id = $1",
             old_stream_id,
-            State::Stopped as i32,
+            ReadyState::Stopped as i32,
         )
         .execute(&mut *tx)
         .await
@@ -398,9 +398,9 @@ impl api_server::Api for ApiServer {
         })?;
 
         sqlx::query!(
-            "UPDATE streams SET updated_at = NOW(), variants = $2 WHERE id = $1",
+            "UPDATE streams SET updated_at = NOW(), state = $2 WHERE id = $1",
             stream_id,
-            request.variants.unwrap_or_default().encode_to_vec(),
+            request.state.unwrap_or_default().encode_to_vec(),
         )
         .execute(&mut *tx)
         .await

@@ -1,4 +1,4 @@
-use crate::pb::scuffle::types::StreamVariants;
+use crate::pb::scuffle::types::StreamState;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -6,7 +6,7 @@ use super::protobuf::ProtobufValue;
 
 #[derive(Debug, Clone, Default, Copy, Eq, PartialEq)]
 #[repr(i64)]
-pub enum State {
+pub enum ReadyState {
     #[default]
     NotReady = 0,
     Ready = 1,
@@ -16,29 +16,29 @@ pub enum State {
     WasReady = 5,
 }
 
-impl From<State> for i64 {
-    fn from(state: State) -> Self {
+impl From<ReadyState> for i64 {
+    fn from(state: ReadyState) -> Self {
         match state {
-            State::NotReady => 0,
-            State::Ready => 1,
-            State::Stopped => 2,
-            State::StoppedResumable => 3,
-            State::Failed => 4,
-            State::WasReady => 5,
+            ReadyState::NotReady => 0,
+            ReadyState::Ready => 1,
+            ReadyState::Stopped => 2,
+            ReadyState::StoppedResumable => 3,
+            ReadyState::Failed => 4,
+            ReadyState::WasReady => 5,
         }
     }
 }
 
-impl From<i64> for State {
+impl From<i64> for ReadyState {
     fn from(state: i64) -> Self {
         match state {
-            0 => State::NotReady,
-            1 => State::Ready,
-            2 => State::Stopped,
-            3 => State::StoppedResumable,
-            4 => State::Failed,
-            5 => State::WasReady,
-            _ => State::NotReady,
+            0 => ReadyState::NotReady,
+            1 => ReadyState::Ready,
+            2 => ReadyState::Stopped,
+            3 => ReadyState::StoppedResumable,
+            4 => ReadyState::Failed,
+            5 => ReadyState::WasReady,
+            _ => ReadyState::NotReady,
         }
     }
 }
@@ -60,13 +60,13 @@ pub struct Model {
     /// Whether or not the stream has been deleted.
     pub deleted: bool,
     /// Whether or not the stream is ready to be viewed.
-    pub state: State,
+    pub ready_state: ReadyState,
     /// Ingest Address address of the ingest server controlling the stream.
     pub ingest_address: String,
     /// The connection which owns the stream.
     pub connection_id: Uuid,
     /// The Stream Variants
-    pub variants: ProtobufValue<StreamVariants>,
+    pub state: ProtobufValue<StreamState>,
     /// The time the stream was created.
     pub created_at: DateTime<Utc>,
     /// The time the stream was last updated.

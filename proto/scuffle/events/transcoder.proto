@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package scuffle.events;
 
-import "scuffle/types/stream_variants.proto";
+import "scuffle/types/stream_state.proto";
 
 message TranscoderMessage {
   string id = 1;
@@ -17,5 +17,5 @@ message TranscoderMessageNewStream {
   string request_id = 1;
   string stream_id = 2;
   string ingest_address = 3;
-  scuffle.types.StreamVariants variants = 4;
+  scuffle.types.StreamState state = 4;
 }

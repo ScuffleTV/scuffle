@@ -53,17 +53,24 @@ impl health_server::Health for HealthServer {
     async fn watch(&self, _: Request<HealthCheckRequest>) -> Result<Response<Self::WatchStream>> {
         let global = self.global.clone();
 
-        let output = try_stream! {
+        let output = try_stream!({
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
-                let serving = global.upgrade().map(|g| !g.ctx.is_done()).unwrap_or_default();
+                let serving = global
+                    .upgrade()
+                    .map(|g| !g.ctx.is_done())
+                    .unwrap_or_default();
 
                 yield HealthCheckResponse {
-                    status: if serving { ServingStatus::Serving.into() } else { ServingStatus::NotServing.into() },
+                    status: if serving {
+                        ServingStatus::Serving.into()
+                    } else {
+                        ServingStatus::NotServing.into()
+                    },
                 };
             }
-        };
+        });
 
         Ok(Response::new(Box::pin(output)))
     }

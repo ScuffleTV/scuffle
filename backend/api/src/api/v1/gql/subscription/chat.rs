@@ -49,22 +49,30 @@ impl ChatSubscription {
             .await
             .map_err_gql("failed to subscribe to chat messages")?;
 
-        Ok(stream! {
+        Ok(stream!({
             yield Ok(welcome_message);
             while let Ok(message) = message_stream.recv().await {
                 let event = pb::scuffle::events::ChatMessage::decode(
-                    message.as_bytes().map_err_gql("invalid redis value type")?
-                ).map_err_gql("failed to decode chat message")?;
+                    message.as_bytes().map_err_gql("invalid redis value type")?,
+                )
+                .map_err_gql("failed to decode chat message")?;
 
                 yield Ok(ChatMessage {
-                    id: Uuid::parse_str(&event.id).map_err_gql("failed to parse chat message id")?,
-                    author_id: Uuid::parse_str(&event.author_id).map_err_gql("failed to parse chat message author id")?,
-                    channel_id: Uuid::parse_str(&event.channel_id).map_err_gql("failed to parse chat message channel id")?,
+                    id: Uuid::parse_str(&event.id)
+                        .map_err_gql("failed to parse chat message id")?,
+                    author_id: Uuid::parse_str(&event.author_id)
+                        .map_err_gql("failed to parse chat message author id")?,
+                    channel_id: Uuid::parse_str(&event.channel_id)
+                        .map_err_gql("failed to parse chat message channel id")?,
                     content: event.content,
-                    created_at: Utc.timestamp_opt(event.created_at, 0).single().map_err_gql("failed to parse chat message created at")?.into(),
+                    created_at: Utc
+                        .timestamp_opt(event.created_at, 0)
+                        .single()
+                        .map_err_gql("failed to parse chat message created at")?
+                        .into(),
                     r#type: MessageType::User,
                 });
             }
-        })
+        }))
     }
 }

@@ -250,7 +250,7 @@ fn report_to_ingest(
     mut client: IngestClient<Channel>,
     mut channel: mpsc::Receiver<TranscoderEventRequest>,
 ) -> impl Stream<Item = Result<()>> + Send + 'static {
-    stream! {
+    stream!({
         loop {
             select! {
                 msg = channel.recv() => {
@@ -276,7 +276,7 @@ fn report_to_ingest(
                 }
             }
         }
-    }
+    })
 }
 
 impl Job {

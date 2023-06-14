@@ -275,8 +275,13 @@ impl TestState {
 
         let stream = {
             let global = global.clone();
-            stream! {
-                let mut stream = pin!(global.rmq.basic_consume(global.config.transcoder.events_subject.clone(), "", Default::default(), Default::default()));
+            stream!({
+                let mut stream = pin!(global.rmq.basic_consume(
+                    global.config.transcoder.events_subject.clone(),
+                    "",
+                    Default::default(),
+                    Default::default()
+                ));
                 loop {
                     select! {
                         message = stream.next() => {
@@ -288,7 +293,7 @@ impl TestState {
                         }
                     }
                 }
-            }
+            })
         };
 
         Self {

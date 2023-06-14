@@ -68,39 +68,37 @@ impl ingest_server::Ingest for IngestServer {
             return Err(Status::not_found("Stream not found"));
         }
 
-        let output = try_stream! {
+        let output = try_stream!({
             while let Some(event) = channel_rx.recv().await {
                 let event = match event {
-                    WatchStreamEvent::InitSegment(data) => {
-                        WatchStreamResponse {
-                            data: Some(watch_stream_response::Data::InitSegment(data)),
-                        }
+                    WatchStreamEvent::InitSegment(data) => WatchStreamResponse {
+                        data: Some(watch_stream_response::Data::InitSegment(data)),
                     },
-                    WatchStreamEvent::MediaSegment(ms) => {
-                        WatchStreamResponse {
-                            data: Some(watch_stream_response::Data::MediaSegment(
-                                watch_stream_response::MediaSegment {
-                                    data: ms.data,
-                                    keyframe: ms.keyframe,
-                                    timestamp: ms.timestamp,
-                                    data_type: match ms.ty {
-                                        transmuxer::MediaType::Audio => watch_stream_response::media_segment::DataType::Audio.into(),
-                                        transmuxer::MediaType::Video => watch_stream_response::media_segment::DataType::Video.into(),
+                    WatchStreamEvent::MediaSegment(ms) => WatchStreamResponse {
+                        data: Some(watch_stream_response::Data::MediaSegment(
+                            watch_stream_response::MediaSegment {
+                                data: ms.data,
+                                keyframe: ms.keyframe,
+                                timestamp: ms.timestamp,
+                                data_type: match ms.ty {
+                                    transmuxer::MediaType::Audio => {
+                                        watch_stream_response::media_segment::DataType::Audio.into()
                                     }
-                                }
-                            )),
-                        }
-                    }
-                    WatchStreamEvent::ShuttingDown(stream_shutdown) => {
-                        WatchStreamResponse {
-                            data: Some(watch_stream_response::Data::ShuttingDown(stream_shutdown)),
-                        }
-                    }
+                                    transmuxer::MediaType::Video => {
+                                        watch_stream_response::media_segment::DataType::Video.into()
+                                    }
+                                },
+                            },
+                        )),
+                    },
+                    WatchStreamEvent::ShuttingDown(stream_shutdown) => WatchStreamResponse {
+                        data: Some(watch_stream_response::Data::ShuttingDown(stream_shutdown)),
+                    },
                 };
 
                 yield event;
             }
-        };
+        });
 
         Ok(Response::new(Box::pin(output)))
     }

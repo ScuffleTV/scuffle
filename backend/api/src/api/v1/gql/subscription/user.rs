@@ -39,7 +39,7 @@ impl UserSubscription {
             .await
             .map_err_gql("failed to subscribe to user display name")?;
 
-        Ok(async_stream::stream! {
+        Ok(async_stream::stream!({
             yield Ok(DisplayNameStream {
                 display_name: user.display_name.clone(),
                 username: user.username.clone(),
@@ -47,8 +47,9 @@ impl UserSubscription {
 
             while let Ok(message) = subscription.recv().await {
                 let event = pb::scuffle::events::UserDisplayName::decode(
-                    message.as_bytes().map_err_gql("invalid redis value")?
-                ).map_err_gql("failed to decode user display name")?;
+                    message.as_bytes().map_err_gql("invalid redis value")?,
+                )
+                .map_err_gql("failed to decode user display name")?;
 
                 if let Some(username) = event.username {
                     user.username = username;
@@ -63,6 +64,6 @@ impl UserSubscription {
                     username: user.username.clone(),
                 });
             }
-        })
+        }))
     }
 }

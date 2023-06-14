@@ -29,7 +29,7 @@ pub struct TrackSample {
 pub fn track_parser(
     mut input: impl Stream<Item = io::Result<Bytes>> + Unpin,
 ) -> impl Stream<Item = io::Result<TrackOut>> {
-    stream! {
+    stream!({
         let mut buffer = BytesMut::new();
 
         // Main loop for parsing the stream
@@ -56,28 +56,50 @@ pub fn track_parser(
                 match b {
                     mp4::DynBox::Moov(moov) => {
                         if moov.traks.len() != 1 {
-                            yield Err(io::Error::new(io::ErrorKind::InvalidData, anyhow!("moov box must have exactly one trak box")));
+                            yield Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                anyhow!("moov box must have exactly one trak box"),
+                            ));
                             return;
                         }
 
                         yield Ok(TrackOut::Moov(moov));
-                    },
+                    }
                     mp4::DynBox::Moof(moof) => {
                         if moof.traf.len() != 1 {
-                            yield Err(io::Error::new(io::ErrorKind::InvalidData, anyhow!("moof box must have exactly one traf box")));
+                            yield Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                anyhow!("moof box must have exactly one traf box"),
+                            ));
                             return;
                         }
 
                         let traf = &moof.traf[0];
-                        let trun = traf.trun.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, anyhow!("traf box must have a trun box")))?;
+                        let trun = traf.trun.as_ref().ok_or_else(|| {
+                            io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                anyhow!("traf box must have a trun box"),
+                            )
+                        })?;
                         let tfhd = &traf.tfhd;
 
                         let samples = trun.samples.iter().enumerate().map(|(idx, sample)| {
                             let mut sample = sample.clone();
                             sample.duration = sample.duration.or(tfhd.default_sample_duration);
                             sample.size = sample.size.or(tfhd.default_sample_size);
-                            sample.flags = Some(sample.flags.or(if idx == 0 { trun.first_sample_flags } else { None }).or(tfhd.default_sample_flags).unwrap_or_default());
-                            sample.composition_time_offset = Some(sample.composition_time_offset.unwrap_or_default());
+                            sample.flags = Some(
+                                sample
+                                    .flags
+                                    .or(if idx == 0 {
+                                        trun.first_sample_flags
+                                    } else {
+                                        None
+                                    })
+                                    .or(tfhd.default_sample_flags)
+                                    .unwrap_or_default(),
+                            );
+                            sample.composition_time_offset =
+                                Some(sample.composition_time_offset.unwrap_or_default());
                             sample
                         });
 
@@ -85,9 +107,12 @@ pub fn track_parser(
                         let mdat = match mp4::DynBox::demux(&mut cursor) {
                             Ok(DynBox::Mdat(mdat)) => mdat,
                             Ok(_) => {
-                                yield Err(io::Error::new(io::ErrorKind::InvalidData, anyhow!("moof box must be followed by an mdat box")));
+                                yield Err(io::Error::new(
+                                    io::ErrorKind::InvalidData,
+                                    anyhow!("moof box must be followed by an mdat box"),
+                                ));
                                 return;
-                            },
+                            }
                             Err(e) => {
                                 if e.kind() == io::ErrorKind::UnexpectedEof {
                                     // We need more data to parse this box
@@ -101,31 +126,42 @@ pub fn track_parser(
                         };
 
                         if mdat.data.len() != 1 {
-                            yield Err(io::Error::new(io::ErrorKind::InvalidData, anyhow!("mdat box must have exactly one data box")));
+                            yield Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                anyhow!("mdat box must have exactly one data box"),
+                            ));
                             return;
                         }
 
                         let mut mdat_cursor = io::Cursor::new(mdat.data[0].clone());
                         for sample in samples {
                             let data = if let Some(size) = sample.size {
-                                mdat_cursor.read_slice(size as usize).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, anyhow!("mdat data size not big enough for sample: {}", e)))?
+                                mdat_cursor.read_slice(size as usize).map_err(|e| {
+                                    io::Error::new(
+                                        io::ErrorKind::InvalidData,
+                                        anyhow!("mdat data size not big enough for sample: {}", e),
+                                    )
+                                })?
                             } else {
                                 mdat_cursor.get_remaining()
                             };
 
                             yield Ok(TrackOut::Sample(TrackSample {
                                 duration: sample.duration.unwrap_or_default(),
-                                keyframe: sample.flags.map(|f| f.sample_depends_on == 2).unwrap_or_default(),
+                                keyframe: sample
+                                    .flags
+                                    .map(|f| f.sample_depends_on == 2)
+                                    .unwrap_or_default(),
                                 sample,
                                 data,
                             }));
                         }
-                    },
-                     _ => {},
+                    }
+                    _ => {}
                 }
             }
 
             buffer.extend_from_slice(&cursor.get_remaining());
         }
-    }
+    })
 }

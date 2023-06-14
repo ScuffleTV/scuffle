@@ -127,35 +127,35 @@ impl ConnectionPool {
         let queue_name = queue_name.to_string();
         let connection_name = connection_name.to_string();
 
-        stream! {
+        stream!({
             'connection_loop: loop {
                 let channel = self.aquire().await?;
-                let mut consumer = channel.basic_consume(&queue_name, &connection_name, options, table.clone()).await?;
+                let mut consumer = channel
+                    .basic_consume(&queue_name, &connection_name, options, table.clone())
+                    .await?;
                 loop {
                     let m = consumer.next().await;
                     match m {
                         Some(Ok(m)) => {
                             yield Ok(m);
-                        },
-                        Some(Err(e)) => {
-                            match e {
-                                lapin::Error::IOError(e) => {
-                                    if e.kind() == std::io::ErrorKind::ConnectionReset {
-                                        continue 'connection_loop;
-                                    }
-                                },
-                                _ => {
-                                    yield Err(anyhow!("failed to get message: {}", e));
+                        }
+                        Some(Err(e)) => match e {
+                            lapin::Error::IOError(e) => {
+                                if e.kind() == std::io::ErrorKind::ConnectionReset {
+                                    continue 'connection_loop;
                                 }
+                            }
+                            _ => {
+                                yield Err(anyhow!("failed to get message: {}", e));
                             }
                         },
                         None => {
                             continue 'connection_loop;
-                        },
+                        }
                     }
                 }
             }
-        }
+        })
     }
 
     pub async fn aquire(&self) -> Result<Channel> {

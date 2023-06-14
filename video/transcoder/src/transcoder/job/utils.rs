@@ -16,13 +16,13 @@ pub fn unix_stream(
     listener: UnixListener,
     buffer_size: usize,
 ) -> impl futures::Stream<Item = io::Result<Bytes>> {
-    stream! {
+    stream!({
         let (sock, _) = match listener.accept().timeout(Duration::from_secs(1)).await {
             Ok(Ok(connection)) => connection,
             Ok(Err(err)) => {
                 yield Err(err);
                 return;
-            },
+            }
             Err(_) => {
                 // Timeout
                 tracing::debug!("unix stream timeout");
@@ -38,20 +38,21 @@ pub fn unix_stream(
             match bio.read().await {
                 Ok(bytes) => {
                     yield Ok(bytes.freeze());
-                },
-                Err(err) => {
-                    match err {
-                        BytesIOError::ClientClosed => {
-                            return;
-                        },
-                        _ => {
-                            yield Err(io::Error::new(io::ErrorKind::UnexpectedEof, anyhow!("failed to read from socket: {}", err)));
-                        }
-                    }
                 }
+                Err(err) => match err {
+                    BytesIOError::ClientClosed => {
+                        return;
+                    }
+                    _ => {
+                        yield Err(io::Error::new(
+                            io::ErrorKind::UnexpectedEof,
+                            anyhow!("failed to read from socket: {}", err),
+                        ));
+                    }
+                },
             }
         }
-    }
+    })
 }
 
 pub struct SharedFuture<O, F: futures::Future<Output = O>> {

@@ -17,6 +17,9 @@ members = [
     "video/utils/amf0",
     "video/utils/exp_golomb",
     "common",
+    "config/config",
+    "config/config_derive",
+    "config/config_test"
 ]
 
 exclude = [

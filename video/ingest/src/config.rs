@@ -1,26 +1,9 @@
 use std::net::SocketAddr;
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
+use common::config::{LoggingConfig, RmqConfig, TlsConfig};
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
-#[serde(default)]
-pub struct TlsConfig {
-    /// Domain name to use for TLS
-    /// Only used for gRPC TLS connections
-    pub domain: Option<String>,
-
-    /// The path to the TLS certificate
-    pub cert: String,
-
-    /// The path to the TLS private key
-    pub key: String,
-
-    /// The path to the TLS CA certificate
-    pub ca_cert: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
 pub struct RtmpConfig {
     /// The bind address for the RTMP server
@@ -39,7 +22,7 @@ impl Default for RtmpConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
 pub struct GrpcConfig {
     /// The bind address for the gRPC server
@@ -62,7 +45,7 @@ impl Default for GrpcConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
 pub struct ApiConfig {
     /// The bind address for the API server
@@ -85,41 +68,7 @@ impl Default for ApiConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-#[serde(default)]
-pub struct RmqConfig {
-    /// The address of the RMQ server
-    pub uri: String,
-}
-
-impl Default for RmqConfig {
-    fn default() -> Self {
-        Self {
-            uri: "amqp://rabbitmq:rabbitmq@localhost:5672/scuffle".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-#[serde(default)]
-pub struct LoggingConfig {
-    /// The log level to use, this is a tracing env filter
-    pub level: String,
-
-    /// If we should use JSON logging
-    pub json: bool,
-}
-
-impl Default for LoggingConfig {
-    fn default() -> Self {
-        Self {
-            level: "info".to_string(),
-            json: false,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
 pub struct TranscoderConfig {
     pub events_subject: String,
@@ -133,14 +82,14 @@ impl Default for TranscoderConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
     /// Name of this instance
     pub name: String,
 
     /// The path to the config file.
-    pub config_file: String,
+    pub config_file: Option<String>,
 
     /// The log level to use, this is a tracing env filter
     pub logging: LoggingConfig,
@@ -165,7 +114,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             name: "scuffle-ingest".to_string(),
-            config_file: "config".to_string(),
+            config_file: Some("config".to_string()),
             logging: LoggingConfig::default(),
             rtmp: RtmpConfig::default(),
             grpc: GrpcConfig::default(),
@@ -178,6 +127,11 @@ impl Default for AppConfig {
 
 impl AppConfig {
     pub fn parse() -> Result<Self> {
-        Ok(common::config::parse(&AppConfig::default().config_file)?)
+        let (mut config, config_file) =
+            common::config::parse::<Self>(!cfg!(test), Self::default().config_file)?;
+
+        config.config_file = config_file;
+
+        Ok(config)
     }
 }

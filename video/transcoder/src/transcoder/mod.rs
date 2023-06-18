@@ -12,7 +12,7 @@ pub(crate) mod job;
 
 pub async fn run(global: Arc<GlobalState>) -> Result<()> {
     let mut consumer = pin!(global.rmq.basic_consume(
-        &global.config.rmq.transcoder_queue,
+        &global.config.transcoder.rmq_queue,
         &global.config.name,
         BasicConsumeOptions::default(),
         FieldTable::default()

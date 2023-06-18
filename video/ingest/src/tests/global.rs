@@ -13,7 +13,7 @@ pub async fn mock_global_state(config: AppConfig) -> (Arc<GlobalState>, Handler)
 
     dotenvy::dotenv().ok();
 
-    logging::init(&config.logging.level, config.logging.json)
+    logging::init(&config.logging.level, config.logging.mode)
         .expect("failed to initialize logging");
 
     let rmq = common::rmq::ConnectionPool::connect(

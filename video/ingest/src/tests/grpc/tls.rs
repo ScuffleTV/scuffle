@@ -1,10 +1,11 @@
+use common::config::TlsConfig;
 use common::grpc::{make_channel, TlsSettings};
 use common::prelude::FutureTimeout;
 use std::path::PathBuf;
 use std::time::Duration;
 use tonic::transport::{Certificate, Identity};
 
-use crate::config::{AppConfig, GrpcConfig, TlsConfig};
+use crate::config::{AppConfig, GrpcConfig};
 use crate::grpc::run;
 use crate::tests::global::mock_global_state;
 

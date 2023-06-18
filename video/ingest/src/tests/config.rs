@@ -16,7 +16,13 @@ fn test_parse() {
     clear_env();
 
     let config = AppConfig::parse().expect("Failed to parse config");
-    assert_eq!(config, AppConfig::default());
+    assert_eq!(
+        config,
+        AppConfig {
+            config_file: None,
+            ..Default::default()
+        }
+    );
 }
 
 #[serial]
@@ -24,9 +30,9 @@ fn test_parse() {
 fn test_parse_env() {
     clear_env();
 
-    std::env::set_var("SCUF_LOGGING__LEVEL", "ingest=debug");
+    std::env::set_var("SCUF_LOGGING_LEVEL", "ingest=debug");
     std::env::set_var(
-        "SCUF_DATABASE__URI",
+        "SCUF_DATABASE_URI",
         "postgres://postgres:postgres@localhost:5433/postgres",
     );
 
@@ -68,7 +74,12 @@ addresses = [
     assert_eq!(config.api.addresses, vec!["test", "test2"]);
     assert_eq!(
         config.config_file,
-        config_file.to_str().expect("Failed to get str")
+        Some(
+            std::fs::canonicalize(config_file)
+                .unwrap()
+                .display()
+                .to_string()
+        )
     );
 }
 
@@ -102,7 +113,7 @@ addresses = [
         "SCUF_CONFIG_FILE",
         config_file.to_str().expect("Failed to get str"),
     );
-    std::env::set_var("SCUF_LOGGING__LEVEL", "ingest=info");
+    std::env::set_var("SCUF_LOGGING_LEVEL", "ingest=info");
 
     let config = AppConfig::parse().expect("Failed to parse config");
 
@@ -111,6 +122,11 @@ addresses = [
     assert_eq!(config.api.addresses, vec!["test", "test2"]);
     assert_eq!(
         config.config_file,
-        config_file.to_str().expect("Failed to get str")
+        Some(
+            std::fs::canonicalize(config_file)
+                .unwrap()
+                .display()
+                .to_string()
+        )
     );
 }

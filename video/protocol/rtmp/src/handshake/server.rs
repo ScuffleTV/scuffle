@@ -268,10 +268,10 @@ impl ComplexHandshakeServer {
             .freeze();
 
         //  The first 4 bytes of C1 are the timestamp.
-        self.c1_timestamp = c1_bytes[0..4].as_ref().read_u32::<BigEndian>()?;
+        self.c1_timestamp = (&c1_bytes[0..4]).read_u32::<BigEndian>()?;
 
         // The next 4 bytes are a version number.
-        self.c1_version = c1_bytes[4..8].as_ref().read_u32::<BigEndian>()?;
+        self.c1_version = (&c1_bytes[4..8]).read_u32::<BigEndian>()?;
 
         // The following 764 bytes are either the digest or the key.
         let data_digest = DigestProcessor::new(

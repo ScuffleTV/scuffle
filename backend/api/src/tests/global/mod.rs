@@ -2,6 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use crate::{config::AppConfig, global::GlobalState};
 use common::{
+    config::RedisSentinelConfig,
     context::{Context, Handler},
     logging,
     prelude::FutureTimeout,
@@ -16,7 +17,7 @@ pub async fn mock_global_state(mut config: AppConfig) -> (Arc<GlobalState>, Hand
 
     dotenvy::dotenv().ok();
 
-    logging::init(&config.logging.level, config.logging.json)
+    logging::init(&config.logging.level, config.logging.mode)
         .expect("failed to initialize logging");
 
     let db = Arc::new(
@@ -53,9 +54,7 @@ pub async fn mock_global_state(mut config: AppConfig) -> (Arc<GlobalState>, Hand
     config.redis.password = redis_config.password;
     config.redis.username = redis_config.username;
     config.redis.sentinel = match redis_config.server {
-        ServerConfig::Sentinel { service_name, .. } => {
-            Some(crate::config::RedisSentinelConfig { service_name })
-        }
+        ServerConfig::Sentinel { service_name, .. } => Some(RedisSentinelConfig { service_name }),
         _ => None,
     };
 

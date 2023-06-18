@@ -33,6 +33,7 @@ uuid = "1"
 url = "2"
 
 common = { path = "../../common" }
+config = { path = "../../config/config" }
 
 [build-dependencies]
 tonic-build = "0"

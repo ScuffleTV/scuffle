@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use async_stream::stream;
 use async_trait::async_trait;
+use common::config::TlsConfig;
 use common::prelude::FutureTimeout;
 use futures::StreamExt;
 use lapin::options::QueueDeclareOptions;
@@ -19,7 +20,7 @@ use tonic::{Request, Response, Status};
 use transmuxer::MediaType;
 use uuid::Uuid;
 
-use crate::config::{ApiConfig, AppConfig, RtmpConfig, TlsConfig, TranscoderConfig};
+use crate::config::{ApiConfig, AppConfig, RtmpConfig, TranscoderConfig};
 use crate::connection_manager::{GrpcRequest, WatchStreamEvent};
 use crate::global;
 use crate::pb::scuffle::backend::update_live_stream_request::event::Level;

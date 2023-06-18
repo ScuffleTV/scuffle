@@ -1,6 +1,6 @@
-use crate::logging::init;
+use crate::logging::{self, init};
 
 #[test]
 fn test_init() {
-    init("info", false).expect("Failed to init logger");
+    init("info", logging::Mode::Compact).expect("Failed to init logger");
 }

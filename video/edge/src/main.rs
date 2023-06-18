@@ -14,9 +14,11 @@ mod pb;
 async fn main() -> Result<()> {
     let config = config::AppConfig::parse()?;
 
-    logging::init(&config.logging.level, config.logging.json)?;
+    logging::init(&config.logging.level, config.logging.mode)?;
 
-    tracing::info!("starting: loaded config from {}", config.config_file);
+    if let Some(file) = &config.config_file {
+        tracing::info!(file = file, "loaded config from file");
+    }
 
     let (ctx, handler) = Context::new();
 

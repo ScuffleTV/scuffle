@@ -10,6 +10,7 @@ use std::{
 use async_trait::async_trait;
 use bytes::{Buf, Bytes};
 use chrono::Utc;
+use common::{config::LoggingConfig, logging};
 use fred::prelude::{HashesInterface, KeysInterface};
 use futures_util::Stream;
 use lapin::BasicProperties;
@@ -22,7 +23,7 @@ use transmuxer::{MediaType, TransmuxResult, Transmuxer};
 use uuid::Uuid;
 
 use crate::{
-    config::{AppConfig, LoggingConfig, RmqConfig},
+    config::{AppConfig, TranscoderConfig},
     global::{self, GlobalState},
     pb::scuffle::{
         events::{self, transcoder_message},
@@ -135,13 +136,13 @@ async fn test_transcode() {
     let port = portpicker::pick_unused_port().unwrap();
 
     let (global, handler) = crate::tests::global::mock_global_state(AppConfig {
-        rmq: RmqConfig {
-            transcoder_queue: Uuid::new_v4().to_string(),
-            uri: "".to_string(),
+        transcoder: TranscoderConfig {
+            rmq_queue: Uuid::new_v4().to_string(),
+            ..Default::default()
         },
         logging: LoggingConfig {
             level: "info,transcoder=debug".to_string(),
-            json: false,
+            mode: logging::Mode::Default,
         },
         ..Default::default()
     })
@@ -167,7 +168,7 @@ async fn test_transcode() {
     channel
         .basic_publish(
             "",
-            &global.config.rmq.transcoder_queue,
+            &global.config.transcoder.rmq_queue,
             lapin::options::BasicPublishOptions::default(),
             events::TranscoderMessage {
                 id: req_id.to_string(),

@@ -44,7 +44,7 @@ pub async fn init_rmq(global: &Arc<GlobalState>, durable: bool) {
 
     channel
         .queue_declare(
-            &global.config.rmq.transcoder_queue,
+            &global.config.transcoder.rmq_queue,
             QueueDeclareOptions {
                 durable,
                 ..Default::default()

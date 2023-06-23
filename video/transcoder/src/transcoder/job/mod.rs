@@ -43,6 +43,9 @@ use crate::{
 };
 use fred::interfaces::KeysInterface;
 
+use self::renditions::RenditionMap;
+
+mod renditions;
 mod track_parser;
 mod utils;
 pub(crate) mod variant;
@@ -111,18 +114,18 @@ struct Job {
 }
 
 #[inline(always)]
-fn redis_mutex_key(stream_id: &str) -> String {
+fn redis_mutex_key(stream_id: impl std::fmt::Display) -> String {
     format!("transcoder:{}:mutex", stream_id)
 }
 
 #[inline(always)]
-fn redis_master_playlist_key(stream_id: &str) -> String {
+fn redis_master_playlist_key(stream_id: impl std::fmt::Display) -> String {
     format!("transcoder:{}:playlist", stream_id)
 }
 
 fn set_master_playlist(
     global: Arc<GlobalState>,
-    stream_id: &str,
+    stream_id: impl std::fmt::Display,
     state: &StreamState,
     lock: CancellationToken,
 ) -> impl futures::Future<Output = Result<()>> + Send + 'static {
@@ -135,14 +138,35 @@ fn set_master_playlist(
     let mut state_map = HashMap::new();
 
     for transcode_state in state.transcodes.iter() {
-        playlist.push_str(format!("#EXT-X-MEDIA:TYPE={},GROUP-ID=\"{}\",NAME=\"{}\",AUTOSELECT=YES,DEFAULT=YES,URI=\"{}/index.m3u8\"\n", match transcode_state.settings.as_ref().unwrap() {
-            stream_state::transcode::Settings::Video(_) => {
-                "VIDEO"
-            },
-            stream_state::transcode::Settings::Audio(_) => {
-                "AUDIO"
-            },
-        }, transcode_state.id, transcode_state.id, transcode_state.id).as_str());
+        let mut tags = vec![
+            format!(
+                "TYPE={}",
+                match transcode_state.settings.as_ref().unwrap() {
+                    stream_state::transcode::Settings::Video(_) => {
+                        "VIDEO"
+                    }
+                    stream_state::transcode::Settings::Audio(_) => {
+                        "AUDIO"
+                    }
+                }
+            ),
+            "AUTOSELECT=YES".to_string(),
+            "DEFAULT=YES".to_string(),
+            format!("GROUP-ID=\"{}\"", transcode_state.id),
+            format!("NAME=\"{}\"", transcode_state.id),
+            format!("BANDWIDTH={}", transcode_state.bitrate),
+            format!("CODECS=\"{}\"", transcode_state.codec),
+            format!("URI=\"{}/index.m3u8\"", transcode_state.id),
+        ];
+
+        if let Some(stream_state::transcode::Settings::Video(settings)) =
+            transcode_state.settings.as_ref()
+        {
+            tags.push(format!("FRAME-RATE={}", settings.framerate));
+            tags.push(format!("RESOLUTION={}x{}", settings.width, settings.height));
+        }
+
+        playlist.push_str(format!("#EXT-X-MEDIA:{}\n", tags.join(",")).as_str());
 
         state_map.insert(transcode_state.id.as_str(), transcode_state);
     }
@@ -246,33 +270,22 @@ fn set_master_playlist(
 }
 
 fn report_to_ingest(
-    global: Arc<GlobalState>,
     mut client: IngestClient<Channel>,
     mut channel: mpsc::Receiver<TranscoderEventRequest>,
 ) -> impl Stream<Item = Result<()>> + Send + 'static {
     stream!({
-        loop {
-            select! {
-                msg = channel.recv() => {
-                    match msg {
-                        Some(msg) => {
-                            match client.transcoder_event(msg).timeout(Duration::from_secs(5)).await {
-                                Ok(Ok(_)) => {},
-                                Ok(Err(e)) => {
-                                    yield Err(e.into());
-                                }
-                                Err(e) => {
-                                    yield Err(e.into());
-                                }
-                            }
-                        },
-                        None => {
-                            break;
-                        }
-                    }
-                },
-                _ = global.ctx.done() => {
-                    break;
+        while let Some(msg) = channel.recv().await {
+            match client
+                .transcoder_event(msg)
+                .timeout(Duration::from_secs(5))
+                .await
+            {
+                Ok(Ok(_)) => {}
+                Ok(Err(e)) => {
+                    yield Err(e.into());
+                }
+                Err(e) => {
+                    yield Err(e.into());
                 }
             }
         }
@@ -295,7 +308,7 @@ impl Job {
 
         let mut update_playlist_fut = pin!(set_master_playlist(
             global.clone(),
-            &self.req.stream_id,
+            self.req.stream_id.clone(),
             self.stream_state(),
             self.lock_owner.child_token(),
         ));
@@ -314,6 +327,11 @@ impl Job {
         let stream_state = self.stream_state();
 
         let (ready_tx, mut ready_recv) = mpsc::channel(16);
+        let mut rendition_map = RenditionMap::new();
+        for transcode_state in stream_state.transcodes.iter() {
+            rendition_map.insert(transcode_state.id.clone());
+        }
+        let rendition_map = Arc::new(rendition_map);
 
         for transcode_state in stream_state.transcodes.iter() {
             let sock_path = socket_dir.join(format!("{}.sock", transcode_state.id));
@@ -344,6 +362,7 @@ impl Job {
                 transcode_state.id.clone(),
                 self.req.request_id.clone(),
                 socket,
+                rendition_map.clone(),
             ));
         }
 
@@ -607,7 +626,7 @@ impl Job {
         let mut ready_count = 0;
 
         let (report, rx) = mpsc::channel(10);
-        let mut report_fut = pin!(report_to_ingest(global.clone(), self.client.clone(), rx));
+        let mut report_fut = pin!(report_to_ingest(self.client.clone(), rx));
 
         while select! {
             r = report_fut.next() => {

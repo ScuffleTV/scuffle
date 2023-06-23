@@ -1,4 +1,7 @@
-use std::{collections::VecDeque, io};
+use std::{
+    collections::{HashSet, VecDeque},
+    io,
+};
 
 use bytes::{Buf, Bytes};
 use mp4::{
@@ -9,38 +12,73 @@ use serde::Serialize;
 use tsify::Tsify;
 use url::Url;
 use wasm_bindgen::JsValue;
-use web_sys::window;
 
-use crate::hls::{self, media::MediaPlaylist};
+use crate::hls::{
+    self,
+    media::{MediaPlaylist, RenditionReport},
+};
 
-use super::fetch::{FetchRequest, InflightRequest};
+use super::{
+    bandwidth::Bandwidth,
+    fetch::{FetchRequest, InflightRequest},
+    util::now,
+};
 
 #[derive(Tsify, Debug, Clone, Serialize)]
 #[tsify(into_wasm_abi)]
 pub struct Track {
+    /// The track id (unique for all tracks)
     pub id: u32,
-    pub bandwidth: Option<u32>,
-    pub name: Option<String>,
+    /// The group this track belongs to
+    pub group_id: u32,
+    /// The bandwidth estimate for this track
+    pub bandwidth: u32,
+    /// The url to the playlist for this track
     pub playlist_url: Url,
-    pub referenced_group_ids: Vec<u32>,
-    pub is_variant_track: bool,
-    pub codecs: Option<String>,
+    /// The codecs for this track
+    pub codecs: String,
+
+    /// The width of this track (if video)
     pub width: Option<u32>,
+    /// The height of this track (if video)
     pub height: Option<u32>,
+    /// The frame rate of this track (if video)
     pub frame_rate: Option<f64>,
-    pub reference: Option<ReferenceTrack>,
 }
 
 #[derive(Tsify, Debug, Clone, Serialize)]
 #[tsify(into_wasm_abi)]
-pub struct ReferenceTrack {
-    pub group_id: u32,
-    pub is_default: bool,
+pub struct Variant {
+    /// The variant id (unique for all variants)
+    pub id: u32,
+    /// The name of this variant
+    pub name: String,
+    /// The scuffle group this variant belongs to
+    pub group: String,
+    /// The group id of the audio track
+    pub audio_track: Option<u32>,
+    /// The group id of the video track
+    pub video_track: Option<u32>,
+    /// The bandwidth estimation for this variant
+    pub bandwidth: u32,
 }
 
 pub struct TrackRequest {
-    req: InflightRequest,
+    inflight: Option<InflightRequest>,
+    request: FetchRequest,
     is_init: bool,
+    is_preload: bool,
+}
+
+impl TrackRequest {
+    fn new(req: FetchRequest, is_init: bool, is_preload: bool) -> Self {
+        Self {
+            inflight: None,
+            request: req,
+            is_init,
+            is_preload,
+        }
+    }
 }
 
 pub struct TrackState {
@@ -48,11 +86,12 @@ pub struct TrackState {
     playlist_req: Option<InflightRequest>,
     playlist: Option<MediaPlaylist>,
 
-    requests: VecDeque<TrackRequest>,
+    requests: Requests,
 
     current_sn: u32,
     current_part: u32,
     current_map_sn: u32,
+    was_rendition: bool,
 
     running: bool,
     low_latency: bool,
@@ -60,15 +99,95 @@ pub struct TrackState {
     last_fetch_delay: f64,
     last_playlist_fetch: f64,
 
+    preloaded_map: HashSet<Url>,
+
     last_end_time: f64,
 
     stop_at: Option<f64>,
 
+    bandwidth: Bandwidth,
+
     track_info: Option<TrackInfo>,
 }
 
-fn now() -> f64 {
-    window().unwrap().performance().unwrap().now()
+struct Requests {
+    max_concurrent_requests: usize,
+    inflight: VecDeque<TrackRequest>,
+    inflight_urls: HashSet<Url>,
+}
+
+impl Requests {
+    fn new(max_concurrent_requests: usize) -> Self {
+        Self {
+            max_concurrent_requests,
+            inflight: VecDeque::new(),
+            inflight_urls: HashSet::new(),
+        }
+    }
+
+    fn set_max_concurrent_requests(&mut self, max_concurrent_requests: usize) {
+        self.max_concurrent_requests = max_concurrent_requests;
+    }
+
+    fn push(&mut self, mut req: TrackRequest) -> Result<(), JsValue> {
+        if self.inflight_urls.contains(req.request.url()) {
+            return Ok(());
+        }
+
+        if self.active_count() < self.max_concurrent_requests && req.inflight.is_none() {
+            req.inflight = Some(req.request.start()?);
+        }
+
+        self.inflight_urls.insert(req.request.url().clone());
+        self.inflight.push_back(req);
+
+        Ok(())
+    }
+
+    fn pop(&mut self) -> Result<Option<TrackRequest>, JsValue> {
+        let Some(req) = self.inflight.front_mut() else {
+            return Ok(None);
+        };
+
+        if req.inflight.is_none() {
+            req.inflight = Some(req.request.start()?);
+        }
+
+        if req.inflight.as_mut().unwrap().is_done() {
+            self.inflight_urls.remove(req.request.url());
+
+            let old = self.inflight.pop_front();
+
+            while self.active_count() < self.max_concurrent_requests {
+                if let Some(req) = self.inflight.iter_mut().find(|r| r.inflight.is_none()) {
+                    req.inflight = Some(req.request.start()?);
+                } else {
+                    break;
+                }
+            }
+
+            return Ok(old);
+        }
+
+        Ok(None)
+    }
+
+    fn active_count(&mut self) -> usize {
+        self.inflight
+            .iter()
+            .filter(|r| {
+                r.inflight
+                    .as_ref()
+                    .map(|i| !i.is_done())
+                    .unwrap_or_default()
+            })
+            .count()
+    }
+
+    fn clear(&mut self) {
+        self.inflight.clear();
+        self.inflight_urls.clear();
+    }
 }
 
 fn get_url(playlist_url: &str, url: &str) -> Result<Url, JsValue> {
@@ -113,17 +232,18 @@ fn demux_mp4_boxes(mut cursor: io::Cursor<Bytes>) -> Result<Vec<DynBox>, JsValue
         })
         .take_while(|r| r.is_ok())
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| "invalid init segment")?)
+        .map_err(|e| e.to_string())?)
 }
 
 impl TrackState {
-    pub fn new(track: Track) -> Self {
+    pub fn new(track: Track, bandwidth: Bandwidth) -> Self {
         Self {
             track,
             playlist_req: None,
             running: false,
+            was_rendition: false,
             playlist: None,
-            requests: VecDeque::new(),
+            requests: Requests::new(1),
             current_sn: 0,
             current_map_sn: 0,
             next_playlist_req_time: 0.0,
@@ -134,12 +254,33 @@ impl TrackState {
             last_end_time: 0.0,
             stop_at: None,
 
+            preloaded_map: HashSet::new(),
+
+            bandwidth,
+
             track_info: None,
         }
     }
 
+    pub fn url(&self) -> &Url {
+        &self.track.playlist_url
+    }
+
     pub fn running(&self) -> bool {
         self.running
+    }
+
+    pub fn rendition_reports(&self, url: &Url) -> Option<RenditionReport> {
+        let playlist = self.playlist.as_ref()?;
+
+        playlist
+            .rendition_reports
+            .iter()
+            .find(|r| {
+                let r_url = get_url(self.track.playlist_url.as_str(), &r.uri).unwrap();
+                &r_url == url
+            })
+            .cloned()
     }
 
     pub fn run(&mut self) -> Result<Option<TrackResult>, JsValue> {
@@ -147,9 +288,27 @@ impl TrackState {
             return Ok(None);
         }
 
-        if let Some(req) = self.handle_requests()? {
+        if let Some(mut req) = self.requests.pop()? {
+            let inflight = req.inflight.as_mut().unwrap();
+
             // We have something to yeild to the caller.
-            let data = req.req.result()?.expect("request should be done");
+            let data = match inflight.result() {
+                Ok(Some(data)) => data,
+                Ok(None) => {
+                    return Err("request should be done".into());
+                }
+                Err(err) => {
+                    if req.is_preload {
+                        self.preloaded_map.remove(inflight.url());
+                        return Ok(None);
+                    } else {
+                        return Err(err);
+                    }
+                }
+            };
+
+            self.bandwidth.report_download(&inflight.metrics().unwrap());
+
             if req.is_init {
                 let boxes = demux_mp4_boxes(io::Cursor::new(Bytes::from(data)))?;
 
@@ -190,8 +349,6 @@ impl TrackState {
 
                 let mut fragments = Vec::new();
 
-                let mut keyframe = 0;
-
                 // Convert the boxes vector into a tuple of moof and mdat
                 let boxes = boxes
                     .into_iter()
@@ -230,10 +387,6 @@ impl TrackState {
                         return Err("invalid media segment, missing traf".into());
                     };
 
-                    if traf.contains_keyframe() {
-                        keyframe += 1;
-                    }
-
                     // This will tell us when the fragment starts
                     let base_decode_time = traf
                         .tfdt
@@ -260,10 +413,8 @@ impl TrackState {
 
                 self.last_end_time = end_time;
 
-                if let Some(stop_at) = self.stop_at {
-                    if end_time >= stop_at && keyframe > 0 {
-                        self.stop();
-                    }
+                if self.stop_at.map(|s| s <= end_time).unwrap_or_default() {
+                    self.stop();
                 }
 
                 Ok(Some(TrackResult::Media {
@@ -280,24 +431,19 @@ impl TrackState {
         }
     }
 
-    fn handle_requests(&mut self) -> Result<Option<TrackRequest>, JsValue> {
-        let Some(req) = self.requests.front() else {
-            return Ok(None);
-        };
-
-        if req.req.is_done() {
-            Ok(self.requests.pop_front())
-        } else {
-            Ok(None)
-        }
-    }
-
     pub fn set_stop_at(&mut self, stop_at: Option<f64>) {
         self.stop_at = stop_at;
+        if let Some(stop_at) = self.stop_at {
+            if stop_at <= self.last_end_time {
+                self.stop();
+            }
+        }
     }
 
     pub fn set_low_latency(&mut self, low_latency: bool) {
         self.low_latency = low_latency;
+        self.requests
+            .set_max_concurrent_requests(if low_latency { 3 } else { 1 })
     }
 
     pub fn stop_at(&self) -> Option<f64> {
@@ -315,13 +461,13 @@ impl TrackState {
                     self.track.playlist_url.as_str(),
                     segment.map.as_deref().unwrap(),
                 )?;
-                self.requests.push_back(TrackRequest {
-                    req: FetchRequest::new("GET", url.as_str())
+                self.requests.push(TrackRequest::new(
+                    FetchRequest::new("GET", url)
                         .header("Accept", "video/mp4")
-                        .set_timeout(2000)
-                        .start()?,
-                    is_init: true,
-                });
+                        .set_timeout(2000),
+                    true,
+                    false,
+                ))?;
                 self.current_map_sn = segment.sn;
             }
 
@@ -356,72 +502,144 @@ impl TrackState {
             if let Some(map) = &segment.map {
                 if self.current_map_sn < segment.sn {
                     let url = get_url(self.track.playlist_url.as_str(), map)?;
-                    self.requests.push_back(TrackRequest {
-                        req: FetchRequest::new("GET", url.as_str())
+                    self.requests.push(TrackRequest::new(
+                        FetchRequest::new("GET", url)
                             .header("Accept", "video/mp4")
-                            .set_timeout(2000)
-                            .start()?,
-                        is_init: true,
-                    });
+                            .set_timeout(2000),
+                        true,
+                        false,
+                    ))?;
                 }
+            } else if self.current_map_sn < segment.sn.checked_sub(1).unwrap_or_default() {
+                // Since its now possible to start at any segment, we need to make sure we have
+                // the map for the previous segment
+                let url = get_url(
+                    self.track.playlist_url.as_str(),
+                    playlist
+                        .segments
+                        .iter()
+                        .rev()
+                        .find_map(|s| s.map.as_ref())
+                        .ok_or("missing map")?,
+                )?;
+                self.requests.push(TrackRequest::new(
+                    FetchRequest::new("GET", url)
+                        .header("Accept", "video/mp4")
+                        .set_timeout(2000),
+                    true,
+                    false,
+                ))?;
             }
 
             self.current_map_sn = segment.sn;
 
-            if segment.url.is_empty() && (!self.low_latency || segment.parts.is_empty()) {
-                continue;
-            }
+            if self.low_latency {
+                if segment.parts.is_empty() && segment.url.is_empty() {
+                    break;
+                }
 
-            let url = if self.low_latency && segment.parts.len() > self.current_part as usize {
-                let part = &segment.parts[self.current_part as usize];
-                self.current_part += 1;
-                self.last_fetch_delay = part.duration * 1000.0 / 2.0;
-                part.uri.as_str()
-            } else if !segment.url.is_empty() {
-                self.current_part = 0;
-                self.current_sn = segment.sn + 1;
-                self.last_fetch_delay = segment.duration / 2.0 * 1000.0;
-                segment.url.as_str()
+                if !segment.url.is_empty() && self.current_part == 0 {
+                    // We havent loaded this segment yet and it has a completed url
+                    // So we just request that instead
+                    let url = get_url(self.track.playlist_url.as_str(), &segment.url)?;
+                    self.last_fetch_delay = segment.duration / 2.0 * 1000.0;
+                    self.requests.push(TrackRequest::new(
+                        FetchRequest::new("GET", url)
+                            .header("Accept", "video/mp4")
+                            .set_timeout((segment.duration * 1000.0) as u32 + 1500),
+                        false,
+                        false,
+                    ))?;
+                } else {
+                    for part in segment.parts.iter().skip(self.current_part as usize) {
+                        let url = get_url(self.track.playlist_url.as_str(), &part.uri)?;
+                        if !self.preloaded_map.remove(&url) {
+                            self.last_fetch_delay = part.duration * 1000.0 / 2.0;
+                            self.requests.push(TrackRequest::new(
+                                FetchRequest::new("GET", url)
+                                    .header("Accept", "video/mp4")
+                                    .set_timeout((part.duration * 1000.0) as u32 + 1500),
+                                false,
+                                false,
+                            ))?;
+                        }
+
+                        self.current_part += 1;
+                    }
+                }
+
+                if !segment.url.is_empty() {
+                    self.current_sn = segment.sn + 1;
+                    self.current_part = 0;
+                }
             } else {
-                continue;
-            };
+                if segment.url.is_empty() {
+                    break;
+                }
 
-            let url = get_url(self.track.playlist_url.as_str(), url)?;
-            self.requests.push_back(TrackRequest {
-                req: FetchRequest::new("GET", url.as_str())
-                    .header("Accept", "video/mp4")
-                    .set_timeout(2000)
-                    .start()?,
-                is_init: false,
-            });
-
-            if self.low_latency
-                && segment.parts.len() == self.current_part as usize
-                && !segment.url.is_empty()
-            {
-                // We are finished with this segment
                 self.current_sn = segment.sn + 1;
                 self.current_part = 0;
-                continue;
+                let url = get_url(self.track.playlist_url.as_str(), &segment.url)?;
+                self.last_fetch_delay = segment.duration / 2.0 * 1000.0;
+                self.requests.push(TrackRequest::new(
+                    FetchRequest::new("GET", url)
+                        .header("Accept", "video/mp4")
+                        .set_timeout((segment.duration * 1000.0) as u32 + 1500),
+                    false,
+                    false,
+                ))?;
             }
         }
 
-        // If the playlist has an end list tag we don't need to request it again
         if playlist.end_list {
             self.next_playlist_req_time = -1.0;
         } else if self.next_playlist_req_time == -1.0 {
             self.next_playlist_req_time = now() + self.last_fetch_delay;
         }
 
+        let msn = playlist
+            .segments
+            .last()
+            .map(|s| s.sn)
+            .unwrap_or(playlist.media_sequence);
+        if msn < self.current_sn {
+            return Ok(());
+        }
+
+        if self.low_latency {
+            for hint in &playlist.preload_hint {
+                let is_init = hint.hint_type.to_uppercase() == "MAP";
+                let url = get_url(self.track.playlist_url.as_str(), &hint.uri)?;
+                if self.preloaded_map.insert(url.clone()) {
+                    self.requests.push(TrackRequest::new(
+                        FetchRequest::new("GET", url)
+                            .header("Accept", "video/mp4")
+                            .set_timeout(
+                                (playlist.part_target_duration.unwrap_or(0.5) * 1000.0) as u32
+                                    + 1500,
+                            ),
+                        is_init,
+                        true,
+                    ))?;
+                }
+            }
+        }
+
         Ok(())
     }
 
     fn request_playlist(&mut self) -> Result<(), JsValue> {
-        if let Some(req) = self.playlist_req.as_ref() {
+        if let Some(req) = self.playlist_req.as_mut() {
             if let Some(result) = req.result()? {
-                match hls::Playlist::try_from(result.as_slice())? {
-                    hls::Playlist::Media(playlist) => {
+                match hls::Playlist::try_from(result.as_slice()) {
+                    Ok(hls::Playlist::Media(playlist)) => {
                         self.playlist = Some(playlist);
+                        self.next_playlist_req_time = -1.0;
+                        self.last_playlist_fetch = now();
+                    }
+                    Err(err) => {
+                        tracing::error!("failed to parse playlist: {}", err);
+                        self.next_playlist_req_time = now();
                     }
                     _ => {
                         return Err("invalid playlist".into());
@@ -429,19 +647,22 @@ impl TrackState {
                 }
 
                 self.playlist_req = None;
-                self.next_playlist_req_time = -1.0;
-                self.last_playlist_fetch = now();
             }
-        } else if self.next_playlist_req_time != -1.0 {
+        }
+
+        if self.next_playlist_req_time != -1.0 && self.playlist_req.is_none() {
             if self.low_latency
-                && self
+                && (self
                     .playlist
                     .as_ref()
                     .and_then(|p| p.server_control.as_ref().map(|s| s.can_block_reload))
                     .unwrap_or_default()
+                    || self.was_rendition)
             {
                 // Low latency request
                 let mut url = self.track.playlist_url.clone();
+
+                self.was_rendition = false;
 
                 url.query_pairs_mut()
                     .append_pair("_HLS_msn", self.current_sn.to_string().as_str());
@@ -449,14 +670,14 @@ impl TrackState {
                     .append_pair("_HLS_part", self.current_part.to_string().as_str());
 
                 self.playlist_req = Some(
-                    FetchRequest::new("GET", url.as_str())
+                    FetchRequest::new("GET", url)
                         .header("Accept", "application/vnd.apple.mpegurl")
-                        .set_timeout(2000)
+                        .set_timeout(5000)
                         .start()?,
                 );
             } else if now() >= self.next_playlist_req_time {
                 self.playlist_req = Some(
-                    FetchRequest::new("GET", self.track.playlist_url.as_str())
+                    FetchRequest::new("GET", self.track.playlist_url.clone())
                         .header("Accept", "application/vnd.apple.mpegurl")
                         .set_timeout(2000)
                         .start()?,
@@ -467,12 +688,17 @@ impl TrackState {
         Ok(())
     }
 
-    pub fn track(&self) -> &Track {
-        &self.track
-    }
-
     pub fn start(&mut self) {
         self.running = true;
+        self.stop_at = None;
+        self.was_rendition = false;
+    }
+
+    pub fn start_at(&mut self, current_sn: u32) {
+        self.running = true;
+        self.current_sn = current_sn;
+        self.current_part = 0;
+        self.was_rendition = true;
         self.stop_at = None;
     }
 
@@ -488,6 +714,7 @@ impl TrackState {
         self.last_playlist_fetch = 0.0;
         self.next_playlist_req_time = 0.0;
         self.requests.clear();
+        self.preloaded_map.clear();
     }
 
     pub fn set_playlist(&mut self, playlist: MediaPlaylist) {

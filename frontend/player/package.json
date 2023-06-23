@@ -13,7 +13,7 @@
 		"format": "prettier --plugin-search-dir . --write \"**/*\" -u && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged",
 		"demo:dev": "pnpm run wasm:watch & vite",
 		"demo:build": "pnpm run wasm:build --release && tsc && vite build -c vite.demo.config.ts",
-		"demo:preview": "vite preview",
+		"demo:preview": "vite preview -c vite.demo.config.ts",
 		"clean": "rimraf dist pkg"
 	},
 	"module": "./dist/player.js",

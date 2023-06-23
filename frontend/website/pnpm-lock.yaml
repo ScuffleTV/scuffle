@@ -53,8 +53,8 @@ devDependencies:
     specifier: ^3.2.0
     version: 3.2.0(graphql@16.7.1)
   '@playwright/test':
-    specifier: ^1.35.1
-    version: 1.35.1
+    specifier: ^1.36.0
+    version: 1.36.0
   '@rollup/plugin-commonjs':
     specifier: ^24.1.0
     version: 24.1.0(rollup@3.26.2)
@@ -68,8 +68,8 @@ devDependencies:
     specifier: ^5.0.2
     version: 5.0.2(rollup@3.26.2)
   '@sveltejs/kit':
-    specifier: ^1.22.2
-    version: 1.22.2(svelte@3.59.2)(vite@4.4.3)
+    specifier: ^1.22.3
+    version: 1.22.3(svelte@3.59.2)(vite@4.4.3)
   '@types/fs-extra':
     specifier: ^11.0.1
     version: 11.0.1
@@ -117,7 +117,7 @@ devDependencies:
     version: 3.59.2
   svelte-adapter-deno:
     specifier: ^0.9.0
-    version: 0.9.0(@sveltejs/kit@1.22.2)
+    version: 0.9.0(@sveltejs/kit@1.22.3)
   svelte-check:
     specifier: ^3.4.6
     version: 3.4.6(@babel/core@7.22.8)(sass@1.63.6)(svelte@3.59.2)
@@ -1948,13 +1948,13 @@ packages:
       webcrypto-core: 1.7.7
     dev: true
 
-  /@playwright/test@1.35.1:
-    resolution: {integrity: sha512-b5YoFe6J9exsMYg0pQAobNDR85T1nLumUYgUTtKm4d21iX2L7WqKq9dW8NGJ+2vX0etZd+Y7UeuqsxDXm9+5ZA==}
+  /@playwright/test@1.36.0:
+    resolution: {integrity: sha512-yN+fvMYtiyLFDCQos+lWzoX4XW3DNuaxjBu68G0lkgLgC6BP+m/iTxJQoSicz/x2G5EsrqlZTqTIP9sTgLQerg==}
     engines: {node: '>=16'}
     hasBin: true
     dependencies:
       '@types/node': 18.16.19
-      playwright-core: 1.35.1
+      playwright-core: 1.36.0
     optionalDependencies:
       fsevents: 2.3.2
     dev: true
@@ -2045,8 +2045,8 @@ packages:
       rollup: 3.26.2
     dev: true
 
-  /@sveltejs/kit@1.22.2(svelte@3.59.2)(vite@4.4.3):
-    resolution: {integrity: sha512-T6GY5jSfQgoDnNPNqAuDi9IK+ZW0TspzTV16UAN6GTsxbri67DGVIbw7QOXPg8FMrZQMmda1AtAxPMfXbOqCgw==}
+  /@sveltejs/kit@1.22.3(svelte@3.59.2)(vite@4.4.3):
+    resolution: {integrity: sha512-IpHD5wvuoOIHYaHQUBJ1zERD2Iz+fB/rBXhXjl8InKw6X4VKE9BSus+ttHhE7Ke+Ie9ecfilzX8BnWE3FeQyng==}
     engines: {node: ^16.14 || >=18}
     hasBin: true
     requiresBuild: true
@@ -2575,7 +2575,7 @@ packages:
     hasBin: true
     dependencies:
       caniuse-lite: 1.0.30001515
-      electron-to-chromium: 1.4.455
+      electron-to-chromium: 1.4.457
       node-releases: 2.0.13
       update-browserslist-db: 1.0.11(browserslist@4.21.9)
     dev: true
@@ -3017,8 +3017,8 @@ packages:
     engines: {node: '>=4'}
     dev: true
 
-  /electron-to-chromium@1.4.455:
-    resolution: {integrity: sha512-8tgdX0Odl24LtmLwxotpJCVjIndN559AvaOtd67u+2mo+IDsgsTF580NB+uuDCqsHw8yFg53l5+imFV9Fw3cbA==}
+  /electron-to-chromium@1.4.457:
+    resolution: {integrity: sha512-/g3UyNDmDd6ebeWapmAoiyy+Sy2HyJ+/X8KyvNeHfKRFfHaA2W8oF5fxD5F3tjBDcjpwo0iek6YNgxNXDBoEtA==}
     dev: true
 
   /emoji-regex@8.0.0:
@@ -3591,8 +3591,8 @@ packages:
     engines: {node: '>=0.8.0'}
     dev: true
 
-  /immutable@4.3.0:
-    resolution: {integrity: sha512-0AOCmOip+xgJwEVTQj1EfiDDOkPmuyllDuTuEX+DDXUgapLAsBIfkg3sxCYyCEA8mQqZrrxPUGjcOQ2JS3WLkg==}
+  /immutable@4.3.1:
+    resolution: {integrity: sha512-lj9cnmB/kVS0QHsJnYKD1uo3o39nrbKxszjnqS9Fr6NB7bZzW45U6WSGBPKXDL/CvDKqDNPA4r3DoDQ8GTxo2A==}
     dev: true
 
   /import-fresh@3.3.0:
@@ -4329,8 +4329,8 @@ packages:
     engines: {node: '>=8.6'}
     dev: true
 
-  /playwright-core@1.35.1:
-    resolution: {integrity: sha512-pNXb6CQ7OqmGDRspEjlxE49w+4YtR6a3X6mT1hZXeJHWmsEz7SunmvZeiG/+y1yyMZdHnnn73WKYdtV1er0Xyg==}
+  /playwright-core@1.36.0:
+    resolution: {integrity: sha512-7RTr8P6YJPAqB+8j5ATGHqD6LvLLM39sYVNsslh78g8QeLcBs5750c6+msjrHUwwGt+kEbczBj1XB22WMwn+WA==}
     engines: {node: '>=16'}
     hasBin: true
     dev: true
@@ -4558,7 +4558,7 @@ packages:
     hasBin: true
     dependencies:
       chokidar: 3.5.3
-      immutable: 4.3.0
+      immutable: 4.3.1
       source-map-js: 1.0.2
     dev: true
 
@@ -4762,7 +4762,7 @@ packages:
     engines: {node: '>= 0.4'}
     dev: true
 
-  /svelte-adapter-deno@0.9.0(@sveltejs/kit@1.22.2):
+  /svelte-adapter-deno@0.9.0(@sveltejs/kit@1.22.3):
     resolution: {integrity: sha512-BIo0tb3BXp9kimM9NQYR9+xqUXKFgMzxS8+5Ly256MoHl8F3ENMFDF0yCCyiqtf3M/LuZwQKq7Ko4PhpQZMUAQ==}
     peerDependencies:
       '@sveltejs/kit': ^1.0.0
@@ -4770,7 +4770,7 @@ packages:
       '@rollup/plugin-commonjs': 24.1.0(rollup@3.26.2)
       '@rollup/plugin-json': 6.0.0(rollup@3.26.2)
       '@rollup/plugin-node-resolve': 15.1.0(rollup@3.26.2)
-      '@sveltejs/kit': 1.22.2(svelte@3.59.2)(vite@4.4.3)
+      '@sveltejs/kit': 1.22.3(svelte@3.59.2)(vite@4.4.3)
       rollup: 3.26.2
     dev: true
 

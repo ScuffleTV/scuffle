@@ -4,7 +4,7 @@ mod hls;
 mod player;
 mod tracing_wasm;
 
-#[wasm_bindgen(start, skip_typescript)]
+#[wasm_bindgen(main)]
 pub fn main() -> Result<(), JsValue> {
     console_error_panic_hook::set_once();
 
@@ -12,3 +12,6 @@ pub fn main() -> Result<(), JsValue> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

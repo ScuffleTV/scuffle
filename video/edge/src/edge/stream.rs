@@ -50,7 +50,7 @@ pub async fn variant_playlist(req: Request<Body>) -> Result<Response<Body>> {
         let mut count = 0;
 
         loop {
-            if count > 10 {
+            if count > 100 {
                 return Err((StatusCode::BAD_REQUEST, "Bad Request").into());
             }
 
@@ -75,14 +75,6 @@ pub async fn variant_playlist(req: Request<Body>) -> Result<Response<Body>> {
             let current_segment_idx: u64 = fields[0].parse::<u64>().unwrap_or_default();
             let current_fragment_idx: u64 = fields[1].parse::<u64>().unwrap_or_default();
 
-            tracing::info!(
-                sequence_number = sequence_number,
-                current_segment_idx = current_segment_idx,
-                part_number = part_number,
-                current_fragment_idx = current_fragment_idx,
-                "waiting for sequence number"
-            );
-
             if sequence_number > current_segment_idx + 3 {
                 return Err((StatusCode::BAD_REQUEST, "Bad Request").into());
             }
@@ -94,7 +86,7 @@ pub async fn variant_playlist(req: Request<Body>) -> Result<Response<Body>> {
             }
 
             count += 1;
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
         }
     }
 
@@ -213,14 +205,6 @@ pub async fn segment(req: Request<Body>) -> Result<Response<Body>> {
 
             let current_segment_idx: u64 = fields[0].parse::<u64>().unwrap_or_default();
             let current_fragment_idx: u64 = fields[1].parse::<u64>().unwrap_or_default();
-
-            tracing::info!(
-                sequence_number = sequence_number,
-                current_segment_idx = current_segment_idx,
-                part_number = part_number,
-                current_fragment_idx = current_fragment_idx,
-                "waiting for sequence number"
-            );
 
             if sequence_number > current_segment_idx + 3 {
                 return Err((StatusCode::BAD_REQUEST, "Bad Request").into());

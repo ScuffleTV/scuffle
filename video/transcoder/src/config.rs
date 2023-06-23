@@ -40,6 +40,7 @@ pub struct TranscoderConfig {
 
     /// The uid to use for the unix socket and ffmpeg process
     pub uid: u32,
+
     /// The gid to use for the unix socket and ffmpeg process
     pub gid: u32,
 }
@@ -47,8 +48,8 @@ pub struct TranscoderConfig {
 impl Default for TranscoderConfig {
     fn default() -> Self {
         Self {
-            socket_dir: "/tmp".to_string(),
             rmq_queue: "transcoder".to_string(),
+            socket_dir: format!("/tmp/{}", std::process::id()),
             uid: 1000,
             gid: 1000,
         }

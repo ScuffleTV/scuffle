@@ -57,6 +57,12 @@ pub fn cors_middleware(_: &Arc<GlobalState>) -> Middleware<Body, RouteError> {
         resp.headers_mut()
             .insert(header::ACCESS_CONTROL_ALLOW_HEADERS, "*".parse().unwrap());
         resp.headers_mut().insert(
+            header::ACCESS_CONTROL_EXPOSE_HEADERS,
+            "Date".parse().unwrap(),
+        );
+        resp.headers_mut()
+            .insert("Timing-Allow-Origin", "*".parse().unwrap());
+        resp.headers_mut().insert(
             header::ACCESS_CONTROL_MAX_AGE,
             Duration::from_secs(86400)
                 .as_secs()

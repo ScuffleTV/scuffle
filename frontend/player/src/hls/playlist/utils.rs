@@ -34,6 +34,7 @@ pub enum Tag {
     ExtXSessionData(HashMap<String, String>),
     ExtXSessionKey(HashMap<String, String>),
     ExtXContentSteering(HashMap<String, String>),
+    ExtXScufGroup(HashMap<String, String>),
     Unknown(String),
 }
 
@@ -52,6 +53,7 @@ impl Tag {
                 | Tag::ExtXSessionData(_)
                 | Tag::ExtXSessionKey(_)
                 | Tag::ExtXContentSteering(_)
+                | Tag::ExtXScufGroup(_)
                 | Tag::Unknown(_)
         )
     }
@@ -397,6 +399,14 @@ fn parse_tag<'a>(lines: &mut impl Iterator<Item = &'a str>) -> Result<Option<Tag
             )?;
 
             Ok(Some(Tag::ExtXContentSteering(attributes)))
+        }
+        line if line.starts_with("#EXT-X-SCUF-GROUP:") => {
+            let attributes = parse_attributes(
+                line.strip_prefix("#EXT-X-SCUF-GROUP:")
+                    .ok_or("invalid scuf group")?,
+            )?;
+
+            Ok(Some(Tag::ExtXScufGroup(attributes)))
         }
         line => Ok(Some(Tag::Unknown(line.into()))),
     }

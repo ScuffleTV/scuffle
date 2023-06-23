@@ -67,6 +67,10 @@ features = [
     "Window",
     "XmlHttpRequest",
     "XmlHttpRequestResponseType",
+    "PerformanceResourceTiming",
+    "PerformanceObserver",
+    "PerformanceObserverInit",
+    "PerformanceObserverEntryList",
 ]
 
 [dev-dependencies]

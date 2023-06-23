@@ -4,13 +4,19 @@ use serde::Serialize;
 
 use super::utils::Tag;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct MasterPlaylist {
     pub streams: Vec<Stream>,
     pub groups: HashMap<String, Vec<Media>>,
+    pub scuf_groups: HashMap<String, ScufGroup>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct ScufGroup {
+    pub priority: i32,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub enum MediaType {
     Audio,
     Video,
@@ -18,29 +24,32 @@ pub enum MediaType {
     ClosedCaptions,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Media {
     pub media_type: MediaType,
     pub uri: String,
     pub name: String,
+    pub group_id: String,
+    pub codecs: String,
+    pub bandwidth: u32,
     pub autoselect: bool,
     pub default: bool,
     pub forced: bool,
+    pub resolution: Option<(u32, u32)>,
+    pub frame_rate: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Stream {
     pub uri: String,
     pub bandwidth: u32,
-    pub average_bandwidth: Option<u32>,
-    pub codecs: Option<String>,
+    pub name: String,
+    pub group: String,
+    pub codecs: String,
     pub resolution: Option<(u32, u32)>,
     pub frame_rate: Option<f64>,
-    pub hdcp_level: Option<String>,
     pub audio: Option<String>,
     pub video: Option<String>,
-    pub subtitles: Option<String>,
-    pub closed_captions: Option<String>,
 }
 
 impl MasterPlaylist {
@@ -50,18 +59,15 @@ impl MasterPlaylist {
             .filter_map(|t| match t {
                 Tag::ExtXStreamInf(attributes, uri) => Some(Stream {
                     uri: uri.clone(),
+                    name: attributes.get("NAME").map(|s| s.to_string())?,
+                    group: attributes.get("GROUP").map(|s| s.to_string())?,
                     audio: attributes.get("AUDIO").map(|s| s.to_string()),
                     video: attributes.get("VIDEO").map(|s| s.to_string()),
-                    subtitles: attributes.get("SUBTITLES").map(|s| s.to_string()),
-                    closed_captions: attributes.get("CLOSED-CAPTIONS").map(|s| s.to_string()),
                     bandwidth: attributes
                         .get("BANDWIDTH")
                         .and_then(|s| s.parse().ok())
                         .unwrap_or(0),
-                    average_bandwidth: attributes
-                        .get("AVERAGE-BANDWIDTH")
-                        .and_then(|s| s.parse().ok()),
-                    codecs: attributes.get("CODECS").map(|s| s.to_string()),
+                    codecs: attributes.get("CODECS").map(|s| s.to_string())?,
                     resolution: attributes.get("RESOLUTION").and_then(|s| {
                         let mut parts = s.split('x');
                         let width = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
@@ -73,7 +79,6 @@ impl MasterPlaylist {
                         }
                     }),
                     frame_rate: attributes.get("FRAME-RATE").and_then(|s| s.parse().ok()),
-                    hdcp_level: attributes.get("HDCP-LEVEL").map(|s| s.to_string()),
                 }),
                 _ => None,
             })
@@ -112,11 +117,36 @@ impl MasterPlaylist {
                         .map(|s| s == "YES")
                         .unwrap_or_default();
 
+                    let group_id = attributes
+                        .get("GROUP-ID")
+                        .map(|s| s.to_string())
+                        .unwrap_or_default();
+
+                    let bandwidth = attributes
+                        .get("BANDWIDTH")
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(0);
+
+                    let codecs = attributes
+                        .get("CODECS")
+                        .map(|s| s.to_string())
+                        .unwrap_or_default();
+
+                    let resolution = attributes.get("RESOLUTION").and_then(|s| {
+                        let mut parts = s.split('x');
+                        let width = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+                        let height = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+                        if width == 0 || height == 0 {
+                            None
+                        } else {
+                            Some((width, height))
+                        }
+                    });
+
+                    let frame_rate = attributes.get("FRAME-RATE").and_then(|s| s.parse().ok());
+
                     Some((
-                        attributes
-                            .get("GROUP-ID")
-                            .map(|s| s.to_string())
-                            .unwrap_or_default(),
+                        group_id.clone(),
                         Media {
                             media_type,
                             uri,
@@ -124,6 +154,11 @@ impl MasterPlaylist {
                             autoselect,
                             default,
                             forced,
+                            group_id,
+                            bandwidth,
+                            codecs,
+                            resolution,
+                            frame_rate,
                         },
                     ))
                 }
@@ -137,6 +172,31 @@ impl MasterPlaylist {
                 },
             );
 
-        Ok(Self { streams, groups })
+        let scuf_groups = tags
+            .iter()
+            .filter_map(|t| match t {
+                Tag::ExtXScufGroup(attributes) => {
+                    let priority = attributes
+                        .get("PRIORITY")
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(0);
+
+                    Some((
+                        attributes
+                            .get("GROUP")
+                            .map(|s| s.to_string())
+                            .unwrap_or_default(),
+                        ScufGroup { priority },
+                    ))
+                }
+                _ => None,
+            })
+            .collect();
+
+        Ok(Self {
+            streams,
+            groups,
+            scuf_groups,
+        })
     }
 }

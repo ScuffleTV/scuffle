@@ -6,12 +6,21 @@ use super::utils::Tag;
 pub struct MediaPlaylist {
     pub version: u8,
     pub target_duration: u32,
+    pub part_target_duration: Option<f64>,
     pub media_sequence: u32,
     pub discontinuity_sequence: u32,
     pub end_list: bool,
     pub server_control: Option<ServerControl>,
     pub segments: Vec<Segment>,
     pub preload_hint: Vec<PreloadHint>,
+    pub rendition_reports: Vec<RenditionReport>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RenditionReport {
+    pub uri: String,
+    pub last_msn: u32,
+    pub last_part: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -122,6 +131,7 @@ impl MediaPlaylist {
         let mut current_segment = None;
         let mut program_date_time = None;
         let mut discontinuity = false;
+        let mut part_target_duration = None;
 
         for tag in tags.iter() {
             match tag {
@@ -191,6 +201,16 @@ impl MediaPlaylist {
 
                     current_segment.parts.push(part);
                 }
+                Tag::ExtXPartInf(attributes) => {
+                    let duration = attributes
+                        .get("PART-TARGET")
+                        .ok_or("no DURATION attribute found")?;
+                    let duration = duration
+                        .parse()
+                        .map_err(|_| "DURATION attribute is not a number")?;
+
+                    part_target_duration = Some(duration);
+                }
                 _ => {}
             }
         }
@@ -219,6 +239,36 @@ impl MediaPlaylist {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        let rendition_reports = tags
+            .iter()
+            .filter_map(|t| match t {
+                Tag::ExtXRenditionReport(attributes) => {
+                    let Some(uri) = attributes.get("URI") else {
+                        return Some(Err("no URI attribute found"));
+                    };
+                    let Some(last_msn) = attributes.get("LAST-MSN") else {
+                        return Some(Err("no LAST-MSN attribute found"));
+                    };
+                    let Ok(last_msn) = last_msn.parse() else {
+                        return Some(Err("LAST-MSN attribute is not a number"));    
+                    };
+                    let Some(last_part) = attributes.get("LAST-PART") else {
+                        return Some(Err("no LAST-PART attribute found"));
+                    };
+                    let Ok(last_part) = last_part.parse() else {
+                        return Some(Err("LAST-PART attribute is not a number"));
+                    };
+
+                    Some(Ok(RenditionReport {
+                        uri: uri.clone(),
+                        last_msn,
+                        last_part,
+                    }))
+                }
+                _ => None,
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         Ok(Self {
             version,
             target_duration,
@@ -228,6 +278,8 @@ impl MediaPlaylist {
             server_control,
             segments,
             preload_hint,
+            part_target_duration,
+            rendition_reports,
         })
     }
 }

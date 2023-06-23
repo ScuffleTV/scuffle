@@ -31,6 +31,7 @@ use tokio::{net::UnixListener, select, sync::mpsc};
 use tokio_util::sync::CancellationToken;
 
 use super::{
+    renditions::RenditionMap,
     track_parser::{track_parser, TrackOut, TrackSample},
     utils::{release_lock, set_lock, unix_stream},
 };
@@ -63,6 +64,7 @@ struct Variant {
     segment_state: HashMap<u32, (state::SegmentState, HashMap<u32, Bytes>)>,
     ready: mpsc::Sender<()>,
     is_ready: bool,
+    renditions: Arc<RenditionMap>,
 }
 
 pub async fn handle_variant(
@@ -72,8 +74,9 @@ pub async fn handle_variant(
     variant_id: String,
     request_id: String,
     track: UnixListener,
+    renditions: Arc<RenditionMap>,
 ) -> Result<String, ()> {
-    let mut variant = Variant::new(ready, 1, stream_id, variant_id, request_id);
+    let mut variant = Variant::new(ready, 1, stream_id, variant_id, request_id, renditions);
 
     variant
         .run(
@@ -92,6 +95,7 @@ impl Variant {
         stream_id: String,
         variant_id: String,
         request_id: String,
+        renditions: Arc<RenditionMap>,
     ) -> Self {
         Self {
             stream_id,
@@ -104,6 +108,7 @@ impl Variant {
             segment_state: HashMap::new(),
             should_discontinuity: false,
             ready,
+            renditions,
             is_ready: false,
         }
     }
@@ -116,7 +121,7 @@ impl Variant {
     ) -> Result<(), ()> {
         let mut set_lock_fut = pin!(set_lock(
             global.clone(),
-            consts::redis_mutex_key(&self.stream_id, &self.variant_id),
+            consts::redis_mutex_key(&self.stream_id.to_string(), &self.variant_id.to_string()),
             self.request_id.clone(),
             self.lock_owner.clone(),
         ));
@@ -273,6 +278,7 @@ impl Variant {
             }
             Operation::Fragments => {
                 self.handle_sample(global).await?;
+                self.update_renditions();
 
                 let pipeline = global.redis.pipeline();
                 if self.update_keys(&pipeline).await? {
@@ -288,6 +294,30 @@ impl Variant {
         }
 
         Ok(())
+    }
+
+    fn update_renditions(&self) {
+        let current_segment_idx = self.redis_state.current_segment_idx()
+            - if self.redis_state.current_fragment_idx() == 0
+                && self.redis_state.current_segment_idx() != 0
+            {
+                1
+            } else {
+                0
+            };
+        let current_fragment_idx = self
+            .segment_state
+            .get(&current_segment_idx)
+            .map(|(segment, _)| segment.fragments().len())
+            .unwrap_or(0) as u32;
+        let current_fragment_idx = if current_fragment_idx != 0 {
+            current_fragment_idx - 1
+        } else {
+            0
+        };
+
+        self.renditions
+            .set(&self.variant_id, current_segment_idx, current_fragment_idx);
     }
 
     async fn construct_init(&mut self, global: &Arc<GlobalState>) -> Result<()> {
@@ -904,7 +934,7 @@ impl Variant {
         }
 
         segment_data.push_str(&format!(
-            "#EXT-X-PRELOAD-HINT:TYPE=PART,URI=\"{}.{}.mp4\"",
+            "#EXT-X-PRELOAD-HINT:TYPE=PART,URI=\"{}.{}.mp4\"\n",
             self.redis_state.current_segment_idx(),
             self.redis_state.current_fragment_idx()
         ));
@@ -932,6 +962,20 @@ impl Variant {
         playlist.push_str("#EXT-X-MAP:URI=\"init.mp4\"\n");
 
         playlist.push_str(&segment_data);
+
+        playlist.push('\n');
+
+        for rendition in self
+            .renditions
+            .renditions()
+            .into_iter()
+            .filter(|rendition| rendition.id != self.variant_id)
+        {
+            playlist.push_str(&format!(
+                "#EXT-X-RENDITION-REPORT:URI=\"../{}/index.m3u8\",LAST-MSN={},LAST-PART={}\n",
+                rendition.id, rendition.last_msn, rendition.last_part
+            ));
+        }
 
         self.redis_state.set_playlist(playlist);
 

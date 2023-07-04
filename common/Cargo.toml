@@ -6,7 +6,7 @@ authors = ["Scuffle <opensource@scuffle.tv>"]
 description = "Scuffle Common Library"
 
 [features]
-logging = ["dep:log", "dep:tracing", "dep:tracing-log", "dep:tracing-subscriber", "dep:arc-swap", "dep:anyhow"]
+logging = ["dep:log", "dep:tracing", "dep:tracing-log", "dep:tracing-subscriber", "dep:arc-swap", "dep:anyhow", "dep:once_cell"]
 rmq = ["dep:lapin", "dep:arc-swap", "dep:anyhow", "dep:futures", "dep:tracing", "dep:tokio", "dep:async-stream", "prelude"]
 grpc = ["dep:tonic", "dep:anyhow", "dep:async-trait", "dep:futures", "dep:http", "dep:tower", "dep:trust-dns-resolver", "dep:tracing"]
 context = ["dep:tokio", "dep:tokio-util"]
@@ -33,7 +33,8 @@ tonic = { version = "0", features = ["tls"], optional = true }
 tokio = { version = "1", features = ["sync", "rt"], optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 lapin = { version = "2.0.3", features = ["native-tls"], optional = true }
-tracing-log = { version = "0", features = ["env_logger"], optional = true }
+tracing-log = { version = "0", features = ["env_logger"], optional = true, git = "https://github.com/tokio-rs/tracing.git" }
+once_cell = { version = "1", optional = true }
 trust-dns-resolver = { version = "0", features = ["tokio-runtime"], optional = true }
 tracing-subscriber = { version = "0", features = ["fmt", "env-filter", "json"], optional = true }
 

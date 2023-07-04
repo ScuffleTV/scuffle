@@ -56,8 +56,8 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"@fontsource/be-vietnam-pro": "^5.0.3",
-		"@fontsource/comfortaa": "^5.0.3",
+		"@fontsource/be-vietnam-pro": "^5.0.4",
+		"@fontsource/comfortaa": "^5.0.4",
 		"@urql/svelte": "^4.0.2",
 		"graphql": "^16.7.1",
 		"graphql-ws": "^5.14.0",

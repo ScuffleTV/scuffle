@@ -1,58 +1,32 @@
-use std::{str::FromStr, sync::RwLock};
+use std::str::FromStr;
 
 use anyhow::Result;
-use tracing_subscriber::{
-    prelude::*,
-    reload::{self, Handle},
-    EnvFilter, Layer, Registry,
-};
+use once_cell::sync::OnceCell;
+use tracing_subscriber::{prelude::*, reload::Handle, EnvFilter};
 
-type HandleType = Handle<EnvFilter, Registry>;
-
-static ONCE: std::sync::Once = std::sync::Once::new();
-static RELOAD_HANDLE: RwLock<Option<HandleType>> = RwLock::new(None);
+static RELOAD_HANDLE: OnceCell<Handle<EnvFilter>> = OnceCell::new();
 
 pub fn init(level: &str, json: bool) -> Result<()> {
-    let mut result: Result<(), anyhow::Error> = Ok(());
-    ONCE.call_once(|| {
-        let (env_filter, handle) =
-            reload::Layer::new(EnvFilter::from_str(level).expect("failed to parse log level"));
+    let reload = RELOAD_HANDLE.get_or_try_init(|| {
+        let env_filter = EnvFilter::from_str(level).expect("failed to parse log level");
 
-        let filter = tracing_subscriber::fmt::layer()
+        let filter = tracing_subscriber::fmt()
             .with_line_number(true)
-            .with_file(true);
+            .with_file(true)
+            .with_env_filter(env_filter)
+            .with_filter_reloading();
+
+        let handle = filter.reload_handle();
 
         if json {
-            let filter = filter.json().with_filter(env_filter);
-
-            let registry = tracing_subscriber::registry().with(filter);
-
-            result = tracing::subscriber::set_global_default(registry).map_err(|e| e.into());
-            if result.is_err() {
-                return;
-            }
+            filter.json().finish().try_init()
         } else {
-            let filter = filter.with_filter(env_filter);
-
-            let registry = tracing_subscriber::registry().with(filter);
-
-            result = tracing::subscriber::set_global_default(registry).map_err(|e| e.into());
-            if result.is_err() {
-                return;
-            }
+            filter.pretty().finish().try_init()
         }
+        .map(|_| handle)
+    })?;
 
-        *RELOAD_HANDLE.write().expect("failed to write to handler") = Some(handle);
-    });
-
-    result?;
-
-    RELOAD_HANDLE
-        .read()
-        .expect("failed to read mutex")
-        .as_ref()
-        .expect("failed to get reload handle")
-        .reload(level)?;
+    reload.reload(level)?;
 
     Ok(())
 }

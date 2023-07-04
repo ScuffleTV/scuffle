@@ -22,3 +22,8 @@ members = [
 exclude = [
     "frontend/player",
 ]
+
+[patch.crates-io]
+fred = { git = "https://github.com/ScuffleTV/fred.rs" }
+tracing-log = { git = "https://github.com/ScuffleTV/tracing" }
+tracing-subscriber = { git = "https://github.com/ScuffleTV/tracing" }

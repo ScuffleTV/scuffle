@@ -29,8 +29,15 @@ impl UserSubscription {
     ) -> Result<impl Stream<Item = Result<DisplayNameStream>> + 'ctx> {
         let global = ctx.get_global();
 
-        let Some(mut user) = global.user_by_id_loader.load_one(user_id).await.map_err_gql("failed to fetch user")? else {
-            return Err(GqlError::NotFound.with_message("user not found").with_field(vec!["user_id"]));
+        let Some(mut user) = global
+            .user_by_id_loader
+            .load_one(user_id)
+            .await
+            .map_err_gql("failed to fetch user")?
+        else {
+            return Err(GqlError::NotFound
+                .with_message("user not found")
+                .with_field(vec!["user_id"]));
         };
 
         let mut subscription = global

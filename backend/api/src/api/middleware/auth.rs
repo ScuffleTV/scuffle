@@ -84,7 +84,7 @@ pub fn auth_middleware(_: &Arc<GlobalState>) -> Middleware<Body, RouteError> {
 
         let global = req.get_global()?;
         let Ok(token) = token.to_str() else {
-           fail_fast!(mode, req);
+            fail_fast!(mode, req);
         };
 
         // Token's will start with "Bearer " so we need to remove that
@@ -100,7 +100,8 @@ pub fn auth_middleware(_: &Arc<GlobalState>) -> Middleware<Body, RouteError> {
             .session_by_id_loader
             .load_one(jwt.session_id)
             .await
-            .map_err_route("failed to fetch session")? else {
+            .map_err_route("failed to fetch session")?
+        else {
             fail_fast!(mode, req);
         };
 

@@ -111,7 +111,7 @@ impl Transmuxer {
         let mut writer = BytesWriter::default();
 
         let Some((video_settings, _)) = &self.settings else {
-             let Some((video_settings, audio_settings)) = self.init_sequence(&mut writer)? else {
+            let Some((video_settings, audio_settings)) = self.init_sequence(&mut writer)? else {
                 if self.tags.len() > 30 {
                     // We are clearly not getting any sequence headers, so we should just give up
                     return Err(TransmuxError::NoSequenceHeaders);

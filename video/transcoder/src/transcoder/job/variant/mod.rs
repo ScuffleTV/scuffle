@@ -458,7 +458,11 @@ impl Variant {
             // Discontinuities are a bit of a special case.
             // Any samples before the keyframe on track 1 are discarded.
             // Samples on other tracks will be added to the next fragment.
-            let Some(idx) = self.tracks[0].samples.iter().position(|(_, sample)| sample.keyframe) else {
+            let Some(idx) = self.tracks[0]
+                .samples
+                .iter()
+                .position(|(_, sample)| sample.keyframe)
+            else {
                 // We dont have a place to create a discontinuity yet, so we need to wait a little bit.
                 return Ok(());
             };
@@ -533,7 +537,10 @@ impl Variant {
 
         // If we have an index we can cut a new segment.
         if let Some(idx) = idx {
-            let Some((segment, _)) = self.segment_state.get_mut(&self.redis_state.current_segment_idx()) else {
+            let Some((segment, _)) = self
+                .segment_state
+                .get_mut(&self.redis_state.current_segment_idx())
+            else {
                 // This should never happen, but just in case.
                 return Err(anyhow!("failed to get current segment state"));
             };
@@ -579,22 +586,32 @@ impl Variant {
         }
 
         // We want to find out if we have enough samples to create a fragment.
-        let Some(idx) = sample_durations.iter().enumerate().find_map(|(idx, duration)| {
-            if *duration >= consts::FRAGMENT_CUT_TARGET_DURATION && (*duration * 1000.0).fract() == 0.0 {
-                return Some(Some(idx));
-            }
+        let Some(idx) = sample_durations
+            .iter()
+            .enumerate()
+            .find_map(|(idx, duration)| {
+                if *duration >= consts::FRAGMENT_CUT_TARGET_DURATION
+                    && (*duration * 1000.0).fract() == 0.0
+                {
+                    return Some(Some(idx));
+                }
 
-            if *duration >= consts::FRAGMENT_CUT_MAX_DURATION {
-                return Some(None);
-            }
+                if *duration >= consts::FRAGMENT_CUT_MAX_DURATION {
+                    return Some(None);
+                }
 
-            None
-        }) else {
+                None
+            })
+        else {
             // We dont have a place to create a fragment yet, so we need to wait a little bit.
             return Ok(());
         };
 
-        let Some(idx) = idx.or_else(|| sample_durations.iter().position(|d| *d >= consts::FRAGMENT_CUT_TARGET_DURATION)) else {
+        let Some(idx) = idx.or_else(|| {
+            sample_durations
+                .iter()
+                .position(|d| *d >= consts::FRAGMENT_CUT_TARGET_DURATION)
+        }) else {
             // We dont have a place to create a fragment yet, so we need to wait a little bit.
             return Ok(());
         };
@@ -628,7 +645,10 @@ impl Variant {
 
     fn create_fragment(&mut self, samples: Vec<Vec<TrackSample>>) -> Result<()> {
         // Get the current segment
-        let Some((segment, segment_data_state)) = self.segment_state.get_mut(&self.redis_state.current_segment_idx()) else {
+        let Some((segment, segment_data_state)) = self
+            .segment_state
+            .get_mut(&self.redis_state.current_segment_idx())
+        else {
             return Err(anyhow!("failed to get current segment"));
         };
 

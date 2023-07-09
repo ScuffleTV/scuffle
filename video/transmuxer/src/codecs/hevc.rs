@@ -15,7 +15,12 @@ use mp4::{
 use crate::TransmuxError;
 
 pub fn stsd_entry(config: HEVCDecoderConfigurationRecord) -> Result<(DynBox, Sps), TransmuxError> {
-    let Some(sps) = config.arrays.iter().find(|a| a.nal_unit_type == h265::NaluType::Sps).and_then(|v| v.nalus.get(0)) else {
+    let Some(sps) = config
+        .arrays
+        .iter()
+        .find(|a| a.nal_unit_type == h265::NaluType::Sps)
+        .and_then(|v| v.nalus.get(0))
+    else {
         return Err(TransmuxError::InvalidHEVCDecoderConfigurationRecord);
     };
 

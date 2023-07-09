@@ -82,22 +82,34 @@ async fn websocket_handler(
                     // We silently ignore invalid tokens since we don't want to force the user to login
                     // if the token is invalid when they make a request which requires authentication, it will fail.
                     let Some(jwt) = JwtState::verify(&global, token) else {
-                        return Err(GqlError::InvalidSession.with_message("invalid session token").extend());
+                        return Err(GqlError::InvalidSession
+                            .with_message("invalid session token")
+                            .extend());
                     };
 
-                    let Some(session) = global.session_by_id_loader.load_one(jwt.session_id).await.map_err_gql("failed to fetch session")? else {
-                        return Err(GqlError::InvalidSession.with_message("invalid session").extend());
+                    let Some(session) = global
+                        .session_by_id_loader
+                        .load_one(jwt.session_id)
+                        .await
+                        .map_err_gql("failed to fetch session")?
+                    else {
+                        return Err(GqlError::InvalidSession
+                            .with_message("invalid session")
+                            .extend());
                     };
 
                     if !session.is_valid() {
-                        return Err(GqlError::InvalidSession.with_message("session has invalidated").extend());
+                        return Err(GqlError::InvalidSession
+                            .with_message("session has invalidated")
+                            .extend());
                     }
 
                     let permissions = global
                         .user_permisions_by_id_loader
                         .load_one(session.id)
                         .await
-                        .map_err_gql("failed to fetch permissions")?.unwrap_or_default();
+                        .map_err_gql("failed to fetch permissions")?
+                        .unwrap_or_default();
 
                     request_context.set_session(Some((session, permissions)));
                 }

@@ -84,12 +84,18 @@ impl api_server::Api for ApiServer {
         }
 
         // Check user permissions
-        let Ok(permissions) = global.user_permisions_by_id_loader.load_one(channel_id).await else {
+        let Ok(permissions) = global
+            .user_permisions_by_id_loader
+            .load_one(channel_id)
+            .await
+        else {
             return Err(Status::internal("failed to query database"));
         };
 
         let Some(user_permissions) = permissions else {
-            return Err(Status::permission_denied("user has no permission to go live"));
+            return Err(Status::permission_denied(
+                "user has no permission to go live",
+            ));
         };
 
         if !user_permissions
@@ -348,10 +354,15 @@ impl api_server::Api for ApiServer {
             .parse::<Uuid>()
             .map_err(|_| Status::invalid_argument("invalid old stream ID: must be a valid UUID"))?;
 
-        let Some(old_stream) = global.stream_by_id_loader.load_one(old_stream_id).await.map_err(|e| {
-            tracing::error!("failed to load stream by ID: {}", e);
-            Status::internal("internal server error")
-        })? else {
+        let Some(old_stream) = global
+            .stream_by_id_loader
+            .load_one(old_stream_id)
+            .await
+            .map_err(|e| {
+                tracing::error!("failed to load stream by ID: {}", e);
+                Status::internal("internal server error")
+            })?
+        else {
             return Err(Status::not_found("stream not found"));
         };
 

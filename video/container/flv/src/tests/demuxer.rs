@@ -732,12 +732,22 @@ fn test_demux_flv_hevc_aac() {
         assert_eq!(config.num_temporal_layers, 1);
 
         // We should be able to find a SPS NAL unit in the sequence header
-        let Some(sps) = config.arrays.iter().find(|a| a.nal_unit_type == h265::NaluType::Sps).and_then(|v| v.nalus.get(0)) else {
+        let Some(sps) = config
+            .arrays
+            .iter()
+            .find(|a| a.nal_unit_type == h265::NaluType::Sps)
+            .and_then(|v| v.nalus.get(0))
+        else {
             panic!("expected sps");
         };
 
         // We should be able to find a PPS NAL unit in the sequence header
-        let Some(_) = config.arrays.iter().find(|a| a.nal_unit_type == h265::NaluType::Pps).and_then(|v| v.nalus.get(0)) else {
+        let Some(_) = config
+            .arrays
+            .iter()
+            .find(|a| a.nal_unit_type == h265::NaluType::Pps)
+            .and_then(|v| v.nalus.get(0))
+        else {
             panic!("expected pps");
         };
 

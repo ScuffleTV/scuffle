@@ -33,7 +33,7 @@ impl RequestContext {
     ) -> Result<Option<(session::Model, UserPermission)>> {
         let guard = self.session.load();
         let Some(session) = guard.as_ref() else {
-            return Ok(None)
+            return Ok(None);
         };
 
         if !self.is_websocket {

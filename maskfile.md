@@ -526,7 +526,7 @@ if [ "$no_rust" != "true" ]; then
 fi
 
 if [ "$no_js" != "true" ]; then
-    pnpm --recursive --stream install
+    pnpm --recursive --stream install --frozen-lockfile
 
     if [ "$no_js_tests" != "true" ]; then
         pnpm --filter website exec playwright install
@@ -544,6 +544,45 @@ if [ "$no_docker" != "true" ]; then
         $MASK db up
         $MASK db migrate
     fi
+fi
+```
+
+## update
+
+> Update the project
+
+**OPTIONS**
+
+- no_rust
+  - flags: --no-rust
+  - type: bool
+  - desc: Disables Rust updating
+- rust_up
+  - flags: --rust-up
+  - type: bool
+  - desc: Updates Rust toolchain
+- no_js
+  - flags: --no-js
+  - type: bool
+  - desc: Disables JS updating
+
+```bash
+set -e
+if [[ "$verbose" == "true" ]]; then
+    set -x
+fi
+
+if [ "$rust_up" == "true" ]; then
+    rustup update
+fi
+
+if [ "$no_rust" != "true" ]; then
+
+    cargo update
+fi
+
+if [ "$no_js" != "true" ]; then
+    pnpm --recursive --stream update
 fi
 ```
 

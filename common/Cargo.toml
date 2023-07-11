@@ -33,7 +33,7 @@ tonic = { version = "0", features = ["tls"], optional = true }
 tokio = { version = "1", features = ["sync", "rt"], optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 lapin = { version = "2.0.3", features = ["native-tls"], optional = true }
-tracing-log = { version = "0", features = ["env_logger"], optional = true, git = "https://github.com/tokio-rs/tracing.git" }
+tracing-log = { version = "0", features = ["env_logger"], optional = true }
 once_cell = { version = "1", optional = true }
 trust-dns-resolver = { version = "0", features = ["tokio-runtime"], optional = true }
 tracing-subscriber = { version = "0", features = ["fmt", "env-filter", "json"], optional = true }

@@ -1,0 +1,108 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;500;600&display=swap");
+@import "./variables.scss";
+
+h1,
+h2 {
+	margin: 0;
+}
+
+$scrollBarColor: #606364;
+$scrollBarBgColor: #0f1314;
+
+body {
+	margin: 0;
+	background-color: $bgColor;
+	color: $textColor;
+	font-family: $sansFont;
+	max-height: 100vh;
+	min-height: 100vh;
+	min-width: 100vw;
+	max-width: 100vw;
+	overflow-x: hidden;
+	overflow-y: auto;
+
+	&.no-overflow {
+		overflow: hidden;
+	}
+}
+
+* {
+	scrollbar-color: $scrollBarColor $scrollBarBgColor;
+	scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+	width: 0.25rem;
+}
+
+*::-webkit-scrollbar-track {
+	background: $scrollBarBgColor;
+}
+
+*::-webkit-scrollbar-thumb {
+	background: $scrollBarColor;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+/* Remmove all transitions when reduced motion is prefered */
+@media (prefers-reduced-motion: reduce) {
+	* {
+		transition: none !important;
+	}
+}
+
+button {
+	font-family: inherit;
+	cursor: pointer;
+	border: none;
+	font: inherit;
+	background: none;
+}
+
+.button {
+	transition:
+		color 0.2s,
+		filter 0.2s,
+		border-color 0.2s;
+	font: inherit;
+	border: 1px solid $borderColor;
+	border-radius: 0.6rem;
+
+	&.primary {
+		background-color: white;
+		color: black;
+
+		&:hover:not(:disabled),
+		&:focus-visible:not(:disabled) {
+			filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+		}
+
+		&:disabled {
+			cursor: not-allowed;
+		}
+	}
+
+	&.secondary {
+		color: $textColorLight;
+		background-color: $bgColor2;
+
+		&:hover,
+		&:focus-visible {
+			color: $textColor;
+			border-color: white;
+		}
+	}
+}
+
+.sr-only:not(:focus):not(:active) {
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	height: 1px;
+	overflow: hidden;
+	position: absolute;
+	white-space: nowrap;
+	width: 1px;
+}

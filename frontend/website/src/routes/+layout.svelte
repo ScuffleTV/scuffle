@@ -1,20 +1,21 @@
 <script lang="ts">
 	import "$assets/styles/global.scss";
-	import TopNav from "$components/topNav.svelte";
-	import { loginMode } from "$/store/login";
+	import TopNav from "$components/top-nav.svelte";
+	import { loginMode } from "$store/login";
 	import Login from "$components/login.svelte";
 	import { setContextClient } from "@urql/svelte";
 	import { client } from "$lib/gql";
 	import "$lib/user";
-	import SideNav from "$components/sideNav.svelte";
+	import SideNav from "$components/side-nav.svelte";
 
 	// This provides the GraphQL client to all components in the app.
 	setContextClient(client);
 </script>
 
 <main>
-	<SideNav />
 	<TopNav />
+	<SideNav />
+
 	<slot />
 
 	{#if $loginMode}
@@ -29,8 +30,11 @@
 
 	main {
 		display: grid;
-		grid-template-rows: auto 1fr auto;
-		grid-template-columns: auto 1fr auto;
-		min-height: 100%;
+		grid-template-areas:
+			"top-nav top-nav"
+			"side-nav content";
+		grid-template-rows: auto 1fr;
+		grid-template-columns: auto 1fr;
+		min-height: 100vh;
 	}
 </style>

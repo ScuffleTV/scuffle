@@ -2,7 +2,7 @@
 	import { pipe, subscribe, type Subscription } from "wonka";
 	import { client } from "$lib/gql";
 	import { graphql } from "$gql";
-	import CloseSidebar from "./closeSidebar.svelte";
+	import AlignLeft from "$icons/align-left.svelte";
 	import { user } from "$store/user";
 	import { onMount } from "svelte";
 	import { MessageType, type ChatMessage, type User } from "$gql/graphql";
@@ -160,7 +160,7 @@
 {#if collapsed}
 	<div class="uncollapse">
 		<button class="collapse-icon" on:click={collapseNav}>
-			<CloseSidebar />
+			<AlignLeft />
 		</button>
 	</div>
 {/if}
@@ -168,7 +168,7 @@
 <div class="chatroom" class:collapsed>
 	<div class="top">
 		<button class="collapse-icon" on:click={collapseNav}>
-			<CloseSidebar />
+			<AlignLeft />
 		</button>
 		<span class="chat-title">Chat</span>
 	</div>

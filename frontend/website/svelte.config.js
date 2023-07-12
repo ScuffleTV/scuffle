@@ -13,6 +13,7 @@ const config = {
 			$: "./src",
 			$lib: "./src/lib",
 			$components: "./src/components",
+			$icons: "./src/components/icons",
 			$store: "./src/store",
 			$gql: "./src/gql",
 		},

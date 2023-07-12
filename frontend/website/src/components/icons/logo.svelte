@@ -7,7 +7,9 @@
 <svg
 	xmlns="http://www.w3.org/2000/svg"
 	viewBox="0 -100 935 935"
-	style="enable-background: new 0 0 935 935; width: 1em; height: 1em;"
+	width="1em"
+	height="1em"
+	style="enable-background: new 0 0 935 935"
 	xml:space="preserve"
 >
 	<path

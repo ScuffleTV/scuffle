@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { Turnstile } from "svelte-turnstile";
-	import { loginMode } from "$/store/login";
+	import { loginMode } from "$store/login";
 	import { focusTrap } from "$lib/focusTrap";
-	import LoginField, { newField } from "./loginField.svelte";
+	import LoginField, { newField } from "$components/login/field.svelte";
 	import { z } from "zod";
 	import { getContextClient } from "@urql/svelte";
 	import { graphql } from "$gql";
 	import { login } from "$lib/user";
-	import TransitionCloser from "./transitionCloser.svelte";
-	import MouseTrap from "./mouseTrap.svelte";
+	import TransitionCloser from "$components/transition-closer.svelte";
+	import MouseTrap from "$components/mouse-trap.svelte";
 	import { PUBLIC_CF_TURNSTILE_KEY } from "$env/static/public";
 	import type { User } from "$gql/graphql";
 

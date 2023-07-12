@@ -68,24 +68,13 @@ pnpm --filter website build
 
 **OPTIONS**
 
-- dev
-  - flags: --dev
-  - desc: Build the player in dev mode
-- no_demo
-  - flags: --no-demo
-  - desc: Do not build the demo
-
 ```bash
 set -e
 if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-if [ "$dev" == "true" ]; then
-    pnpm --filter @scuffle/player build:dev
-else
-    pnpm --filter @scuffle/player build
-fi
+pnpm --filter @scuffle/player build
 ```
 
 ## clean
@@ -288,7 +277,7 @@ fi
 
 if [ "$no_js" != "true" ]; then
     if [ "$no_player_build" != "true" ]; then
-        $MASK build player --dev
+        $MASK build player
     fi
 
     pnpm --recursive --parallel --stream run test

@@ -20,11 +20,16 @@ use crate::{Result, Value};
 /// `test.foo[0].bar`
 /// is represented as
 /// ```
+/// # use config::{KeyPathSegment, Value};
+/// # fn main() {
+/// # let repr =
 /// [
-///     KeyPathSegment::Map { key: Value::String("test") },
+///     KeyPathSegment::Map { key: Value::String("test".to_string()) },
 ///     KeyPathSegment::Seq { index: 0 },
-///     KeyPathSegment::Map { key: Value::String("bar") }
+///     KeyPathSegment::Map { key: Value::String("bar".to_string()) }
 /// ]
+/// # ;
+/// # }
 /// ```
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct KeyPath {

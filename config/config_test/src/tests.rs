@@ -5,9 +5,13 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     sync::Arc,
+    vec,
 };
 
-use config::{sources, Config, ConfigBuilder, Key, KeyGraph, KeyPath, Source, Value};
+use config::{
+    sources::{self, ManualSource},
+    Config, ConfigBuilder, Key, KeyGraph, KeyPath, Source, Value,
+};
 
 fn clear_env() {
     for (key, _) in std::env::vars() {
@@ -21,6 +25,7 @@ fn clear_env() {
 struct DummyConfig {
     enabled: bool,
     logging: LoggingConfig,
+    list: Vec<String>,
 }
 
 // Can be generated with Config derive macro
@@ -35,6 +40,7 @@ impl Config for DummyConfig {
 
         keys.insert("enabled".to_string(), Key::new(bool::graph()));
         keys.insert("logging".to_string(), Key::new(LoggingConfig::graph()));
+        keys.insert("list".to_string(), Key::new(Vec::<String>::graph()));
 
         builder.build(KeyGraph::Struct(keys))
     }
@@ -135,24 +141,52 @@ fn cli() {
 }
 
 #[test]
+fn manual() {
+    let mut manual = ManualSource::<DummyConfig>::new();
+    manual.set("enabled", false).unwrap();
+    manual.set("logging.level", "INFO").unwrap();
+    manual.set("logging.json", true).unwrap();
+    assert_eq!(
+        manual.get_key(&"enabled".into()).unwrap().unwrap(),
+        Value::Bool(false),
+    );
+    assert_eq!(
+        manual.get_key(&"logging.level".into()).unwrap().unwrap(),
+        Value::String("INFO".to_string()),
+    );
+    assert_eq!(
+        manual.get_key(&"logging.json".into()).unwrap().unwrap(),
+        Value::Bool(true),
+    );
+}
+
+#[test]
 fn config_builder() {
     let mut builder: ConfigBuilder<DummyConfig> = ConfigBuilder::new();
     let data: &[u8] = br#"
     enabled = true
+    list = ["test1", "test2"]
     [logging]
     level = "INFO"
     json = false
     "#;
     builder.add_source(sources::FileSource::toml(data).unwrap());
+    builder
+        .overwrite("logging.json", Value::Bool(true))
+        .unwrap();
+    builder.overwrite("logging.level", "DEBUG").unwrap();
+    builder.overwrite("logging.json", 0).unwrap();
+    builder.overwrite("list[0]", "test").unwrap();
 
     assert_eq!(
         builder.build().unwrap(),
         DummyConfig {
             enabled: true,
             logging: LoggingConfig {
-                level: "INFO".to_string(),
+                level: "DEBUG".to_string(),
                 json: false
-            }
+            },
+            list: vec!["test".to_string(), "test2".to_string()],
         }
     );
 }

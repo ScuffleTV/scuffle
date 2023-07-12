@@ -57,6 +57,9 @@ fn parse() -> Result<AppConfig, ConfigError> {
         .as_slice(),
     )?);
 
+    builder.overwrite("logging.level", "TEST")?;
+    builder.overwrite("logging.json", "off")?;
+
     let config: AppConfig = builder.build()?;
 
     Ok(config)

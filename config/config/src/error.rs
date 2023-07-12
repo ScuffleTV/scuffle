@@ -35,6 +35,8 @@ pub enum ConfigErrorType {
     InvalidReference(&'static str),
     #[error("deserialized type not supported: {0}")]
     DeserializedTypeNotSupported(String),
+    #[error("serialize: {0}")]
+    Serialize(#[from] serde_value::SerializerError),
 }
 
 #[derive(Debug)]
@@ -69,6 +71,7 @@ pub enum ErrorSource {
     Cli,
     Env,
     File(String),
+    Manual,
 }
 
 /// General config error
@@ -174,17 +177,5 @@ impl std::fmt::Display for ConfigError {
 impl std::error::Error for ConfigError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         Some(&*self.error)
-    }
-}
-
-pub fn merge_error_opts(
-    error1: Option<ConfigError>,
-    error2: Option<ConfigError>,
-) -> Option<ConfigError> {
-    match (error1, error2) {
-        (Some(err1), Some(err2)) => Some(err1.multi(err2)),
-        (Some(err), None) => Some(err),
-        (None, Some(err)) => Some(err),
-        (None, None) => None,
     }
 }

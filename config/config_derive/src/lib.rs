@@ -105,25 +105,17 @@ fn impl_config(ast: &syn::DeriveInput) -> syn::Result<TokenStream> {
             .unwrap_or_else(|| quote! { <#path as ::config::Config>::graph() });
 
         let add_attrs = {
-            let env_attr = if let Some(env_attr) = field_env_attr {
-                if env_attr.skip {
-                    quote! { let key = key.with_skip_env(); }
-                } else {
-                    quote! {}
-                }
-            } else {
-                quote! {}
-            };
+            let env_attr = field_env_attr.and_then(|env_attr| {
+                env_attr
+                    .skip
+                    .then_some(quote! { let key = key.with_skip_env(); })
+            });
 
-            let cli_attr = if let Some(cli_attr) = field_cli_attr {
-                if cli_attr.skip {
-                    quote! { let key = key.with_skip_cli(); }
-                } else {
-                    quote! {}
-                }
-            } else {
-                quote! {}
-            };
+            let cli_attr = field_cli_attr.and_then(|cli_attr| {
+                cli_attr
+                    .skip
+                    .then_some(quote! { let key = key.with_skip_cli(); })
+            });
 
             quote! {
                 let key = ::config::Key::new(#type_attr);

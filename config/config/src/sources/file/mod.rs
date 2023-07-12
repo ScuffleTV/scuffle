@@ -1,6 +1,6 @@
 //! File source
 //!
-//! ```
+//! ```no_run
 //! # use config::sources;
 //! #
 //! # #[derive(config::Config, serde::Deserialize)]

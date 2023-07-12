@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{btree_map, BTreeMap, BTreeSet};
+use std::iter;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -16,6 +17,7 @@ pub use key::*;
 pub use primitives::*;
 use serde_ignored::Path;
 pub use serde_value::Value;
+use sources::ManualSource;
 
 /// Config source
 ///
@@ -211,6 +213,7 @@ impl<C: Config> Deref for SourceHolder<C> {
 /// Use this struct to add sources and build a config.
 pub struct ConfigBuilder<C: Config> {
     sources: Vec<SourceHolder<C>>,
+    overwrite: ManualSource<C>,
 }
 
 impl<C: Config> Default for ConfigBuilder<C> {
@@ -219,38 +222,40 @@ impl<C: Config> Default for ConfigBuilder<C> {
     }
 }
 
-fn merge(first: Value, second: Value) -> (Value, Option<ConfigError>) {
-    let values = (first, second);
-    let (Value::Map(mut first), Value::Map(mut second)) = values else {
-        return (values.0, None);
-    };
+fn merge(first: Value, second: Value) -> Value {
+    match (first, second) {
+        (Value::Map(first), Value::Map(mut second)) => {
+            for (k1, v1) in first {
+                match second.entry(k1) {
+                    btree_map::Entry::Vacant(entry) => {
+                        entry.insert(v1);
+                    }
+                    btree_map::Entry::Occupied(entry) => {
+                        let (k2, v2) = entry.remove_entry();
+                        second.insert(k2, merge(v1, v2));
+                    }
+                }
+            }
+            Value::Map(second)
+        }
+        (Value::Seq(first), Value::Seq(second)) => {
+            let mut merged = Vec::with_capacity(std::cmp::max(first.len(), second.len()));
+            let mut first = first.into_iter();
+            let mut second = second.into_iter();
 
-    let mut merged = BTreeMap::new();
-    // Get all unique keys from both maps
-    let keys = first
-        .keys()
-        .chain(second.keys())
-        .cloned()
-        .collect::<HashSet<_>>();
+            loop {
+                match (first.next(), second.next()) {
+                    (None, None) => break,
+                    (Some(first), Some(second)) => merged.push(merge(first, second)),
+                    (None, Some(second)) => merged.push(second),
+                    (Some(first), None) => merged.push(first),
+                }
+            }
 
-    let mut error: Option<ConfigError> = None;
-
-    for key in keys {
-        let first = first.remove(&key);
-        let second = second.remove(&key);
-
-        let (value, new_error) = match (first, second) {
-            (Some(first), Some(second)) => merge(first, second),
-            (Some(first), None) => (first, None),
-            (None, Some(second)) => (second, None),
-            (None, None) => unreachable!(),
-        };
-
-        error = merge_error_opts(error, new_error);
-        merged.insert(key, value);
+            Value::Seq(merged)
+        }
+        (first, _) => first,
     }
-
-    (Value::Map(merged), error)
 }
 
 impl<C: Config> ConfigBuilder<C> {
@@ -258,6 +263,7 @@ impl<C: Config> ConfigBuilder<C> {
     pub fn new() -> Self {
         Self {
             sources: Vec::new(),
+            overwrite: ManualSource::new(),
         }
     }
 
@@ -287,14 +293,23 @@ impl<C: Config> ConfigBuilder<C> {
         self.sources.sort_by(|a, b| b.priority.cmp(&a.priority));
     }
 
+    /// Overwrites a single key.
+    ///
+    /// This means that all values for this key that come from the added sources will be ignored.
+    pub fn overwrite<K: Into<KeyPath>, V: serde::Serialize>(
+        &mut self,
+        key: K,
+        value: V,
+    ) -> Result<()> {
+        self.overwrite.set(key.into(), value)
+    }
+
     /// Gets a single key by its path.
     pub fn get_key(&self, path: impl Into<KeyPath>) -> Result<Option<Value>> {
         let key_path = path.into();
 
-        let mut iter = self
-            .sources
-            .iter()
-            .map(|s| s.get_key(&key_path))
+        let mut iter = iter::once(self.overwrite.get_key(&key_path))
+            .chain(self.sources.iter().map(|s| s.get_key(&key_path)))
             .collect::<Result<Vec<_>>>()?
             .into_iter()
             .flatten();
@@ -303,14 +318,11 @@ impl<C: Config> ConfigBuilder<C> {
             return Ok(None);
         };
 
-        let mut error: Option<ConfigError> = None;
         for v in iter {
-            let (merged, new_error) = merge(value, v);
-            error = merge_error_opts(error, new_error);
-            value = merged;
+            value = merge(value, v);
         }
 
-        error.map_or(Ok(Some(value)), Err)
+        Ok(Some(value))
     }
 
     /// Parses a single key.

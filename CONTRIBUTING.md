@@ -26,7 +26,7 @@ You can find instructions on how to do that [here](https://devblogs.microsoft.co
 
 - [Git](https://git-scm.com/)
 - [NodeJS](https://nodejs.org/en/)
-- [Yarn](https://yarnpkg.com/)
+- [PNPM](https://pnpm.io/)
 - [Docker](https://www.docker.com/)
 - [Docker Compose V2](https://docs.docker.com/compose/install)
 - [Rust](https://www.rust-lang.org/tools/install)
@@ -44,13 +44,12 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 # Configuring apt to find nodejs
 curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 
-# Configuring apt to find yarn
-curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/yarnkey.gpg > /dev/null
-echo "deb [signed-by=/usr/share/keyrings/yarnkey.gpg] https://dl.yarnpkg.com/debian stable main" | sudo tee /etc/apt/sources.list.d/yarn.list > /dev/null
+# install pnpm
+curl -fsSL https://get.pnpm.io/install.sh | sh -
 
-# Running the install for nodejs, yarn, make, docker and git
+# Running the install for nodejs, make, docker and git
 sudo apt-get update
-sudo apt-get install build-essential pkg-config libssl-dev nodejs yarn docker.io git gnupg software-properties-common
+sudo apt-get install build-essential pkg-config libssl-dev nodejs docker.io git gnupg software-properties-common
 
 # Add Hashicorp's GPG key
 wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
@@ -83,7 +82,7 @@ You should add the following to your `~/.bashrc` or `~/.zshrc` file.
 
 ```bash
 source $HOME/.cargo/env
-export PATH="$HOME/.cargo/bin:$HOME/.yarn/bin:$PATH"
+export PATH="$HOME/.cargo/bin:$PATH"
 ```
 
 Installing Mask

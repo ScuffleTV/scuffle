@@ -9,10 +9,8 @@ node_modules
 src/gql
 schema.graphql
 
-# Ignore files for PNPM, NPM and YARN
+# Ignore files for PNPM
 pnpm-lock.yaml
-package-lock.json
-yarn.lock
 wasm.d.ts
 target/
 dist/

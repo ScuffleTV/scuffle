@@ -5,11 +5,12 @@
 		"@commitlint/config-conventional": "^17.6.6",
 		"commitlint": "^17.6.6",
 		"husky": "^8.0.3",
-		"prettier": "^2.8.8"
+		"prettier": "^3.0.0"
 	},
 	"scripts": {
 		"prepare": "husky install",
 		"lint": "prettier --check \"**/*\" -u",
+		"update": "pnpm update",
 		"format": "prettier --write \"**/*\" -u"
 	},
 	"pnpm": {

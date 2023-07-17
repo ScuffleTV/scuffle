@@ -49,17 +49,17 @@
 <style lang="scss">
 	@import "../../assets/styles/variables.scss";
 
+	// Setting max-height to 0 and min-height to 100%
+	// forces the element to take up the full height of the parent
+	// and then if the content is taller than the parent,
+	// the overflow-y property will allow the user to scroll
 	.channel {
 		grid-row: 2 / 2;
 		grid-column: 2 / 2;
-		// Setting max-height to 0 and min-height to 100%
-		// forces the element to take up the full height of the parent
-		// and then if the content is taller than the parent,
-		// the overflow-y property will allow the user to scroll
-		max-height: 0;
 		min-height: 100%;
 		overflow-y: overlay;
 		position: relative;
+		max-height: 0;
 	}
 
 	// This is a hack to make sure that the video player never gets bigger than 90% of the screen
@@ -158,7 +158,10 @@
 		box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.1);
 		background-color: #eb735b;
 		color: white;
-		transition: background-color 0.5s, color 0.5s, box-shadow 0.5s;
+		transition:
+			background-color 0.5s,
+			color 0.5s,
+			box-shadow 0.5s;
 		&:hover {
 			background-color: #f79986;
 			box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.2);

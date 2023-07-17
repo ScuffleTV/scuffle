@@ -1389,6 +1389,8 @@ async fn test_ingest_stream_transcoder_full() {
 
     assert!(got_shutting_down);
 
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
     assert!(ffmpeg.try_wait().is_ok());
 
     // Assert that the stream is removed
@@ -1441,6 +1443,8 @@ async fn test_ingest_stream_reject() {
             .await
             .is_err()
     );
+
+    tokio::time::sleep(Duration::from_millis(200)).await;
 
     assert!(ffmpeg.try_wait().is_ok());
 
@@ -1610,6 +1614,8 @@ async fn test_ingest_stream_transcoder_error() {
     }
 
     assert!(got_shutting_down);
+
+    tokio::time::sleep(Duration::from_millis(200)).await;
 
     assert!(ffmpeg.try_wait().is_ok());
 
@@ -1802,6 +1808,8 @@ async fn test_ingest_stream_try_resume_success() {
     }
 
     assert!(got_shutting_down);
+
+    tokio::time::sleep(Duration::from_millis(200)).await;
 
     assert!(ffmpeg.try_wait().is_ok());
 
@@ -2028,6 +2036,8 @@ async fn test_ingest_stream_try_resume_failed() {
 
     assert!(got_shutting_down);
 
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
     assert!(ffmpeg.try_wait().is_ok());
 
     // Assert that the stream is removed
@@ -2210,6 +2220,8 @@ async fn test_ingest_stream_transcoder_full_tls(tls_dir: PathBuf) {
 
     assert!(got_shutting_down);
 
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
     assert!(ffmpeg.try_wait().is_ok());
 
     // Assert that the stream is removed
@@ -2346,6 +2358,8 @@ async fn test_ingest_stream_transcoder_probe() {
     }
 
     assert!(got_shutting_down);
+
+    tokio::time::sleep(Duration::from_millis(200)).await;
 
     assert!(ffmpeg.try_wait().is_ok());
 
@@ -2653,6 +2667,8 @@ async fn test_ingest_stream_transcoder_probe_reconnect() {
         assert_eq!(audio_stream["profile"], "LC");
     }
 
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
     assert!(ffmpeg.try_wait().is_ok());
 
     // Assert that the stream is removed
@@ -2908,6 +2924,8 @@ async fn test_ingest_stream_transcoder_probe_reconnect_unexpected() {
         assert_eq!(audio_stream["codec_tag_string"], "mp4a");
         assert_eq!(audio_stream["profile"], "LC");
     }
+
+    tokio::time::sleep(Duration::from_millis(200)).await;
 
     assert!(ffmpeg.try_wait().is_ok());
 

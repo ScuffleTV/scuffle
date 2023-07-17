@@ -103,7 +103,9 @@
 		font-size: 2rem;
 		width: 3rem;
 		height: 3rem;
-		transition: background-color 0.25s ease, box-shadow 0.25s ease;
+		transition:
+			background-color 0.25s ease,
+			box-shadow 0.25s ease;
 		grid-row: 1 / 1;
 		&:hover {
 			background-color: #f79986;

@@ -79,12 +79,12 @@ const loop = () => {
 
 window.requestAnimationFrame(loop);
 
-player.on('error', (evt) => {
+player.on("error", (evt) => {
 	console.error(evt);
 });
 
-player.on('abrchange', (evt) => {
-	let bdw = evt.bandwidth || 0;
+player.on("abrchange", (evt) => {
+	const bdw = evt.bandwidth || 0;
 
 	// Convert bps to either kbps or mbps depending on the size
 	if (bdw > 1024 * 1024 * 8) {
@@ -94,16 +94,16 @@ player.on('abrchange', (evt) => {
 	}
 
 	toggleAbr.innerText = evt.enabled ? "Disable ABR" : "Enable ABR";
-})
+});
 
-player.on('variantchange', (evt) => {
+player.on("variantchange", (evt) => {
 	variantId.innerText = `${evt.variant_id}`;
 });
 
-player.on('manifestloaded', (evt) => {
+player.on("manifestloaded", (evt) => {
 	selectTracksDiv.innerHTML = "";
 	forceTracksDiv.innerHTML = "";
-	
+
 	evt.variants.forEach((variant) => {
 		const button = document.createElement("button");
 		button.innerText = `${variant.group} - ${variant.name}`;
@@ -111,7 +111,7 @@ player.on('manifestloaded', (evt) => {
 			player.nextVariantId = variant.id;
 		});
 		selectTracksDiv.appendChild(button);
-	
+
 		const forceButton = document.createElement("button");
 		forceButton.innerText = `${variant.group} - ${variant.name}`;
 		forceButton.addEventListener("click", () => {
@@ -121,7 +121,7 @@ player.on('manifestloaded', (evt) => {
 	});
 });
 
-player.on('shutdown', () => {
+player.on("shutdown", () => {
 	video.pause();
 	video.src = "";
 	video.load();

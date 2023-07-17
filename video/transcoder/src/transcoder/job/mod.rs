@@ -275,6 +275,7 @@ fn report_to_ingest(
 ) -> impl Stream<Item = Result<()>> + Send + 'static {
     stream!({
         while let Some(msg) = channel.recv().await {
+            tracing::debug!("sending message: {:?}", msg);
             match client
                 .transcoder_event(msg)
                 .timeout(Duration::from_secs(5))
@@ -708,8 +709,12 @@ impl Job {
 
         drop(report);
 
+        tracing::debug!("waiting for report to ingest to exit");
+
         // Finish all the report futures
-        while report_fut.next().await.is_some() {}
+        while report_fut.next().await.is_some() {
+            tracing::debug!("report to ingest exited");
+        }
 
         tracing::info!("waiting for playlist update to exit");
 
@@ -737,23 +742,24 @@ impl Job {
 
         let pid = pid.as_raw();
 
-        let mut timeout = pin!((&mut ffmpeg)
-            .timeout(Duration::from_millis(400))
-            .then(|r| async {
-                if let Ok(r) = r {
-                    tracing::info!("ffmpeg exited: {:?}", r);
+        let mut timeout =
+            pin!((&mut ffmpeg)
+                .timeout(Duration::from_millis(1000))
+                .then(|r| async {
+                    if let Ok(r) = r {
+                        tracing::info!("ffmpeg exited: {:?}", r);
 
-                    Some(match r.as_ref() {
-                        Ok(r) => !r.status.success(),
-                        Err(_) => true,
-                    })
-                } else {
-                    signal::kill(Pid::from_raw(pid), signal::Signal::SIGTERM).ok();
-                    tracing::debug!("ffmpeg did not exit in time, sending SIGTERM");
+                        Some(match r.as_ref() {
+                            Ok(r) => !r.status.success(),
+                            Err(_) => true,
+                        })
+                    } else {
+                        signal::kill(Pid::from_raw(pid), signal::Signal::SIGTERM).ok();
+                        tracing::debug!("ffmpeg did not exit in time, sending SIGTERM");
 
-                    None
-                }
-            }));
+                        None
+                    }
+                }));
 
         let mut variants_done = false;
         let r = select! {
@@ -804,6 +810,8 @@ impl Job {
             self.report_error("ffmpeg exited with non-zero status", false)
                 .await;
         }
+
+        tracing::debug!("ffmpeg exited");
     }
 
     async fn handle_msg(

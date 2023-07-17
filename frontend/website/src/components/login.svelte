@@ -6,12 +6,12 @@
 	import LoginField, { newField } from "./loginField.svelte";
 	import { z } from "zod";
 	import { getContextClient } from "@urql/svelte";
-	import { graphql } from "$/gql";
+	import { graphql } from "$gql";
 	import { login } from "$lib/user";
 	import TransitionCloser from "./transitionCloser.svelte";
 	import MouseTrap from "./mouseTrap.svelte";
 	import { PUBLIC_CF_TURNSTILE_KEY } from "$env/static/public";
-	import type { User } from "$/gql/graphql";
+	import type { User } from "$gql/graphql";
 
 	const client = getContextClient();
 
@@ -625,7 +625,10 @@
 		font-weight: 400;
 		padding: 0.8rem;
 		background-color: #cf634d;
-		transition: background-color 0.5s, color 0.5s, box-shadow 0.5s;
+		transition:
+			background-color 0.5s,
+			color 0.5s,
+			box-shadow 0.5s;
 		box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.1);
 
 		&:hover:not(:disabled) {

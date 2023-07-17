@@ -42,34 +42,29 @@ jobs:
           text: ${{ env.COMMIT_MSG }}
           regex: '\bci: (force|skip)\b'
 
-  lint-test:
-    name: Run Lint + Test
+  approve:
+    name: Approve the run
     runs-on: ubuntu-latest
-    container: ghcr.io/scuffletv/build:latest
     needs: [should_run]
     if: ${{ needs.should_run.outputs.should-run == 'true' }}
     environment: ${{ (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/feature/*' && github.event_name != 'workflow_dispatch') && 'lint-test-build' || '' }}
+    steps:
+      - name: Dummy step
+        run: echo "Approving the run"
+
+  lint:
+    name: Run Lint
+    runs-on: ubuntu-latest
+    container: ghcr.io/scuffletv/build:latest
+    needs: [approve]
     services:
       cockroach:
         image: ghcr.io/scuffletv/cockroach:latest
         ports:
           - 26257:26257
-      rmq:
-        image: bitnami/rabbitmq:latest
-        ports:
-          - 5672:5672
-        env:
-          RABBITMQ_USERNAME: rabbitmq
-          RABBITMQ_PASSWORD: rabbitmq
-          RABBITMQ_VHOSTS: scuffle
-      redis:
-        image: redis:latest
-        ports:
-          - 6379:6379
     env:
       DATABASE_URL: postgres://root@cockroach:26257/scuffle
-      RMQ_URL: amqp://rabbitmq:rabbitmq@rmq:5672/scuffle
-      REDIS_URL: redis://redis:6379
+      CARGO_INCREMENTAL: 1
 
     steps:
       - uses: actions/checkout@v3
@@ -89,23 +84,108 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
-      - name: Cargo Cache
-        uses: Swatinem/rust-cache@v2
-        continue-on-error: false
-        with:
-          prefix-key: lint-test
-
       - name: Install dependencies
         run: mask bootstrap --no-db --no-docker --no-env --no-rust
 
       - name: Run migrations
         run: mask db migrate
 
-      - name: Run Lint
-        run: mask lint
+      - name: Run JS, Terraform & Proto Lint
+        run: mask lint --no-rust
 
-      - name: Run Test Rust
-        run: mask test --no-js --ci
+      - name: Restore cached lint build
+        uses: tespkg/actions-cache@v1
+        with:
+          accessKey: ${{ secrets.CI_CACHE_ACCESS_KEY_ID }}
+          secretKey: ${{ secrets.CI_CACHE_SECRET_ACCESS_KEY }}
+          bucket: ${{ secrets.CI_CACHE_BUCKET_NAME }}
+          endpoint: ${{ secrets.CI_CACHE_ENDPOINT }}
+          path: |
+            target/
+            frontend/player/target
+          key: lint-rust-${{ github.ref_name }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            lint-rust-${{ github.ref_name }}-
+            lint-rust-main-
+            lint-rust-
+
+      - name: Run Rust Lint
+        run: |
+          cargo sweep -s
+          cargo sweep -s frontend/player
+
+          mask lint --no-js --no-terraform --no-proto
+
+          cargo sweep -f
+          cargo sweep -f frontend/player
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    container: ghcr.io/scuffletv/build:latest
+    needs: [approve]
+    services:
+      cockroach:
+        image: ghcr.io/scuffletv/cockroach:latest
+        ports:
+          - 26257:26257
+      rmq:
+        image: bitnami/rabbitmq:latest
+        ports:
+          - 5672:5672
+        env:
+          RABBITMQ_USERNAME: rabbitmq
+          RABBITMQ_PASSWORD: rabbitmq
+          RABBITMQ_VHOSTS: scuffle
+          RABBITMQ_DISK_FREE_ABSOLUTE_LIMIT: 50MB
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgres://root@cockroach:26257/scuffle
+      RMQ_URL: amqp://rabbitmq:rabbitmq@rmq:5672/scuffle
+      REDIS_URL: redis://redis:6379
+      CARGO_INCREMENTAL: 1
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Run migrations
+        run: mask db migrate
+
+      - name: Restore cached test build
+        uses: tespkg/actions-cache@v1
+        with:
+          accessKey: ${{ secrets.CI_CACHE_ACCESS_KEY_ID }}
+          secretKey: ${{ secrets.CI_CACHE_SECRET_ACCESS_KEY }}
+          bucket: ${{ secrets.CI_CACHE_BUCKET_NAME }}
+          endpoint: ${{ secrets.CI_CACHE_ENDPOINT }}
+          path: |
+            target/
+            frontend/player/target
+          key: test-rust-${{ github.ref_name }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            test-rust-${{ github.ref_name }}-
+            test-rust-main-
+            test-rust-
+
+      - name: Run Rust Tests
+        run: |
+          cargo sweep -s
+
+          cargo llvm-cov nextest \
+            --workspace \
+            --lcov \
+            --output-path lcov.info \
+            --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" \
+            --no-fail-fast \
+            -E "not test(_v6)" \
+            --status-level all \
+            --profile ci
+
+          cargo sweep -f
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -114,17 +194,37 @@ jobs:
           files: lcov.info
           fail_ci_if_error: true
 
+      - uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Install Node
+        uses: actions/setup-node@v3
+        with:
+          cache: "pnpm"
+          node-version: 18
+
+      - name: Install dependencies
+        run: mask bootstrap --no-db --no-docker --no-env --no-rust
+
       - name: Install Playwright Dependencies
         run: pnpm --filter website exec playwright install-deps
 
       - name: Run Test JavaScript
-        run: mask test --no-rust
+        run: |
+          cargo sweep -s frontend/player
+
+          mask test --no-rust
+
+          cargo sweep -f frontend/player
 
   build:
     name: Run Build
     runs-on: ubuntu-latest
     container: ghcr.io/scuffletv/build:latest
-    needs: [lint-test]
+    needs: [lint, test]
+    env:
+      CARGO_INCREMENTAL: 1
 
     steps:
       - uses: actions/checkout@v3
@@ -141,17 +241,36 @@ jobs:
           cache: "pnpm"
           node-version: 18
 
-      - name: Cargo Cache
-        uses: Swatinem/rust-cache@v2
-        continue-on-error: false
-        with:
-          prefix-key: build
-
       - name: Install dependencies
         run: mask bootstrap --no-db --no-docker --no-env --no-js-tests --no-rust
 
-      - name: Run Build
-        run: mask build
+      - name: Restore cached build
+        uses: tespkg/actions-cache@v1
+        with:
+          accessKey: ${{ secrets.CI_CACHE_ACCESS_KEY_ID }}
+          secretKey: ${{ secrets.CI_CACHE_SECRET_ACCESS_KEY }}
+          bucket: ${{ secrets.CI_CACHE_BUCKET_NAME }}
+          endpoint: ${{ secrets.CI_CACHE_ENDPOINT }}
+          path: |
+            target/
+            frontend/player/target
+          key: build-rust-${{ github.ref_name }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            build-rust-${{ github.ref_name }}-
+            build-rust-main-
+            build-rust-
+
+      - name: Run Build Rust
+        run: |
+          cargo sweep -s
+          mask build rust
+          cargo sweep -f
+
+      - name: Cargo Sweep Player Start
+        run: |
+          cargo sweep -s frontend/player
+          mask build website --no-gql-prepare
+          cargo sweep -f frontend/player
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
@@ -196,7 +315,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push API image
+      - name: Build API image
         id: docker_build_api
         uses: docker/build-push-action@v4.0.0
         with:
@@ -205,7 +324,7 @@ jobs:
           load: true
           tags: ghcr.io/scuffletv/api:${{ github.sha }}
 
-      - name: Build and push Edge image
+      - name: Build Edge image
         id: docker_build_edge
         uses: docker/build-push-action@v4.0.0
         with:
@@ -214,7 +333,7 @@ jobs:
           load: true
           tags: ghcr.io/scuffletv/edge:${{ github.sha }}
 
-      - name: Build and push Ingest image
+      - name: Build Ingest image
         id: docker_build_ingest
         uses: docker/build-push-action@v4.0.0
         with:
@@ -223,7 +342,7 @@ jobs:
           load: true
           tags: ghcr.io/scuffletv/ingest:${{ github.sha }}
 
-      - name: Build and push Transcoder image
+      - name: Build Transcoder image
         id: docker_build_transcoder
         uses: docker/build-push-action@v4.0.0
         with:
@@ -232,7 +351,7 @@ jobs:
           load: true
           tags: ghcr.io/scuffletv/transcoder:${{ github.sha }}
 
-      - name: Build and push Website image
+      - name: Build Website image
         id: docker_build_website
         uses: docker/build-push-action@v4.0.0
         with:

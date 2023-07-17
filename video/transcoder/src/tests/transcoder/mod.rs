@@ -2,6 +2,7 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
+use core::panic;
 use std::{
     collections::HashMap, io::Cursor, net::SocketAddr, path::PathBuf, pin::Pin, sync::Arc,
     time::Duration,
@@ -10,7 +11,7 @@ use std::{
 use async_trait::async_trait;
 use bytes::{Buf, Bytes};
 use chrono::Utc;
-use common::{config::LoggingConfig, logging};
+use common::{config::LoggingConfig, logging, prelude::FutureTimeout};
 use fred::prelude::{HashesInterface, KeysInterface};
 use futures_util::Stream;
 use lapin::BasicProperties;
@@ -299,7 +300,13 @@ async fn test_transcode() {
         .await
         .unwrap();
 
-    let watch_stream_req = match rx.recv().await.unwrap() {
+    let watch_stream_req = match rx
+        .recv()
+        .timeout(Duration::from_secs(2))
+        .await
+        .unwrap()
+        .unwrap()
+    {
         IngestRequest::WatchStream { request, tx } => {
             assert_eq!(request.stream_id, req_id.to_string());
             assert_eq!(request.request_id, req_id.to_string());
@@ -362,7 +369,13 @@ async fn test_transcode() {
         }
     }
 
-    match rx.recv().await.unwrap() {
+    match rx
+        .recv()
+        .timeout(Duration::from_secs(2))
+        .await
+        .unwrap()
+        .unwrap()
+    {
         IngestRequest::TranscoderEvent { request, tx } => {
             assert_eq!(request.stream_id, req_id.to_string());
             assert_eq!(request.request_id, req_id.to_string());
@@ -386,11 +399,23 @@ async fn test_transcode() {
         .await
         .unwrap();
 
-    let redis = global.redis.clone();
     drop(watch_stream_req);
+
+    tokio::time::sleep(Duration::from_millis(250)).await;
+
+    let redis = global.redis.clone();
     drop(global);
-    handler.cancel().await;
-    transcoder_run_handle.await.unwrap().unwrap();
+    handler
+        .cancel()
+        .timeout(Duration::from_secs(2))
+        .await
+        .unwrap();
+    transcoder_run_handle
+        .timeout(Duration::from_secs(2))
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
 
     // Validate data
     let resp: String = redis
@@ -403,10 +428,10 @@ async fn test_transcode() {
         resp,
         format!(
             r#"#EXTM3U
-#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="{source_video_id}",NAME="{source_video_id}",AUTOSELECT=YES,DEFAULT=YES,URI="{source_video_id}/index.m3u8"
-#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="{video_id_360p}",NAME="{video_id_360p}",AUTOSELECT=YES,DEFAULT=YES,URI="{video_id_360p}/index.m3u8"
-#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="{opus_audio_id}",NAME="{opus_audio_id}",AUTOSELECT=YES,DEFAULT=YES,URI="{opus_audio_id}/index.m3u8"
-#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="{aac_audio_id}",NAME="{aac_audio_id}",AUTOSELECT=YES,DEFAULT=YES,URI="{aac_audio_id}/index.m3u8"
+#EXT-X-MEDIA:TYPE=VIDEO,AUTOSELECT=YES,DEFAULT=YES,GROUP-ID="{source_video_id}",NAME="{source_video_id}",BANDWIDTH=1000,CODECS="avc1.64002a",URI="{source_video_id}/index.m3u8",FRAME-RATE=30,RESOLUTION=1920x1080
+#EXT-X-MEDIA:TYPE=VIDEO,AUTOSELECT=YES,DEFAULT=YES,GROUP-ID="{video_id_360p}",NAME="{video_id_360p}",BANDWIDTH=1048576,CODECS="avc1.64002a",URI="{video_id_360p}/index.m3u8",FRAME-RATE=30,RESOLUTION=640x360
+#EXT-X-MEDIA:TYPE=AUDIO,AUTOSELECT=YES,DEFAULT=YES,GROUP-ID="{opus_audio_id}",NAME="{opus_audio_id}",BANDWIDTH=98304,CODECS="opus",URI="{opus_audio_id}/index.m3u8"
+#EXT-X-MEDIA:TYPE=AUDIO,AUTOSELECT=YES,DEFAULT=YES,GROUP-ID="{aac_audio_id}",NAME="{aac_audio_id}",BANDWIDTH=98304,CODECS="mp4a.40.2",URI="{aac_audio_id}/index.m3u8"
 #EXT-X-STREAM-INF:GROUP="aac",NAME="source",BANDWIDTH=99304,CODECS="avc1.64002a,mp4a.40.2",RESOLUTION=1920x1080,FRAME-RATE=30,VIDEO="{source_video_id}",AUDIO="{aac_audio_id}"
 {source_video_id}/index.m3u8
 #EXT-X-STREAM-INF:GROUP="opus",NAME="source",BANDWIDTH=99304,CODECS="avc1.64002a,opus",RESOLUTION=1920x1080,FRAME-RATE=30,VIDEO="{source_video_id}",AUDIO="{opus_audio_id}"

@@ -8,7 +8,7 @@ use wasm_bindgen::JsValue;
 use web_sys::HtmlVideoElement;
 
 use super::{
-    events::{EventManifestLoaded, EventManager, EventVariantChange, UserEvent, EventAbrChange},
+    events::{EventAbrChange, EventManager, EventManifestLoaded, EventVariantChange, UserEvent},
     track::{Track, Variant},
 };
 
@@ -115,7 +115,7 @@ impl PlayerInner {
         self.emit_event(EventAbrChange {
             enabled: self.abr_enabled,
             variant_id: None,
-            bandwidth: None
+            bandwidth: None,
         });
     }
 

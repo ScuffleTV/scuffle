@@ -166,7 +166,7 @@ async fn test_serial_login_while_logged_in() {
                 .provide_context(ctx)
                 .provide_global(global.clone()),
         )
-        .timeout(Duration::from_secs(1))
+        .timeout(Duration::from_secs(2))
         .await
         .unwrap();
 

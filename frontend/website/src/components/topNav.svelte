@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { loginMode, sessionToken } from "$/store/login";
-	import { user } from "$/store/user";
+	import { user } from "$store/user";
 	import { faSearch, faUser } from "@fortawesome/free-solid-svg-icons";
 	import Fa from "svelte-fa";
 	import MouseTrap from "./mouseTrap.svelte";
@@ -151,7 +151,10 @@
 	.button {
 		color: white;
 		border-radius: 0.4rem;
-		transition: background-color 0.5s, color 0.5s, box-shadow 0.5s;
+		transition:
+			background-color 0.5s,
+			color 0.5s,
+			box-shadow 0.5s;
 		cursor: pointer;
 		padding: 0.5rem 1rem;
 		margin: 0 0.5rem;
@@ -183,7 +186,10 @@
 		width: 3rem;
 		height: 3rem;
 		color: white;
-		transition: background-color 0.5s, color 0.5s, box-shadow 0.5s;
+		transition:
+			background-color 0.5s,
+			color 0.5s,
+			box-shadow 0.5s;
 		cursor: pointer;
 		border: 0.1rem solid #96491c;
 		background-color: #212121;

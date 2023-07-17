@@ -5,6 +5,7 @@ use common::{
     logging,
     prelude::FutureTimeout,
 };
+use tokio::select;
 
 use crate::{config::AppConfig, global::GlobalState};
 
@@ -28,6 +29,14 @@ pub async fn mock_global_state(config: AppConfig) -> (Arc<GlobalState>, Handler)
     .expect("failed to connect to rabbitmq");
 
     let global = Arc::new(GlobalState::new(config, ctx, rmq));
+
+    let global2 = global.clone();
+    tokio::spawn(async move {
+        select! {
+            _ = global2.rmq.handle_reconnects() => {},
+            _ = global2.ctx.done() => {},
+        }
+    });
 
     (global, handler)
 }

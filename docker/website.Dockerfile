@@ -1,4 +1,4 @@
-FROM denoland/deno:alpine
+FROM node:alpine
 
 LABEL org.opencontainers.image.source=https://github.com/scuffletv/scuffle
 LABEL org.opencontainers.image.description="Website Container for ScuffleTV"
@@ -6,15 +6,15 @@ LABEL org.opencontainers.image.licenses=BSD-4-Clause
 
 RUN apk add --upgrade libcrypto3 libssl3 --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
 
-COPY frontend/website/server.ts /app/
 COPY frontend/website/build /app/build
+COPY frontend/website/entry.js /app/index.js
+
+RUN echo "{\"type\": \"module\"}" > /app/package.json && chown -R 1000:1000 /app
 
 WORKDIR /app
 
-RUN deno cache --unstable server.ts
-
 STOPSIGNAL SIGTERM
 
-USER 1000
+# USER 1000
 
-ENTRYPOINT ["deno", "run", "--allow-env", "--allow-read", "--allow-net", "server.ts"]
+CMD ["node", "."]

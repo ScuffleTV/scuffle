@@ -275,10 +275,6 @@ fi
   - flags: --no-player-build
   - type: bool
   - desc: Disables Player Building
-- ci
-  - flags: --ci
-  - type: bool
-  - desc: Runs tests in CI mode
 
 ```bash
 set -e
@@ -287,12 +283,7 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 if [ "$no_rust" != "true" ]; then
-    cargo llvm-cov clean --workspace
-    if [ "$ci" == "true" ]; then
-        cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace --no-fail-fast -E "not test(_v6)" --status-level all
-    else
-        cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace
-    fi
+  cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace --fail-fast -r
 fi
 
 if [ "$no_js" != "true" ]; then
@@ -582,7 +573,7 @@ if [ "$no_rust" != "true" ]; then
 fi
 
 if [ "$no_js" != "true" ]; then
-    pnpm --recursive --stream update
+    pnpm --recursive --stream run update
 fi
 ```
 

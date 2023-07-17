@@ -7,11 +7,12 @@ use std::{
 use crate::{
     hls::{self, master::MasterPlaylist, media::MediaPlaylist},
     player::{
+        events::{EventError, EventLoad, UserEvent},
         fetch::FetchRequest,
         inner::NextVariant,
         runner::source_buffer::SourceBufferHolder,
         track::{Fragment, TrackResult},
-        util::now, events::{EventError, EventLoad, UserEvent},
+        util::now,
     },
 };
 
@@ -45,9 +46,10 @@ use self::{
 use super::{
     bandwidth::Bandwidth,
     blank::VideoFactory,
+    events::EventAbrChange,
     inner::PlayerInnerHolder,
     track::{Track, TrackState, Variant},
-    util::Holder, events::EventAbrChange,
+    util::Holder,
 };
 
 pub struct PlayerRunner {
@@ -177,9 +179,7 @@ impl PlayerRunner {
         self.active_variant_id = self.inner.active_variant_id();
 
         let url = self.inner.url();
-        self.inner.emit_event(EventLoad {
-            url,
-        });
+        self.inner.emit_event(EventLoad { url });
 
         tracing::info!("starting playback");
 

@@ -1,6 +1,9 @@
 use wasm_bindgen_test::*;
 
-use crate::hls::{self, master::{ScufGroup, Media, MediaType, Stream}};
+use crate::hls::{
+    self,
+    master::{Media, MediaType, ScufGroup, Stream},
+};
 
 wasm_bindgen_test_configure!(run_in_browser);
 
@@ -19,8 +22,14 @@ fn parse_hls_master() {
     assert!(master.scuf_groups.len() == 2);
     assert!(master.streams.len() == 10);
 
-    assert_eq!(master.scuf_groups.get("opus"), Some(&ScufGroup { priority: 1 }));
-    assert_eq!(master.scuf_groups.get("aac"), Some(&ScufGroup { priority: 2 }));
+    assert_eq!(
+        master.scuf_groups.get("opus"),
+        Some(&ScufGroup { priority: 1 })
+    );
+    assert_eq!(
+        master.scuf_groups.get("aac"),
+        Some(&ScufGroup { priority: 2 })
+    );
 
     assert_eq!(
         master.groups.get("043897a5-cda1-458b-84d6-ce7a879a6a1e"),
@@ -183,7 +192,7 @@ fn parse_hls_master() {
             resolution: Some((3840, 2160)),
         }
     );
-    
+
     assert_eq!(
         master.streams[4],
         Stream {

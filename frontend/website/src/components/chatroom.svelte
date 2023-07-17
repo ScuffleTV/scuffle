@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { pipe, subscribe, type Subscription } from "wonka";
 	import { client } from "$lib/gql";
-	import { graphql } from "$/gql";
+	import { graphql } from "$gql";
 	import CloseSidebar from "./closeSidebar.svelte";
-	import { user } from "$/store/user";
+	import { user } from "$store/user";
 	import { onMount } from "svelte";
-	import { MessageType, type ChatMessage, type User } from "$/gql/graphql";
-	import {} from "os";
+	import { MessageType, type ChatMessage, type User } from "$gql/graphql";
 
 	export let collapsed = false;
 	export let channelId: string;
@@ -321,7 +320,10 @@
 	.chatbox-send {
 		color: white;
 		border-radius: 0.8rem;
-		transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
+		transition:
+			background-color 0.2s,
+			color 0.2s,
+			box-shadow 0.2s;
 		cursor: pointer;
 		padding: 0.5rem 1rem;
 		margin: 0 0.5rem;

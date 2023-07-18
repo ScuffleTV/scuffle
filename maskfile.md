@@ -28,7 +28,7 @@ fi
 
 target=$(rustup show active-toolchain | cut -d '-' -f2- | cut -d ' ' -f1)
 
-cargo build --release --target=$target
+cargo build --release --target=$target --bins --workspace
 ```
 
 ### website

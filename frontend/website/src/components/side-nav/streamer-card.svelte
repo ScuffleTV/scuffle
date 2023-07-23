@@ -28,9 +28,8 @@
 <style lang="scss">
 	.streamer-card {
 		display: grid;
-		height: 3.5rem;
 		column-gap: 0.5rem;
-		padding: 0.25rem 0.6rem;
+		padding: 0.5rem 0.75rem;
 		color: white;
 		font-family: "Inter", sans-serif;
 		text-decoration: none;
@@ -38,7 +37,7 @@
 		grid-template-columns: auto 1fr auto;
 		grid-template-areas:
 			"avatar name viewers"
-			"avatar game blank";
+			"avatar game .";
 
 		&:hover {
 			background-color: #252525;
@@ -47,7 +46,8 @@
 
 	.avatar {
 		grid-area: avatar;
-		max-height: 90%;
+		height: 2rem;
+		aspect-ratio: 1/1;
 		border-radius: 50%;
 		place-self: center;
 		&.offline {

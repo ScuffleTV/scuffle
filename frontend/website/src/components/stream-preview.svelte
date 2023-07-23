@@ -64,7 +64,8 @@
 			grid-template-rows: auto auto auto auto auto;
 			grid-template-columns: auto 1fr;
 
-			width: 41.5rem;
+			// 20rem + 1rem + 20rem
+			width: 41rem;
 
 			background: radial-gradient(
 				69.84% 128.99% at 0% 0%,
@@ -104,6 +105,7 @@
 			row-gap: 1rem;
 
 			.viewers-text {
+				padding: 0;
 				grid-area: viewers;
 				border-top-right-radius: 0;
 				border-bottom-right-radius: 0;
@@ -120,8 +122,7 @@
 				height: 0.4rem;
 				background-color: #e91916;
 				border-radius: 50%;
-				margin-right: 0.4rem;
-				margin-bottom: 0.1rem;
+				margin: 0.1rem 0.4rem;
 			}
 		}
 	}

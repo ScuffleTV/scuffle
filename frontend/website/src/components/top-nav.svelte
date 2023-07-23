@@ -39,7 +39,7 @@
 	<div class="nav-right">
 		<div class="buttons">
 			<button class="login button" on:click={openLogin}>
-				<span class="icon-login"><Login /></span><span>Login in</span>
+				<span class="icon-login"><Login /></span><span>Log in</span>
 			</button>
 			<button class="signup button" on:click={openSignup}>
 				<span>Sign up</span>

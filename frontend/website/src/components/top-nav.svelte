@@ -21,9 +21,9 @@
 
 <nav class="main-grid">
 	<div class="logo-container">
-		<button class="toggle-side-nav" class:toggled={!$sideNavOpen} on:click={toggleSideNav}
-			><AlignLeft /></button
-		>
+		<button class="toggle-side-nav" class:toggled={!$sideNavOpen} on:click={toggleSideNav}>
+			<AlignLeft />
+		</button>
 		<a href="/" class="logo-link">
 			<LogoText />
 		</a>
@@ -66,6 +66,7 @@
 			background-color: unset;
 			font: inherit;
 			color: inherit;
+			cursor: pointer;
 			border: 0;
 			outline: 0;
 			padding: 0;

@@ -111,6 +111,7 @@
 
 	.main-grid {
 		grid-area: side-nav;
+		transition: width 0.2s;
 	}
 
 	.streamer-cards {

@@ -51,6 +51,20 @@
 <style lang="scss">
 	@import "../assets/styles/variables.scss";
 
+	nav {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		background-color: $bgColor2;
+		height: $topNavHeight;
+		width: 100%;
+		z-index: 5;
+		padding: 0.25rem;
+		> * {
+			height: 100%;
+		}
+	}
+
 	.main-grid {
 		position: sticky;
 		top: 0;
@@ -84,21 +98,6 @@
 			display: flex;
 			align-items: center;
 			font-size: 1.75rem;
-		}
-	}
-
-	nav {
-		display: grid;
-		grid-template-columns: auto 1fr auto;
-		align-items: center;
-		justify-content: space-between;
-		background-color: $bgColor2;
-		height: $topNavHeight;
-		width: 100%;
-		z-index: 5;
-		padding: 0.25rem;
-		> * {
-			height: 100%;
 		}
 	}
 

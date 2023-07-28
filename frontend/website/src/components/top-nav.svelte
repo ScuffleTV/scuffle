@@ -17,6 +17,17 @@
 	function toggleSideNav() {
 		sideNavOpen.update((v) => !v);
 	}
+
+	function search(e: Event) {
+		// When the query is not empty we can let the form submit
+		if (!query) {
+			e.preventDefault();
+			queryInputRef.focus();
+		}
+	}
+
+	let queryInputRef: HTMLInputElement;
+	let query = '';
 </script>
 
 <nav class="main-grid">
@@ -28,14 +39,13 @@
 			<LogoText />
 		</a>
 	</div>
-	<div class="search-container">
-		<div class="search">
-			<input type="text" placeholder="SEARCH" />
-			<div class="icon">
-				<Search />
-			</div>
-		</div>
-	</div>
+	<!-- This form even works with JS disabled -->
+	<form class="search-container" on:submit={search} method="get" action="/search">
+		<input name="q" type="text" placeholder="SEARCH" bind:this={queryInputRef} bind:value={query} />
+		<button class="search-button">
+			<Search />
+		</button>
+	</form>
 	<div class="nav-right">
 		<div class="buttons">
 			<button class="login button" on:click={openLogin}>
@@ -59,7 +69,7 @@
 		height: $topNavHeight;
 		width: 100%;
 		z-index: 5;
-		padding: 0.25rem;
+		padding: 0.25rem 0.75rem;
 		> * {
 			height: 100%;
 		}
@@ -74,7 +84,6 @@
 	.logo-container {
 		display: flex;
 		align-items: center;
-		padding: 0 0.5rem;
 
 		.toggle-side-nav {
 			background-color: unset;
@@ -102,43 +111,54 @@
 	}
 
 	.search-container {
-		display: grid;
-		place-items: center;
+		display: flex;
+		justify-content: center;
+		align-items: center;
 
-		.search {
-			position: relative;
-			width: 30rem;
+		position: relative;
+		width: 30rem;
+		height: 100%;
+
+		input {
+			border: 1px solid $borderColor;
+			border-right: none;
+			border-radius: 1rem 0 0 1rem;
+			transition: border-color 0.25s;
+			padding: 0.5rem 1rem;
+			font: inherit;
+			background-color: $bgColor2;
+			color: white;
+			width: 100%;
 			height: 100%;
-
-			& > input {
-				border: 1px solid $borderColor;
-				border-radius: 1rem;
-				padding: 0.5rem 1rem;
-				font: inherit;
-				background-color: $bgColor2;
-				color: white;
-				width: 100%;
-				height: 100%;
-				padding-right: 2rem;
-				font-weight: 500;
-				outline: 0;
-				transition: border-color 0.25s;
-				&:focus {
-					border-color: #ff7357;
-					background-color: black;
-				}
-				&::placeholder {
-					color: #ffffff70;
-				}
+			padding-right: 2rem;
+			font-weight: 500;
+			outline: 0;
+			&:focus {
+				border-color: #ff7357;
+				background-color: black;
 			}
-
-			& > .icon {
-				position: absolute;
-				right: 0.25rem;
-				top: 0.4rem;
-				font-size: 2.5rem;
-				color: white;
+			&::placeholder {
+				color: #ffffff70;
 			}
+		}
+
+		.search-button {
+			border: 1px solid $borderColor;
+			border-radius: 0 1rem 1rem 0;
+			border-left: none;
+			transition: border-color 0.25s;
+
+			height: 100%;
+			padding: 0.4rem;
+			font-size: 2.5rem;
+			color: white;
+			background-color: $bgColor2;
+			cursor: pointer;
+		}
+
+		input:focus + .search-button {
+			background-color: $bgColor;
+			border-color: #ff7357;
 		}
 	}
 
@@ -151,7 +171,6 @@
 	}
 
 	.nav-right {
-		padding: 0.25rem 0.75rem;
 		gap: 1rem;
 		justify-content: flex-end;
 	}

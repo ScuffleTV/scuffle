@@ -64,15 +64,13 @@
 	nav {
 		display: flex;
 		justify-content: space-between;
-		align-items: center;
+		align-items: stretch;
 		background-color: $bgColor2;
 		height: $topNavHeight;
-		width: 100%;
 		z-index: 5;
 		padding: 0.25rem 0.75rem;
-		> * {
-			height: 100%;
-		}
+
+		gap: 1rem;
 	}
 
 	.main-grid {
@@ -111,15 +109,16 @@
 	}
 
 	.search-container {
+		flex-grow: 1;
+		max-width: 30rem;
+
 		display: flex;
 		justify-content: center;
-		align-items: center;
-
-		position: relative;
-		width: 30rem;
-		height: 100%;
+		align-items: stretch;
 
 		input {
+			flex-grow: 1;
+			width: 6rem;
 			border: 1px solid $borderColor;
 			border-right: none;
 			border-radius: 1rem 0 0 1rem;
@@ -128,9 +127,6 @@
 			font: inherit;
 			background-color: $bgColor2;
 			color: white;
-			width: 100%;
-			height: 100%;
-			padding-right: 2rem;
 			font-weight: 500;
 			outline: 0;
 			&:focus {
@@ -148,7 +144,6 @@
 			border-left: none;
 			transition: border-color 0.25s;
 
-			height: 100%;
 			padding: 0.4rem;
 			font-size: 2.5rem;
 			color: white;
@@ -166,13 +161,7 @@
 	.nav-right {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
 		gap: 1rem;
-	}
-
-	.nav-right {
-		gap: 1rem;
-		justify-content: flex-end;
 	}
 
 	.button {

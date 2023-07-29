@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ShowMore from "$/components/icons/show-more.svelte";
 	import StreamPreview from "$components/stream-preview.svelte";
+	import CategoryCard from "$components/category-card.svelte";
 
 	const streamPreviews = [
 		{
@@ -53,6 +54,29 @@
 			preview: "/xqc-preview.png",
 		},
 	];
+
+	const categories = [
+		{
+			title: "Minecraft",
+			image: "/categories/minecraft.png",
+			viewers: 243,
+		},
+		{
+			title: "Valorant",
+			image: "/categories/valorant.png",
+			viewers: 243,
+		},
+		{
+			title: "Deep Rock Galactic",
+			image: "/categories/deep-rock-galactic.png",
+			viewers: 243,
+		},
+		{
+			title: "Fortnite",
+			image: "/categories/fortnite.png",
+			viewers: 243,
+		}
+	];
 </script>
 
 <svelte:head>
@@ -84,7 +108,11 @@
 
 	<div class="container">
 		<h2 class="title title-categories">Categories</h2>
-		<div class="categories" />
+		<div class="categories">
+			{#each categories as category}
+				<CategoryCard {...category} />
+			{/each}
+		</div>
 	</div>
 </div>
 

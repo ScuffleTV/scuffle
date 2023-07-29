@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ShowMore from "$/components/icons/show-more.svelte";
 	import StreamPreview from "$components/stream-preview.svelte";
 
 	const streamPreviews = [
@@ -59,23 +60,32 @@
 </svelte:head>
 
 <div class="content">
-	<div class="previews">
-		{#each streamPreviews as preview}
-			<StreamPreview {...preview} special={preview.streamer === "BTSSmash"} />
-		{/each}
+	<div class="container">
+		<div class="previews">
+			{#each streamPreviews as preview}
+				<StreamPreview {...preview} special={preview.streamer === "BTSSmash"} />
+			{/each}
+		</div>
 	</div>
 
-	<h2 class="title title-hbt">How about this?</h2>
-
-	<div class="hbt">
-		{#each howAboutThis as preview}
-			<StreamPreview {...preview} />
-		{/each}
+	<div class="container">
+		<h2 class="title title-hbt">How about this?</h2>
+		<div class="hbt">
+			{#each howAboutThis as preview}
+				<StreamPreview {...preview} />
+			{/each}
+		</div>
+		<div class="show-more">
+			<h4>show more</h4>
+			<ShowMore />
+			<hr />
+		</div>
 	</div>
 
-	<h2 class="title title-categories">Categories</h2>
-
-	<div class="categories" />
+	<div class="container">
+		<h2 class="title title-categories">Categories</h2>
+		<div class="categories" />
+	</div>
 </div>
 
 <style lang="scss">
@@ -85,28 +95,48 @@
 		display: flex;
 		flex-direction: column;
 		grid-area: content;
+		gap: 1rem;
+
+		padding: 1rem;
+
+		& > .container {
+			display: flex;
+			flex-direction: column;
+			gap: 0.5rem;
+		}
+	}
+
+	.show-more {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		cursor: pointer;
+		color: #FF5A39;
+
+		&:hover {
+			color: #f47e66;
+		}
+
+		& > h4 {
+			margin: 0;
+			font-size: 0.95rem;
+			font-weight: 400;
+		}
+
+		& > hr {
+			flex-grow: 1;
+			color: #252525;
+		}
 	}
 
 	.previews {
-		padding: 1rem;
 		display: flex;
 		flex-wrap: wrap;
-		column-gap: 1rem;
-		row-gap: 1rem;
-		grid-area: previews;
-	}
-
-	.title-hbt {
-		grid-area: hbt-title;
-	}
-
-	.title-categories {
-		grid-area: categories-title;
+		gap: 1rem;
 	}
 
 	.title-hbt,
 	.title-categories {
-		padding-left: 1rem;
 		font-size: 1.25rem;
 		font-weight: 500;
 		color: #ffffff;
@@ -115,20 +145,14 @@
 	}
 
 	.hbt {
-		padding: 1rem;
 		display: flex;
 		flex-wrap: wrap;
-		column-gap: 1rem;
-		row-gap: 1rem;
-		grid-area: hbt;
+		gap: 1rem;
 	}
 
 	.categories {
-		padding: 1rem;
 		display: flex;
 		flex-wrap: wrap;
-		column-gap: 1rem;
-		row-gap: 1rem;
-		grid-area: categories;
+		gap: 1rem;
 	}
 </style>

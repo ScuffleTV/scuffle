@@ -385,15 +385,15 @@ workflows:
           type: approval
           requires:
             - build
-
-      - docker-push:
-          requires:
-            - docker-push-approve
           filters:
             branches:
               only:
                 - main
                 - /^feature\/.*$/
+
+      - docker-push:
+          requires:
+            - docker-push-approve
 
           context:
             - ghcr

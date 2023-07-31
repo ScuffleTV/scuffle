@@ -51,8 +51,16 @@
 				transparent $dashLength + $spaceLength,
 				$borderColor $dashLength + $spaceLength
 			);
-		background-size: 1px 100%, 100% 1px, 1px 100%, 100% 1px;
-		background-position: 0 0, 0 0, 100% 0, 0 100%;
+		background-size:
+			1px 100%,
+			100% 1px,
+			1px 100%,
+			100% 1px;
+		background-position:
+			0 0,
+			0 0,
+			100% 0,
+			0 100%;
 		background-repeat: no-repeat;
 		color: #a0a0a0;
 		transition: color 0.1s ease-in-out;
@@ -83,7 +91,9 @@
 	}
 
 	.tag-click {
-		transition: background-color 0.5s ease-in-out, border 0.5s ease-in-out;
+		transition:
+			background-color 0.5s ease-in-out,
+			border 0.5s ease-in-out;
 		position: absolute;
 		top: 0;
 		left: 0;

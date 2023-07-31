@@ -130,7 +130,10 @@
 		border: 1px solid transparent;
 		padding: 0.5rem 0.75rem;
 		margin-left: 0.25rem;
-		transition: filter 0.2s ease-in-out, color 0.2s ease-in-out, background-color 0.2s ease-in-out,
+		transition:
+			filter 0.2s ease-in-out,
+			color 0.2s ease-in-out,
+			background-color 0.2s ease-in-out,
 			border-color 0.2s ease-in-out;
 		border-radius: 1rem;
 

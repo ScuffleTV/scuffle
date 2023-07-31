@@ -75,7 +75,7 @@
 			title: "Fortnite",
 			image: "/categories/fortnite.png",
 			viewers: 243,
-		}
+		},
 	];
 </script>
 
@@ -139,7 +139,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		cursor: pointer;
-		color: #FF5A39;
+		color: #ff5a39;
 
 		&:hover {
 			color: #f47e66;

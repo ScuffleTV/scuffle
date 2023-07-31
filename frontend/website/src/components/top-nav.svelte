@@ -27,7 +27,7 @@
 	}
 
 	let queryInputRef: HTMLInputElement;
-	let query = '';
+	let query = "";
 </script>
 
 <nav class="main-grid">
@@ -167,7 +167,11 @@
 	.button {
 		color: white;
 		border-radius: 0.6rem;
-		transition: background-color 0.5s, color 0.5s, box-shadow 0.5s, border-color 0.5s;
+		transition:
+			background-color 0.5s,
+			color 0.5s,
+			box-shadow 0.5s,
+			border-color 0.5s;
 		cursor: pointer;
 		padding: 0.6rem 0.8rem;
 		font: inherit;

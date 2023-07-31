@@ -70,7 +70,7 @@
 		font-weight: 500;
 		font-size: 0.865rem;
 
-		// if the game is too long, we want to cut it off and add an ellipsis
+		/* if the game is too long, we want to cut it off and add an ellipsis */
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;

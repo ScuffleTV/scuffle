@@ -64,7 +64,7 @@
 			grid-template-rows: auto auto auto auto auto;
 			grid-template-columns: auto 1fr;
 
-			// 20rem + 1rem + 20rem
+			/* 20rem + 1rem + 20rem */
 			width: 41rem;
 
 			background: radial-gradient(

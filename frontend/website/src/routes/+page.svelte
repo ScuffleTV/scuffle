@@ -168,7 +168,7 @@
 		font-size: 1.25rem;
 		font-weight: 500;
 		color: #ffffff;
-		font-family: "Inter", sans-serif;
+		font-family: $sansFont;
 		font-style: italic;
 	}
 

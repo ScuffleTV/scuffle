@@ -139,10 +139,10 @@
 		align-items: center;
 		gap: 0.5rem;
 		cursor: pointer;
-		color: #ff5a39;
+		color: $primaryColor;
 
 		&:hover {
-			color: #f47e66;
+			color: $primaryColorLight;
 		}
 
 		& > h4 {

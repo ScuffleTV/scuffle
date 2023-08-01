@@ -86,7 +86,7 @@
 		}
 
 		& > .viewers {
-			color: #ff3e3e;
+			color: $liveColor;
 			font-size: 0.95rem;
 			font-weight: 500;
 

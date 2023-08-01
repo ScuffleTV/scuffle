@@ -121,7 +121,7 @@
 				display: inline-block;
 				width: 0.4rem;
 				height: 0.4rem;
-				background-color: #e91916;
+				background-color: $liveColor;
 				border-radius: 50%;
 				margin: 0.1rem 0.4rem;
 			}
@@ -188,7 +188,7 @@
 		font-weight: 500;
 		text-align: right;
 		display: flex;
-		border-left: $viewerBarWidth solid #f00;
+		border-left: $viewerBarWidth solid $liveColor;
 		left: -$viewerBarWidth;
 		align-items: center;
 		border-top-right-radius: 0.25rem;
@@ -197,7 +197,7 @@
 	}
 
 	.viewers-bar {
-		border-left: $viewerBarWidth solid #f00;
+		border-left: $viewerBarWidth solid $liveColor;
 		left: -$viewerBarWidth;
 		position: absolute;
 		height: 0;

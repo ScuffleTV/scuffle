@@ -222,7 +222,7 @@
 
 		&.error {
 			input {
-				border-color: #ff0000 !important;
+				border-color: red !important;
 				background-color: #000000;
 			}
 
@@ -231,7 +231,7 @@
 			}
 
 			.input-status {
-				color: #ff0000;
+				color: red;
 			}
 		}
 

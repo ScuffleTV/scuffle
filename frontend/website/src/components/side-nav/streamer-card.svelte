@@ -26,12 +26,14 @@
 </a>
 
 <style lang="scss">
+	@import "../../assets/styles/variables.scss";
+
 	.streamer-card {
 		display: grid;
 		column-gap: 0.5rem;
 		padding: 0.5rem 0.75rem;
 		color: white;
-		font-family: "Inter", sans-serif;
+		font-family: $sansFont;
 		text-decoration: none;
 		grid-template-rows: 1fr 1fr;
 		grid-template-columns: auto 1fr auto;

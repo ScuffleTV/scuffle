@@ -13,7 +13,7 @@ body {
 	margin: 0;
 	background-color: $bgColor;
 	color: white;
-	font-family: "IBM Plex Mono", monospace;
+	font-family: $monoFont;
 	max-height: 100vh;
 	min-height: 100vh;
 	min-width: 100vw;

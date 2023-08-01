@@ -20,8 +20,10 @@
 </a>
 
 <style lang="scss">
+	@import "../assets/styles/variables.scss";
+
 	.category {
-		font-family: "Inter", sans-serif;
+		font-family: $sansFont;
 
 		display: flex;
 		flex-direction: column;

@@ -30,6 +30,7 @@
 </div>
 
 <style lang="scss">
+	@import "../assets/styles/variables.scss";
 	$viewerBarWidth: 0.15rem;
 
 	.stream-preview {
@@ -46,7 +47,7 @@
 
 		width: 20rem;
 
-		font-family: "Inter", sans-serif;
+		font-family: $sansFont;
 
 		&.special {
 			.viewers-bar,
@@ -111,7 +112,7 @@
 				border-bottom-right-radius: 0;
 				background-color: transparent;
 				border-left: none;
-				font-family: "IBM Plex Mono", monospace;
+				font-family: $monoFont;
 				color: #a0a0a0;
 			}
 

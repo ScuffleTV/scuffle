@@ -37,7 +37,7 @@
 		&:hover {
 			& > img {
 				transform: scale(1.25);
-				filter: drop-shadow(0 0 0.5rem #000000);
+				filter: drop-shadow(0 0 0.5rem black);
 				z-index: 2;
 			}
 
@@ -54,7 +54,7 @@
 		}
 
 		& > span {
-			color: #a0a0a0;
+			color: $textColorLight;
 			font-size: 0.95rem;
 			font-weight: 500;
 			white-space: nowrap;
@@ -69,7 +69,7 @@
 		aspect-ratio: 3/4;
 		transform: scale(1.25);
 		opacity: 0;
-		background: linear-gradient(transparent 50%, #000000cc 80%, #000000 100%);
+		background: linear-gradient(transparent 50%, #000000cc 80%, black 100%);
 		transition: opacity 0s;
 
 		display: flex;
@@ -79,7 +79,7 @@
 		gap: 0.5rem;
 
 		& > .title {
-			color: white;
+			color: $textColor;
 			font-size: 1rem;
 			font-weight: 500;
 			line-height: 0.95rem;

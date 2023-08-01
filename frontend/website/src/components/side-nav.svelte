@@ -143,15 +143,15 @@
 		}
 
 		&.selected {
-			color: white;
+			color: $textColor;
 			filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
 			&:hover {
-				filter: drop-shadow(0 0 5px rgba(255, 255, 255, 1));
+				filter: drop-shadow(0 0 5px white);
 			}
 		}
 
 		&:hover:not(.selected) {
-			color: white;
+			color: $textColor;
 			background-color: #2b292e27;
 			border-color: #bcbcbc27;
 		}
@@ -189,8 +189,7 @@
 
 	hr {
 		width: 100%;
-		border: 0;
-		border-bottom: 0.1em solid #252525;
+		color: $bgColorLight;
 	}
 
 	.category {

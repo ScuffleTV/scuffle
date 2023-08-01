@@ -192,6 +192,8 @@
 </div>
 
 <style lang="scss">
+	@import "../../assets/styles/variables.scss";
+
 	.form-group {
 		font-family: inherit;
 		position: relative;
@@ -207,8 +209,8 @@
 
 		&.success {
 			input {
-				border-color: #67b85a !important;
-				background-color: #000000;
+				border-color: $successColor !important;
+				background-color: black;
 			}
 
 			.message {
@@ -216,14 +218,14 @@
 			}
 
 			.input-status {
-				color: #61ea4b;
+				color: $successColor;
 			}
 		}
 
 		&.error {
 			input {
-				border-color: red !important;
-				background-color: #000000;
+				border-color: $errorColor !important;
+				background-color: black;
 			}
 
 			.message {
@@ -231,14 +233,14 @@
 			}
 
 			.input-status {
-				color: red;
+				color: $errorColor;
 			}
 		}
 
 		&.warning {
 			input {
 				border-color: #ff8c00 !important;
-				background-color: #000000;
+				background-color: black;
 			}
 
 			.message {
@@ -253,7 +255,7 @@
 		&.loading {
 			input {
 				border-color: #b7e779 !important;
-				background-color: #000000;
+				background-color: black;
 			}
 
 			.message {
@@ -276,15 +278,15 @@
 			transition: border-color 0.25s ease-in-out;
 			width: 100%;
 
-			color: white;
+			color: $textColor;
 
 			&:hover {
 				border-color: #393939;
 			}
 
 			&:focus {
-				background-color: #000000;
-				border-color: #ff7357;
+				background-color: black;
+				border-color: $primaryColor;
 				box-shadow: 0px 4px 4px #0000003f;
 			}
 		}

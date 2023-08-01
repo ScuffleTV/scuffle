@@ -238,7 +238,7 @@
 	.chat-title {
 		font-size: 1.25rem;
 		font-weight: 500;
-		color: white;
+		color: $textColor;
 	}
 
 	.top {
@@ -258,11 +258,11 @@
 		padding: 0;
 		cursor: pointer;
 		transition: color 0.25s ease;
-		color: #ffffff70;
+		color: $translucentColor;
 		font-size: 1.75rem;
 		grid-row: 1 / 1;
 		&:hover {
-			color: #f79986;
+			color: $primaryColorLight;
 		}
 	}
 
@@ -280,7 +280,7 @@
 		word-break: break-all;
 		&-text {
 			&.info {
-				color: #ffffff70;
+				color: $translucentColor;
 			}
 		}
 	}
@@ -301,7 +301,7 @@
 		border-radius: 0.25rem;
 		padding: 0.5rem 1rem;
 		font: inherit;
-		color: white;
+		color: $textColor;
 		background-color: transparent;
 		width: 100%;
 		padding-right: 2rem;
@@ -313,12 +313,12 @@
 			background-color: black;
 		}
 		&::placeholder {
-			color: #ffffff70;
+			color: $translucentColor;
 		}
 	}
 
 	.chatbox-send {
-		color: white;
+		color: $textColor;
 		border-radius: 0.8rem;
 		transition:
 			background-color 0.2s,
@@ -333,17 +333,17 @@
 		grid-column: 2 / 2;
 		&:disabled {
 			background-color: #4142428a;
-			color: #ffffff70;
+			color: $translucentColor;
 			cursor: not-allowed;
 		}
 		&:hover:not(:disabled) {
-			background-color: #ff7357;
+			background-color: $primaryColor;
 		}
 	}
 
 	.no-messages {
 		padding: 1rem;
-		color: #ffffff70;
+		color: $translucentColor;
 		text-align: center;
 		place-self: center;
 		margin: auto 0;
@@ -371,7 +371,7 @@
 		color: inherit;
 		transition: background-color 0.25s;
 		&:hover {
-			background-color: #ff7357;
+			background-color: $primaryColor;
 		}
 	}
 </style>

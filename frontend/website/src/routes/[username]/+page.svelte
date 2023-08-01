@@ -157,7 +157,7 @@
 		cursor: pointer;
 		box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.1);
 		background-color: #eb735b;
-		color: white;
+		color: $textColor;
 		transition:
 			background-color 0.5s,
 			color 0.5s,

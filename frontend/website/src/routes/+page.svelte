@@ -153,7 +153,7 @@
 
 		& > hr {
 			flex-grow: 1;
-			color: #252525;
+			color: $bgColorLight;
 		}
 	}
 
@@ -167,7 +167,7 @@
 	.title-categories {
 		font-size: 1.25rem;
 		font-weight: 500;
-		color: #ffffff;
+		color: $textColor;
 		font-family: $sansFont;
 		font-style: italic;
 	}

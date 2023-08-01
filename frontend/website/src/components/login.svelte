@@ -531,6 +531,8 @@
 </div>
 
 <style lang="scss">
+	@import "../assets/styles/variables.scss";
+
 	.container {
 		position: fixed;
 		width: 100vw;
@@ -546,7 +548,7 @@
 	}
 
 	.link-button {
-		color: #cf634d;
+		color: $primaryColor;
 		font-family: inherit;
 		font-size: inherit;
 		background-color: transparent;
@@ -556,7 +558,7 @@
 		cursor: pointer;
 		transition: color 0.2s ease-in-out;
 		&:hover {
-			color: #dc8573;
+			color: $primaryColorLight;
 		}
 	}
 
@@ -610,21 +612,17 @@
 	}
 
 	.button-submit {
-		font-family: inherit;
-		width: 100%;
 		border: none;
 		cursor: pointer;
 		border-radius: 0.5rem;
-		color: #ffffff;
+		color: $textColor;
 		font: inherit;
-	}
 
-	.button-submit {
 		width: 45%;
 		font-size: 1rem;
 		font-weight: 400;
 		padding: 0.8rem;
-		background-color: #cf634d;
+		background-color: $primaryColor;
 		transition:
 			background-color 0.5s,
 			color 0.5s,
@@ -632,23 +630,23 @@
 		box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.1);
 
 		&:hover:not(:disabled) {
-			background-color: #d47b69;
+			background-color: $primaryColorLight;
 			box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.2);
 		}
 
 		&:disabled {
-			background-color: #7b3e31;
+			background-color: $primaryColorDark;
 			box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.05);
 			cursor: not-allowed;
-			color: #ffffff83;
+			color: $translucentColor;
 		}
 	}
 
 	.message-holder {
 		margin-bottom: 0.5rem;
-		color: #54cf4d;
+		color: $successColor;
 		&.error {
-			color: #cf634d;
+			color: $errorColor;
 		}
 	}
 </style>

@@ -32,7 +32,7 @@
 		display: grid;
 		column-gap: 0.5rem;
 		padding: 0.5rem 0.75rem;
-		color: white;
+		color: $textColor;
 		font-family: $sansFont;
 		text-decoration: none;
 		grid-template-rows: 1fr 1fr;
@@ -42,7 +42,7 @@
 			"avatar game .";
 
 		&:hover {
-			background-color: #252525;
+			background-color: $bgColorLight;
 		}
 	}
 
@@ -60,7 +60,7 @@
 	.name {
 		grid-area: name;
 		align-self: center;
-		color: white;
+		color: $textColor;
 		font-weight: 500;
 		font-size: 1rem;
 	}

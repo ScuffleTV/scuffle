@@ -238,7 +238,7 @@
 	.chat-title {
 		font-size: 1.25rem;
 		font-weight: 500;
-		color: #ffffff;
+		color: white;
 	}
 
 	.top {

@@ -93,7 +93,7 @@
 		display: inline-block;
 		width: 0.4rem;
 		height: 0.4rem;
-		background-color: #e91916;
+		background-color: $liveColor;
 		border-radius: 50%;
 		margin-right: 0.4rem;
 		margin-bottom: 0.1rem;

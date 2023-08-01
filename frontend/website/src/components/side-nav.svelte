@@ -207,10 +207,10 @@
 		padding: 0.5rem 0.75rem;
 		font-size: 0.95rem;
 		font-weight: 400;
-		color: #ff5a39;
+		color: $primaryColor;
 		cursor: pointer;
 		&:hover {
-			color: #f47e66;
+			color: $primaryColorLight;
 		}
 	}
 </style>

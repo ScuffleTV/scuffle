@@ -78,7 +78,7 @@
 
 			.streamer {
 				font-size: 8rem;
-				color: white;
+				color: $textColor;
 				font-weight: 500;
 				text-transform: lowercase;
 				letter-spacing: -0.7rem;
@@ -91,7 +91,7 @@
 			.title {
 				font-size: 1rem;
 				font-weight: 500;
-				color: white;
+				color: $textColor;
 				align-self: self-end;
 				white-space: pre-wrap;
 				padding: 3.25rem 0 0 0;
@@ -113,7 +113,7 @@
 				background-color: transparent;
 				border-left: none;
 				font-family: $monoFont;
-				color: #a0a0a0;
+				color: $textColorLight;
 			}
 
 			.viewers-text::before {
@@ -173,7 +173,7 @@
 		grid-area: streamer;
 		font-size: 0.875rem;
 		font-weight: 400;
-		color: #a0a0a0;
+		color: $textColorLight;
 	}
 
 	.viewers-text,

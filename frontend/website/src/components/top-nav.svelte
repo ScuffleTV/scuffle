@@ -126,15 +126,15 @@
 			padding: 0.5rem 1rem;
 			font: inherit;
 			background-color: $bgColor2;
-			color: white;
+			color: $textColor;
 			font-weight: 500;
 			outline: 0;
 			&:focus {
-				border-color: #ff7357;
+				border-color: $primaryColor;
 				background-color: black;
 			}
 			&::placeholder {
-				color: #ffffff70;
+				color: $translucentColor;
 			}
 		}
 
@@ -146,14 +146,14 @@
 
 			padding: 0.4rem;
 			font-size: 2.5rem;
-			color: white;
+			color: $textColor;
 			background-color: $bgColor2;
 			cursor: pointer;
 		}
 
 		input:focus + .search-button {
 			background-color: $bgColor;
-			border-color: #ff7357;
+			border-color: $primaryColor;
 		}
 	}
 
@@ -165,7 +165,7 @@
 	}
 
 	.button {
-		color: white;
+		color: $textColor;
 		border-radius: 0.6rem;
 		transition:
 			background-color 0.5s,
@@ -182,10 +182,10 @@
 			align-items: center;
 			justify-content: center;
 			column-gap: 0.25rem;
-			color: #a0a0a0;
+			color: $textColorLight;
 
 			&:hover {
-				color: white;
+				color: $textColor;
 				border-color: white;
 			}
 

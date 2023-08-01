@@ -8,6 +8,8 @@
 </div>
 
 <style lang="scss">
+	@import "../assets/styles/variables.scss";
+
 	$borderColor: #383838;
 	$dashLength: 0.3rem;
 	$spaceLength: 0.15rem;
@@ -62,14 +64,14 @@
 			100% 0,
 			0 100%;
 		background-repeat: no-repeat;
-		color: #a0a0a0;
+		color: $textColorLight;
 		transition: color 0.1s ease-in-out;
 
 		cursor: default;
 		user-select: none;
 		position: relative;
 		&:hover {
-			color: white;
+			color: $textColor;
 			$backgroundSize: 10rem;
 			background-image: repeating-linear-gradient(
 					0deg,

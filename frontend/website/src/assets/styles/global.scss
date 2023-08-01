@@ -12,7 +12,7 @@ $scrollBarBgColor: #0f1314;
 body {
 	margin: 0;
 	background-color: $bgColor;
-	color: white;
+	color: $textColor;
 	font-family: $monoFont;
 	max-height: 100vh;
 	min-height: 100vh;

@@ -208,6 +208,8 @@
 <style lang="scss">
 	@import "../assets/styles/variables.scss";
 
+	$translucentColor: #ffffff70;
+
 	.uncollapse {
 		position: absolute;
 		top: 0;

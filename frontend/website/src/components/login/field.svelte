@@ -214,7 +214,7 @@
 			}
 
 			.message {
-				color: #3e9c3e;
+				color: $successColorDark;
 			}
 
 			.input-status {
@@ -229,7 +229,7 @@
 			}
 
 			.message {
-				color: #a03e3e;
+				color: $errorColorDark;
 			}
 
 			.input-status {
@@ -239,31 +239,31 @@
 
 		&.warning {
 			input {
-				border-color: #ff8c00 !important;
+				border-color: $warningColor !important;
 				background-color: black;
 			}
 
 			.message {
-				color: #ad7033;
+				color: $warningColorDark;
 			}
 
 			.input-status {
-				color: #ff8c00;
+				color: $warningColor;
 			}
 		}
 
 		&.loading {
 			input {
-				border-color: #b7e779 !important;
+				border-color: $loadingColor !important;
 				background-color: black;
 			}
 
 			.message {
-				color: #b7e779;
+				color: $loadingColor;
 			}
 
 			.input-status {
-				color: #b7e779;
+				color: $loadingColor;
 			}
 		}
 
@@ -274,7 +274,7 @@
 			outline: 1px solid #2c2c2c;
 			background-color: #161818;
 			border: 2px solid transparent;
-			box-shadow: 0px 4px 12px 4px #00000026;
+			box-shadow: 0px 4px 12px 4px rgba(0, 0, 0, 0.15);
 			transition: border-color 0.25s ease-in-out;
 			width: 100%;
 
@@ -287,7 +287,7 @@
 			&:focus {
 				background-color: black;
 				border-color: $primaryColor;
-				box-shadow: 0px 4px 4px #0000003f;
+				box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
 			}
 		}
 

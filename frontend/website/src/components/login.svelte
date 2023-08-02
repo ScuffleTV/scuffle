@@ -544,7 +544,7 @@
 
 	.bg {
 		all: inherit;
-		background-color: #00000075;
+		background-color: rgba(0, 0, 0, 0.5);
 	}
 
 	.link-button {
@@ -575,7 +575,7 @@
 		display: flex;
 		flex-direction: column;
 		text-align: center;
-		box-shadow: 0 0 0.5rem 0.5rem #0000004b;
+		box-shadow: 0 0 0.5rem 0.5rem rgba(0, 0, 0, 0.3);
 	}
 	.text-left {
 		text-align: left !important;
@@ -638,7 +638,7 @@
 			background-color: $primaryColorDark;
 			box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.05);
 			cursor: not-allowed;
-			color: $translucentColor;
+			color: $textColorLight;
 		}
 	}
 

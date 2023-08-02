@@ -134,7 +134,7 @@
 				background-color: black;
 			}
 			&::placeholder {
-				color: $translucentColor;
+				color: $textColorLight;
 			}
 		}
 

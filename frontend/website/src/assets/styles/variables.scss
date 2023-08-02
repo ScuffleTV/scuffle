@@ -15,10 +15,14 @@ $bgColor2: #151515;
 $bgColorLight: #252525;
 $borderColor: #cccccc20;
 
+/* Form Colors */
 $successColor: #61ea4b;
+$successColorDark: #3e9c3e;
 $errorColor: red;
-
-$translucentColor: #ffffff70;
+$errorColorDark: #a03e3e;
+$warningColor: #ff8c00;
+$warningColorDark: #ad7033;
+$loadingColor: #b7e779;
 
 $sansFont: "Inter", sans-serif;
 $monoFont: "IBM Plex Mono", monospace;

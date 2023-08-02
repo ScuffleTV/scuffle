@@ -189,6 +189,7 @@
 
 	hr {
 		width: 100%;
+		border-style: solid;
 		color: $bgColorLight;
 	}
 

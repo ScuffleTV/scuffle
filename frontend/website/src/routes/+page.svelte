@@ -152,6 +152,7 @@
 		}
 
 		& > hr {
+			border-style: solid;
 			flex-grow: 1;
 			color: $bgColorLight;
 		}

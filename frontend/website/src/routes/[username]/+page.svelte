@@ -102,14 +102,14 @@
 	.category {
 		display: block;
 		font-size: 1.25rem;
-		color: #ee7c66;
+		color: $primaryColor;
 		font-weight: 500;
 		grid-row: 2 / 2;
 		grid-column: 1 / 1;
 	}
 
 	.viewer-count {
-		color: #ee7c66;
+		color: $primaryColor;
 		> svg {
 			vertical-align: -0.15em;
 		}
@@ -139,7 +139,7 @@
 		border: none;
 		border-radius: 50%;
 		padding: 0.5rem;
-		color: #ee7c66;
+		color: $primaryColor;
 		font-size: 1.15em;
 		cursor: pointer;
 		transition: background-color 0.2s ease-in-out;
@@ -156,14 +156,14 @@
 		font-weight: 500;
 		cursor: pointer;
 		box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.1);
-		background-color: #eb735b;
+		background-color: $primaryColor;
 		color: $textColor;
 		transition:
 			background-color 0.5s,
 			color 0.5s,
 			box-shadow 0.5s;
 		&:hover {
-			background-color: #f79986;
+			background-color: $primaryColorLight;
 			box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.2);
 		}
 	}

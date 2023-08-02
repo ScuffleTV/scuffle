@@ -69,7 +69,7 @@
 		aspect-ratio: 3/4;
 		transform: scale(1.25);
 		opacity: 0;
-		background: linear-gradient(transparent 50%, #000000cc 80%, black 100%);
+		background: linear-gradient(transparent 50%, rgba(0, 0, 0, 0.8) 80%, black 100%);
 		transition: opacity 0s;
 
 		display: flex;

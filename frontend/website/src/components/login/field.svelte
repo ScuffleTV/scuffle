@@ -271,8 +271,8 @@
 			font-family: inherit;
 			padding: 0.5rem;
 			border-radius: 0.25rem;
-			outline: 1px solid #2c2c2c;
-			background-color: #161818;
+			outline: 1px solid $borderColor;
+			background-color: $bgColor2;
 			border: 2px solid transparent;
 			box-shadow: 0px 4px 12px 4px rgba(0, 0, 0, 0.15);
 			transition: border-color 0.25s ease-in-out;
@@ -281,7 +281,7 @@
 			color: $textColor;
 
 			&:hover {
-				border-color: #393939;
+				border-color: $borderColor;
 			}
 
 			&:focus {
@@ -294,7 +294,7 @@
 		.message {
 			margin-top: 0.1rem;
 			font-size: 0.9rem;
-			color: #9c9c9c;
+			color: $textColorLight;
 			max-height: 0;
 			overflow: hidden;
 			transition: max-height 0.25s ease;

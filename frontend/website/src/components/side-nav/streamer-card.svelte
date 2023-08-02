@@ -68,7 +68,7 @@
 	.game {
 		grid-area: game;
 		align-self: center;
-		color: #a3a3a3;
+		color: $textColorLight;
 		font-weight: 500;
 		font-size: 0.865rem;
 
@@ -82,7 +82,7 @@
 		grid-area: viewers;
 		align-self: center;
 		justify-self: end;
-		color: #cbcbcb;
+		color: $textColorLighter;
 		font-weight: 500;
 		font-size: 0.865rem;
 	}

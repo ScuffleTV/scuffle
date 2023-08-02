@@ -175,8 +175,8 @@
 		cursor: pointer;
 		padding: 0.6rem 0.8rem;
 		font: inherit;
-		border: 1px solid #2c2c2c;
-		background: #16181862;
+		border: 1px solid $borderColor;
+		background: $bgColor2;
 		&.login {
 			display: flex;
 			align-items: center;

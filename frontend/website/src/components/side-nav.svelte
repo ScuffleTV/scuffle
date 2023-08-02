@@ -119,7 +119,7 @@
 	}
 
 	.item {
-		color: #bcbcbc;
+		color: $textColorLight;
 		display: flex;
 		align-items: center;
 		text-decoration: none;
@@ -181,7 +181,7 @@
 		padding: 0.5rem 0.75rem;
 		font-size: 0.85rem;
 		font-weight: 500;
-		color: #585858;
+		color: $textColorDark;
 		text-transform: uppercase;
 	}
 

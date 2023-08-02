@@ -86,7 +86,7 @@
 		.toggle-side-nav {
 			background-color: unset;
 			font: inherit;
-			color: inherit;
+			color: $textColorLight;
 			cursor: pointer;
 			border: 0;
 			outline: 0;

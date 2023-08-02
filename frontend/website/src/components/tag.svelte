@@ -11,7 +11,7 @@
 		padding: 0.2rem 0.5rem;
 		font-size: 0.85rem;
 		font-weight: 500;
-		border: 1px dashed #383838;
+		border: 1px dashed $borderColor;
 		color: $textColorLight;
 		transition: color 0.1s ease-in-out, background-color 0.5s ease-in-out,
 			border 0.5s ease-in-out;
@@ -22,6 +22,7 @@
 			border-style: solid;
 		}
 		&:active {
+			/* Where do those colors come from? They're nowhere else */
 			background-color: #2fc0f465;
 			border-color: #52e2f2c4;
 			transition: unset;

@@ -595,7 +595,7 @@
 		font-weight: 400;
 		margin-top: 0.5rem;
 		font-size: 0.95rem;
-		color: #747474;
+		color: $textColorDark;
 	}
 
 	form {

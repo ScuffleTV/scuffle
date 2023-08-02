@@ -135,7 +135,7 @@
 	}
 
 	.follow-button {
-		background-color: #3f3f3f6a;
+		background-color: rgba($bgColorLight, 0.75);
 		border: none;
 		border-radius: 50%;
 		padding: 0.5rem;
@@ -144,7 +144,7 @@
 		cursor: pointer;
 		transition: background-color 0.2s ease-in-out;
 		&:hover {
-			background-color: #3f3f3f;
+			background-color: $bgColorLight;
 		}
 	}
 

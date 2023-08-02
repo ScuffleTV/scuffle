@@ -208,7 +208,7 @@
 <style lang="scss">
 	@import "../assets/styles/variables.scss";
 
-	$translucentColor: #ffffff70;
+	$translucentColor: rgba(white, 0.5);
 
 	.uncollapse {
 		position: absolute;
@@ -311,7 +311,7 @@
 		transition: border-color 0.25s;
 		grid-column: 1 / -1;
 		&:focus {
-			border-color: #545454;
+			border-color: $textColorDark;
 			background-color: black;
 		}
 		&::placeholder {
@@ -331,10 +331,9 @@
 		margin: 0 0.5rem;
 		font: inherit;
 		border: 0;
-		background: #4142428a;
+		background: $bgColorLight;
 		grid-column: 2 / 2;
 		&:disabled {
-			background-color: #4142428a;
 			color: $translucentColor;
 			cursor: not-allowed;
 		}
@@ -361,7 +360,7 @@
 	.bottom-scroller {
 		position: absolute;
 		transform: translateY(-110%) translateX(-50%);
-		background-color: #d37c5ca5;
+		background-color: rgba($primaryColor, 0.6);
 		padding: 0.5rem 1rem;
 		text-align: center;
 		border-radius: 0.5rem;

@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package scuffle.video.v1.types;
+
+import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/video/v1/types/recording.proto";
+import "scuffle/video/v1/types/room.proto";
+
+message Events {
+    message RecordingEvent {
+        Recording recording = 1;
+    }
+
+    message RoomEvent {
+        Room room = 1;
+    }
+
+    int64 timestamp = 1;
+    Ulid event_id = 2;
+
+    oneof event {
+        RecordingEvent recording = 3;
+        RoomEvent room = 4;
+    }
+}

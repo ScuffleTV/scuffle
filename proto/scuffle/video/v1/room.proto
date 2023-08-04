@@ -1,0 +1,155 @@
+syntax = "proto3";
+
+package scuffle.video.v1;
+
+import "scuffle/video/v1/types/modify_mode.proto";
+import "scuffle/video/v1/types/room.proto";
+
+// Room allows you to create, update, get, disconnect, reset key, and delete
+// rooms. A room is a live stream that can be published to and viewed. Rooms can
+// be configured with a transcoding config, recording config, to define how the
+// stream is transcoded and recorded.
+service Room {
+  // Modify allows you to create a new room or update an existing room.
+  rpc Modify(RoomModifyRequest) returns (RoomModifyResponse) {}
+
+  // Get allows you to get rooms.
+  rpc Get(RoomGetRequest) returns (RoomGetResponse) {}
+
+  // Disconnect allows you to disconnect a currently live room.
+  rpc Disconnect(RoomDisconnectRequest) returns (RoomDisconnectResponse) {}
+
+  // ResetKey allows you to reset the key for a room.
+  rpc ResetKey(RoomResetKeyRequest) returns (RoomResetKeyResponse) {}
+
+  // Delete allows you to delete rooms.
+  rpc Delete(RoomDeleteRequest) returns (RoomDeleteResponse) {}
+}
+
+// RoomModifyRequest is a request to to Room.Modify
+// Allows you to create a new room or update an existing room.
+message RoomModifyRequest {
+  // The name of the room.
+  string name = 1;
+
+  // The name of the transcoding config.
+  // Changing this will not affect currently live rooms.
+  // Changing this will affect future rooms.
+  optional string transcoding_config_name = 2;
+
+  // The name of the recording config.
+  // Changing this will not affect currently live rooms.
+  // Changing this will affect future rooms.
+  optional string recording_config_name = 3;
+
+  // Whether the room is private.
+  // Private rooms will require signed tokens to view the stream.
+  // Will effect the room immediately.
+  optional bool private = 4;
+
+  // The mode is used to determine how to handle the request.
+  // Either, upsert, create, or update. (default upsert)
+  types.ModifyMode mode = 5;
+}
+
+// RoomModifyResponse is a response to Room.Modify
+message RoomModifyResponse {
+  // The room that was modified.
+  types.Room room = 1;
+
+  // Whether the room was created.
+  bool created = 2;
+}
+
+// RoomGetRequest is a request to Room.Get
+// Allows you to get rooms.
+// You can filter by name, transcoding config, recording config, and live
+// status. If no filters are provided, will return all rooms. You can paginate
+// by setting the limit and created_at.
+message RoomGetRequest {
+  // The name of the room. (exact match) (optional)
+  repeated string name = 1;
+
+  // Filter by the transcoding config.
+  optional string transcoding_config_name = 2;
+
+  // Filter by the recording config.
+  optional string recording_config_name = 3;
+
+  // Filter by the live status.
+  optional bool live = 5;
+
+  // Filter by the private status.
+  optional bool private = 6;
+
+  // The maximum number of rooms to return. (default 100, max 1000)
+  int32 limit = 7;
+
+  // The timestamp to start getting rooms from.
+  // If not provided, will start from the beginning.
+  // If provided, will start from the first room after the timestamp.
+  // This is a unix timestamp in nanoseconds.
+  optional int64 created_at = 8;
+}
+
+// RoomGetResponse is a response to Room.Get
+message RoomGetResponse {
+  // The rooms that were found.
+  repeated types.Room rooms = 1;
+}
+
+// RoomDisconnectRequest is a request to Room.Disconnect
+// This request allows you to disconnect a currently live room.
+// If the room is not live, this request will do nothing.
+// If the room is live the publisher will be disconnected and the room will be
+// marked as not live. You can use this in conjunction with Room.ResetKey to
+// prevent new publishers from connecting.
+message RoomDisconnectRequest {
+  // The names of the rooms to disconnect.
+  repeated string names = 1;
+}
+
+// RoomDisconnectResponse is a response to Room.Disconnect
+message RoomDisconnectResponse {
+  // The rooms that were disconnected.
+  repeated string names = 1;
+}
+
+// RoomResetKeyRequest is a request to Room.ResetKey
+// This request allows you to reset the key for a room.
+// This will not disconnect any publishers that are currently connected.
+// This will prevent new publishers from connecting.
+message RoomResetKeyRequest {
+  // The names of the rooms to reset the key for. (max 1000, required)
+  repeated string names = 1;
+}
+
+// RoomResetKeyResponse is a response to Room.ResetKey
+message RoomResetKeyResponse {
+  // The rooms that had their key reset.
+  // room_name->room_key
+  map<string, string> room_keys = 1;
+}
+
+// RoomDeleteRequest is a request to Room.Delete
+// This request allows you to delete rooms.
+// You can optionally delete the recordings for the rooms.
+// If the room is live the publisher will be disconnected.
+// If the recordings are not deleted, they will be unlinked from the room, and
+// will have an empty room name.
+message RoomDeleteRequest {
+  // The names of the rooms to delete.
+  repeated string names = 1;
+
+  // Whether to delete the recordings for the rooms.
+  bool delete_recordings = 2;
+}
+
+// RoomDeleteResponse is a response to Room.Delete
+message RoomDeleteResponse {
+  // The names of the rooms that were deleted.
+  repeated string names = 1;
+
+  // The ids of the recordings that were deleted or disassociated.
+  repeated string recording_ids = 2;
+}

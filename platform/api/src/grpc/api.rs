@@ -11,7 +11,7 @@ use prost::Message;
 use tonic::{async_trait, Request, Response, Status};
 use uuid::Uuid;
 
-use crate::pb::scuffle::backend::{
+use pb::scuffle::internal::video::rpc::{
     api_server,
     update_live_stream_request::{event::Level, update::Update},
     AuthenticateLiveStreamRequest, AuthenticateLiveStreamResponse, NewLiveStreamRequest,

@@ -293,7 +293,7 @@ impl<C: std::any::Any> KeyGraphBuilder<C> {
         // If this function is not called and the builder is dropped, then the Arc<KeyGraph> will be dropped,
         // Therefore the weak pointer will be empty and the graph will be rebuilt when the builder is created again.
         unsafe {
-            let graph_ptr = self.graph.as_ref() as *const KeyGraph as *mut KeyGraph;
+            let graph_ptr = Arc::as_ptr(&self.graph) as *mut KeyGraph;
             let _ = std::mem::replace(&mut *graph_ptr, graph);
         }
 

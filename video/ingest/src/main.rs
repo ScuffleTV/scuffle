@@ -1,15 +1,17 @@
-use std::{sync::Arc, time::Duration};
+use std::{str::FromStr, sync::Arc, time::Duration};
 
-use anyhow::{Context as _, Result};
-use common::{context::Context, logging, prelude::FutureTimeout, signal};
+use anyhow::Result;
+use async_nats::ServerAddr;
+use common::{context::Context, logging, signal};
+use sqlx::ConnectOptions;
+use sqlx_postgres::PgConnectOptions;
 use tokio::{select, signal::unix::SignalKind, time};
 
 mod config;
-mod connection_manager;
+mod define;
 mod global;
 mod grpc;
 mod ingest;
-mod pb;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -23,18 +25,50 @@ async fn main() -> Result<()> {
 
     let (ctx, handler) = Context::new();
 
-    let rmq = common::rmq::ConnectionPool::connect(
-        config.rmq.uri.clone(),
-        lapin::ConnectionProperties::default(),
-        Duration::from_secs(30),
-        1,
-    )
-    .timeout(Duration::from_secs(5))
-    .await
-    .context("failed to connect to rabbitmq, timedout")?
-    .context("failed to connect to rabbitmq")?;
+    let db = Arc::new(
+        sqlx::PgPool::connect_with(
+            PgConnectOptions::from_str(&config.database.uri)?
+                .disable_statement_logging()
+                .to_owned(),
+        )
+        .await?,
+    );
 
-    let global = Arc::new(global::GlobalState::new(config, ctx, rmq));
+    let nats = {
+        let mut options = async_nats::ConnectOptions::new()
+            .connection_timeout(Duration::from_secs(5))
+            .name(&config.name)
+            .retry_on_initial_connect();
+
+        if let Some(user) = &config.nats.username {
+            options = options.user_and_password(
+                user.clone(),
+                config.nats.password.clone().unwrap_or_default(),
+            )
+        } else if let Some(token) = &config.nats.token {
+            options = options.token(token.clone())
+        }
+
+        if let Some(tls) = &config.nats.tls {
+            options = options
+                .require_tls(true)
+                .add_root_certificates((&tls.ca_cert).into())
+                .add_client_certificate((&tls.cert).into(), (&tls.key).into());
+        }
+
+        options
+            .connect(
+                config
+                    .nats
+                    .servers
+                    .iter()
+                    .map(|s| s.parse::<ServerAddr>())
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+            .await?
+    };
+
+    let global = Arc::new(global::GlobalState::new(config, db, nats, ctx));
 
     let ingest_future = tokio::spawn(ingest::run(global.clone()));
     let grpc_future = tokio::spawn(grpc::run(global.clone()));
@@ -47,7 +81,6 @@ async fn main() -> Result<()> {
     select! {
         r = ingest_future => tracing::error!("api stopped unexpectedly: {:?}", r),
         r = grpc_future => tracing::error!("grpc stopped unexpectedly: {:?}", r),
-        r = global.rmq.handle_reconnects() => tracing::error!("rmq stopped unexpectedly: {:?}", r),
         _ = signal_handler.recv() => tracing::info!("shutting down"),
     }
 

@@ -3,7 +3,6 @@ use std::{sync::Arc, time::Duration};
 use crate::{
     api::v1::gql::{ext::RequestExt, request_context::RequestContext, schema},
     database::{session, user},
-    pb,
     tests::global::mock_global_state,
 };
 use async_graphql::Value;
@@ -83,7 +82,7 @@ async fn test_serial_user_display_name_subscription() {
             .redis
             .publish(
                 format!("user:{}:display_name", user.id),
-                pb::scuffle::events::UserDisplayName {
+                pb::scuffle::internal::platform::events::UserDisplayName {
                     display_name: Some("Admin".to_string()),
                     username: None,
                 }
@@ -122,7 +121,7 @@ async fn test_serial_user_display_name_subscription() {
         .redis
         .publish(
             format!("user:{}:display_name", user.id),
-            pb::scuffle::events::UserDisplayName {
+            pb::scuffle::internal::platform::events::UserDisplayName {
                 display_name: Some("Admin".to_string()),
                 username: None,
             }
@@ -245,7 +244,7 @@ async fn test_serial_chat_subscribe() {
             .redis
             .publish(
                 format!("user:{}:chat:messages", user.id),
-                pb::scuffle::events::ChatMessage {
+                pb::scuffle::internal::platform::events::ChatMessage {
                     author_id: user.id.to_string(),
                     channel_id: user.id.to_string(),
                     content: "Hello world!".to_string(),
@@ -369,7 +368,7 @@ async fn test_serial_chat_subscribe() {
         .redis
         .publish(
             format!("user:{}:chat:messages", user.id),
-            pb::scuffle::events::ChatMessage {
+            pb::scuffle::internal::platform::events::ChatMessage {
                 author_id: user.id.to_string(),
                 channel_id: user.id.to_string(),
                 content: "Hello world!".to_string(),

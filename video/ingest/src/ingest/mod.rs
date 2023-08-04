@@ -5,8 +5,11 @@ use tokio::{net::TcpSocket, select};
 
 use crate::global::GlobalState;
 
+mod bytes_tracker;
 mod connection;
-mod variants;
+mod errors;
+mod rtmp_session;
+mod update;
 
 pub async fn run(global: Arc<GlobalState>) -> Result<()> {
     tracing::info!("Listening on {}", global.config.rtmp.bind_address);
@@ -49,6 +52,7 @@ pub async fn run(global: Arc<GlobalState>) -> Result<()> {
                         let Ok(Ok(socket)) = tls_acceptor.accept(socket).timeout(Duration::from_secs(5)).await else {
                             return;
                         };
+
                         tracing::debug!("TLS handshake complete");
                         connection::handle(global, socket, addr.ip()).await;
                     } else {

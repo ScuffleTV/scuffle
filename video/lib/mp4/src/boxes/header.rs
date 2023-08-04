@@ -41,8 +41,13 @@ impl BoxHeader {
             size
         };
 
-        // We already read 8 bytes, so we need to subtract that from the size.
-        let data = reader.read_slice((size - offset) as usize)?;
+        let data = if size == 0 {
+            // As per spec this means the box extends to the end of the file.
+            reader.extract_remaining()
+        } else {
+            // We already read 8 bytes, so we need to subtract that from the size.
+            reader.read_slice((size - offset) as usize)?
+        };
 
         Ok((Self { box_type }, data))
     }

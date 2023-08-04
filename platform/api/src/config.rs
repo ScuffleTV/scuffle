@@ -13,6 +13,9 @@ pub struct AppConfig {
     /// Name of this instance
     pub name: String,
 
+    /// If we should export the GraphQL schema, if set to true, the schema will be exported to the stdout, and the program will exit.
+    pub export_gql: bool,
+
     ///  The logging config
     pub logging: LoggingConfig,
 
@@ -134,6 +137,7 @@ impl Default for AppConfig {
         Self {
             config_file: Some("config".to_string()),
             name: "scuffle-api".to_string(),
+            export_gql: false,
             logging: LoggingConfig::default(),
             api: ApiConfig::default(),
             database: DatabaseConfig::default(),

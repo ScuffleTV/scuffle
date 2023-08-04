@@ -1,23 +1,23 @@
+use std::collections::HashMap;
 use std::net::IpAddr;
-use std::{net::SocketAddr, time::Duration};
+use std::net::SocketAddr;
+use std::sync::Arc;
 
-use common::{
-    context::Context,
-    grpc::{make_channel, TlsSettings},
-};
-use tonic::transport::{Certificate, Channel, Identity};
+use common::context::Context;
+use tokio::sync::mpsc;
+use tokio::sync::Mutex;
+use ulid::Ulid;
 
-use crate::{
-    config::AppConfig, connection_manager::StreamManager,
-    pb::scuffle::backend::api_client::ApiClient,
-};
+use crate::config::AppConfig;
+use crate::define::IncomingTranscoder;
 
 pub struct GlobalState {
     pub config: AppConfig,
     pub ctx: Context,
-    pub rmq: common::rmq::ConnectionPool,
-    pub connection_manager: StreamManager,
-    api_client: ApiClient<Channel>,
+    pub db: Arc<sqlx::PgPool>,
+    pub nats: async_nats::Client,
+    pub jetstream: async_nats::jetstream::Context,
+    pub requests: Mutex<HashMap<Ulid, mpsc::Sender<IncomingTranscoder>>>,
 }
 
 fn get_local_ip() -> IpAddr {
@@ -39,31 +39,12 @@ fn get_local_ip() -> IpAddr {
 }
 
 impl GlobalState {
-    pub fn new(mut config: AppConfig, ctx: Context, rmq: common::rmq::ConnectionPool) -> Self {
-        let api_channel = make_channel(
-            config.api.addresses.clone(),
-            Duration::from_secs(config.api.resolve_interval),
-            if let Some(tls) = &config.api.tls {
-                let cert = std::fs::read(&tls.cert).expect("failed to read api cert");
-                let key = std::fs::read(&tls.key).expect("failed to read api key");
-                let ca = std::fs::read(&tls.ca_cert).expect("failed to read api ca");
-
-                let ca_cert = Certificate::from_pem(ca);
-                let identity = Identity::from_pem(cert, key);
-
-                Some(TlsSettings {
-                    ca_cert,
-                    identity,
-                    domain: tls.domain.clone().unwrap_or_default(),
-                })
-            } else {
-                None
-            },
-        )
-        .expect("failed to create api channel");
-
-        let api_client = ApiClient::new(api_channel);
-
+    pub fn new(
+        mut config: AppConfig,
+        db: Arc<sqlx::PgPool>,
+        nats: async_nats::Client,
+        ctx: Context,
+    ) -> Self {
         if config.grpc.advertise_address.is_empty() {
             // We need to figure out what our advertise address is
             let port = config.grpc.bind_address.port();
@@ -80,13 +61,10 @@ impl GlobalState {
         Self {
             config,
             ctx,
-            api_client,
-            rmq,
-            connection_manager: StreamManager::new(),
+            db,
+            jetstream: async_nats::jetstream::new(nats.clone()),
+            nats,
+            requests: Default::default(),
         }
-    }
-
-    pub fn api_client(&self) -> ApiClient<Channel> {
-        self.api_client.clone()
     }
 }

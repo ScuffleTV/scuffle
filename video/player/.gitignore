@@ -20,3 +20,4 @@ dist-ssr
 *.sw?
 wasm.d.ts
 demo-dist
+pkg/

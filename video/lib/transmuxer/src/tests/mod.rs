@@ -16,7 +16,7 @@ use crate::{
 
 #[test]
 fn test_transmuxer_avc_aac() {
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../assets");
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets");
     let data = std::fs::read(dir.join("avc_aac.flv").to_str().unwrap()).unwrap();
 
     let mut transmuxer = Transmuxer::new();
@@ -127,7 +127,7 @@ fn test_transmuxer_avc_aac() {
 
 #[test]
 fn test_transmuxer_av1_aac() {
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../assets");
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets");
     let data = std::fs::read(dir.join("av1_aac.flv").to_str().unwrap()).unwrap();
 
     let mut transmuxer = Transmuxer::new();
@@ -249,7 +249,7 @@ fn test_transmuxer_av1_aac() {
 
 #[test]
 fn test_transmuxer_hevc_aac() {
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../assets");
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets");
     let data = std::fs::read(dir.join("hevc_aac.flv").to_str().unwrap()).unwrap();
 
     let mut transmuxer = Transmuxer::new();

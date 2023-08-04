@@ -1,6 +1,5 @@
 use crate::api::v1::gql::error::ResultExt;
 use crate::database::chat_message;
-use crate::pb;
 use prost::Message;
 
 use super::error::{GqlError, Result};
@@ -57,7 +56,7 @@ impl ChatMutation {
             .redis
             .publish(
                 format!("user:{}:chat:messages", channel.id),
-                pb::scuffle::events::ChatMessage {
+                pb::scuffle::internal::platform::events::ChatMessage {
                     id: chat_message.id.to_string(),
                     channel_id: chat_message.channel_id.to_string(),
                     author_id: chat_message.author_id.to_string(),

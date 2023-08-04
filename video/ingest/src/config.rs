@@ -1,7 +1,7 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, time::Duration};
 
 use anyhow::Result;
-use common::config::{LoggingConfig, RmqConfig, TlsConfig};
+use common::config::{LoggingConfig, NatsConfig, TlsConfig};
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
@@ -47,37 +47,54 @@ impl Default for GrpcConfig {
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
-pub struct ApiConfig {
-    /// The bind address for the API server
-    pub addresses: Vec<String>,
+pub struct IngestConfig {
+    // NATS subject to send transcoder requests to
+    pub transcoder_request_subject: String,
 
-    /// Resolve interval in seconds (0 to disable)
-    pub resolve_interval: u64,
+    /// NATS subject for events
+    pub events_subject: String,
 
-    /// If we should use TLS for the API server
-    pub tls: Option<TlsConfig>,
+    /// The interval in to update the bitrate for a room
+    pub bitrate_update_interval: Duration,
+
+    /// The maximum time to wait for a transcoder
+    pub transcoder_timeout: Duration,
+
+    /// Max Bitrate for ingest
+    pub max_bitrate: u64,
+
+    /// Max bytes between keyframes
+    pub max_bytes_between_keyframes: u64,
+
+    /// Max time between keyframes
+    pub max_time_between_keyframes: Duration,
 }
 
-impl Default for ApiConfig {
+impl Default for IngestConfig {
     fn default() -> Self {
         Self {
-            addresses: vec!["localhost:50051".to_string()],
-            resolve_interval: 30, // 30 seconds
-            tls: None,
+            transcoder_request_subject: "transcoder-request".to_string(),
+            events_subject: "events".to_string(),
+            bitrate_update_interval: Duration::from_secs(5),
+            max_bitrate: 12000 * 1024,
+            max_bytes_between_keyframes: 12000 * 1024 * 5 / 8,
+            max_time_between_keyframes: Duration::from_secs(10),
+            transcoder_timeout: Duration::from_secs(60),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
-pub struct TranscoderConfig {
-    pub events_subject: String,
+pub struct DatabaseConfig {
+    /// The database URL to use
+    pub uri: String,
 }
 
-impl Default for TranscoderConfig {
+impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
-            events_subject: "transcoder".to_string(),
+            uri: "postgres://root@localhost:5432/scuffle_video".to_string(),
         }
     }
 }
@@ -100,14 +117,14 @@ pub struct AppConfig {
     /// GRPC server configuration
     pub grpc: GrpcConfig,
 
-    /// API client configuration
-    pub api: ApiConfig,
+    /// Database configuration
+    pub database: DatabaseConfig,
 
-    /// RMQ configuration
-    pub rmq: RmqConfig,
+    /// NATS configuration
+    pub nats: NatsConfig,
 
-    /// Transcoder configuration
-    pub transcoder: TranscoderConfig,
+    /// Ingest configuration
+    pub ingest: IngestConfig,
 }
 
 impl Default for AppConfig {
@@ -118,9 +135,9 @@ impl Default for AppConfig {
             logging: LoggingConfig::default(),
             rtmp: RtmpConfig::default(),
             grpc: GrpcConfig::default(),
-            api: ApiConfig::default(),
-            rmq: RmqConfig::default(),
-            transcoder: TranscoderConfig::default(),
+            database: DatabaseConfig::default(),
+            nats: NatsConfig::default(),
+            ingest: IngestConfig::default(),
         }
     }
 }

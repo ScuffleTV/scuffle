@@ -5,13 +5,10 @@ use futures_util::Stream;
 use prost::Message;
 use uuid::Uuid;
 
-use crate::{
-    api::v1::gql::{
-        error::{GqlError, Result, ResultExt},
-        ext::ContextExt,
-        models::chat_message::{ChatMessage, MessageType},
-    },
-    pb,
+use crate::api::v1::gql::{
+    error::{GqlError, Result, ResultExt},
+    ext::ContextExt,
+    models::chat_message::{ChatMessage, MessageType},
 };
 
 #[derive(Default)]
@@ -52,7 +49,7 @@ impl ChatSubscription {
         Ok(stream!({
             yield Ok(welcome_message);
             while let Ok(message) = message_stream.recv().await {
-                let event = pb::scuffle::events::ChatMessage::decode(
+                let event = pb::scuffle::internal::platform::events::ChatMessage::decode(
                     message.as_bytes().map_err_gql("invalid redis value type")?,
                 )
                 .map_err_gql("failed to decode chat message")?;

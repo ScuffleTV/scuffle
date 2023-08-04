@@ -148,7 +148,7 @@ impl FlvTagData {
                 })
             }
             Some(FlvTagType::ScriptData) => {
-                let values = Amf0Reader::new(reader.get_remaining()).read_all()?;
+                let values = Amf0Reader::new(reader.extract_remaining()).read_all()?;
 
                 let name = match values.get(0) {
                     Some(Amf0Value::String(name)) => name,
@@ -162,7 +162,7 @@ impl FlvTagData {
             }
             None => Ok(FlvTagData::Unknown {
                 tag_type,
-                data: reader.get_remaining(),
+                data: reader.extract_remaining(),
             }),
         }
     }
@@ -180,7 +180,7 @@ impl FlvTagAudioData {
             }
             _ => Ok(Self::Unknown {
                 sound_format,
-                data: reader.get_remaining(),
+                data: reader.extract_remaining(),
             }),
         }
     }
@@ -192,11 +192,11 @@ impl AacPacket {
         reader: &mut io::Cursor<Bytes>,
     ) -> Result<Self, FlvDemuxerError> {
         match AacPacketType::from_u8(aac_packet_type) {
-            Some(AacPacketType::SeqHdr) => Ok(Self::SequenceHeader(reader.get_remaining())),
-            Some(AacPacketType::Raw) => Ok(Self::Raw(reader.get_remaining())),
+            Some(AacPacketType::SeqHdr) => Ok(Self::SequenceHeader(reader.extract_remaining())),
+            Some(AacPacketType::Raw) => Ok(Self::Raw(reader.extract_remaining())),
             _ => Ok(Self::Unknown {
                 aac_packet_type,
-                data: reader.get_remaining(),
+                data: reader.extract_remaining(),
             }),
         }
     }
@@ -211,7 +211,7 @@ impl FlvTagVideoData {
             }
             _ => Ok(Self::Unknown {
                 codec_id,
-                data: reader.get_remaining(),
+                data: reader.extract_remaining(),
             }),
         }
     }
@@ -233,7 +233,7 @@ impl FlvTagVideoData {
             }
             EnhancedPacketType::Metadata => {
                 return Ok(Self::Enhanced(EnhancedPacket::Metadata(
-                    reader.get_remaining(),
+                    reader.extract_remaining(),
                 )))
             }
             _ => {}
@@ -246,7 +246,7 @@ impl FlvTagVideoData {
                 )))
             }
             (VideoFourCC::Av1, EnhancedPacketType::CodedFrames) => Ok(Self::Enhanced(
-                EnhancedPacket::Av1(Av1Packet::Raw(reader.get_remaining())),
+                EnhancedPacket::Av1(Av1Packet::Raw(reader.extract_remaining())),
             )),
             (VideoFourCC::Hevc, EnhancedPacketType::SequenceStart) => {
                 Ok(Self::Enhanced(EnhancedPacket::Hevc(
@@ -257,19 +257,19 @@ impl FlvTagVideoData {
                 let composition_time = reader.read_i24::<BigEndian>()?;
                 Ok(Self::Enhanced(EnhancedPacket::Hevc(HevcPacket::Nalu {
                     composition_time: Some(composition_time),
-                    data: reader.get_remaining(),
+                    data: reader.extract_remaining(),
                 })))
             }
             (VideoFourCC::Hevc, EnhancedPacketType::CodedFramesX) => {
                 Ok(Self::Enhanced(EnhancedPacket::Hevc(HevcPacket::Nalu {
                     composition_time: None,
-                    data: reader.get_remaining(),
+                    data: reader.extract_remaining(),
                 })))
             }
             _ => Ok(Self::Enhanced(EnhancedPacket::Unknown {
                 packet_type: packet_type as u8,
                 video_codec: video_codec.into(),
-                data: reader.get_remaining(),
+                data: reader.extract_remaining(),
             })),
         }
     }
@@ -289,13 +289,13 @@ impl AvcPacket {
             }
             Some(AvcPacketType::Nalu) => Ok(Self::Nalu {
                 composition_time: reader.read_u24::<BigEndian>()?,
-                data: reader.get_remaining(),
+                data: reader.extract_remaining(),
             }),
             Some(AvcPacketType::EndOfSequence) => Ok(Self::EndOfSequence),
             _ => Ok(Self::Unknown {
                 avc_packet_type,
                 composition_time: reader.read_u24::<BigEndian>()?,
-                data: reader.get_remaining(),
+                data: reader.extract_remaining(),
             }),
         }
     }

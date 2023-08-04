@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package scuffle.video.v1;
+
+import "scuffle/video/v1/types/events.proto";
+
+// The Events service provides a stream of events that occur in the system.
+service Events {
+    // Subscribe to events. The client should send an `OnOpen` event to
+    // indicate that it is ready to receive events. The server will respond
+    // with Events. The client should send an `AckEvent` event to indicate
+    // that it has processed the event. If the client does not send an
+    // `AckEvent` event, the server will resend the event after a timeout.
+    rpc Subscribe(stream EventsSubscribeRequest) returns (stream EventsSubscribeResponse) {}
+}
+
+// EventsSubscribeRequest is a request to Events.Subscribe
+// Allows the client to receive events.
+message EventsSubscribeRequest {
+    // The OnOpen event is sent by the client to indicate that it is ready to
+    // receive events.
+    message OnOpen {
+        // The group is used to load balance events across multiple clients.
+        // If the client wants to share events with other clients, it should
+        // use the same group name. If the client wants to receive events
+        // that are not shared with other clients, it should use a unique
+        // group name.
+        string group = 1;
+    }
+
+    // The AckEvent event is sent by the client to indicate that it has
+    // processed the event.
+    message AckEvent {
+        // The ID of the event that was processed.
+        string id = 1;
+
+        // If true, the server will resend the event after a timeout.
+        // If false, the server will not resend the event.
+        bool requeue = 2;
+    }
+
+    // The event that was sent by the client.
+    oneof event {
+        // The OnOpen event is sent by the client to indicate that it is ready
+        // This should be the first event sent by the client and should not
+        // be sent again.
+        OnOpen on_open = 1;
+
+        // The AckEvent event is sent by the client to indicate that it has
+        // processed the event.
+        AckEvent ack_event = 2;
+    }
+}
+
+// EventsSubscribeResponse is a response from Events.Subscribe
+message EventsSubscribeResponse {
+    // The event that was sent by the server.
+    types.Events event = 1;
+}

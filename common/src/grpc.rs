@@ -36,7 +36,8 @@ pub struct ChannelOpts {
 #[derive(Clone, Debug)]
 pub struct TlsSettings {
     /// The domain on the certificate.
-    pub domain: String,
+    pub domain: Option<String>,
+
     /// The client certificate.
     pub identity: Identity,
     /// The CA certificate to verify the server.
@@ -241,10 +242,13 @@ impl<R: DnsResolver> ChannelController<R> {
                 // If TLS is enabled, we need to add the TLS config to the Endpoint.
                 let endpoint = if self.tls.is_some() {
                     let tls = self.tls.as_ref().unwrap();
-                    let tls = ClientTlsConfig::new()
-                        .domain_name(tls.domain.clone())
-                        .ca_certificate(tls.ca_cert.clone())
-                        .identity(tls.identity.clone());
+                    let tls = if let Some(domain) = &tls.domain {
+                        ClientTlsConfig::new().domain_name(domain)
+                    } else {
+                        ClientTlsConfig::new()
+                    }
+                    .ca_certificate(tls.ca_cert.clone())
+                    .identity(tls.identity.clone());
 
                     match endpoint.tls_config(tls) {
                         Ok(endpoint) => endpoint,

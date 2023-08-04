@@ -1,6 +1,8 @@
 use std::{str::FromStr, sync::Arc, time::Duration};
 
+use crate::api::v1::gql::schema;
 use anyhow::{Context as _, Result};
+use async_graphql::SDLExportOptions;
 use common::{context::Context, logging, prelude::FutureTimeout, signal};
 use fred::types::ReconnectPolicy;
 use sqlx::{postgres::PgConnectOptions, ConnectOptions};
@@ -12,7 +14,6 @@ mod database;
 mod dataloader;
 mod global;
 mod grpc;
-mod pb;
 mod subscription;
 
 #[cfg(test)]
@@ -21,6 +22,25 @@ mod tests;
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = config::AppConfig::parse()?;
+
+    if config.export_gql {
+        let schema = schema();
+
+        println!(
+            "{}",
+            schema.sdl_with_options(
+                SDLExportOptions::default()
+                    .federation()
+                    .include_specified_by()
+                    .sorted_arguments()
+                    .sorted_enum_items()
+                    .sorted_fields()
+            )
+        );
+
+        return Ok(());
+    }
+
     logging::init(&config.logging.level, config.logging.mode)?;
 
     if let Some(file) = &config.config_file {

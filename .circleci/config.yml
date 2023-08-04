@@ -22,43 +22,43 @@ commands:
   build-scan-docker:
     steps:
       - run:
-          name: Build API Image
-          command: docker build -f ./docker/api.Dockerfile -t ghcr.io/scuffletv/api:$(git rev-parse HEAD) .
-
-      - run:
           name: Install Dependencies
           command: apk add --no-cache curl jq wget tar gzip ca-certificates
 
+      - run:
+          name: Build Platform API Image
+          command: docker build -f ./docker/platform/api.Dockerfile -t ghcr.io/scuffletv/platform/api:$(git rev-parse HEAD) .
+
       - trivy/scan:
-          args: image ghcr.io/scuffletv/api:$(git rev-parse HEAD)
+          args: image ghcr.io/scuffletv/platform/api:$(git rev-parse HEAD)
 
       - run:
-          name: Build Edge Image
-          command: docker build -f ./docker/edge.Dockerfile -t ghcr.io/scuffletv/edge:$(git rev-parse HEAD) .
+          name: Build Platform Website Image
+          command: docker build -f ./docker/platform/website.Dockerfile -t ghcr.io/scuffletv/platform/website:$(git rev-parse HEAD) .
 
       - trivy/scan:
-          args: image ghcr.io/scuffletv/edge:$(git rev-parse HEAD)
+          args: image ghcr.io/scuffletv/platform/website:$(git rev-parse HEAD)
 
       - run:
-          name: Build Ingest Image
-          command: docker build -f ./docker/ingest.Dockerfile -t ghcr.io/scuffletv/ingest:$(git rev-parse HEAD) .
+          name: Build Video Edge Image
+          command: docker build -f ./docker/video/edge.Dockerfile -t ghcr.io/scuffletv/video/edge:$(git rev-parse HEAD) .
 
       - trivy/scan:
-          args: image ghcr.io/scuffletv/ingest:$(git rev-parse HEAD)
+          args: image ghcr.io/scuffletv/video/edge:$(git rev-parse HEAD)
 
       - run:
-          name: Build Transcoder Image
-          command: docker build -f ./docker/transcoder.Dockerfile -t ghcr.io/scuffletv/transcoder:$(git rev-parse HEAD) .
+          name: Build Video Ingest Image
+          command: docker build -f ./docker/video/ingest.Dockerfile -t ghcr.io/scuffletv/video/ingest:$(git rev-parse HEAD) .
 
       - trivy/scan:
-          args: image --severity CRITICAL,HIGH ghcr.io/scuffletv/transcoder:$(git rev-parse HEAD)
+          args: image ghcr.io/scuffletv/video/ingest:$(git rev-parse HEAD)
 
       - run:
-          name: Build Website Image
-          command: docker build -f ./docker/website.Dockerfile -t ghcr.io/scuffletv/website:$(git rev-parse HEAD) .
+          name: Build Video Transcoder Image
+          command: docker build -f ./docker/video/transcoder.Dockerfile -t ghcr.io/scuffletv/video/transcoder:$(git rev-parse HEAD) .
 
       - trivy/scan:
-          args: image ghcr.io/scuffletv/website:$(git rev-parse HEAD)
+          args: image ghcr.io/scuffletv/video/transcoder:$(git rev-parse HEAD)
 
 jobs:
   lint-test:
@@ -90,16 +90,10 @@ jobs:
 
       - checkout
 
-      - run:
-          name: Combine Cargo.lock Files
-          command: |
-            sha256sum Cargo.lock >> locksum
-            sha256sum frontend/player/Cargo.lock >> locksum
-
       - restore_cache:
           name: Restore Rust Lint/Test Cache
           keys:
-            - &lint-test-cache lint-test-cache-{{ .Environment.CACHE_VERSION }}-{{ checksum "locksum" }}
+            - &lint-test-cache lint-test-cache-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
             - lint-test-cache-{{ .Environment.CACHE_VERSION }}-
 
       - run:
@@ -121,7 +115,6 @@ jobs:
           name: Cargo Sweep Start
           command: |
             cargo sweep -s
-            cargo sweep -s frontend/player
 
       - run:
           name: Run Lint
@@ -140,6 +133,7 @@ jobs:
               --status-level all \
               --profile ci \
               --tests \
+              --exclude video-player \
               --config "profile.dev.debug = 0"
 
       - codecov/upload:
@@ -157,14 +151,12 @@ jobs:
           name: Cargo Sweep Finish
           command: |
             cargo sweep -f
-            cargo sweep -f frontend/player
 
       - save_cache:
           name: Save Test Cache
           key: *lint-test-cache
           paths:
             - target
-            - frontend/player/target
 
   build:
     resource_class: large
@@ -181,23 +173,16 @@ jobs:
           name: Install dependencies
           command: mask bootstrap --no-db --no-docker --no-env --no-js-tests --no-rust
 
-      - run:
-          name: Combine Cargo.lock Files
-          command: |
-            sha256sum Cargo.lock >> locksum
-            sha256sum frontend/player/Cargo.lock >> locksum
-
       - restore_cache:
           name: Restore Rust Build Cache
           keys:
-            - &build-cache build-cache-{{ .Environment.CACHE_VERSION }}-{{ checksum "locksum" }}
+            - &build-cache build-cache-{{ .Environment.CACHE_VERSION }}-{{ checksum "Cargo.lock" }}
             - build-cache-{{ .Environment.CACHE_VERSION }}-
 
       - run:
           name: Cargo Sweep Start
           command: |
             cargo sweep -s
-            cargo sweep -s frontend/player
 
       - run:
           name: Build Rust
@@ -211,67 +196,65 @@ jobs:
           name: Cargo Sweep Finish
           command: |
             cargo sweep -f
-            cargo sweep -f frontend/player
 
       - save_cache:
           name: Save Build Cache
           key: *build-cache
           paths:
             - target
-            - frontend/player/target
 
       - store_artifacts:
-          path: target/x86_64-unknown-linux-gnu/release/api
-          destination: api
+          path: target/x86_64-unknown-linux-gnu/release/platform-api
+          destination: platform-api
 
       - store_artifacts:
-          path: target/x86_64-unknown-linux-gnu/release/edge
-          destination: edge
+          path: target/x86_64-unknown-linux-gnu/release/video-edge
+          destination: video-edge
 
       - store_artifacts:
-          path: target/x86_64-unknown-linux-gnu/release/ingest
-          destination: ingest
+          path: target/x86_64-unknown-linux-gnu/release/video-ingest
+          destination: video-ingest
 
       - store_artifacts:
-          path: target/x86_64-unknown-linux-gnu/release/transcoder
-          destination: transcoder
+          path: target/x86_64-unknown-linux-gnu/release/video-transcoder
+          destination: video-transcoder
 
       - run:
           name: Compress Website Build
-          command: tar -czf website.tar.gz -C frontend/website build --transform s/build/website/
+          command: tar -czf website.tar.gz -C platform/website build --transform s/build/website/
 
       - store_artifacts:
           path: website.tar.gz
 
       - run:
           name: Compress Player Build
-          command: tar -czf player.tar.gz -C frontend/player dist --transform s/dist/player/
+          command: tar -czf player.tar.gz -C video/player dist --transform s/dist/player/
 
       - store_artifacts:
           path: player.tar.gz
 
       - run:
           name: Compress Player Package
-          command: tar -czf player-pkg.tar.gz -C frontend/player pkg --transform s/pkg/player-pkg/
+          command: tar -czf player-pkg.tar.gz -C video/player pkg --transform s/pkg/player-pkg/
 
       - store_artifacts:
           path: player-pkg.tar.gz
 
-      #- run:
-      #    name: Compress Player Demo
-      #    command: tar -czf player-demo.tar.gz -C frontend/player demo-dist --transform s/demo-dist/player-demo/
+      - run:
+          name: Compress Player Demo
+          command: tar -czf player-demo.tar.gz -C video/player demo-dist --transform s/demo-dist/player-demo/
 
-      #- store_artifacts:
-      #    path: player-demo.tar.gz
+      - store_artifacts:
+         path: player-demo.tar.gz
 
       - persist_to_workspace:
           root: .
           paths:
-            - target/x86_64-unknown-linux-gnu/release/api
-            - target/x86_64-unknown-linux-gnu/release/edge
-            - target/x86_64-unknown-linux-gnu/release/ingest
-            - target/x86_64-unknown-linux-gnu/release/transcoder
-            - frontend/website/build
+            - target/x86_64-unknown-linux-gnu/release/platform-api
+            - target/x86_64-unknown-linux-gnu/release/video-edge
+            - target/x86_64-unknown-linux-gnu/release/video-ingest
+            - target/x86_64-unknown-linux-gnu/release/video-transcoder
+            - platform/website/build
 
   docker:
     resource_class: medium
@@ -336,26 +319,26 @@ jobs:
 
             echo "Tagging images with $TAG"
 
-            docker tag ghcr.io/scuffletv/api:$(git rev-parse HEAD) ghcr.io/scuffletv/api:$TAG
-            docker tag ghcr.io/scuffletv/edge:$(git rev-parse HEAD) ghcr.io/scuffletv/edge:$TAG
-            docker tag ghcr.io/scuffletv/ingest:$(git rev-parse HEAD) ghcr.io/scuffletv/ingest:$TAG
-            docker tag ghcr.io/scuffletv/transcoder:$(git rev-parse HEAD) ghcr.io/scuffletv/transcoder:$TAG
-            docker tag ghcr.io/scuffletv/website:$(git rev-parse HEAD) ghcr.io/scuffletv/website:$TAG
+            docker tag ghcr.io/scuffletv/platform/api:$(git rev-parse HEAD) ghcr.io/scuffletv/platform/api:$TAG
+            docker tag ghcr.io/scuffletv/platform/website:$(git rev-parse HEAD) ghcr.io/scuffletv/platform/website:$TAG
+            docker tag ghcr.io/scuffletv/video/edge:$(git rev-parse HEAD) ghcr.io/scuffletv/video/edge:$TAG
+            docker tag ghcr.io/scuffletv/video/ingest:$(git rev-parse HEAD) ghcr.io/scuffletv/video/ingest:$TAG
+            docker tag ghcr.io/scuffletv/video/transcoder:$(git rev-parse HEAD) ghcr.io/scuffletv/video/transcoder:$TAG
 
-            docker push ghcr.io/scuffletv/api:$(git rev-parse HEAD)
-            docker push ghcr.io/scuffletv/api:$TAG
+            docker push ghcr.io/scuffletv/platform/api:$(git rev-parse HEAD)
+            docker push ghcr.io/scuffletv/platform/api:$TAG
 
-            docker push ghcr.io/scuffletv/edge:$(git rev-parse HEAD)
-            docker push ghcr.io/scuffletv/edge:$TAG
+            docker push ghcr.io/scuffletv/platform/website:$(git rev-parse HEAD)
+            docker push ghcr.io/scuffletv/platform/website:$TAG
 
-            docker push ghcr.io/scuffletv/ingest:$(git rev-parse HEAD)
-            docker push ghcr.io/scuffletv/ingest:$TAG
+            docker push ghcr.io/scuffletv/video/edge:$(git rev-parse HEAD)
+            docker push ghcr.io/scuffletv/video/edge:$TAG
 
-            docker push ghcr.io/scuffletv/transcoder:$(git rev-parse HEAD)
-            docker push ghcr.io/scuffletv/transcoder:$TAG
+            docker push ghcr.io/scuffletv/video/ingest:$(git rev-parse HEAD)
+            docker push ghcr.io/scuffletv/video/ingest:$TAG
 
-            docker push ghcr.io/scuffletv/website:$(git rev-parse HEAD)
-            docker push ghcr.io/scuffletv/website:$TAG
+            docker push ghcr.io/scuffletv/video/transcoder:$(git rev-parse HEAD)
+            docker push ghcr.io/scuffletv/video/transcoder:$TAG
 
 workflows:
   lint-test-build:

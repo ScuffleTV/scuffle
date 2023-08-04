@@ -91,7 +91,7 @@ async fn test_basic_rtmp_clean() {
         match data {
             ChannelData::Video { .. } => got_video = true,
             ChannelData::Audio { .. } => got_audio = true,
-            ChannelData::MetaData { .. } => got_metadata = true,
+            ChannelData::Metadata { .. } => got_metadata = true,
         }
     }
 
@@ -192,7 +192,7 @@ async fn test_basic_rtmp_unclean() {
         match data {
             ChannelData::Video { .. } => got_video = true,
             ChannelData::Audio { .. } => got_audio = true,
-            ChannelData::MetaData { .. } => got_metadata = true,
+            ChannelData::Metadata { .. } => got_metadata = true,
         }
 
         if got_video && got_audio && got_metadata {

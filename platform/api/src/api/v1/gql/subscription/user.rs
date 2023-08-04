@@ -3,12 +3,9 @@ use futures_util::Stream;
 use prost::Message;
 use uuid::Uuid;
 
-use crate::{
-    api::v1::gql::{
-        error::{GqlError, Result, ResultExt},
-        ext::ContextExt,
-    },
-    pb,
+use crate::api::v1::gql::{
+    error::{GqlError, Result, ResultExt},
+    ext::ContextExt,
 };
 
 #[derive(Default)]
@@ -53,7 +50,7 @@ impl UserSubscription {
             });
 
             while let Ok(message) = subscription.recv().await {
-                let event = pb::scuffle::events::UserDisplayName::decode(
+                let event = pb::scuffle::internal::platform::events::UserDisplayName::decode(
                     message.as_bytes().map_err_gql("invalid redis value")?,
                 )
                 .map_err_gql("failed to decode user display name")?;

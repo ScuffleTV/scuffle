@@ -555,7 +555,7 @@ impl PlayerRunner {
             );
             self.fragment_buffer
                 .entry(tid)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .extend(fragments);
             return Ok(());
         } else if !self.active_track_ids().contains(&tid) {
@@ -680,7 +680,10 @@ impl PlayerRunner {
 
     async fn fetch_playlist(&mut self) -> Result<bool, JsValue> {
         let Ok(input_url) = Url::parse(&self.inner.url()) else {
-            return Err(JsValue::from_str(&format!("failed to parse url: {}", self.inner.url())));
+            return Err(JsValue::from_str(&format!(
+                "failed to parse url: {}",
+                self.inner.url()
+            )));
         };
 
         let mut req = FetchRequest::new("GET", input_url.clone())
@@ -1059,7 +1062,10 @@ impl PlayerRunner {
         let mut group_to_id = HashMap::new();
         for (group_idx, stream) in reference_streams.enumerate() {
             let Some(groups) = playlist.groups.get_mut(stream) else {
-                return Err(JsValue::from_str(&format!("failed to find group for stream: {}", stream)));
+                return Err(JsValue::from_str(&format!(
+                    "failed to find group for stream: {}",
+                    stream
+                )));
             };
 
             // If we have a default track we need to make sure only 1 track is default
@@ -1176,7 +1182,6 @@ impl PlayerRunner {
         self.inner.set_tracks(tracks, variants, true);
         self.inner
             .set_active_group_track_ids(self.active_group_track_ids.clone());
-        self.inner.set_active_variant_id(1);
 
         Ok(())
     }
@@ -1212,7 +1217,6 @@ impl PlayerRunner {
         self.track_states = vec![track_state];
 
         self.inner.set_tracks(vec![track], vec![variant], false);
-        self.inner.set_active_variant_id(0);
 
         Ok(())
     }

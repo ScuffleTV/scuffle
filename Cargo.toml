@@ -1,32 +1,52 @@
 [workspace]
 
 members = [
-    "backend/api",
+    "platform/api",
     "video/edge",
     "video/ingest",
     "video/transcoder",
-    "video/bytesio",
-    "video/container/flv",
-    "video/container/mp4",
-    "video/codec/h264",
-    "video/codec/h265",
-    "video/codec/av1",
-    "video/codec/aac",
-    "video/protocol/rtmp",
-    "video/transmuxer",
-    "video/utils/amf0",
-    "video/utils/exp_golomb",
+    "video/lib/*",
+    "video/api",
+    "video/player",
+    "video/database",
     "common",
+    "proto",
     "config/config",
     "config/config_derive",
-    "config/config_test"
+    "config/config_test",
 ]
 
-exclude = [
-    "frontend/player",
-]
+resolver = "2"
+
+[profile.wasm]
+lto = 'fat'
+panic = 'abort'
+opt-level = "z"
+codegen-units = 1
+strip = true
+inherits = "release"
+
+[workspace.dependencies]
+aac = { path = "video/lib/aac" }
+amf0 = { path = "video/lib/amf0" }
+av1 = { path = "video/lib/av1" }
+bytesio = { path = "video/lib/bytesio", default-features = false }
+exp_golomb = { path = "video/lib/exp_golomb" }
+flv = { path = "video/lib/flv" }
+h264 = { path = "video/lib/h264" }
+h265 = { path = "video/lib/h265" }
+mp4 = { path = "video/lib/mp4" }
+rtmp = { path = "video/lib/rtmp" }
+transmuxer = { path = "video/lib/transmuxer" }
+common = { path = "common", default-features = false }
+config = { path = "config/config" }
+pb = { path = "proto" }
+video-database = { path = "video/database" }
 
 [patch.crates-io]
 fred = { git = "https://github.com/ScuffleTV/fred.rs" }
-tracing-log = { git = "https://github.com/ScuffleTV/tracing" }
+
+[patch."https://github.com/tokio-rs/tracing.git"]
+tracing = { git = "https://github.com/ScuffleTV/tracing" }
 tracing-subscriber = { git = "https://github.com/ScuffleTV/tracing" }
+tracing-log = { git = "https://github.com/ScuffleTV/tracing" }

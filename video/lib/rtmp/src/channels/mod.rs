@@ -7,7 +7,25 @@ pub type UniqueID = uuid::Uuid;
 pub enum ChannelData {
     Video { timestamp: u32, data: Bytes },
     Audio { timestamp: u32, data: Bytes },
-    MetaData { timestamp: u32, data: Bytes },
+    Metadata { timestamp: u32, data: Bytes },
+}
+
+impl ChannelData {
+    pub fn timestamp(&self) -> u32 {
+        match self {
+            ChannelData::Video { timestamp, .. } => *timestamp,
+            ChannelData::Audio { timestamp, .. } => *timestamp,
+            ChannelData::Metadata { timestamp, .. } => *timestamp,
+        }
+    }
+
+    pub fn data(&self) -> &Bytes {
+        match self {
+            ChannelData::Video { data, .. } => data,
+            ChannelData::Audio { data, .. } => data,
+            ChannelData::Metadata { data, .. } => data,
+        }
+    }
 }
 
 #[derive(Debug)]

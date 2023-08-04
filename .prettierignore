@@ -1,5 +1,6 @@
-frontend/website/**/*
-**/target/**/*
-**/pkg/**/*
-terraform/.terraform/**/*
+video/player
+platform/website
+**/target
+**/pkg
+terraform/.terraform
 **/pnpm-lock.yaml

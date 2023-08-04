@@ -1,5 +1,5 @@
-use crate::pb::scuffle::types::StreamState;
 use chrono::{DateTime, Utc};
+use pb::scuffle::internal::video::types::StreamState;
 use uuid::Uuid;
 
 use super::protobuf::ProtobufValue;

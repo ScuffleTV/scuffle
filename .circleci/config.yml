@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  trivy: signavio/trivy@1.3.0
+  trivy: fifteen5/trivy-orb@1.0.0
   docker: circleci/docker@2.2.0
   terraform: circleci/terraform@3.2.1
   codecov: codecov/codecov@3.2.5
@@ -29,44 +29,43 @@ commands:
           name: Install Dependencies
           command: apk add --no-cache curl jq wget tar gzip ca-certificates
 
-      - trivy/vulnerability-scan-report:
-          docker-image: ghcr.io/scuffletv/api:$(git rev-parse HEAD)
+      - trivy/scan:
+          args: image ghcr.io/scuffletv/api:$(git rev-parse HEAD)
 
       - run:
           name: Build Edge Image
           command: docker build -f ./docker/edge.Dockerfile -t ghcr.io/scuffletv/edge:$(git rev-parse HEAD) .
 
-      - trivy/vulnerability-scan-report:
-          docker-image: ghcr.io/scuffletv/edge:$(git rev-parse HEAD)
+      - trivy/scan:
+          args: image ghcr.io/scuffletv/edge:$(git rev-parse HEAD)
 
       - run:
           name: Build Ingest Image
           command: docker build -f ./docker/ingest.Dockerfile -t ghcr.io/scuffletv/ingest:$(git rev-parse HEAD) .
 
-      - trivy/vulnerability-scan-report:
-          docker-image: ghcr.io/scuffletv/ingest:$(git rev-parse HEAD)
+      - trivy/scan:
+          args: image ghcr.io/scuffletv/ingest:$(git rev-parse HEAD)
 
       - run:
           name: Build Transcoder Image
           command: docker build -f ./docker/transcoder.Dockerfile -t ghcr.io/scuffletv/transcoder:$(git rev-parse HEAD) .
 
-      - trivy/vulnerability-scan-report:
-          docker-image: ghcr.io/scuffletv/transcoder:$(git rev-parse HEAD)
-          severity: CRITICAL,HIGH
+      - trivy/scan:
+          args: image --severity CRITICAL,HIGH ghcr.io/scuffletv/transcoder:$(git rev-parse HEAD)
 
       - run:
           name: Build Website Image
           command: docker build -f ./docker/website.Dockerfile -t ghcr.io/scuffletv/website:$(git rev-parse HEAD) .
 
-      - trivy/vulnerability-scan-report:
-          docker-image: ghcr.io/scuffletv/website:$(git rev-parse HEAD)
+      - trivy/scan:
+          args: image ghcr.io/scuffletv/website:$(git rev-parse HEAD)
 
 jobs:
   lint-test:
     resource_class: large
 
     docker:
-      - image: ghcr.io/scuffletv/build:latest
+      - image: ghcr.io/scuffletv/build:c8a76333b9cd45d77aceff358322a0e6a5e4023f
         environment:
           DATABASE_URL: postgres://root@localhost:26257/scuffle
           RMQ_URL: amqp://rabbitmq:rabbitmq@localhost:5672/scuffle
@@ -171,7 +170,7 @@ jobs:
     resource_class: large
 
     docker:
-      - image: ghcr.io/scuffletv/build:latest
+      - image: ghcr.io/scuffletv/build:c8a76333b9cd45d77aceff358322a0e6a5e4023f
         environment:
           CARGO_INCREMENTAL: 1
 
@@ -385,15 +384,15 @@ workflows:
           type: approval
           requires:
             - build
-
-      - docker-push:
-          requires:
-            - docker-push-approve
           filters:
             branches:
               only:
                 - main
                 - /^feature\/.*$/
+
+      - docker-push:
+          requires:
+            - docker-push-approve
 
           context:
             - ghcr

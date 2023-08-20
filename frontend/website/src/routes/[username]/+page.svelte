@@ -1,174 +1,210 @@
 <script lang="ts">
-	import { faStar } from "@fortawesome/free-solid-svg-icons";
-	import Fa from "svelte-fa";
-	import Chatroom from "$components/chatroom.svelte";
+	import Chatroom from "$/components/chat/chatroom.svelte";
 	import type { PageData } from "./$types";
+	import Tag from "$/components/tag.svelte";
+	import Player from "$/components/player.svelte";
+	import Fa from "svelte-fa";
+	import { faPersonWalking, faPersonRunning } from "@fortawesome/free-solid-svg-icons";
+	import { viewersToString } from "$/lib/utils";
 
 	export let data: PageData;
 
-	const { user } = data;
+	const { user, stream } = data;
 </script>
 
-<div class="channel">
-	<div class="video-player-container">
-		<div class="aspect-ratio" />
-		<iframe
-			src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1"
-			class="video-player"
-			frameborder="0"
-			allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-			allowfullscreen
-			title="Video Player Example"
-		/>
-	</div>
-	<div class="under-player">
-		<span class="channel-name">{user.username}</span>
-		<span class="category">Counter Strike: Global Offensive</span>
-		<div class="right-side">
-			<span class="viewer-count">
-				25,325
-				<svg width="1em" height="1em" fill="currentColor">
-					<circle cx="50%" cy="50%" r="50%" />
-				</svg>
-			</span>
-			<button class="follow-button">
-				<Fa icon={faStar} />
-			</button>
-			<button class="subscribe-button"> Subscribe </button>
+<svelte:head>
+	<title>Scuffle - {user.displayName}</title>
+	<meta name="description" content="Watch {user.displayName} live on Scuffle" />
+	<meta
+		name="keywords"
+		content="scuffle, live, stream, watch, {user.displayName}, {user.username}"
+	/>
+
+	<!-- Open Graph -->
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Scuffle - {user.displayName}" />
+	<meta property="og:description" content="Watch {user.displayName} live on Scuffle" />
+	<meta
+		property="og:image"
+		content="https://static-cdn.jtvnw.net/jtv_user_pictures/3773bfdd-110b-4911-b914-6f04362a1331-profile_image-70x70.png"
+	/>
+	<meta property="og:image:alt" content="{user.displayName}'s profile picture" />
+	<!-- TODO: Change this when the domain changes -->
+	<meta property="og:url" content="https://scuffle.tv/{user.displayName}" />
+	<meta property="og:site_name" content="Scuffle" />
+	<!-- TODO: Change this when localizing -->
+	<meta property="og:locale" content="en_US" />
+</svelte:head>
+
+<div class="content">
+	{#if stream}
+		<div class="player-container">
+			<Player streamId={stream.id} />
+			<div class="under-player">
+				<div class="row title-row">
+					<h1 class="title">working on https://github.com/scuffletv</h1>
+					<div class="stream-info">
+						<span class="viewers">{viewersToString(103000)}</span>
+						<span class="time">01:20:11</span>
+					</div>
+				</div>
+				<div class="row">
+					<div>
+						<div class="user">
+							<img
+								class="avatar"
+								src="https://static-cdn.jtvnw.net/jtv_user_pictures/3773bfdd-110b-4911-b914-6f04362a1331-profile_image-70x70.png"
+								alt="Avatar"
+							/>
+							<h1 class="name">{user.displayName}</h1>
+							<span class="game">Software and Game Development</span>
+						</div>
+						<button class="button primary">
+							<Fa icon={faPersonWalking} size="1.2x" />
+							<span>Follow</span>
+						</button>
+					</div>
+					<button class="button primary">
+						<Fa icon={faPersonRunning} size="1.2x" />
+						<span>Subscribe</span>
+					</button>
+				</div>
+				<div class="tags">
+					<Tag content="English" />
+					<Tag content="open source" />
+					<Tag content="streaming" />
+				</div>
+			</div>
 		</div>
-	</div>
-	<div class="super-under">some content thats super under the video player</div>
+	{:else}
+		<span>Offline</span>
+	{/if}
 </div>
 
 <Chatroom channelId={user.id} />
 
-<svelte:head>
-	<title>Scuffle - {user.username}</title>
-</svelte:head>
-
 <style lang="scss">
 	@import "../../assets/styles/variables.scss";
 
-	// Setting max-height to 0 and min-height to 100%
-	// forces the element to take up the full height of the parent
-	// and then if the content is taller than the parent,
-	// the overflow-y property will allow the user to scroll
-	.channel {
-		grid-row: 2 / 2;
-		grid-column: 2 / 2;
-		min-height: 100%;
-		overflow-y: overlay;
-		position: relative;
-		max-height: 0;
-	}
+	.content {
+		grid-area: content;
+		overflow-y: scroll;
 
-	// This is a hack to make sure that the video player never gets bigger than 90% of the screen
-	// Whilst also allowing it to be smaller based on the aspect ratio
-	// If the aspect ratio wants the height to be bigger than 90% of the screen,
-	// The height will be set to 90% of the screen
-	// If the aspect ration wants height to be smaller then 90% of the screen,
-	// The height will be set to the aspect ratio
-	.video-player-container {
-		display: grid;
-		grid-template-columns: auto;
-		grid-template-rows: auto;
-		max-height: 90%;
-
-		.aspect-ratio {
-			grid-area: 1 / 1 / 1 / 1;
-			aspect-ratio: 16 / 9;
-			width: 100%;
-			max-height: 90%;
-			min-height: 100%;
-		}
-
-		.video-player {
-			grid-area: 1 / 1 / 1 / 1;
-			max-height: 90%;
-			min-height: 100%;
-			width: 100%;
-		}
-	}
-
-	.channel-name {
-		display: block;
-		font-size: 1.75rem;
-		line-height: 1;
-		font-weight: 300;
-		grid-row: 1 / 1;
-		grid-column: 1 / 1;
-	}
-
-	.category {
-		display: block;
-		font-size: 1.25rem;
-		color: $primaryColor;
-		font-weight: 500;
-		grid-row: 2 / 2;
-		grid-column: 1 / 1;
-	}
-
-	.viewer-count {
-		color: $primaryColor;
-		> svg {
-			vertical-align: -0.15em;
-		}
-	}
-
-	.right-side {
 		display: flex;
-		align-items: center;
-		grid-row: 1 / -1;
-		grid-column: 2 / 2;
-		justify-content: flex-end;
-		gap: 1rem;
-		font-size: 1.15rem;
+
+		/* Hide scrollbar */
+		&::-webkit-scrollbar {
+			display: none;
+		}
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+
+		& > .player-container {
+			flex-grow: 1;
+		}
 	}
 
 	.under-player {
-		padding: 1rem 1rem 1.5rem 1rem;
-		display: grid;
-		grid-template-columns: 1fr auto;
-		grid-template-rows: auto auto;
-		border-bottom: 1px solid $borderColor;
-		height: 5rem;
-	}
-
-	.follow-button {
-		background-color: rgba($bgColorLight, 0.75);
-		border: none;
-		border-radius: 50%;
-		padding: 0.5rem;
-		color: $primaryColor;
-		font-size: 1.15em;
-		cursor: pointer;
-		transition: background-color 0.2s ease-in-out;
-		&:hover {
-			background-color: $bgColorLight;
-		}
-	}
-
-	.subscribe-button {
-		border: none;
-		border-radius: 1.5em;
-		padding: 0.5rem 1rem;
-		font: inherit;
+		padding: 0.25rem 0.5rem;
+		font-family: $sansFont;
 		font-weight: 500;
-		cursor: pointer;
-		box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.1);
-		background-color: $primaryColor;
-		color: $textColor;
-		transition:
-			background-color 0.5s,
-			color 0.5s,
-			box-shadow 0.5s;
-		&:hover {
-			background-color: $primaryColorLight;
-			box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.2);
-		}
-	}
 
-	.super-under {
-		height: 200vh;
+		display: flex;
+		gap: 0.75rem;
+		flex-direction: column;
+
+		.button {
+			padding: 0.25rem 0.5rem;
+			font-weight: 500;
+
+			display: flex;
+			align-items: center;
+			gap: 0.4rem;
+		}
+
+		.row {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.5rem;
+
+			& > div {
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+			}
+		}
+
+		.title-row {
+			flex-wrap: wrap;
+		}
+
+		.title {
+			font-size: 1.25rem;
+		}
+
+		.user {
+			display: grid;
+			grid-template-areas: "avatar name" "avatar game";
+			column-gap: 0.5rem;
+			align-items: center;
+
+			& > .avatar {
+				grid-area: avatar;
+				width: 2.5rem;
+				height: 2.5rem;
+				border-radius: 50%;
+			}
+
+			& > .name {
+				grid-area: name;
+				font-size: 1.25rem;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			& > .game {
+				grid-area: game;
+				font-size: 0.875rem;
+				color: $textColorLight;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+		}
+
+		.tags {
+			display: flex;
+			gap: 0.5rem;
+			flex-wrap: wrap;
+		}
+
+		.stream-info {
+			flex-wrap: wrap;
+
+			.viewers,
+			.time {
+				white-space: nowrap;
+
+				&::before {
+					content: "";
+					display: inline-block;
+					width: 0.4rem;
+					height: 0.4rem;
+					margin-right: 0.4rem;
+					margin-bottom: 0.1rem;
+				}
+			}
+
+			.viewers::before {
+				background-color: $liveColor;
+				border-radius: 50%;
+			}
+
+			.time::before {
+				background-color: $textColor;
+			}
+		}
 	}
 </style>

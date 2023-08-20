@@ -83,6 +83,7 @@ type Mutation {
 The root query type which contains root level fields.
 """
 type Query {
+	activeStreamsByUserId(id: UUID!): Stream
 	noop: Boolean!
 	userById(id: UUID!): User
 	userByUsername(username: String!): User
@@ -116,6 +117,19 @@ type Session {
 	userId: UUID!
 }
 
+type Stream {
+	channelId: UUID!
+	createdAt: DateRFC3339!
+	deleted: Boolean!
+	description: String!
+	endedAt: DateRFC3339!
+	id: UUID!
+	readyState: Int!
+	recorded: Boolean!
+	title: String!
+	transcoded: Boolean!
+}
+
 type Subscription {
 	chatMessages(channelId: UUID!): ChatMessage!
 	noop: Boolean!
@@ -136,6 +150,7 @@ scalar UUID @specifiedBy(url: "http://tools.ietf.org/html/rfc4122")
 
 type User {
 	createdAt: DateRFC3339!
+	displayColor: Int!
 	displayName: String!
 	email: String!
 	emailVerified: Boolean!

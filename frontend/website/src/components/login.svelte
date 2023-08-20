@@ -480,15 +480,21 @@
 	>
 		<div class="bg">
 			<MouseTrap on:close={hideLogin}>
-				<div class="popup" use:focusTrap={true}>
+				<div
+					class="popup"
+					use:focusTrap={true}
+					aria-label={$loginMode === 1 ? "Login popup" : "Sign up popup"}
+					role="dialog"
+					aria-modal="true"
+				>
 					<div class="login-title">
 						<h2 class="text-left signup-title">{$loginMode === 1 ? "Login" : "Sign up"}</h2>
 						<h2 class="text-left signup-subtitle">
 							{$loginMode === 1 ? "Don't have an account?" : "Already have an account?"}
 							<span>
-								<button class="link-button" on:click={toggleMode}
-									>{$loginMode === 1 ? "Sign up" : "Sign in"}</button
-								>
+								<button class="link-button" on:click={toggleMode} role="link">
+									{$loginMode === 1 ? "Sign up" : "Sign in"}
+								</button>
 							</span>
 						</h2>
 					</div>
@@ -521,6 +527,7 @@
 								type="submit"
 								value={loggingIn ? "Loading..." : $loginMode === 1 ? "Login" : "Sign up"}
 								disabled={!formValid || loggingIn}
+								aria-disabled={!formValid || loggingIn}
 							/>
 						</div>
 					</form>
@@ -557,7 +564,8 @@
 		border: 0;
 		cursor: pointer;
 		transition: color 0.2s ease-in-out;
-		&:hover {
+		&:hover,
+		&:focus-visible {
 			color: $primaryColorLight;
 		}
 	}
@@ -629,7 +637,8 @@
 			box-shadow 0.5s;
 		box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.1);
 
-		&:hover:not(:disabled) {
+		&:hover:not(:disabled),
+		&:focus-visible:not(:disabled) {
 			background-color: $primaryColorLight;
 			box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.2);
 		}
@@ -648,5 +657,9 @@
 		&.error {
 			color: $errorColor;
 		}
+	}
+
+	#login-turnstile-container {
+		height: 4.5rem;
 	}
 </style>

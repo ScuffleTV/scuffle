@@ -34,7 +34,7 @@ async function verifyToken(token: string): Promise<User | null> {
 	return (result.data?.auth.loginWithToken.user as User) || null;
 }
 
-async function logout(token?: string) {
+export async function logout(token?: string) {
 	await client
 		.mutation(
 			graphql(`

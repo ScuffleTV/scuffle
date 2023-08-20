@@ -17,6 +17,7 @@
 		"codegen": "graphql-codegen --config codegen.cjs"
 	},
 	"devDependencies": {
+		"@fortawesome/free-regular-svg-icons": "^6.4.2",
 		"@fortawesome/free-solid-svg-icons": "^6.4.0",
 		"@graphql-codegen/cli": "4.0.1",
 		"@graphql-codegen/client-preset": "^4.0.1",
@@ -29,6 +30,7 @@
 		"@rollup/plugin-json": "^6.0.0",
 		"@rollup/plugin-node-resolve": "^15.1.0",
 		"@rollup/plugin-replace": "^5.0.2",
+		"@scuffle/player": "workspace:*",
 		"@sveltejs/adapter-node": "^1.3.1",
 		"@sveltejs/kit": "^1.22.3",
 		"@types/fs-extra": "^11.0.1",
@@ -58,8 +60,6 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"@fontsource/be-vietnam-pro": "^5.0.5",
-		"@fontsource/comfortaa": "^5.0.5",
 		"@urql/svelte": "^4.0.3",
 		"graphql": "^16.7.1",
 		"graphql-ws": "^5.14.0",

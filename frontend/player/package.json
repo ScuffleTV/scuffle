@@ -8,19 +8,17 @@
 		"wasm:watch": "cargo watch --watch src --watch Cargo.toml -s \"pnpm run wasm:build --dev\"",
 		"watch": "pnpm run wasm:watch & vite build --watch",
 		"update": "pnpm update && cargo update",
-		"build": "pnpm run clean && pnpm run wasm:build --release && tsc && vite build && vite build -c vite.demo.config.ts",
-		"build:dev": "pnpm run clean && pnpm run wasm:build --dev && tsc && vite build && vite build -c vite.demo.config.ts",
 		"lint": "prettier --check \"**/*\" -u && eslint . --ext .js,.ts && cargo fmt --check && cargo clippy -- -D warnings",
 		"format": "prettier --write \"**/*\" -u && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged",
-		"demo:dev": "pnpm run wasm:watch & vite",
-		"demo:build": "pnpm run wasm:build --release && tsc && vite build -c vite.demo.config.ts",
-		"demo:preview": "vite preview -c vite.demo.config.ts",
-		"clean": "rimraf dist pkg"
+		"dev": "pnpm run wasm:watch & vite",
+		"build": "pnpm run wasm:build --release && tsc && vite build",
+		"preview": "vite preview",
+		"clean": "rimraf pkg"
 	},
-	"module": "./dist/player.js",
-	"types": "./dist/player.d.ts",
+	"module": "./pkg/player.js",
+	"types": "./pkg/player.d.ts",
 	"files": [
-		"dist"
+		"pkg"
 	],
 	"devDependencies": {
 		"@typescript-eslint/eslint-plugin": "^6.0.0",

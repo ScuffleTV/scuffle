@@ -173,3 +173,30 @@ pub fn generate_stream_key() -> String {
 
     key
 }
+
+/// https://www.rapidtables.com/convert/color/hsl-to-rgb.html
+fn hsl_to_rgb(h: u16, s: f64, l: f64) -> (u8, u8, u8) {
+    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let x = c * (1.0 - ((h as f64 / 60.0) % 2.0 - 1.0).abs());
+    let m = l - c / 2.0;
+    let (r, g, b) = match h {
+        0..=59 => (c, x, 0.0),
+        60..=119 => (x, c, 0.0),
+        120..=179 => (0.0, c, x),
+        180..=239 => (0.0, x, c),
+        240..=299 => (x, 0.0, c),
+        300..=359 => (c, 0.0, x),
+        _ => (0.0, 0.0, 0.0),
+    };
+
+    (
+        ((r + m) * 255.0) as u8,
+        ((g + m) * 255.0) as u8,
+        ((b + m) * 255.0) as u8,
+    )
+}
+
+pub fn generate_display_color() -> i32 {
+    let (r, g, b) = hsl_to_rgb(rand::thread_rng().gen_range(0..=359), 1.0, 0.67);
+    ((r as i32) << 16) + ((g as i32) << 8) + b as i32
+}

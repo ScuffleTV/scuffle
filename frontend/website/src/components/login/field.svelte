@@ -144,6 +144,8 @@
 			bind:value
 			use:useType
 			bind:this={inputEl}
+			aria-invalid={field.touched && field.status === "error"}
+			aria-errormessage={`${field.id}-message`}
 		/>
 		<!-- This wrapper is absolute and relative to the input field and it makes it easy to do CSS positioning -->
 		<div class="field-inliner">
@@ -186,7 +188,7 @@
 		</div>
 	</div>
 	<!-- We don't conditionally render here because we want smooth animations, so we just toggle visibility with some "hidden" text -->
-	<span class="message" class:visible={!!field.message && field.touched}
+	<span id={`${field.id}-message`} class="message" class:visible={!!field.message && field.touched}
 		>{field.touched && (field.message || "hidden")}</span
 	>
 </div>
@@ -280,7 +282,8 @@
 
 			color: $textColor;
 
-			&:hover {
+			&:hover,
+			&:focus-visible {
 				border-color: $borderColor;
 			}
 

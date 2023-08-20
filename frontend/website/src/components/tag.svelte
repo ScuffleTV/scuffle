@@ -2,10 +2,10 @@
 	export let content: string;
 </script>
 
-<div class="tag">
-	<span>{content}</span>
-	<div class="tag-click" />
-</div>
+<a class="tag" href="/categories/{content}">
+	<span class="sr-only">Tag</span>
+	{content}
+</a>
 
 <style lang="scss">
 	@import "../assets/styles/variables.scss";
@@ -65,12 +65,15 @@
 			0 100%;
 		background-repeat: no-repeat;
 		color: $textColorLight;
+		text-decoration: none;
 		transition: color 0.1s ease-in-out;
 
 		cursor: default;
 		user-select: none;
 		position: relative;
-		&:hover {
+
+		&:hover,
+		&:focus-visible {
 			color: $textColor;
 			$backgroundSize: 10rem;
 			background-image: repeating-linear-gradient(
@@ -83,26 +86,5 @@
 				repeating-linear-gradient(180deg, $borderColor, $borderColor $backgroundSize, transparent),
 				repeating-linear-gradient(270deg, $borderColor, $borderColor $backgroundSize, transparent);
 		}
-		&:active {
-			.tag-click {
-				/* Where do those colors come from? They're nowhere else */
-				background-color: #2fc0f465;
-				border-color: #52e2f2c4;
-				transition: unset;
-			}
-		}
-	}
-
-	.tag-click {
-		transition:
-			background-color 0.5s ease-in-out,
-			border 0.5s ease-in-out;
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background-color: transparent;
-		border: 0.75px solid transparent;
 	}
 </style>

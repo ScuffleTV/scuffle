@@ -32,7 +32,7 @@
 	}
 </script>
 
-<div bind:this={el} class={inheritAll ? "all" : ""}>
+<div bind:this={el} class:all={inheritAll}>
 	<slot />
 </div>
 

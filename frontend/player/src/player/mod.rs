@@ -21,7 +21,7 @@ mod util;
 #[wasm_bindgen(typescript_custom_section)]
 const _: &'static str = r#"
 type PlayerEvents = {
-    error: (evt: ErrorEvent) => void;
+    error: (evt: EventError) => void;
     load: (evt: EventLoad) => void;
     manifestloaded: (evt: EventManifestLoaded) => void;
     variantchange: (evt: EventVariantChange) => void;
@@ -38,6 +38,7 @@ class Player {
 
     load(url: string): void;
     attach(el: HTMLVideoElement): void;
+    detach(): void;
     shutdown(): void;
 
     on<K extends keyof PlayerEvents>(event: K, f: PlayerEvents[K]): void;
@@ -174,6 +175,11 @@ impl Player {
         self.spawn_runner();
 
         Ok(())
+    }
+
+    pub fn detach(&mut self) {
+        self.shutdown();
+        self.inner.set_video_element(None);
     }
 
     pub fn shutdown(&self) {

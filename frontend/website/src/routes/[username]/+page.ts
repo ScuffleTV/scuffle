@@ -13,6 +13,7 @@ export const load = (async ({ params }) => {
 					user: userByUsername(username: $username) {
 						id
 						username
+						displayName
 					}
 				}
 			`),
@@ -34,5 +35,26 @@ export const load = (async ({ params }) => {
 		});
 	}
 
-	return { user: user.data.user };
+	const stream = await client
+		.query(
+			graphql(`
+				query ChannelPageStream($userId: UUID!) {
+					stream: activeStreamsByUserId(id: $userId) {
+						id
+					}
+				}
+			`),
+			{
+				userId: user.data.user.id,
+			},
+		)
+		.toPromise();
+
+	if (stream.error) {
+		throw error(500, {
+			message: "Internal server error",
+		});
+	}
+
+	return { user: user.data.user, stream: stream.data?.stream };
 }) satisfies PageLoad;

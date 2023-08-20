@@ -68,6 +68,22 @@ impl Query {
 
         Ok(user.map(models::user::User::from))
     }
+
+    async fn active_streams_by_user_id(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "The id of the user.")] id: Uuid,
+    ) -> Result<Option<models::stream::Stream>> {
+        let global = ctx.get_global();
+
+        let stream = global
+            .active_streams_by_user_id_loader
+            .load_one(id)
+            .await
+            .map_err_gql("failed to fetch stream")?;
+
+        Ok(stream.map(models::stream::Stream::from))
+    }
 }
 
 pub type MySchema = Schema<Query, Mutation, subscription::Subscription>;

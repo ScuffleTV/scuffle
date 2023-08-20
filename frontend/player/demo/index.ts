@@ -1,4 +1,4 @@
-import { init, Player } from "../js/main";
+import init, { Player } from "../pkg/player";
 
 await init();
 

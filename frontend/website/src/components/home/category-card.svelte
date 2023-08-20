@@ -1,26 +1,32 @@
 <script lang="ts">
 	import { viewersToString } from "$/lib/utils";
-	import ViewersGuy from "./icons/viewers-guy.svelte";
+	import Fa from "svelte-fa";
+	import { faUser } from "@fortawesome/free-regular-svg-icons";
 
 	export let title: string;
 	export let image: string;
 	export let viewers: number;
 </script>
 
-<a class="category" href={`/categories/${title.toLowerCase()}`}>
-	<img src={image} alt={title} />
+<a
+	class="category"
+	href={`/categories/${title.toLowerCase()}`}
+	aria-label={`Category ${title} with ${viewersToString(viewers, true)}`}
+>
+	<img src={image} alt={`${title} thumbnail`} />
 	<span>{title}</span>
+	<span class="sr-only">{viewersToString(viewers, true)}</span>
 	<div class="info-container">
 		<span class="title">{title}</span>
 		<div class="viewers">
-			<ViewersGuy />
-			<span>{viewersToString(viewers)} viewers</span>
+			<Fa icon={faUser} size="1.2x" />
+			<span>{viewersToString(viewers, true)}</span>
 		</div>
 	</div>
 </a>
 
 <style lang="scss">
-	@import "../assets/styles/variables.scss";
+	@import "../../assets/styles/variables.scss";
 
 	.category {
 		font-family: $sansFont;
@@ -28,13 +34,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
-		width: 9.5rem;
 		cursor: pointer;
 		text-decoration: none;
 
 		position: relative;
 
-		&:hover {
+		&:hover,
+		&:focus-visible {
 			& > img {
 				transform: scale(1.25);
 				filter: drop-shadow(0 0 0.5rem black);
@@ -76,7 +82,7 @@
 		flex-direction: column;
 		justify-content: flex-end;
 		padding: 0.5rem;
-		gap: 0.5rem;
+		gap: 0.25rem;
 
 		& > .title {
 			color: $textColor;
@@ -87,7 +93,7 @@
 
 		& > .viewers {
 			color: $liveColor;
-			font-size: 0.95rem;
+			font-size: 0.8rem;
 			font-weight: 500;
 
 			display: flex;

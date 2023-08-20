@@ -1,21 +1,34 @@
 <script lang="ts">
-	import { loginMode } from "$store/login";
-	import { sideNavOpen } from "$store/layout";
-	import AlignLeft from "$icons/align-left.svelte";
-	import LogoText from "$icons/logo-text.svelte";
-	import Search from "$icons/search.svelte";
-	import Login from "$icons/login.svelte";
+	import { loginMode, sessionToken } from "$store/login";
+	import { sideNavCollapsed, topNavHidden } from "$store/layout";
+	import { user } from "$store/user";
+	import LogoText from "./icons/logo-text.svelte";
+	import Avatar from "$/components/icons/avatar.svelte";
+	import Fa from "svelte-fa";
+	import {
+		faChevronLeft,
+		faArrowRightToBracket,
+		faMagnifyingGlass,
+	} from "@fortawesome/free-solid-svg-icons";
+	import DropDown from "./drop-down.svelte";
+	import { logout } from "$/lib/user";
 
 	function openLogin() {
-		loginMode.set(1);
+		$loginMode = 1;
 	}
 
 	function openSignup() {
-		loginMode.set(2);
+		$loginMode = 2;
+	}
+
+	function onLogoutClick() {
+		logout();
+		$sessionToken = null;
+		$user = null;
 	}
 
 	function toggleSideNav() {
-		sideNavOpen.update((v) => !v);
+		sideNavCollapsed.update((v) => !v);
 	}
 
 	function search(e: Event) {
@@ -30,31 +43,61 @@
 	let query = "";
 </script>
 
-<nav class="main-grid">
+<nav class="top-nav" class:hidden={$topNavHidden} aria-label="Top navigation">
 	<div class="logo-container">
-		<button class="toggle-side-nav" class:toggled={!$sideNavOpen} on:click={toggleSideNav}>
-			<AlignLeft />
+		<button
+			class="toggle-side-nav"
+			class:toggled={$sideNavCollapsed}
+			on:click={toggleSideNav}
+			aria-controls="side-nav"
+			aria-expanded={!$sideNavCollapsed}
+		>
+			<span class="sr-only">Toggle sidebar</span>
+			<Fa icon={faChevronLeft} fw size="1.2x" />
 		</button>
 		<a href="/" class="logo-link">
+			<span class="sr-only">Home</span>
 			<LogoText />
 		</a>
 	</div>
 	<!-- This form even works with JS disabled -->
-	<form class="search-container" on:submit={search} method="get" action="/search">
-		<input name="q" type="text" placeholder="SEARCH" bind:this={queryInputRef} bind:value={query} />
-		<button class="search-button">
-			<Search />
-		</button>
-	</form>
+	<search>
+		<form on:submit={search} method="get" action="/search">
+			<input
+				name="q"
+				type="text"
+				placeholder="SEARCH"
+				bind:this={queryInputRef}
+				bind:value={query}
+			/>
+			<button class="search-button" type="submit">
+				<span class="sr-only">Search</span>
+				<Fa icon={faMagnifyingGlass} size="1.2x" />
+			</button>
+		</form>
+	</search>
 	<div class="nav-right">
-		<div class="buttons">
-			<button class="login button" on:click={openLogin}>
-				<span class="icon-login"><Login /></span><span>Log in</span>
-			</button>
-			<button class="signup button" on:click={openSignup}>
-				<span>Sign up</span>
-			</button>
-		</div>
+		{#if $user}
+			<DropDown>
+				<Avatar />
+				<li slot="dropdown">
+					<a href="/{$user.username}">Profile</a>
+					<button on:click={onLogoutClick}>Log out</button>
+				</li>
+			</DropDown>
+		{:else}
+			<div class="buttons">
+				<button class="login button secondary" on:click={openLogin}>
+					<span class="icon-login">
+						<Fa icon={faArrowRightToBracket} size="1.2x" />
+					</span>
+					<span>Log in</span>
+				</button>
+				<button class="signup button primary" on:click={openSignup}>
+					<span>Sign up</span>
+				</button>
+			</div>
+		{/if}
 	</div>
 </nav>
 
@@ -64,22 +107,28 @@
 	nav {
 		display: flex;
 		justify-content: space-between;
-		align-items: stretch;
+		align-items: center;
 		background-color: $bgColor2;
 		height: $topNavHeight;
-		z-index: 5;
 		padding: 0.25rem 0.75rem;
 
 		gap: 1rem;
+
+		border-bottom: 0.1rem solid $borderColor;
+
+		&.hidden {
+			display: none;
+		}
 	}
 
-	.main-grid {
-		position: sticky;
-		top: 0;
+	.top-nav {
 		grid-area: top-nav;
 	}
 
 	.logo-container {
+		/* Take all available space but shrink by a very high factor */
+		flex: 1 9999;
+
 		display: flex;
 		align-items: center;
 
@@ -87,15 +136,24 @@
 			background-color: unset;
 			font: inherit;
 			color: $textColorLight;
+			transition: color 0.25s;
+
 			cursor: pointer;
 			border: 0;
 			outline: 0;
 			padding: 0;
 			margin: 0;
+
 			display: flex;
 			align-items: center;
+
 			&.toggled {
 				transform: rotate(180deg);
+			}
+
+			&:hover,
+			&:focus-visible {
+				color: $textColor;
 			}
 		}
 
@@ -108,100 +166,83 @@
 		}
 	}
 
-	.search-container {
-		flex-grow: 1;
-		max-width: 30rem;
+	search {
+		/* First, take 20rem and then shrink by a factor of 1 */
+		flex: 0 1 20rem;
 
-		display: flex;
-		justify-content: center;
-		align-items: stretch;
+		& > form {
+			/* First, take 20rem and then shrink by a factor of 1 */
+			flex: 0 1 20rem;
 
-		input {
-			flex-grow: 1;
-			width: 6rem;
-			border: 1px solid $borderColor;
-			border-right: none;
-			border-radius: 1rem 0 0 1rem;
-			transition: border-color 0.25s;
-			padding: 0.5rem 1rem;
-			font: inherit;
-			background-color: $bgColor2;
-			color: $textColor;
-			font-weight: 500;
-			outline: 0;
-			&:focus {
+			display: flex;
+			justify-content: center;
+			align-items: stretch;
+
+			input {
+				flex-grow: 1;
+				width: 6rem;
+				border: 1px solid $borderColor;
+				border-right: none;
+				border-radius: 1rem 0 0 1rem;
+				transition: border-color 0.25s;
+				padding: 0.5rem 1rem;
+				font: inherit;
+				background-color: $bgColor2;
+				color: $textColor;
+				font-weight: 500;
+				outline: 0;
+				&:focus {
+					border-color: $primaryColor;
+					background-color: black;
+				}
+				&::placeholder {
+					color: $textColorLight;
+				}
+			}
+
+			.search-button {
+				border: 1px solid $borderColor;
+				border-radius: 0 1rem 1rem 0;
+				border-left: none;
+				transition:
+					border-color 0.25s,
+					background-color 0.25s;
+
+				padding: 0.75rem;
+				color: $textColor;
+				background-color: $bgColor2;
+				cursor: pointer;
+
+				display: flex;
+				align-items: center;
+			}
+
+			input:focus + .search-button {
+				background-color: $bgColor;
 				border-color: $primaryColor;
-				background-color: black;
 			}
-			&::placeholder {
-				color: $textColorLight;
-			}
-		}
-
-		.search-button {
-			border: 1px solid $borderColor;
-			border-radius: 0 1rem 1rem 0;
-			border-left: none;
-			transition: border-color 0.25s;
-
-			padding: 0.4rem;
-			font-size: 2.5rem;
-			color: $textColor;
-			background-color: $bgColor2;
-			cursor: pointer;
-		}
-
-		input:focus + .search-button {
-			background-color: $bgColor;
-			border-color: $primaryColor;
 		}
 	}
 
 	.buttons,
 	.nav-right {
+		/* Take all available space but shrink by a very high factor */
+		flex: 1 9999;
+
 		display: flex;
 		align-items: center;
 		gap: 1rem;
+		justify-content: flex-end;
 	}
 
 	.button {
-		color: $textColor;
-		border-radius: 0.6rem;
-		transition:
-			background-color 0.5s,
-			color 0.5s,
-			box-shadow 0.5s,
-			border-color 0.5s;
-		cursor: pointer;
-		padding: 0.6rem 0.8rem;
-		font: inherit;
-		border: 1px solid $borderColor;
-		background: $bgColor2;
+		padding: 0.5rem 0.8rem;
+
 		&.login {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			column-gap: 0.25rem;
-			color: $textColorLight;
-
-			&:hover {
-				color: $textColor;
-				border-color: white;
-			}
-
-			.icon-login {
-				font-size: 1.5rem;
-				display: flex;
-				align-items: center;
-			}
-		}
-		&.signup {
-			background-color: white;
-			color: black;
-			border-radius: 0.8rem;
-			&:hover {
-				filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
-			}
+			column-gap: 0.5rem;
 		}
 	}
 </style>

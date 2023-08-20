@@ -14,6 +14,7 @@ use super::{date::DateRFC3339, global_roles::GlobalRole};
 pub struct User {
     pub id: Uuid,
     pub display_name: String,
+    pub display_color: i32,
     pub username: String,
     pub created_at: DateRFC3339,
 
@@ -164,6 +165,8 @@ impl From<user::Model> for User {
             id: value.id,
             username: value.username,
             display_name: value.display_name,
+            // THIS IS TEMPORARY
+            display_color: user::generate_display_color(),
             email_: value.email,
             email_verified_: value.email_verified,
             created_at: value.created_at.into(),

@@ -11,7 +11,7 @@ use fred::pool::RedisPool;
 use fred::prelude::ClientLike;
 use fred::types::{ReconnectPolicy, RedisConfig, ServerConfig};
 
-use crate::dataloader::stream::StreamByIdLoader;
+use crate::dataloader::stream::{ActiveStreamsByUserIdLoader, StreamByIdLoader};
 use crate::dataloader::user_permissions::UserPermissionsByIdLoader;
 use crate::dataloader::{
     session::SessionByIdLoader, user::UserByIdLoader, user::UserByUsernameLoader,
@@ -29,6 +29,7 @@ pub struct GlobalState {
     pub session_by_id_loader: DataLoader<SessionByIdLoader>,
     pub user_permisions_by_id_loader: DataLoader<UserPermissionsByIdLoader>,
     pub stream_by_id_loader: DataLoader<StreamByIdLoader>,
+    pub active_streams_by_user_id_loader: DataLoader<ActiveStreamsByUserIdLoader>,
     pub subscription_manager: SubscriptionManager,
     pub rmq: common::rmq::ConnectionPool,
     pub redis: RedisPool,
@@ -50,6 +51,7 @@ impl GlobalState {
             session_by_id_loader: SessionByIdLoader::new(db.clone()),
             user_permisions_by_id_loader: UserPermissionsByIdLoader::new(db.clone()),
             stream_by_id_loader: StreamByIdLoader::new(db.clone()),
+            active_streams_by_user_id_loader: ActiveStreamsByUserIdLoader::new(db.clone()),
             subscription_manager: SubscriptionManager::default(),
             db,
             rmq,

@@ -257,12 +257,12 @@ jobs:
       - store_artifacts:
           path: player-pkg.tar.gz
 
-      - run:
-          name: Compress Player Demo
-          command: tar -czf player-demo.tar.gz -C frontend/player demo-dist --transform s/demo-dist/player-demo/
+      #- run:
+      #    name: Compress Player Demo
+      #    command: tar -czf player-demo.tar.gz -C frontend/player demo-dist --transform s/demo-dist/player-demo/
 
-      - store_artifacts:
-          path: player-demo.tar.gz
+      #- store_artifacts:
+      #    path: player-demo.tar.gz
 
       - persist_to_workspace:
           root: .

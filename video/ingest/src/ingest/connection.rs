@@ -11,7 +11,7 @@ use pb::scuffle::video::{
         events::{organization_event, OrganizationEvent, TranscoderRequest},
         ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse,
     },
-    v1::types::{RenditionAudio, RenditionVideo},
+    v1::types::Rendition,
 };
 use prost::Message as _;
 use rtmp::{ChannelData, PublishRequest, Session, SessionError};
@@ -669,7 +669,7 @@ impl Connection {
             fps: video_settings.framerate as i32,
             height: video_settings.height as i32,
             width: video_settings.width as i32,
-            rendition: RenditionVideo::SourceVideo.into(),
+            rendition: Rendition::VideoSource.into(),
         }
         .encode_to_vec();
 
@@ -678,7 +678,7 @@ impl Connection {
             channels: audio_settings.channels as i32,
             codec: audio_settings.codec.to_string(),
             sample_rate: audio_settings.sample_rate as i32,
-            rendition: RenditionAudio::SourceAudio.into(),
+            rendition: Rendition::AudioSource.into(),
         }
         .encode_to_vec();
 

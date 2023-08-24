@@ -4,6 +4,6 @@ platform/website @ScuffleTV/frontend @ScuffleTV/maintainers
 
 video/ @ScuffleTV/video @ScuffleTV/maintainers
 
-video/player @ScuffleTV/video @ScuffleTV/player @ScuffleTV/maintainers 
+video/player @ScuffleTV/video @ScuffleTV/frontend @ScuffleTV/maintainers 
 
 platform/backend @ScuffleTV/backend @ScuffleTV/maintainers

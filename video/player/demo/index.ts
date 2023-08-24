@@ -1,4 +1,4 @@
-import init, { Player } from "../pkg/player";
+import init, { Player } from "../pkg/video_player";
 
 await init();
 

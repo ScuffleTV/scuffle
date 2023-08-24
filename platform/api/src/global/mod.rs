@@ -31,7 +31,6 @@ pub struct GlobalState {
     pub stream_by_id_loader: DataLoader<StreamByIdLoader>,
     pub active_streams_by_user_id_loader: DataLoader<ActiveStreamsByUserIdLoader>,
     pub subscription_manager: SubscriptionManager,
-    pub rmq: common::rmq::ConnectionPool,
     pub redis: RedisPool,
 }
 
@@ -39,7 +38,6 @@ impl GlobalState {
     pub fn new(
         config: AppConfig,
         db: Arc<sqlx::PgPool>,
-        rmq: common::rmq::ConnectionPool,
         redis: RedisPool,
         ctx: Context,
     ) -> Self {
@@ -54,7 +52,6 @@ impl GlobalState {
             active_streams_by_user_id_loader: ActiveStreamsByUserIdLoader::new(db.clone()),
             subscription_manager: SubscriptionManager::default(),
             db,
-            rmq,
             redis,
         }
     }

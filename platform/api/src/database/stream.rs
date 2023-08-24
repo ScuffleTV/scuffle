@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
-use pb::scuffle::internal::video::types::StreamState;
+// use pb::scuffle::internal::video::types::StreamState;
 use uuid::Uuid;
 
-use super::protobuf::ProtobufValue;
+// use super::protobuf::ProtobufValue;
 
 #[derive(Debug, Clone, Default, Copy, Eq, PartialEq)]
 #[repr(i64)]
@@ -66,7 +66,7 @@ pub struct Model {
     /// The connection which owns the stream.
     pub connection_id: Uuid,
     /// The Stream Variants
-    pub state: ProtobufValue<StreamState>,
+    // pub state: ProtobufValue<StreamState>,
     /// The time the stream was created.
     pub created_at: DateTime<Utc>,
     /// The time the stream was last updated.

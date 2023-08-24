@@ -61,44 +61,45 @@ impl AuthMutation {
         let login_duration = validity.unwrap_or(60 * 60 * 24 * 7); // 7 days
         let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
 
+        todo!();
         // TODO: maybe look to batch this
-        let session = sqlx::query_as!(
-            session::Model,
-            "INSERT INTO sessions (user_id, expires_at) VALUES ($1, $2) RETURNING *",
-            user.id,
-            expires_at,
-        )
-        .fetch_one(&*global.db)
-        .await
-        .map_err_gql("Failed to create session")?;
+        // let session = sqlx::query_as!(
+        //     session::Model,
+        //     "INSERT INTO sessions (user_id, expires_at) VALUES ($1, $2) RETURNING *",
+        //     user.id,
+        //     expires_at,
+        // )
+        // .fetch_one(&*global.db)
+        // .await
+        // .map_err_gql("Failed to create session")?;
 
-        let jwt = JwtState::from(session.clone());
+        // let jwt = JwtState::from(session.clone());
 
-        let token = jwt
-            .serialize(global)
-            .ok_or((GqlError::InternalServerError, "Failed to serialize JWT"))?;
+        // let token = jwt
+        //     .serialize(global)
+        //     .ok_or((GqlError::InternalServerError, "Failed to serialize JWT"))?;
 
-        let permissions = global
-            .user_permisions_by_id_loader
-            .load_one(user.id)
-            .await
-            .map_err_gql("Failed to fetch user permissions")?
-            .unwrap_or_default();
+        // let permissions = global
+        //     .user_permisions_by_id_loader
+        //     .load_one(user.id)
+        //     .await
+        //     .map_err_gql("Failed to fetch user permissions")?
+        //     .unwrap_or_default();
 
-        // We need to update the request context with the new session
-        if update_context.unwrap_or(true) {
-            request_context.set_session(Some((session.clone(), permissions)));
-        }
+        // // We need to update the request context with the new session
+        // if update_context.unwrap_or(true) {
+        //     request_context.set_session(Some((session.clone(), permissions)));
+        // }
 
-        Ok(Session {
-            id: session.id,
-            token,
-            user_id: session.user_id,
-            expires_at: session.expires_at.into(),
-            last_used_at: session.last_used_at.into(),
-            created_at: session.created_at.into(),
-            _user: Some(user.into()),
-        })
+        // Ok(Session {
+        //     id: session.id,
+        //     token,
+        //     user_id: session.user_id,
+        //     expires_at: session.expires_at.into(),
+        //     last_used_at: session.last_used_at.into(),
+        //     created_at: session.created_at.into(),
+        //     _user: Some(user.into()),
+        // })
     }
 
     /// Login with a session token. If via websocket this will authenticate the websocket connection.
@@ -120,46 +121,48 @@ impl AuthMutation {
                 .with_field(vec!["sessionToken"]),
         )?;
 
+        todo!()
+
         // TODO: maybe look to batch this
-        let session = sqlx::query_as!(
-            session::Model,
-            "UPDATE sessions SET last_used_at = NOW() WHERE id = $1 RETURNING *",
-            jwt.session_id,
-        )
-        .fetch_optional(&*global.db)
-        .await
-        .map_err_gql("failed to fetch session")?
-        .ok_or(
-            GqlError::InvalidInput
-                .with_message("Invalid session token")
-                .with_field(vec!["sessionToken"]),
-        )?;
+        // let session = sqlx::query_as!(
+        //     session::Model,
+        //     "UPDATE sessions SET last_used_at = NOW() WHERE id = $1 RETURNING *",
+        //     jwt.session_id,
+        // )
+        // .fetch_optional(&*global.db)
+        // .await
+        // .map_err_gql("failed to fetch session")?
+        // .ok_or(
+        //     GqlError::InvalidInput
+        //         .with_message("Invalid session token")
+        //         .with_field(vec!["sessionToken"]),
+        // )?;
 
-        if !session.is_valid() {
-            return Err(GqlError::InvalidSession.with_message("Session token is no longer valid"));
-        }
+        // if !session.is_valid() {
+        //     return Err(GqlError::InvalidSession.with_message("Session token is no longer valid"));
+        // }
 
-        let permissions = global
-            .user_permisions_by_id_loader
-            .load_one(session.user_id)
-            .await
-            .map_err_gql("Failed to fetch user permissions")?
-            .unwrap_or_default();
+        // let permissions = global
+        //     .user_permisions_by_id_loader
+        //     .load_one(session.user_id)
+        //     .await
+        //     .map_err_gql("Failed to fetch user permissions")?
+        //     .unwrap_or_default();
 
-        // We need to update the request context with the new session
-        if update_context.unwrap_or(true) {
-            request_context.set_session(Some((session.clone(), permissions)));
-        }
+        // // We need to update the request context with the new session
+        // if update_context.unwrap_or(true) {
+        //     request_context.set_session(Some((session.clone(), permissions)));
+        // }
 
-        Ok(Session {
-            id: session.id,
-            token: session_token,
-            user_id: session.user_id,
-            expires_at: session.expires_at.into(),
-            last_used_at: session.last_used_at.into(),
-            created_at: session.created_at.into(),
-            _user: None,
-        })
+        // Ok(Session {
+        //     id: session.id,
+        //     token: session_token,
+        //     user_id: session.user_id,
+        //     expires_at: session.expires_at.into(),
+        //     last_used_at: session.last_used_at.into(),
+        //     created_at: session.created_at.into(),
+        //     _user: None,
+        // })
     }
 
     /// If successful will return a new session for the account which just got created.
@@ -228,65 +231,67 @@ impl AuthMutation {
             .await
             .map_err_gql("Failed to create user")?;
 
-        // TODO: maybe look to batch this
-        let user =
-            sqlx::query_as!(user::Model,
-            "INSERT INTO users (username, display_name, password_hash, email, stream_key) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-            username,
-            display_name,
-            user::hash_password(&password),
-            email,
-            user::generate_stream_key(),
-        )
-            .fetch_one(&mut *tx)
-            .await
-            .map_err_gql("Failed to create user")?;
-
-        let login_duration = validity.unwrap_or(60 * 60 * 24 * 7); // 7 days
-        let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
+        todo!();
 
         // TODO: maybe look to batch this
-        let session = sqlx::query_as!(
-            session::Model,
-            "INSERT INTO sessions (user_id, expires_at) VALUES ($1, $2) RETURNING *",
-            user.id,
-            expires_at,
-        )
-        .fetch_one(&mut *tx)
-        .await
-        .map_err_gql("Failed to create session")?;
+        // let user =
+        //     sqlx::query_as!(user::Model,
+        //     "INSERT INTO users (username, display_name, password_hash, email, stream_key) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+        //     username,
+        //     display_name,
+        //     user::hash_password(&password),
+        //     email,
+        //     user::generate_stream_key(),
+        // )
+        //     .fetch_one(&mut *tx)
+        //     .await
+        //     .map_err_gql("Failed to create user")?;
 
-        let jwt = JwtState::from(session.clone());
+        // let login_duration = validity.unwrap_or(60 * 60 * 24 * 7); // 7 days
+        // let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
 
-        let token = jwt
-            .serialize(global)
-            .ok_or((GqlError::InternalServerError, "Failed to serialize JWT"))?;
+        // // TODO: maybe look to batch this
+        // let session = sqlx::query_as!(
+        //     session::Model,
+        //     "INSERT INTO sessions (user_id, expires_at) VALUES ($1, $2) RETURNING *",
+        //     user.id,
+        //     expires_at,
+        // )
+        // .fetch_one(&mut *tx)
+        // .await
+        // .map_err_gql("Failed to create session")?;
 
-        tx.commit()
-            .await
-            .map_err_gql("Failed to commit transaction")?;
+        // let jwt = JwtState::from(session.clone());
 
-        let permissions = global
-            .user_permisions_by_id_loader
-            .load_one(user.id)
-            .await
-            .map_err_gql("Failed to fetch user permissions")?
-            .unwrap_or_default();
+        // let token = jwt
+        //     .serialize(global)
+        //     .ok_or((GqlError::InternalServerError, "Failed to serialize JWT"))?;
 
-        // We need to update the request context with the new session
-        if update_context.unwrap_or(true) {
-            request_context.set_session(Some((session.clone(), permissions)));
-        }
+        // tx.commit()
+        //     .await
+        //     .map_err_gql("Failed to commit transaction")?;
 
-        Ok(Session {
-            id: session.id,
-            token,
-            user_id: session.user_id,
-            expires_at: session.expires_at.into(),
-            last_used_at: session.last_used_at.into(),
-            created_at: session.created_at.into(),
-            _user: Some(user.into()),
-        })
+        // let permissions = global
+        //     .user_permisions_by_id_loader
+        //     .load_one(user.id)
+        //     .await
+        //     .map_err_gql("Failed to fetch user permissions")?
+        //     .unwrap_or_default();
+
+        // // We need to update the request context with the new session
+        // if update_context.unwrap_or(true) {
+        //     request_context.set_session(Some((session.clone(), permissions)));
+        // }
+
+        // Ok(Session {
+        //     id: session.id,
+        //     token,
+        //     user_id: session.user_id,
+        //     expires_at: session.expires_at.into(),
+        //     last_used_at: session.last_used_at.into(),
+        //     created_at: session.created_at.into(),
+        //     _user: Some(user.into()),
+        // })
     }
 
     /// Logout the user with the given session token. This will invalidate the session token.
@@ -322,18 +327,20 @@ impl AuthMutation {
             }
         };
 
-        // TODO: maybe look to batch this
-        sqlx::query!(
-            "UPDATE sessions SET invalidated_at = NOW() WHERE id = $1",
-            session_id
-        )
-        .execute(&*global.db)
-        .await
-        .map_err_gql("Failed to update session")?;
+        todo!();
 
-        if jwt.is_none() {
-            request_context.set_session(None);
-        }
+        // TODO: maybe look to batch this
+        // sqlx::query!(
+        //     "UPDATE sessions SET invalidated_at = NOW() WHERE id = $1",
+        //     session_id
+        // )
+        // .execute(&*global.db)
+        // .await
+        // .map_err_gql("Failed to update session")?;
+
+        // if jwt.is_none() {
+        //     request_context.set_session(None);
+        // }
 
         Ok(true)
     }

@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use anyhow::Result;
-use common::config::{LoggingConfig, RedisConfig, RmqConfig, TlsConfig};
+use common::config::{LoggingConfig, RedisConfig, TlsConfig};
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
@@ -33,9 +33,6 @@ pub struct AppConfig {
 
     /// GRPC Config
     pub grpc: GrpcConfig,
-
-    /// RMQ Config
-    pub rmq: RmqConfig,
 
     /// Redis configuration
     pub redis: RedisConfig,
@@ -144,7 +141,6 @@ impl Default for AppConfig {
             grpc: GrpcConfig::default(),
             jwt: JwtConfig::default(),
             turnstile: TurnstileConfig::default(),
-            rmq: RmqConfig::default(),
             redis: RedisConfig::default(),
         }
     }

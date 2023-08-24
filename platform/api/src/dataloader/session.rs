@@ -22,11 +22,10 @@ impl Loader<Uuid> for SessionByIdLoader {
     type Error = Arc<sqlx::Error>;
 
     async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
-        let results = sqlx::query_as!(
-            session::Model,
+        let results: Vec<session::Model> = sqlx::query_as(
             "SELECT * FROM sessions WHERE id = ANY($1)",
-            &keys
         )
+        .bind(keys)
         .fetch_all(&*self.db)
         .await
         .map_err(|e| {

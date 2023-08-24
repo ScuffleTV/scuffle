@@ -50,23 +50,24 @@ impl UserSubscription {
             });
 
             while let Ok(message) = subscription.recv().await {
-                let event = pb::scuffle::internal::platform::events::UserDisplayName::decode(
-                    message.as_bytes().map_err_gql("invalid redis value")?,
-                )
-                .map_err_gql("failed to decode user display name")?;
+                todo!()
+                // let event = pb::scuffle::internal::platform::events::UserDisplayName::decode(
+                //     message.as_bytes().map_err_gql("invalid redis value")?,
+                // )
+                // .map_err_gql("failed to decode user display name")?;
 
-                if let Some(username) = event.username {
-                    user.username = username;
-                }
+                // if let Some(username) = event.username {
+                //     user.username = username;
+                // }
 
-                if let Some(display_name) = event.display_name {
-                    user.display_name = display_name;
-                }
+                // if let Some(display_name) = event.display_name {
+                //     user.display_name = display_name;
+                // }
 
-                yield Ok(DisplayNameStream {
-                    display_name: user.display_name.clone(),
-                    username: user.username.clone(),
-                });
+                // yield Ok(DisplayNameStream {
+                //     display_name: user.display_name.clone(),
+                //     username: user.username.clone(),
+                // });
             }
         }))
     }

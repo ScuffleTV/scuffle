@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, sqlx::FromRow)]
 /// A grant of a channel role to a user.
 /// This allows for channel owners to grant roles to other users in their channel.
 /// See the `channel_role` table for more information.

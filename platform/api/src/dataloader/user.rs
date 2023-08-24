@@ -22,21 +22,23 @@ impl Loader<String> for UserByUsernameLoader {
     type Error = Arc<sqlx::Error>;
 
     async fn load(&self, keys: &[String]) -> Result<HashMap<String, Self::Value>, Self::Error> {
-        let results = sqlx::query_as!(
-            user::Model,
-            "SELECT * FROM users WHERE username = ANY($1)",
-            &keys
-        )
-        .fetch_all(&*self.db)
-        .await?;
+        // let results = sqlx::query_as!(
+        //     user::Model,
+        //     "SELECT * FROM users WHERE username = ANY($1)",
+        //     &keys
+        // )
+        // .fetch_all(&*self.db)
+        // .await?;
 
-        let mut map = HashMap::new();
+        // let mut map = HashMap::new();
 
-        for result in results {
-            map.insert(result.username.clone(), result);
-        }
+        // for result in results {
+        //     map.insert(result.username.clone(), result);
+        // }
 
-        Ok(map)
+        todo!()
+
+        // Ok(map)
     }
 }
 
@@ -56,20 +58,20 @@ impl Loader<Uuid> for UserByIdLoader {
     type Error = Arc<sqlx::Error>;
 
     async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
-        let results = sqlx::query_as!(user::Model, "SELECT * FROM users WHERE id = ANY($1)", &keys)
-            .fetch_all(&*self.db)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to fetch users: {}", e);
-                Arc::new(e)
-            })?;
+        // let results = sqlx::query_as!(user::Model, "SELECT * FROM users WHERE id = ANY($1)", &keys)
+        //     .fetch_all(&*self.db)
+        //     .await
+        //     .map_err(|e| {
+        //         tracing::error!("Failed to fetch users: {}", e);
+        //         Arc::new(e)
+        //     })?;
 
-        let mut map = HashMap::new();
+        // let mut map = HashMap::new();
 
-        for result in results {
-            map.insert(result.id, result);
-        }
-
-        Ok(map)
+        // for result in results {
+        //     map.insert(result.id, result);
+        // }
+        todo!()
+        // Ok(map)
     }
 }

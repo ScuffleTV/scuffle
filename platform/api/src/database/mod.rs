@@ -3,7 +3,6 @@ pub mod channel_role_grant;
 pub mod chat_message;
 pub mod global_role;
 pub mod global_role_grant;
-pub mod protobuf;
 pub mod session;
 pub mod stream;
 pub mod stream_bitrate_update;

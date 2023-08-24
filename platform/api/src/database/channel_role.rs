@@ -2,7 +2,7 @@ use bitmask_enum::bitmask;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, sqlx::FromRow)]
 /// A role that can be granted to a user in a channel.
 /// Roles can allow or deny permissions to a user.
 /// The rank indicates the order in which the role permissions are applied.

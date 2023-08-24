@@ -64,9 +64,7 @@ impl Task {
                 let key = self.key.clone();
                 let data = data.clone();
                 Box::pin(async move {
-                    global.metadata_store
-                        .put(&key, data)
-                        .await?;
+                    global.metadata_store.put(&key, data).await?;
                     Ok(())
                 })
             }
@@ -76,18 +74,14 @@ impl Task {
                 Box::pin(async move {
                     let mut cursor = std::io::Cursor::new(data);
 
-                    global.media_store
-                        .put(key.as_str(), &mut cursor)
-                        .await?;
+                    global.media_store.put(key.as_str(), &mut cursor).await?;
                     Ok(())
                 })
             }
             TaskJob::DeleteMedia => {
                 let key = self.key.clone();
                 Box::pin(async move {
-                    global.media_store
-                        .delete(&key)
-                        .await?;
+                    global.media_store.delete(&key).await?;
                     Ok(())
                 })
             }
@@ -133,19 +127,29 @@ impl Tasker {
         self.tasks.push_front(task);
     }
 
-    pub fn custom(&mut self, key: String, f: impl Fn(&str, Arc<GlobalState>) -> BoxFuture<'static, Result<(), TaskError>> + Send + Sync + 'static) {
+    pub fn custom(
+        &mut self,
+        key: String,
+        f: impl Fn(&str, Arc<GlobalState>) -> BoxFuture<'static, Result<(), TaskError>>
+            + Send
+            + Sync
+            + 'static,
+    ) {
         self.abort_task(&key);
-        self.tasks.push_back(Task::new(key, TaskJob::Custom(Arc::new(f))));
+        self.tasks
+            .push_back(Task::new(key, TaskJob::Custom(Arc::new(f))));
     }
 
     pub fn upload_metadata(&mut self, key: String, data: Bytes) {
         self.abort_task(&key);
-        self.tasks.push_back(Task::new(key, TaskJob::UploadMetadata(data)));
+        self.tasks
+            .push_back(Task::new(key, TaskJob::UploadMetadata(data)));
     }
 
     pub fn upload_media(&mut self, key: String, data: Bytes) {
         self.abort_task(&key);
-        self.tasks.push_back(Task::new(key, TaskJob::UploadMedia(data)));
+        self.tasks
+            .push_back(Task::new(key, TaskJob::UploadMedia(data)));
     }
 
     pub fn delete_media(&mut self, key: String) {
@@ -157,7 +161,10 @@ impl Tasker {
         self.tasks.retain(|task| task.key() != key);
     }
 
-    pub async fn next_task(&mut self, global: &Arc<GlobalState>) -> Option<Result<Task, (Task, TaskError)>> {
+    pub async fn next_task(
+        &mut self,
+        global: &Arc<GlobalState>,
+    ) -> Option<Result<Task, (Task, TaskError)>> {
         if self.active_task.is_none() {
             let task = self.tasks.pop_front()?;
             let future = task.run(global);
@@ -171,7 +178,7 @@ impl Tasker {
         if let Err(e) = result {
             Some(Err((active_task.task, e)))
         } else {
-            Some(Ok(active_task.task))            
+            Some(Ok(active_task.task))
         }
     }
 }

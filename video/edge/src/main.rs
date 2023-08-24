@@ -75,7 +75,14 @@ async fn main() -> Result<()> {
         .get_key_value(config.edge.metadata_kv_store.clone())
         .await?;
 
-    let global = Arc::new(global::GlobalState::new(config, ctx, nats, db, metadata_store, media_store));
+    let global = Arc::new(global::GlobalState::new(
+        config,
+        ctx,
+        nats,
+        db,
+        metadata_store,
+        media_store,
+    ));
 
     let edge_future = tokio::spawn(edge::run(global.clone()));
     let grpc_future = tokio::spawn(grpc::run(global.clone()));

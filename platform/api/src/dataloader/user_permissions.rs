@@ -29,15 +29,14 @@ impl Loader<Uuid> for UserPermissionsByIdLoader {
     type Error = Arc<sqlx::Error>;
 
     async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
-        let default_role: Option<global_role::Model> = sqlx::query_as(
-            "SELECT * FROM global_roles WHERE rank = -1",
-        )
-        .fetch_optional(&*self.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to fetch default role: {}", e);
-            Arc::new(e)
-        })?;
+        let default_role: Option<global_role::Model> =
+            sqlx::query_as("SELECT * FROM global_roles WHERE rank = -1")
+                .fetch_optional(&*self.db)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to fetch default role: {}", e);
+                    Arc::new(e)
+                })?;
 
         todo!("xd");
 

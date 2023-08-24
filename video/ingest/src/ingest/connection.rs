@@ -15,11 +15,11 @@ use pb::scuffle::video::{
 };
 use prost::Message as _;
 use rtmp::{ChannelData, PublishRequest, Session, SessionError};
-use ulid::Ulid;
 use std::{net::IpAddr, pin::pin, sync::Arc, time::Duration};
 use tokio::{select, sync::mpsc, time::Instant};
 use tonic::{Status, Streaming};
 use transmuxer::{AudioSettings, MediaSegment, TransmuxResult, Transmuxer, VideoSettings};
+use ulid::Ulid;
 use uuid::Uuid;
 use video_database::room_status::RoomStatus;
 
@@ -227,7 +227,10 @@ impl Connection {
         if let Some(old_id) = result.id {
             if let Err(err) = global
                 .nats
-                .publish(format!("ingest.{}.disconnect", Ulid::from(old_id)), Bytes::new())
+                .publish(
+                    format!("ingest.{}.disconnect", Ulid::from(old_id)),
+                    Bytes::new(),
+                )
                 .await
             {
                 tracing::error!(error = %err, "failed to publish disconnect event");
@@ -573,16 +576,15 @@ impl Connection {
             return true;
         }
 
-        
         if self.current_transcoder.is_none() && !self.fragment_list.is_empty() {
             if event
-                    .transcoder
-                    .try_send(IngestWatchResponse {
-                        message: Some(ingest_watch_response::Message::Ready(
-                            ingest_watch_response::Ready::Ready.into(),
-                        )),
-                    })
-                    .is_err()
+                .transcoder
+                .try_send(IngestWatchResponse {
+                    message: Some(ingest_watch_response::Message::Ready(
+                        ingest_watch_response::Ready::Ready.into(),
+                    )),
+                })
+                .is_err()
             {
                 tracing::warn!("transcoder disconnected before we could send init segment");
                 return true;

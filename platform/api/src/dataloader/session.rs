@@ -22,16 +22,15 @@ impl Loader<Uuid> for SessionByIdLoader {
     type Error = Arc<sqlx::Error>;
 
     async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
-        let results: Vec<session::Model> = sqlx::query_as(
-            "SELECT * FROM sessions WHERE id = ANY($1)",
-        )
-        .bind(keys)
-        .fetch_all(&*self.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to fetch sessions: {}", e);
-            Arc::new(e)
-        })?;
+        let results: Vec<session::Model> =
+            sqlx::query_as("SELECT * FROM sessions WHERE id = ANY($1)")
+                .bind(keys)
+                .fetch_all(&*self.db)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to fetch sessions: {}", e);
+                    Arc::new(e)
+                })?;
 
         let mut map = HashMap::new();
 

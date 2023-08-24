@@ -16,10 +16,7 @@ impl Loader<Ulid> for RecordingConfigByNameLoader {
     type Value = RecordingConfig;
     type Error = Arc<sqlx::Error>;
 
-    async fn load(
-        &self,
-        keys: &[Ulid],
-    ) -> Result<HashMap<Ulid, Self::Value>, Self::Error> {
+    async fn load(&self, keys: &[Ulid]) -> Result<HashMap<Ulid, Self::Value>, Self::Error> {
         let query: Vec<Self::Value> = sqlx::query_as(
             r#"
             SELECT * FROM recording_configs WHERE id = ANY($1::uuid[])
@@ -32,10 +29,7 @@ impl Loader<Ulid> for RecordingConfigByNameLoader {
 
         let mut map = HashMap::new();
         for playback_key_pair in query {
-            map.insert(
-                playback_key_pair.id.into(),
-                playback_key_pair,
-            );
+            map.insert(playback_key_pair.id.into(), playback_key_pair);
         }
 
         Ok(map)

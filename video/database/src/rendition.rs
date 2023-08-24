@@ -35,7 +35,7 @@ impl From<Rendition> for pb::scuffle::video::v1::types::Rendition {
     }
 }
 
-impl From<pb::scuffle::video::v1::types::Rendition> for Rendition  {
+impl From<pb::scuffle::video::v1::types::Rendition> for Rendition {
     fn from(value: pb::scuffle::video::v1::types::Rendition) -> Self {
         match value {
             pb::scuffle::video::v1::types::Rendition::VideoSource => Self::VideoSource,

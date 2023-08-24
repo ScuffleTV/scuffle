@@ -69,10 +69,21 @@ async fn main() -> Result<()> {
 
     let jetstream = async_nats::jetstream::new(nats.clone());
 
-    let metadata_store = jetstream.get_key_value(config.transcoder.metadata_kv_store.clone()).await?;
-    let media_store = jetstream.get_object_store(config.transcoder.media_ob_store.clone()).await?;
+    let metadata_store = jetstream
+        .get_key_value(config.transcoder.metadata_kv_store.clone())
+        .await?;
+    let media_store = jetstream
+        .get_object_store(config.transcoder.media_ob_store.clone())
+        .await?;
 
-    let global = Arc::new(global::GlobalState::new(config, ctx, nats, db, metadata_store, media_store));
+    let global = Arc::new(global::GlobalState::new(
+        config,
+        ctx,
+        nats,
+        db,
+        metadata_store,
+        media_store,
+    ));
 
     let transcoder_future = tokio::spawn(transcoder::run(global.clone()));
     let grpc_future = tokio::spawn(grpc::run(global.clone()));

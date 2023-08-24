@@ -41,7 +41,7 @@ impl GlobalState {
             jetstream: async_nats::jetstream::new(nats.clone()),
             nats,
             db,
-            metadata_store, 
+            metadata_store,
             media_store,
         }
     }

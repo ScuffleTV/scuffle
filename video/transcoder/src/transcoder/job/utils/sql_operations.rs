@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use pb::scuffle::video::v1::types::{
-    AudioConfig, RecordingConfig, TranscodingConfig, VideoConfig, Rendition,
+    AudioConfig, RecordingConfig, Rendition, TranscodingConfig, VideoConfig,
 };
 use prost::Message;
 use ulid::Ulid;

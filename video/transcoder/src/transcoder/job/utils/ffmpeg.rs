@@ -2,7 +2,7 @@ use std::{os::unix::process::CommandExt, path::Path};
 
 use common::vec_of_strings;
 use mp4::codec::{AudioCodec, VideoCodec};
-use pb::scuffle::video::v1::types::{AudioConfig, VideoConfig, Rendition as PbRendition};
+use pb::scuffle::video::v1::types::{AudioConfig, Rendition as PbRendition, VideoConfig};
 use tokio::process::{Child, Command};
 use video_database::rendition::Rendition;
 
@@ -235,7 +235,8 @@ pub fn spawn_ffmpeg_screenshot(
     height: i32,
 ) -> anyhow::Result<Child> {
     let args = vec_of_strings![
-        "-v", "error",
+        "-v",
+        "error",
         "-i",
         "-",
         "-threads",

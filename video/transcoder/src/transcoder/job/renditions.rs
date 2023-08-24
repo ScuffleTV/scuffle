@@ -1,6 +1,4 @@
-use pb::scuffle::video::v1::types::{
-    AudioConfig, TranscodingConfig, VideoConfig, Rendition,
-};
+use pb::scuffle::video::v1::types::{AudioConfig, Rendition, TranscodingConfig, VideoConfig};
 
 use mp4::codec::VideoCodec;
 

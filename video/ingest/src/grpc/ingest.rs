@@ -10,9 +10,12 @@ use common::prelude::FutureTimeout;
 use futures_util::Stream;
 use tonic::{async_trait, Request, Response, Status, Streaming};
 
-use pb::{scuffle::video::internal::{
-    ingest_server, ingest_watch_request, IngestWatchRequest, IngestWatchResponse,
-}, ext::UlidExt};
+use pb::{
+    ext::UlidExt,
+    scuffle::video::internal::{
+        ingest_server, ingest_watch_request, IngestWatchRequest, IngestWatchResponse,
+    },
+};
 
 pub struct IngestServer {
     global: Weak<GlobalState>,

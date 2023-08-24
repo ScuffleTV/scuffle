@@ -16,10 +16,7 @@ impl Loader<Ulid> for RoomByNameLoader {
     type Value = Room;
     type Error = Arc<sqlx::Error>;
 
-    async fn load(
-        &self,
-        keys: &[Ulid],
-    ) -> Result<HashMap<Ulid, Self::Value>, Self::Error> {
+    async fn load(&self, keys: &[Ulid]) -> Result<HashMap<Ulid, Self::Value>, Self::Error> {
         let query: Vec<Self::Value> = sqlx::query_as(
             r#"
             SELECT * FROM rooms WHERE id = ANY($1::uuid[])

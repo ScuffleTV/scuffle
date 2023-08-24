@@ -11,8 +11,8 @@ use jwt::{AlgorithmType, PKeyWithDigest, SignWithKey, Token, VerifyWithKey};
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
 use pb::ext::UlidExt;
-use pb::scuffle::video::internal::{LiveRenditionManifest, LiveManifest};
 use pb::scuffle::video::internal::live_rendition_manifest::RenditionInfo;
+use pb::scuffle::video::internal::{LiveManifest, LiveRenditionManifest};
 use prost::Message;
 use routerify::{prelude::RequestExt, Router};
 use sha2::Sha256;
@@ -42,47 +42,38 @@ mod keys {
         rendition: Rendition,
         part_idx: u32,
     ) -> String {
-        format!(
-            "{organization_id}.{room_id}.{connection_id}.part.{rendition}.{part_idx}",
-        )
+        format!("{organization_id}.{room_id}.{connection_id}.part.{rendition}.{part_idx}",)
     }
-    
+
     pub fn rendition_manifest(
         organization_id: Ulid,
         room_id: Ulid,
         connection_id: Ulid,
         rendition: Rendition,
     ) -> String {
-        format!(
-            "{organization_id}.{room_id}.{connection_id}.manifest.{rendition}",
-        )
+        format!("{organization_id}.{room_id}.{connection_id}.manifest.{rendition}",)
     }
-    
-    pub fn manifest(
-        organization_id: Ulid,
-        room_id: Ulid,
-        connection_id: Ulid,
-    ) -> String {
-        format!(
-            "{organization_id}.{room_id}.{connection_id}.manifest",
-        )
+
+    pub fn manifest(organization_id: Ulid, room_id: Ulid, connection_id: Ulid) -> String {
+        format!("{organization_id}.{room_id}.{connection_id}.manifest",)
     }
-    
+
     pub fn init(
         organization_id: Ulid,
         room_id: Ulid,
         connection_id: Ulid,
         rendition: Rendition,
     ) -> String {
-        format!(
-            "{organization_id}.{room_id}.{connection_id}.init.{rendition}",
-        )
+        format!("{organization_id}.{room_id}.{connection_id}.init.{rendition}",)
     }
-    
-    pub fn screenshot(organization_id: Ulid, room_id: Ulid, connection_id: Ulid, idx: u32) -> String {
-        format!(
-            "{organization_id}.{room_id}.{connection_id}.screenshot.{idx}",
-        )
+
+    pub fn screenshot(
+        organization_id: Ulid,
+        room_id: Ulid,
+        connection_id: Ulid,
+        idx: u32,
+    ) -> String {
+        format!("{organization_id}.{room_id}.{connection_id}.screenshot.{idx}",)
     }
 }
 
@@ -138,12 +129,8 @@ async fn room_playlist(req: Request<Body>) -> Result<Response<Body>> {
 
     let organization_id = Ulid::from_string(req.param("organization_id").unwrap())
         .map_err(|_| (StatusCode::BAD_REQUEST, "invalid organization_id"))?;
-    let room_id = Ulid::from_string(req.param("room_id").unwrap()).map_err(|_| {
-        (
-            StatusCode::BAD_REQUEST,
-            "invalid room_id",
-        )
-    })?;
+    let room_id = Ulid::from_string(req.param("room_id").unwrap())
+        .map_err(|_| (StatusCode::BAD_REQUEST, "invalid room_id"))?;
     let token = req.uri().query().and_then(|v| {
         url::form_urlencoded::parse(v.as_bytes()).find_map(|(k, v)| {
             if k == "token" {
@@ -158,12 +145,14 @@ async fn room_playlist(req: Request<Body>) -> Result<Response<Body>> {
         let token: Token<jwt::Header, TokenClaims, _> = Token::parse_unverified(&token)
             .map_err(|_| (StatusCode::BAD_REQUEST, "invalid token, could not parse"))?;
 
-        let playback_key_pair_id = Ulid::from_string(token
-            .header()
-            .key_id
-            .as_ref()
-            .ok_or((StatusCode::BAD_REQUEST, "invalid token, missing key id"))?)
-            .map_err(|_| (StatusCode::BAD_REQUEST, "invalid token, invalid key id"))?;
+        let playback_key_pair_id = Ulid::from_string(
+            token
+                .header()
+                .key_id
+                .as_ref()
+                .ok_or((StatusCode::BAD_REQUEST, "invalid token, missing key id"))?,
+        )
+        .map_err(|_| (StatusCode::BAD_REQUEST, "invalid token, invalid key id"))?;
 
         if token.header().algorithm != AlgorithmType::Es384 {
             return Err((
@@ -174,13 +163,16 @@ async fn room_playlist(req: Request<Body>) -> Result<Response<Body>> {
         }
 
         if &organization_id
-            != token
-                .claims()
-                .organization_id
-                .as_ref()
-                .ok_or((StatusCode::BAD_REQUEST, "invalid token, missing organization id"))?
+            != token.claims().organization_id.as_ref().ok_or((
+                StatusCode::BAD_REQUEST,
+                "invalid token, missing organization id",
+            ))?
         {
-            return Err((StatusCode::BAD_REQUEST, "invalid token, organization id mismatch").into());
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "invalid token, organization id mismatch",
+            )
+                .into());
         }
 
         if &room_id
@@ -265,9 +257,10 @@ async fn room_playlist(req: Request<Body>) -> Result<Response<Body>> {
 
     let room = room.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
-    let connection_id = Ulid::from(room
-        .active_ingest_connection_id
-        .ok_or((StatusCode::NOT_FOUND, "room not found"))?);
+    let connection_id = Ulid::from(
+        room.active_ingest_connection_id
+            .ok_or((StatusCode::NOT_FOUND, "room not found"))?,
+    );
 
     let audio_output = room
         .audio_output
@@ -363,8 +356,8 @@ async fn room_playlist(req: Request<Body>) -> Result<Response<Body>> {
         iat: chrono::Utc::now().timestamp(),
     };
 
-    let key: Hmac<Sha256> =
-        Hmac::new_from_slice(global.config.edge.session_key.as_bytes()).map_err(|_| {
+    let key: Hmac<Sha256> = Hmac::new_from_slice(global.config.edge.session_key.as_bytes())
+        .map_err(|_| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "failed to create session key",
@@ -447,11 +440,7 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
     }
 
     if session.room_id != room_id {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "invalid session, room_id mismatch",
-        )
-            .into());
+        return Err((StatusCode::BAD_REQUEST, "invalid session, room_id mismatch").into());
     }
 
     let resp = sqlx::query(
@@ -492,33 +481,37 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
         scuffle_dvr: bool,
     }
 
-    let hls_config = req.uri().query().map(|v| {
-        url::form_urlencoded::parse(v.as_bytes()).fold(
-            HlsConfig::default(),
-            |mut acc, (key, value)| {
-                match key.as_ref() {
-                    "_HLS_msn" => {
-                        acc.msn = value.parse::<u32>().ok();
-                    },
-                    "_HLS_part" => {
-                        acc.part = value.parse::<u32>().ok();
-                    },
-                    "_HLS_skip" => {
-                        acc.skip = value == "YES" || value == "v2";
+    let hls_config = req
+        .uri()
+        .query()
+        .map(|v| {
+            url::form_urlencoded::parse(v.as_bytes()).fold(
+                HlsConfig::default(),
+                |mut acc, (key, value)| {
+                    match key.as_ref() {
+                        "_HLS_msn" => {
+                            acc.msn = value.parse::<u32>().ok();
+                        }
+                        "_HLS_part" => {
+                            acc.part = value.parse::<u32>().ok();
+                        }
+                        "_HLS_skip" => {
+                            acc.skip = value == "YES" || value == "v2";
+                        }
+                        "_SCUFFLE_PART" => {
+                            acc.scuffle_part = value.parse::<u32>().ok();
+                        }
+                        "_SCUFFLE_DVR" => {
+                            acc.scuffle_dvr = value.parse::<bool>().unwrap_or_default();
+                        }
+                        _ => {}
                     }
-                    "_SCUFFLE_PART" => {
-                        acc.scuffle_part = value.parse::<u32>().ok();
-                    }
-                    "_SCUFFLE_DVR" => {
-                        acc.scuffle_dvr = value.parse::<bool>().unwrap_or_default();
-                    }
-                    _ => {}
-                }
 
-                acc
-            },
-        )
-    }).unwrap_or_else(HlsConfig::default);
+                    acc
+                },
+            )
+        })
+        .unwrap_or_else(HlsConfig::default);
 
     let manifest = global
         .metadata_store
@@ -552,7 +545,8 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
 
             match self {
                 BlockStyle::Hls(hls_msn, hls_part) => {
-                    segment_idx < *hls_msn || (segment_idx == *hls_msn && segment_part_idx < *hls_part)
+                    segment_idx < *hls_msn
+                        || (segment_idx == *hls_msn && segment_part_idx < *hls_part)
                 }
                 BlockStyle::Scuffle(scuffle_part) => part_idx < *scuffle_part,
             }
@@ -567,10 +561,10 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
     };
 
     if let Some(block_style) = block_style {
-        let info = manifest.info.as_ref().ok_or((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "manifest missing info",
-        ))?;
+        let info = manifest
+            .info
+            .as_ref()
+            .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "manifest missing info"))?;
 
         if !manifest.completed && block_style.is_blocked(info) {
             // We need to block and wait for the next segment to be available
@@ -584,19 +578,23 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
                     rendition,
                 ))
                 .await
-                .map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to watch manifest"))?;
-
-            let now = Instant::now();
-            loop {
-                let entry = watch_manifest.next().timeout(Duration::from_secs(2)).await.map_err_route(
-                    (StatusCode::BAD_REQUEST, "segment watch time timedout"),
-                )?.ok_or((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "manifest stream closed",
-                ))?.map_err_route((
+                .map_err_route((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "failed to watch manifest",
                 ))?;
+
+            let now = Instant::now();
+            loop {
+                let entry = watch_manifest
+                    .next()
+                    .timeout(Duration::from_secs(2))
+                    .await
+                    .map_err_route((StatusCode::BAD_REQUEST, "segment watch time timedout"))?
+                    .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "manifest stream closed"))?
+                    .map_err_route((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "failed to watch manifest",
+                    ))?;
 
                 manifest = LiveRenditionManifest::decode(entry.value).map_err(|_| {
                     (
@@ -605,39 +603,35 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
                     )
                 })?;
 
-                let info = manifest.info.as_ref().ok_or((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "manifest missing info",
-                ))?;
+                let info = manifest
+                    .info
+                    .as_ref()
+                    .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "manifest missing info"))?;
 
                 if manifest.completed || !block_style.is_blocked(info) {
                     break;
                 }
 
                 if now.elapsed() > Duration::from_secs(3) {
-                    return Err((
-                        StatusCode::BAD_REQUEST,
-                        "segment watch time timedout",
-                    )
-                        .into());
+                    return Err((StatusCode::BAD_REQUEST, "segment watch time timedout").into());
                 }
             }
         }
     }
 
-    let info = manifest.info.as_ref().ok_or((
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "manifest missing info",
-    ))?;
+    let info = manifest
+        .info
+        .as_ref()
+        .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "manifest missing info"))?;
 
     const MAX_SEGMENT_DURATION: u32 = 5;
     const TARGET_PART_DURATION: f64 = 0.25;
-    const PART_HOLD_BACK: f64 = 3.0 * TARGET_PART_DURATION; 
+    const PART_HOLD_BACK: f64 = 3.0 * TARGET_PART_DURATION;
 
     let mut media_sequence = manifest.segments.first().map(|s| s.idx).unwrap_or_default();
 
-    let media_key: Hmac<Sha256> =
-        Hmac::new_from_slice(global.config.edge.media_key.as_bytes()).map_err(|_| {
+    let media_key: Hmac<Sha256> = Hmac::new_from_slice(global.config.edge.media_key.as_bytes())
+        .map_err(|_| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "failed to create media key",
@@ -650,7 +644,9 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
         organization_id,
         rendition: rendition.to_string(),
         room_id: session.room_id,
-    }.sign_with_key(&media_key).map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to sign init"))?;
+    }
+    .sign_with_key(&media_key)
+    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to sign init"))?;
 
     let mut server_control = vec_of_strings![
         format!("PART-HOLD-BACK={PART_HOLD_BACK:.3}"),
@@ -660,7 +656,8 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
     let mut version = 6;
 
     let recording: Option<Recording> = if let Some(id) = manifest.recording_ulid {
-        sqlx::query_as(r#"
+        sqlx::query_as(
+            r#"
             SELECT
                 * 
             FROM recordings
@@ -670,7 +667,8 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
                 AND room_id = $3
                 AND deleted = FALSE
                 AND allow_dvr = TRUE
-        "#)
+        "#,
+        )
         .bind(Uuid::from(id.to_ulid()))
         .bind(Uuid::from(organization_id))
         .bind(Uuid::from(room_id))
@@ -706,7 +704,7 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
         format!("#EXT-X-SERVER-CONTROL:{}", server_control.join(",")),
         format!("#EXT-X-MAP:URI=\"/{organization_id}/{room_id}/{init_jwt}.mp4\""),
     ];
-    
+
     let public_s3_url = if can_dvr && !hls_config.skip {
         let recording_id = recording.as_ref().unwrap().id;
 
@@ -721,7 +719,7 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
                 AND rendition = $2
             INNER JOIN s3_buckets s 
             ON s.id = r.s3_bucket_id
-            "#
+            "#,
         )
         .bind(recording_id)
         .bind(rendition)
@@ -732,17 +730,28 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
             "failed to query database",
         ))?;
 
-        for (idx, (id, duration)) in recording_rendition.segment_ids.iter().zip(recording_rendition.segment_durations.iter()).enumerate() {
+        for (idx, (id, duration)) in recording_rendition
+            .segment_ids
+            .iter()
+            .zip(recording_rendition.segment_durations.iter())
+            .enumerate()
+        {
             let id = Ulid::from(*id);
             let duration = *duration as f64 / recording_rendition.timescale as f64;
-            let url = format!("{}/{organization_id}/{recording_id}/{rendition}/{idx}.{id}.mp4", recording_rendition.public_url.as_ref().unwrap());
+            let url = format!(
+                "{}/{organization_id}/{recording_id}/{rendition}/{idx}.{id}.mp4",
+                recording_rendition.public_url.as_ref().unwrap()
+            );
             playlist.push(format!("#EXTINF:{duration:.3},"));
             playlist.push(url);
         }
 
         recording_rendition.public_url
     } else if can_dvr && hls_config.skip {
-        playlist.push(format!("#EXT-X-SKIP:SKIPPED-SEGMENTS={}", manifest.segments.first().map(|s| s.idx).unwrap_or_default()));
+        playlist.push(format!(
+            "#EXT-X-SKIP:SKIPPED-SEGMENTS={}",
+            manifest.segments.first().map(|s| s.idx).unwrap_or_default()
+        ));
 
         let recording_id = recording.as_ref().unwrap().id;
 
@@ -756,7 +765,7 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
                 AND rendition = $2
             INNER JOIN s3_buckets s 
             ON s.id = r.s3_bucket_id
-            "#
+            "#,
         )
         .bind(recording_id)
         .bind(rendition)
@@ -781,7 +790,9 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
                     organization_id,
                     rendition: rendition.to_string(),
                     room_id: session.room_id,
-                }.sign_with_key(&media_key).map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to sign part"))?;
+                }
+                .sign_with_key(&media_key)
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to sign part"))?;
 
                 let duration = part.duration as f64 / manifest.timescale as f64;
 
@@ -802,9 +813,12 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
                 organization_id,
                 rendition: rendition.to_string(),
                 room_id: session.room_id,
-            }.sign_with_key(&media_key).map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to sign segment"))?;
-    
-            let duration = segment.parts.iter().map(|p| p.duration).sum::<u32>() as f64 / manifest.timescale as f64;
+            }
+            .sign_with_key(&media_key)
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to sign segment"))?;
+
+            let duration = segment.parts.iter().map(|p| p.duration).sum::<u32>() as f64
+                / manifest.timescale as f64;
             if can_dvr {
                 let public_s3_url = public_s3_url.as_ref().unwrap();
                 let recording_id = recording.as_ref().unwrap().id;
@@ -827,7 +841,9 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
                 organization_id,
                 rendition: rendition.to_string(),
                 room_id: session.room_id,
-            }.sign_with_key(&media_key).map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to sign part"))?;
+            }
+            .sign_with_key(&media_key)
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to sign part"))?;
 
             playlist.push(format!("#EXT-X-PRELOAD-HINT:TYPE=PART,SCUFFLE-PART={part_idx},URI=\"/{organization_id}/{room_id}/{part_jwt}.mp4\""));
         }
@@ -840,7 +856,6 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
     } else {
         playlist.push("#EXT-X-ENDLIST".to_string());
     }
-
 
     let playlist = playlist.join("\n");
     let mut resp = Response::new(Body::from(playlist));
@@ -865,12 +880,13 @@ async fn room_media(req: Request<Body>) -> Result<Response<Body>> {
 
     let media = req.param("media").unwrap();
 
-    let key: Hmac<Sha256> = Hmac::new_from_slice(global.config.edge.media_key.as_bytes()).map_err(|_| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "failed to create media key",
-        )
-    })?;
+    let key: Hmac<Sha256> =
+        Hmac::new_from_slice(global.config.edge.media_key.as_bytes()).map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to create media key",
+            )
+        })?;
 
     let claims: MediaClaims = media
         .verify_with_key(&key)
@@ -885,11 +901,7 @@ async fn room_media(req: Request<Body>) -> Result<Response<Body>> {
     }
 
     if claims.room_id != room_id {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "invalid media, room_name mismatch",
-        )
-            .into());
+        return Err((StatusCode::BAD_REQUEST, "invalid media, room_name mismatch").into());
     }
 
     let keys = match claims.idx.len() {
@@ -899,37 +911,39 @@ async fn room_media(req: Request<Body>) -> Result<Response<Body>> {
             claims.connection_id,
             claims.rendition.parse().unwrap(),
         )],
-        _ => {
-            claims.idx.iter().map(|idx| keys::part(
-                organization_id,
-                room_id,
-                claims.connection_id,
-                claims.rendition.parse().unwrap(),
-                *idx,
-            )).collect::<Vec<_>>()
-        }
+        _ => claims
+            .idx
+            .iter()
+            .map(|idx| {
+                keys::part(
+                    organization_id,
+                    room_id,
+                    claims.connection_id,
+                    claims.rendition.parse().unwrap(),
+                    *idx,
+                )
+            })
+            .collect::<Vec<_>>(),
     };
 
     // Streaming response
     let mut data = Vec::new();
 
     for key in keys {
-        let mut item = global.media_store.get(&key).await.map_err_route((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "failed to get media",
-        ))?;
+        let mut item = global
+            .media_store
+            .get(&key)
+            .await
+            .map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to get media"))?;
 
-        item.read_to_end(&mut data).await.map_err_route((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "failed to read media",
-        ))?;
+        item.read_to_end(&mut data)
+            .await
+            .map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to read media"))?;
     }
 
     let mut resp = Response::new(Body::from(data));
-    resp.headers_mut().insert(
-        "Content-Type",
-        "video/mp4".parse().unwrap(),
-    );
+    resp.headers_mut()
+        .insert("Content-Type", "video/mp4".parse().unwrap());
     resp.headers_mut()
         .insert("Cache-Control", "max-age=31536000".parse().unwrap());
 
@@ -976,9 +990,10 @@ async fn room_screenshot(req: Request<Body>) -> Result<Response<Body>> {
 
     let room = room.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
-    let connection_id = Ulid::from(room
-        .active_ingest_connection_id
-        .ok_or((StatusCode::NOT_FOUND, "room not found"))?);
+    let connection_id = Ulid::from(
+        room.active_ingest_connection_id
+            .ok_or((StatusCode::NOT_FOUND, "room not found"))?,
+    );
 
     if room.private && token.is_none() {
         return Err((
@@ -1003,19 +1018,27 @@ async fn room_screenshot(req: Request<Body>) -> Result<Response<Body>> {
         )
     })?;
 
-    let key: Hmac<Sha256> = Hmac::new_from_slice(global.config.edge.media_key.as_bytes()).map_err(|_| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "failed to create media key",
-        )
-    })?;
+    let key: Hmac<Sha256> =
+        Hmac::new_from_slice(global.config.edge.media_key.as_bytes()).map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to create media key",
+            )
+        })?;
 
     let screenshot = ScreenshotClaims {
         connection_id,
         idx: manifest.screenshot_idx,
         organization_id,
         room_id,
-    }.sign_with_key(&key).map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to sign screenshot"))?;
+    }
+    .sign_with_key(&key)
+    .map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "failed to sign screenshot",
+        )
+    })?;
 
     let mut response = Response::new(Body::default());
 
@@ -1023,12 +1046,13 @@ async fn room_screenshot(req: Request<Body>) -> Result<Response<Body>> {
 
     let url = format!("/{organization_id}/{room_id}/{screenshot}.jpg");
 
-    response.headers_mut().insert(
-        "Location",
-        url.parse().unwrap(),
-    );
+    response
+        .headers_mut()
+        .insert("Location", url.parse().unwrap());
 
-    response.headers_mut().insert("Cache-Control", "no-cache".parse().unwrap());
+    response
+        .headers_mut()
+        .insert("Cache-Control", "no-cache".parse().unwrap());
 
     Ok(response)
 }
@@ -1044,12 +1068,13 @@ async fn room_screenshot_media(req: Request<Body>) -> Result<Response<Body>> {
 
     let screenshot = req.param("screenshot").unwrap();
 
-    let key: Hmac<Sha256> = Hmac::new_from_slice(global.config.edge.media_key.as_bytes()).map_err(|_| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "failed to create media key",
-        )
-    })?;
+    let key: Hmac<Sha256> =
+        Hmac::new_from_slice(global.config.edge.media_key.as_bytes()).map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to create media key",
+            )
+        })?;
 
     let claims: ScreenshotClaims = screenshot
         .verify_with_key(&key)
@@ -1064,11 +1089,7 @@ async fn room_screenshot_media(req: Request<Body>) -> Result<Response<Body>> {
     }
 
     if claims.room_id != room_id {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "invalid media, room_name mismatch",
-        )
-            .into());
+        return Err((StatusCode::BAD_REQUEST, "invalid media, room_name mismatch").into());
     }
 
     let key = keys::screenshot(organization_id, room_id, claims.connection_id, claims.idx);
@@ -1081,17 +1102,15 @@ async fn room_screenshot_media(req: Request<Body>) -> Result<Response<Body>> {
     ))?;
 
     let mut buf = Vec::new();
-    
+
     item.read_to_end(&mut buf).await.map_err_route((
         StatusCode::INTERNAL_SERVER_ERROR,
         "failed to read screenshot",
     ))?;
 
     let mut resp = Response::new(Body::from(buf));
-    resp.headers_mut().insert(
-        "Content-Type",
-        "image/jpeg".parse().unwrap(),
-    );
+    resp.headers_mut()
+        .insert("Content-Type", "image/jpeg".parse().unwrap());
     resp.headers_mut()
         .insert("Cache-Control", "max-age=31536000".parse().unwrap());
 
@@ -1107,7 +1126,10 @@ pub fn routes(_: &Arc<GlobalState>) -> Router<Body, RouteError> {
             session_playlist,
         )
         .get("/:organization_id/:room_id/:media.mp4", room_media)
-        .get("/:organization_id/:room_id/:screenshot.jpg", room_screenshot_media)
+        .get(
+            "/:organization_id/:room_id/:screenshot.jpg",
+            room_screenshot_media,
+        )
         .build()
         .expect("failed to build router")
 }

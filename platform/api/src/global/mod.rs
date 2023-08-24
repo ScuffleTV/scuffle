@@ -35,12 +35,7 @@ pub struct GlobalState {
 }
 
 impl GlobalState {
-    pub fn new(
-        config: AppConfig,
-        db: Arc<sqlx::PgPool>,
-        redis: RedisPool,
-        ctx: Context,
-    ) -> Self {
+    pub fn new(config: AppConfig, db: Arc<sqlx::PgPool>, redis: RedisPool, ctx: Context) -> Self {
         Self {
             config,
             ctx,

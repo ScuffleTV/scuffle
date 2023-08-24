@@ -2,7 +2,6 @@ use uuid::Uuid;
 
 use crate::rendition::Rendition;
 
-
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct RecordingRendition {
     pub recording_id: Uuid,

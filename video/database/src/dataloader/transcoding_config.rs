@@ -16,10 +16,7 @@ impl Loader<Ulid> for TranscoderConfigByNameLoader {
     type Value = TranscodingConfig;
     type Error = Arc<sqlx::Error>;
 
-    async fn load(
-        &self,
-        keys: &[Ulid],
-    ) -> Result<HashMap<Ulid, Self::Value>, Self::Error> {
+    async fn load(&self, keys: &[Ulid]) -> Result<HashMap<Ulid, Self::Value>, Self::Error> {
         let query: Vec<Self::Value> = sqlx::query_as(
             r#"
             SELECT * FROM transcoding_configs WHERE id = ANY($1::uuid[])
@@ -32,10 +29,7 @@ impl Loader<Ulid> for TranscoderConfigByNameLoader {
 
         let mut map = HashMap::new();
         for transcoding_config in query {
-            map.insert(
-                transcoding_config.id.into(),
-                transcoding_config,
-            );
+            map.insert(transcoding_config.id.into(), transcoding_config);
         }
 
         Ok(map)

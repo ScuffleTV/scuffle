@@ -56,15 +56,19 @@ impl Room {
             video_output: self.video_output.map(|v| v.into_vec()).unwrap_or_default(),
             active_recording_id: self.active_recording_id.map(|r| r.into()),
             active_connection_id: self.active_ingest_connection_id.map(|c| c.into()),
-            tags: self.tags.iter().map(|s| {
-                let splits = s.splitn(2, ':').collect::<Vec<_>>();
+            tags: self
+                .tags
+                .iter()
+                .map(|s| {
+                    let splits = s.splitn(2, ':').collect::<Vec<_>>();
 
-                if splits.len() == 2 {
-                    (splits[0].to_string(), splits[1].to_string())
-                } else {
-                    (splits[0].to_string(), "".to_string())
-                }
-            }).collect::<HashMap<_, _>>(),
+                    if splits.len() == 2 {
+                        (splits[0].to_string(), splits[1].to_string())
+                    } else {
+                        (splits[0].to_string(), "".to_string())
+                    }
+                })
+                .collect::<HashMap<_, _>>(),
         }
     }
 }

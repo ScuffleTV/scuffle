@@ -29,15 +29,19 @@ impl AccessToken {
             expires_at: self.expires_at.map(|t| t.timestamp_millis()),
             last_used_at: self.last_active_at.map(|t| t.timestamp_millis()),
             scopes: self.scopes.into_iter().map(|s| s.0).collect(),
-            tags: self.tags.iter().map(|s| {
-                let splits = s.splitn(2, ':').collect::<Vec<_>>();
+            tags: self
+                .tags
+                .iter()
+                .map(|s| {
+                    let splits = s.splitn(2, ':').collect::<Vec<_>>();
 
-                if splits.len() == 2 {
-                    (splits[0].to_string(), splits[1].to_string())
-                } else {
-                    (splits[0].to_string(), "".to_string())
-                }
-            }).collect::<HashMap<_, _>>(),
+                    if splits.len() == 2 {
+                        (splits[0].to_string(), splits[1].to_string())
+                    } else {
+                        (splits[0].to_string(), "".to_string())
+                    }
+                })
+                .collect::<HashMap<_, _>>(),
         }
     }
 }

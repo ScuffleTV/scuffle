@@ -22,10 +22,7 @@ impl Loader<Ulid> for AccessTokenByNameLoader {
     type Value = AccessToken;
     type Error = Arc<sqlx::Error>;
 
-    async fn load(
-        &self,
-        keys: &[Ulid],
-    ) -> Result<HashMap<Ulid, Self::Value>, Self::Error> {
+    async fn load(&self, keys: &[Ulid]) -> Result<HashMap<Ulid, Self::Value>, Self::Error> {
         let query: Vec<Self::Value> = sqlx::query_as(
             r#"
             SELECT * FROM access_tokens WHERE id = ANY($1::uuid[])
@@ -38,10 +35,7 @@ impl Loader<Ulid> for AccessTokenByNameLoader {
 
         let mut map = HashMap::new();
         for access_token in query {
-            map.insert(
-                access_token.id.into(),
-                access_token,
-            );
+            map.insert(access_token.id.into(), access_token);
         }
 
         Ok(map)
@@ -63,11 +57,9 @@ impl Loader<Ulid> for AccessTokenUsedByNameUpdater {
     type Value = ();
     type Error = Arc<sqlx::Error>;
 
-    async fn load(
-        &self,
-        keys: &[Ulid],
-    ) -> Result<HashMap<Ulid, Self::Value>, Self::Error> {
-        sqlx::query(r#"
+    async fn load(&self, keys: &[Ulid]) -> Result<HashMap<Ulid, Self::Value>, Self::Error> {
+        sqlx::query(
+            r#"
             UPDATE access_token SET last_active_at = NOW() WHERE id = ANY($1::uuid[])
         "#,
         )

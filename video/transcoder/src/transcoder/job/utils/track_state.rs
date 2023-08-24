@@ -126,21 +126,20 @@ impl TrackState {
         let mut segments = manifest
             .segments
             .iter()
-            .map(|s| {
-                Segment {
-                    idx: s.idx,
-                    parts: s
-                        .parts
-                        .iter()
-                        .map(|p| Part {
-                            data: Bytes::new(),
-                            duration: p.duration,
-                            idx: p.idx,
-                            independent: p.independent,
-                        })
-                        .collect(),
-                }
-            }).collect::<Vec<_>>();
+            .map(|s| Segment {
+                idx: s.idx,
+                parts: s
+                    .parts
+                    .iter()
+                    .map(|p| Part {
+                        data: Bytes::new(),
+                        duration: p.duration,
+                        idx: p.idx,
+                        independent: p.independent,
+                    })
+                    .collect(),
+            })
+            .collect::<Vec<_>>();
 
         segments.sort_unstable_by_key(|s| s.idx);
 

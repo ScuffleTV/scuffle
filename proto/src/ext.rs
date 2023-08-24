@@ -25,10 +25,7 @@ impl UlidExt for Option<Ulid> {
 impl From<uuid::Uuid> for Ulid {
     fn from(uuid: uuid::Uuid) -> Self {
         let (msb, lsb) = uuid.as_u64_pair();
-        Self {
-            msb,
-            lsb,
-        }
+        Self { msb, lsb }
     }
 }
 
@@ -36,9 +33,6 @@ impl From<ulid::Ulid> for Ulid {
     fn from(uuid: ulid::Ulid) -> Self {
         let msb = (uuid.0 >> 64) as u64;
         let lsb = uuid.0 as u64;
-        Self {
-            msb,
-            lsb,
-        }
+        Self { msb, lsb }
     }
 }

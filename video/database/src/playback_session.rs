@@ -35,9 +35,8 @@ impl PlaybackSession {
             target: if let Some(room_id) = self.room_id {
                 Some(playback_session::Target::RoomId(room_id.into()))
             } else {
-                self.recording_id.map(|recording_id| {
-                    playback_session::Target::RecordingId(recording_id.into())
-                })
+                self.recording_id
+                    .map(|recording_id| playback_session::Target::RecordingId(recording_id.into()))
             },
             user_id: self.user_id,
             playback_key_pair_id: self.playback_key_pair_id.map(|id| id.into()),

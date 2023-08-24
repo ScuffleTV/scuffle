@@ -16,12 +16,11 @@ use pb::scuffle::video::internal::events::{
 };
 use pb::scuffle::video::internal::ingest_client::IngestClient;
 use pb::scuffle::video::internal::{
-    ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse, LiveManifest,
+    ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse,
+    LiveManifest,
 };
 use pb::scuffle::video::internal::{live_rendition_manifest, LiveRenditionManifest};
-use pb::scuffle::video::v1::types::{
-    RecordingConfig, VideoConfig,
-};
+use pb::scuffle::video::v1::types::{RecordingConfig, VideoConfig};
 use prost::Message as _;
 use tokio::io::AsyncReadExt;
 use tokio::process::Child;
@@ -44,7 +43,7 @@ use crate::transcoder::job::utils::{
 
 use self::renditions::screenshot_size;
 use self::track_parser::TrackOut;
-use self::utils::{TrackState, Tasker, TaskError};
+use self::utils::{TaskError, Tasker, TrackState};
 
 mod renditions;
 mod track_parser;
@@ -112,7 +111,7 @@ struct Job {
 
     tasker: Tasker,
     screenshot_task: Option<TaskFuture<Bytes>>,
-    
+
     ffmpeg: Ffmpeg,
 
     tracks: Vec<(UnixListener, Rendition)>,
@@ -148,13 +147,9 @@ impl Job {
     async fn new(global: &Arc<GlobalState>, msg: &Message) -> Result<Self> {
         let message = TranscoderRequest::decode(msg.payload.clone())?;
 
-        let organization_id = message
-            .organization_id
-            .to_ulid();
+        let organization_id = message.organization_id.to_ulid();
         let room_id = message.room_id.to_ulid();
-        let connection_id = message
-            .connection_id
-            .to_ulid();
+        let connection_id = message.connection_id.to_ulid();
 
         let result =
             perform_sql_operations(global, organization_id, room_id, connection_id).await?;
@@ -169,8 +164,10 @@ impl Job {
         );
 
         // We need to create a unix socket for ffmpeg to connect to.
-        let socket_dir =
-            CleanupPath(Path::new(&global.config.transcoder.socket_dir).join(message.request_id.to_ulid().to_string()));
+        let socket_dir = CleanupPath(
+            Path::new(&global.config.transcoder.socket_dir)
+                .join(message.request_id.to_ulid().to_string()),
+        );
         if let Err(err) = tokio::fs::create_dir_all(&socket_dir.0).await {
             anyhow::bail!("failed to create socket dir: {}", err)
         }
@@ -183,9 +180,7 @@ impl Job {
             .video_output
             .iter()
             .map(|output| output.rendition())
-            .chain(result.audio_output.iter().map(|output| {
-                output.rendition()
-            }))
+            .chain(result.audio_output.iter().map(|output| output.rendition()))
             .map(Rendition::from)
             .map(|rendition| {
                 let sock_path = socket_dir.0.join(format!("{rendition}.sock"));
@@ -303,7 +298,7 @@ impl Job {
                             } else {
                                 anyhow::bail!("failed to upload media after 5 retries: {}", err);
                             }
-                        } 
+                        }
                         Ok(task) => {
                             tracing::debug!(key = %task.key(), "completed task");
                         }
@@ -503,17 +498,19 @@ impl Job {
         if self.first_init_put {
             self.first_init_put = false;
 
-            let event = Bytes::from(OrganizationEvent {
-                id: Some(self.organization_id.into()),
-                timestamp: chrono::Utc::now().timestamp_micros(),
-                event: Some(organization_event::Event::RoomReady(
-                    organization_event::RoomReady {
-                        room_id: Some(self.room_id.into()),
-                        connection_id: Some(self.connection_id.into()),
-                    },
-                )),
-            }
-            .encode_to_vec());
+            let event = Bytes::from(
+                OrganizationEvent {
+                    id: Some(self.organization_id.into()),
+                    timestamp: chrono::Utc::now().timestamp_micros(),
+                    event: Some(organization_event::Event::RoomReady(
+                        organization_event::RoomReady {
+                            room_id: Some(self.room_id.into()),
+                            connection_id: Some(self.connection_id.into()),
+                        },
+                    )),
+                }
+                .encode_to_vec(),
+            );
 
             let organization_id = self.organization_id;
             let connection_id = self.connection_id;
@@ -540,12 +537,15 @@ impl Job {
                     .bind(Uuid::from(room_id))
                     .bind(Uuid::from(connection_id))
                     .execute(global.db.as_ref())
-                    .await.map_err(|e| TaskError::Custom(e.into()))?;
-        
+                    .await
+                    .map_err(|e| TaskError::Custom(e.into()))?;
+
                     if resp.rows_affected() != 1 {
-                        return Err(TaskError::Custom(anyhow::anyhow!("failed to update room status")));
+                        return Err(TaskError::Custom(anyhow::anyhow!(
+                            "failed to update room status"
+                        )));
                     }
-        
+
                     global
                         .nats
                         .publish(global.config.transcoder.events_subject.clone(), event)
@@ -749,15 +749,13 @@ impl Job {
             return;
         }
 
-        let key = utils::keys::manifest(
-            self.organization_id,
-            self.room_id,
-            self.connection_id,
-        );
+        let key = utils::keys::manifest(self.organization_id, self.room_id, self.connection_id);
 
         let data: Bytes = LiveManifest {
             screenshot_idx: self.screenshot_idx,
-        }.encode_to_vec().into();
+        }
+        .encode_to_vec()
+        .into();
 
         self.tasker.upload_metadata(key, data);
     }
@@ -809,7 +807,7 @@ impl Job {
                         })
                         .collect(),
                 })
-                .collect()
+                .collect(),
         };
 
         if &manifest == self.manifests.get(&rendition).unwrap() {
@@ -832,24 +830,28 @@ impl Job {
     async fn fetch_manifests(&mut self, global: &Arc<GlobalState>) -> Result<()> {
         let rendition_manfiests = async {
             futures_util::future::try_join_all(self.track_state.keys().map(|rendition| {
-            global.metadata_store
-                .get(utils::keys::rendition_manifest(
-                    self.organization_id,
-                    self.room_id,
-                    self.connection_id,
-                    *rendition,
-                ))
-                .map_ok(|v| (*rendition, v))
+                global
+                    .metadata_store
+                    .get(utils::keys::rendition_manifest(
+                        self.organization_id,
+                        self.room_id,
+                        self.connection_id,
+                        *rendition,
+                    ))
+                    .map_ok(|v| (*rendition, v))
             }))
             .await
         };
 
         let manifest = async {
-            global.metadata_store.get(utils::keys::manifest(
-                self.organization_id,
-                self.room_id,
-                self.connection_id,
-            )).await
+            global
+                .metadata_store
+                .get(utils::keys::manifest(
+                    self.organization_id,
+                    self.room_id,
+                    self.connection_id,
+                ))
+                .await
         };
 
         let (rendition_manfiests, manifest) = try_join!(rendition_manfiests, manifest)?;

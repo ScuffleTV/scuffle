@@ -18,14 +18,15 @@ pub struct GlobalRole {
 
 impl From<global_role::Model> for GlobalRole {
     fn from(value: global_role::Model) -> Self {
-        Self {
-            id: value.id,
-            created_at: value.created_at.into(),
-            name: value.name,
-            description: value.description,
-            rank: value.rank as i32,
-            allowed_permissions: value.allowed_permissions.bits(),
-            denied_permissions: value.denied_permissions.bits(),
-        }
+        todo!()
+        // Self {
+        //     id: value.id,
+        //     created_at: value.created_at.into(),
+        //     name: value.name,
+        //     description: value.description,
+        //     rank: value.rank as i32,
+        //     allowed_permissions: value.allowed_permissions.bits(),
+        //     denied_permissions: value.denied_permissions.bits(),
+        // }
     }
 }

@@ -2,7 +2,7 @@ use bitmask_enum::bitmask;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, sqlx::FromRow)]
 /// A role that can be granted to a user globally.
 /// Roles can allow or deny permissions to a user.
 /// The rank indicates the order in which the role permissions are applied.
@@ -17,9 +17,9 @@ pub struct Model {
     /// The rank of the role. (higher rank = priority)  (-1 is default role)
     pub rank: i64,
     /// The permissions granted by this role.
-    pub allowed_permissions: Permission,
+    // pub allowed_permissions: Permission,
     /// The permissions denied by this role.
-    pub denied_permissions: Permission,
+    // pub denied_permissions: Permission,
     /// The time the role was created.
     pub created_at: DateTime<Utc>,
 }

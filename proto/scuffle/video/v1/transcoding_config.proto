@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package scuffle.video.v1;
+
+import "scuffle/video/v1/types/rendition.proto";
+import "scuffle/video/v1/types/transcoding_config.proto";
+import "scuffle/video/v1/types/modify_mode.proto";
+
+// TranscodingConfig is a service for managing transcoding configs.
+// Transcoding configs define how rooms will be transcoded, and what renditions
+// will be available. You can attch a transcoding config to a room by calling
+// Room.Modify with the transcoding_config_name field.
+service TranscodingConfig {
+  // Modify allows you to create a new transcoding config, or update an existing
+  // one.
+  rpc Modify(TranscodingConfigModifyRequest)
+      returns (TranscodingConfigModifyResponse) {}
+
+  // Get allows you to get a transcoding configs.
+  rpc Get(TranscodingConfigGetRequest) returns (TranscodingConfigGetResponse) {}
+
+  // Delete allows you to delete multiple transcoding configs.
+  rpc Delete(TranscodingConfigDeleteRequest)
+      returns (TranscodingConfigDeleteResponse) {}
+}
+
+// TranscodingConfigModifyRequest is a request to TranscodingConfig.Modify
+// Allows you to create a new transcoding config, or update an existing one.
+message TranscodingConfigModifyRequest {
+  // The name of the transcoding config.
+  string name = 1;
+
+  // The renditions to enable for this config.
+  // Will not effect rooms that are currently live, but will effect future live
+  // rooms.
+  repeated types.Rendition renditions = 2;
+
+  // The mode is used to determine how to handle the request.
+  // Either, upsert, create, or update. (default upsert)
+  types.ModifyMode mode = 3;
+}
+
+// TranscodingConfigModifyResponse is a request to TranscodingConfig.Modify
+message TranscodingConfigModifyResponse {
+  // The new or updated transcoding config.
+  types.TranscodingConfig transcoding_config = 1;
+
+  // Whether or not the transcoding config was created.
+  bool created = 2;
+}
+
+// TranscodingConfigGetRequest is a request to TranscodingConfig.Get
+// Allows you to get a transcoding configs.
+// You can filter by names (exact match).
+// Allows for pagination using the previous created_at timestamp.
+message TranscodingConfigGetRequest {
+  // Names to filter by, if any. (max 100)
+  // If multiple names are provided, they will be combined with OR.
+  repeated string names = 1;
+
+  // The maximum number of key pairs to return (default 100, max 1000)
+  int32 limit = 2;
+
+  // The timestamp to start getting playback key pairs from.
+  // If not provided, will start from the beginning.
+  // If provided, will start from the first playback keypair after the
+  // timestamp. This is a unix timestamp in seconds.
+  optional int64 created_at = 3;
+}
+
+// TranscodingConfigGetResponse is a response to TranscodingConfig.Get
+message TranscodingConfigGetResponse {
+  // The transcoding configs that were found.
+  repeated types.TranscodingConfig transcoding_configs = 1;
+}
+
+// TranscodingConfigDeleteRequest is a request to TranscodingConfig.Delete
+// Allows you to delete multiple transcoding configs.
+message TranscodingConfigDeleteRequest {
+  // Names to filter by, if any. (max 100)
+  // If multiple names are provided, they will be combined with OR.
+  repeated string names = 1;
+}
+
+// TranscodingConfigDeleteResponse is a response to TranscodingConfig.Delete
+message TranscodingConfigDeleteResponse {
+  // The names of the deleted transcoding configs.
+  repeated string names = 1;
+
+  // The names of the rooms that were using the deleted transcoding configs.
+  repeated string room_names = 2;
+}

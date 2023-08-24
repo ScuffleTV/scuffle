@@ -26,7 +26,7 @@ impl From<i32> for LiveState {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct Model {
     /// The unique identifier for the user.
     pub id: Uuid,

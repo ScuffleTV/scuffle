@@ -1,881 +1,888 @@
 use std::collections::HashMap;
 use std::io;
-use std::process::Output;
-use std::{
-    os::unix::process::CommandExt, path::Path, pin::pin, process::Command as StdCommand, sync::Arc,
-    time::Duration,
-};
+use std::path::PathBuf;
+use std::pin::Pin;
+use std::{path::Path, pin::pin, sync::Arc, time::Duration};
 
-use anyhow::{anyhow, Result};
-use async_stream::stream;
-use common::prelude::*;
-use common::vec_of_strings;
-use fred::types::Expiration;
-use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
-use futures_util::Stream;
-use lapin::message::Delivery;
-use lapin::options::BasicAckOptions;
-use mp4::codec::{AudioCodec, VideoCodec};
-use nix::sys::signal;
-use nix::unistd::Pid;
-use prost::Message as _;
-use tokio::sync::mpsc;
-use tokio::{
-    io::AsyncWriteExt,
-    net::UnixListener,
-    process::{ChildStdin, Command},
-    select,
+use anyhow::{Context, Result};
+use async_nats::jetstream::Message;
+use bytes::Bytes;
+use common::prelude::FutureTimeout;
+use futures::{FutureExt, StreamExt};
+use futures_util::{Future, Stream, TryFutureExt};
+use pb::ext::UlidExt;
+use pb::scuffle::video::internal::events::{
+    organization_event, OrganizationEvent, TranscoderRequest,
 };
+use pb::scuffle::video::internal::ingest_client::IngestClient;
+use pb::scuffle::video::internal::{
+    ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse,
+    LiveManifest,
+};
+use pb::scuffle::video::internal::{live_rendition_manifest, LiveRenditionManifest};
+use pb::scuffle::video::v1::types::{RecordingConfig, VideoConfig};
+use prost::Message as _;
+use tokio::io::AsyncReadExt;
+use tokio::process::Child;
+use tokio::sync::mpsc;
+use tokio::time::Instant;
+use tokio::try_join;
+use tokio::{io::AsyncWriteExt, net::UnixListener, process::ChildStdin, select};
 use tokio_util::sync::CancellationToken;
 use tonic::{transport::Channel, Status};
+use ulid::Ulid;
+use uuid::Uuid;
+use video_database::rendition::Rendition;
+use video_database::room_status::RoomStatus;
 
-use crate::pb::scuffle::types::{stream_state, StreamState};
-use crate::transcoder::job::utils::{release_lock, set_lock, SharedFuture};
-use crate::{
-    global::GlobalState,
-    pb::scuffle::{
-        events::{transcoder_message, TranscoderMessage, TranscoderMessageNewStream},
-        video::{
-            ingest_client::IngestClient, transcoder_event_request, watch_stream_response,
-            TranscoderEventRequest, WatchStreamRequest, WatchStreamResponse,
-        },
-    },
+use crate::global::GlobalState;
+use crate::transcoder::job::track_parser::track_parser;
+use crate::transcoder::job::utils::{
+    bind_socket, perform_sql_operations, spawn_ffmpeg, spawn_ffmpeg_screenshot, unix_stream,
 };
-use fred::interfaces::KeysInterface;
 
-use self::renditions::RenditionMap;
+use self::renditions::screenshot_size;
+use self::track_parser::TrackOut;
+use self::utils::{TaskError, Tasker, TrackState};
 
 mod renditions;
 mod track_parser;
 mod utils;
-pub(crate) mod variant;
 
 pub async fn handle_message(
     global: Arc<GlobalState>,
-    msg: Delivery,
+    msg: Message,
     shutdown_token: CancellationToken,
 ) {
-    let mut job = match handle_message_internal(&msg).await {
+    let mut job = match Job::new(&global, &msg).await {
         Ok(job) => job,
         Err(err) => {
-            tracing::error!("failed to handle message: {}", err);
+            msg.ack_with(async_nats::jetstream::AckKind::Nak(Some(
+                Duration::from_secs(15),
+            )))
+            .await
+            .ok();
+            tracing::error!(error = %err, "failed to handle message");
             return;
         }
     };
 
-    if let Err(err) = msg.ack(BasicAckOptions::default()).await {
-        tracing::error!("failed to ACK message: {}", err);
+    if let Err(err) = msg.double_ack().await {
+        tracing::error!(error = %err, "failed to ACK message");
         return;
     };
 
-    job.run(global, shutdown_token).await;
+    let mut streams = futures::stream::select_all(job.tracks.drain(..).map(|(t, rendition)| {
+        Box::pin(track_parser(unix_stream(t, 256 * 1024))).map(move |r| (r, rendition))
+    }));
+
+    if let Err(err) = job.run(&global, shutdown_token, &mut streams).await {
+        tracing::error!(error = %err, "failed to run transcoder");
+    }
+
+    if let Err(err) = job.handle_shutdown(&global, &mut streams).await {
+        tracing::error!(error = %err, "failed to shutdown transcoder");
+    }
+
+    tracing::info!("stream finished");
 }
 
-async fn handle_message_internal(msg: &Delivery) -> Result<Job> {
-    let message = TranscoderMessage::decode(msg.data.as_slice())?;
+type TaskFuture<T> = Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send>>;
 
-    let req = match message.data {
-        Some(transcoder_message::Data::NewStream(data)) => data,
-        None => return Err(anyhow!("message missing data")),
-    };
-
-    let channel = common::grpc::make_channel(
-        vec![req.ingest_address.clone()],
-        Duration::from_secs(30),
-        None,
-    )?;
-
-    tracing::info!("got new stream request: {}", req.stream_id);
-
-    let mut client = IngestClient::new(channel);
-
-    let stream = client
-        .watch_stream(WatchStreamRequest {
-            request_id: req.request_id.clone(),
-            stream_id: req.stream_id.clone(),
-        })
-        .timeout(Duration::from_secs(2))
-        .await??
-        .into_inner();
-
-    Ok(Job {
-        req,
-        client,
-        stream,
-        lock_owner: CancellationToken::new(),
-    })
+struct Ffmpeg {
+    process: Child,
+    stdin: Option<ChildStdin>,
 }
 
 struct Job {
-    req: TranscoderMessageNewStream,
-    client: IngestClient<Channel>,
-    stream: tonic::Streaming<WatchStreamResponse>,
-    lock_owner: CancellationToken,
+    organization_id: Ulid,
+    room_id: Ulid,
+    connection_id: Ulid,
+    _socket_dir: CleanupPath,
+
+    video_input: VideoConfig,
+    recording_config: Option<RecordingConfig>,
+
+    ready: bool,
+    init_segment: Option<Bytes>,
+
+    track_state: HashMap<Rendition, TrackState>,
+    manifests: HashMap<Rendition, LiveRenditionManifest>,
+
+    tasker: Tasker,
+    screenshot_task: Option<TaskFuture<Bytes>>,
+
+    ffmpeg: Ffmpeg,
+
+    tracks: Vec<(UnixListener, Rendition)>,
+
+    _client: IngestClient<Channel>,
+
+    shutdown: Option<ingest_watch_response::Shutdown>,
+
+    first_init_put: bool,
+
+    screenshot_idx: u32,
+
+    last_screenshot: Instant,
+
+    send: mpsc::Sender<IngestWatchRequest>,
+    recv: tonic::Streaming<IngestWatchResponse>,
 }
 
-#[inline(always)]
-fn redis_mutex_key(stream_id: impl std::fmt::Display) -> String {
-    format!("transcoder:{}:mutex", stream_id)
-}
+struct CleanupPath(PathBuf);
 
-#[inline(always)]
-fn redis_master_playlist_key(stream_id: impl std::fmt::Display) -> String {
-    format!("transcoder:{}:playlist", stream_id)
-}
-
-fn set_master_playlist(
-    global: Arc<GlobalState>,
-    stream_id: impl std::fmt::Display,
-    state: &StreamState,
-    lock: CancellationToken,
-) -> impl futures::Future<Output = Result<()>> + Send + 'static {
-    let playlist_key = redis_master_playlist_key(stream_id);
-
-    let mut playlist = String::new();
-
-    playlist.push_str("#EXTM3U\n");
-
-    let mut state_map = HashMap::new();
-
-    for transcode_state in state.transcodes.iter() {
-        let mut tags = vec![
-            format!(
-                "TYPE={}",
-                match transcode_state.settings.as_ref().unwrap() {
-                    stream_state::transcode::Settings::Video(_) => {
-                        "VIDEO"
-                    }
-                    stream_state::transcode::Settings::Audio(_) => {
-                        "AUDIO"
-                    }
-                }
-            ),
-            "AUTOSELECT=YES".to_string(),
-            "DEFAULT=YES".to_string(),
-            format!("GROUP-ID=\"{}\"", transcode_state.id),
-            format!("NAME=\"{}\"", transcode_state.id),
-            format!("BANDWIDTH={}", transcode_state.bitrate),
-            format!("CODECS=\"{}\"", transcode_state.codec),
-            format!("URI=\"{}/index.m3u8\"", transcode_state.id),
-        ];
-
-        if let Some(stream_state::transcode::Settings::Video(settings)) =
-            transcode_state.settings.as_ref()
-        {
-            tags.push(format!("FRAME-RATE={}", settings.framerate));
-            tags.push(format!("RESOLUTION={}x{}", settings.width, settings.height));
-        }
-
-        playlist.push_str(format!("#EXT-X-MEDIA:{}\n", tags.join(",")).as_str());
-
-        state_map.insert(transcode_state.id.as_str(), transcode_state);
-    }
-
-    for stream_variant in state.variants.iter() {
-        let video_transcode_state = stream_variant.transcode_ids.iter().find_map(|id| {
-            let t = state_map.get(id.as_str()).unwrap();
-            if matches!(
-                t.settings,
-                Some(stream_state::transcode::Settings::Video(_))
-            ) {
-                Some(t)
-            } else {
-                None
+impl Drop for CleanupPath {
+    fn drop(&mut self) {
+        let path = self.0.clone();
+        tokio::spawn(async move {
+            if let Err(err) = tokio::fs::remove_dir_all(path).await {
+                tracing::error!(error = %err, "failed to cleanup socket dir");
             }
         });
-
-        let audio_transcode_state = stream_variant.transcode_ids.iter().find_map(|id| {
-            let t = state_map.get(id.as_str()).unwrap();
-            if matches!(
-                t.settings,
-                Some(stream_state::transcode::Settings::Audio(_))
-            ) {
-                Some(t)
-            } else {
-                None
-            }
-        });
-
-        let bandwidth = video_transcode_state.map(|t| t.bitrate).unwrap_or(0)
-            + audio_transcode_state.map(|t| t.bitrate).unwrap_or(0);
-        let codecs = video_transcode_state
-            .iter()
-            .chain(audio_transcode_state.iter())
-            .map(|t| t.codec.as_str())
-            .collect::<Vec<_>>()
-            .join(",");
-
-        let mut tags = vec![
-            format!("GROUP=\"{}\"", stream_variant.group),
-            format!("NAME=\"{}\"", stream_variant.name),
-            format!("BANDWIDTH={}", bandwidth),
-            format!("CODECS=\"{}\"", codecs),
-        ];
-
-        if let Some(video) = video_transcode_state {
-            let settings = match video.settings.as_ref() {
-                Some(stream_state::transcode::Settings::Video(settings)) => settings,
-                _ => unreachable!(),
-            };
-
-            tags.push(format!("RESOLUTION={}x{}", settings.width, settings.height));
-            tags.push(format!("FRAME-RATE={}", settings.framerate));
-            tags.push(format!("VIDEO=\"{}\"", video.id));
-        }
-
-        if let Some(audio) = audio_transcode_state {
-            tags.push(format!("AUDIO=\"{}\"", audio.id));
-        }
-
-        playlist.push_str(
-            format!(
-                "#EXT-X-STREAM-INF:{}\n{}/index.m3u8\n",
-                tags.join(","),
-                video_transcode_state.or(audio_transcode_state).unwrap().id
-            )
-            .as_str(),
-        );
     }
-
-    for group in state.groups.iter() {
-        playlist.push_str(
-            format!(
-                "#EXT-X-SCUF-GROUP:GROUP=\"{}\",PRIORITY={}\n",
-                group.name, group.priority
-            )
-            .as_str(),
-        );
-    }
-
-    async move {
-        lock.cancelled().await;
-
-        global
-            .redis
-            .set(
-                &playlist_key,
-                playlist,
-                Some(Expiration::EX(450)),
-                None,
-                false,
-            )
-            .await?;
-
-        let mut ticker = tokio::time::interval(Duration::from_secs(60));
-        loop {
-            ticker.tick().await;
-            global.redis.expire(&playlist_key, 450).await?;
-        }
-    }
-}
-
-fn report_to_ingest(
-    mut client: IngestClient<Channel>,
-    mut channel: mpsc::Receiver<TranscoderEventRequest>,
-) -> impl Stream<Item = Result<()>> + Send + 'static {
-    stream!({
-        while let Some(msg) = channel.recv().await {
-            tracing::debug!("sending message: {:?}", msg);
-            match client
-                .transcoder_event(msg)
-                .timeout(Duration::from_secs(5))
-                .await
-            {
-                Ok(Ok(_)) => {}
-                Ok(Err(e)) => {
-                    yield Err(e.into());
-                }
-                Err(e) => {
-                    yield Err(e.into());
-                }
-            }
-        }
-    })
 }
 
 impl Job {
-    fn stream_state(&self) -> &StreamState {
-        self.req.state.as_ref().unwrap()
-    }
+    async fn new(global: &Arc<GlobalState>, msg: &Message) -> Result<Self> {
+        let message = TranscoderRequest::decode(msg.payload.clone())?;
 
-    async fn run(&mut self, global: Arc<GlobalState>, shutdown_token: CancellationToken) {
-        tracing::info!("starting transcode job");
-        let mut set_lock_fut = pin!(set_lock(
-            global.clone(),
-            redis_mutex_key(&self.req.stream_id),
-            self.req.request_id.clone(),
-            self.lock_owner.clone(),
-        ));
+        let organization_id = message.organization_id.to_ulid();
+        let room_id = message.room_id.to_ulid();
+        let connection_id = message.connection_id.to_ulid();
 
-        let mut update_playlist_fut = pin!(set_master_playlist(
-            global.clone(),
-            self.req.stream_id.clone(),
-            self.stream_state(),
-            self.lock_owner.child_token(),
-        ));
+        let result =
+            perform_sql_operations(global, organization_id, room_id, connection_id).await?;
+
+        tracing::info!(
+            %organization_id,
+            %room_id,
+            %connection_id,
+            transcoding_config_id = %result.transcoding_config.id.to_ulid(),
+            recording_config_name = %result.recording_config.as_ref().map(|v| v.id.to_ulid().to_string()).unwrap_or_default(),
+            "got new stream request",
+        );
 
         // We need to create a unix socket for ffmpeg to connect to.
-        let socket_dir = Path::new(&global.config.transcoder.socket_dir).join(&self.req.request_id);
-        if let Err(err) = tokio::fs::create_dir_all(&socket_dir).await {
-            tracing::error!("failed to create socket dir: {}", err);
-            self.report_error("Failed to create socket dir", false)
-                .await;
-            return;
+        let socket_dir = CleanupPath(
+            Path::new(&global.config.transcoder.socket_dir)
+                .join(message.request_id.to_ulid().to_string()),
+        );
+        if let Err(err) = tokio::fs::create_dir_all(&socket_dir.0).await {
+            anyhow::bail!("failed to create socket dir: {}", err)
         }
 
-        let mut futures = FuturesUnordered::new();
-
-        let stream_state = self.stream_state();
-
-        let (ready_tx, mut ready_recv) = mpsc::channel(16);
-        let mut rendition_map = RenditionMap::new();
-        for transcode_state in stream_state.transcodes.iter() {
-            rendition_map.insert(transcode_state.id.clone());
-        }
-        let rendition_map = Arc::new(rendition_map);
-
-        for transcode_state in stream_state.transcodes.iter() {
-            let sock_path = socket_dir.join(format!("{}.sock", transcode_state.id));
-            let socket = match UnixListener::bind(&sock_path) {
-                Ok(s) => s,
-                Err(err) => {
-                    tracing::error!("failed to bind socket: {}", err);
-                    self.report_error("Failed to bind socket", false).await;
-                    return;
-                }
-            };
-
-            // Change user and group of the socket.
-            if let Err(err) = nix::unistd::chown(
-                sock_path.as_os_str(),
-                Some(nix::unistd::Uid::from_raw(global.config.transcoder.uid)),
-                Some(nix::unistd::Gid::from_raw(global.config.transcoder.gid)),
-            ) {
-                tracing::error!("failed to chown socket: {}", err);
-                self.report_error("Failed to chown socket", false).await;
-                return;
-            }
-
-            futures.push(variant::handle_variant(
-                global.clone(),
-                ready_tx.clone(),
-                self.req.stream_id.clone(),
-                transcode_state.id.clone(),
-                self.req.request_id.clone(),
-                socket,
-                rendition_map.clone(),
-            ));
+        if result.recording_config.is_some() {
+            todo!("implement recording");
         }
 
-        let filter_graph_items = self
-            .stream_state()
-            .transcodes
+        let tracks = result
+            .video_output
             .iter()
-            .filter(|v| {
-                !v.copy
-                    && matches!(
-                        v.settings,
-                        Some(stream_state::transcode::Settings::Video(_))
-                    )
+            .map(|output| output.rendition())
+            .chain(result.audio_output.iter().map(|output| output.rendition()))
+            .map(Rendition::from)
+            .map(|rendition| {
+                let sock_path = socket_dir.0.join(format!("{rendition}.sock"));
+                let socket = bind_socket(
+                    &sock_path,
+                    global.config.transcoder.ffmpeg_uid,
+                    global.config.transcoder.ffmpeg_gid,
+                )?;
+
+                Ok((socket, rendition))
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>>>()?;
 
-        let filter_graph = filter_graph_items
-            .iter()
-            .enumerate()
-            .map(|(i, v)| {
-                let settings = match v.settings.as_ref().unwrap() {
-                    stream_state::transcode::Settings::Video(v) => v,
-                    _ => unreachable!(),
-                };
+        let mut ffmpeg = spawn_ffmpeg(
+            global.config.transcoder.ffmpeg_gid,
+            global.config.transcoder.ffmpeg_uid,
+            &socket_dir.0,
+            &result.video_output,
+            &result.audio_output,
+        )?;
 
-                let previous = if i == 0 {
-                    "[0:v]".to_string()
-                } else {
-                    format!("[{}_out]", i - 1)
-                };
+        tracing::debug!(endpoint = %message.grpc_endpoint, "trying to connect to ingest");
 
-                format!(
-                    "{}scale={}:{},pad=ceil(iw/2)*2:ceil(ih/2)*2{}",
-                    previous,
-                    settings.width,
-                    settings.height,
-                    if i == filter_graph_items.len() - 1 {
-                        format!("[{}]", v.id)
-                    } else {
-                        format!(",split=2[{}][{}_out]", v.id, i)
-                    }
-                )
-            })
-            .collect::<Vec<_>>()
-            .join(";");
+        let tls = global.ingest_tls();
 
-        const MP4_FLAGS: &str = "+frag_keyframe+empty_moov+default_base_moof";
+        let channel =
+            common::grpc::make_channel(vec![message.grpc_endpoint], Duration::from_secs(30), tls)?;
 
-        #[rustfmt::skip]
-        let mut args = vec_of_strings![
-            "-v", "error",
-            "-i", "-",
-            "-probesize", "250M",
-            "-analyzeduration", "250M",
-        ];
+        let mut client = IngestClient::new(channel);
 
-        if !filter_graph.is_empty() {
-            args.extend(vec_of_strings!["-filter_complex", filter_graph]);
-        }
+        let (send, rx) = mpsc::channel(16);
 
-        for state in stream_state.transcodes.iter() {
-            match state.settings {
-                Some(stream_state::transcode::Settings::Video(ref video)) => {
-                    if state.copy {
-                        #[rustfmt::skip]
-                        args.extend(vec_of_strings![
-                            "-map", "0:v",
-                            "-c:v", "copy",
-                        ]);
-                    } else {
-                        let codec: VideoCodec = match state.codec.parse() {
-                            Ok(c) => c,
-                            Err(err) => {
-                                tracing::error!("invalid video codec: {}", err);
-                                self.report_error("Invalid video codec", false).await;
-                                return;
-                            }
-                        };
+        send.try_send(IngestWatchRequest {
+            message: Some(ingest_watch_request::Message::Open(
+                ingest_watch_request::Open {
+                    request_id: message.request_id.clone(),
+                },
+            )),
+        })
+        .ok();
 
-                        match codec {
-                            VideoCodec::Avc { profile, level, .. } => {
-                                #[rustfmt::skip]
-                                args.extend(vec_of_strings![
-                                    "-map", format!("[{}]", state.id),
-                                    "-c:v", "libx264",
-                                    "-preset", "medium",
-                                    "-b:v", format!("{}", state.bitrate),
-                                    "-maxrate", format!("{}", state.bitrate),
-                                    "-bufsize", format!("{}", state.bitrate * 2),
-                                    "-profile:v", match profile {
-                                        66 => "baseline",
-                                        77 => "main",
-                                        100 => "high",
-                                        _ => {
-                                            tracing::error!("invalid avc profile: {}", profile);
-                                            self.report_error("Invalid avc profile", false).await;
-                                            return;
-                                        },
-                                    },
-                                    "-level:v", match level {
-                                        30 => "3.0",
-                                        31 => "3.1",
-                                        32 => "3.2",
-                                        40 => "4.0",
-                                        41 => "4.1",
-                                        42 => "4.2",
-                                        50 => "5.0",
-                                        51 => "5.1",
-                                        52 => "5.2",
-                                        60 => "6.0",
-                                        61 => "6.1",
-                                        62 => "6.2",
-                                        _ => {
-                                            tracing::error!("invalid avc level: {}", level);
-                                            self.report_error("Invalid avc level", false).await;
-                                            return;
-                                        },
-                                    },
-                                    "-pix_fmt", "yuv420p",
-                                    "-g", format!("{}", video.framerate * 2),
-                                    "-keyint_min", format!("{}", video.framerate * 2),
-                                    "-sc_threshold", "0",
-                                    "-r", format!("{}", video.framerate),
-                                    "-crf", "23",
-                                    "-tune", "zerolatency",
-                                ]);
-                            }
-                            VideoCodec::Av1 { .. } => {
-                                tracing::error!("av1 is not supported");
-                                self.report_error("AV1 is not supported", false).await;
-                                return;
-                            }
-                            VideoCodec::Hevc { .. } => {
-                                tracing::error!("hevc is not supported");
-                                self.report_error("HEVC is not supported", false).await;
-                                return;
-                            }
-                        }
-                    }
-                }
-                Some(stream_state::transcode::Settings::Audio(ref audio)) => {
-                    if state.copy {
-                        tracing::error!("audio copy is not supported");
-                        self.report_error("Audio copy is not supported", false)
-                            .await;
-                        return;
-                    } else {
-                        let codec: AudioCodec = match state.codec.parse() {
-                            Ok(c) => c,
-                            Err(err) => {
-                                tracing::error!("invalid audio codec: {}", err);
-                                self.report_error("Invalid audio codec", false).await;
-                                return;
-                            }
-                        };
+        let recv = client
+            .watch(tokio_stream::wrappers::ReceiverStream::new(rx))
+            .timeout(Duration::from_secs(2))
+            .await
+            .context("failed to connect to ingest")??
+            .into_inner();
 
-                        match codec {
-                            AudioCodec::Aac { object_type } => {
-                                args.extend(vec_of_strings![
-                                    "-map",
-                                    "0:a",
-                                    "-c:a",
-                                    "aac",
-                                    "-b:a",
-                                    format!("{}", state.bitrate),
-                                    "-ar",
-                                    format!("{}", audio.sample_rate),
-                                    "-ac",
-                                    format!("{}", audio.channels),
-                                    "-profile:a",
-                                    match object_type {
-                                        aac::AudioObjectType::AacLowComplexity => {
-                                            "aac_low"
-                                        }
-                                        aac::AudioObjectType::AacMain => {
-                                            "aac_main"
-                                        }
-                                        aac::AudioObjectType::Unknown(profile) => {
-                                            tracing::error!("invalid aac profile: {}", profile);
-                                            self.report_error("Invalid aac profile", false).await;
-                                            return;
-                                        }
-                                    },
-                                ]);
-                            }
-                            AudioCodec::Opus => {
-                                args.extend(vec_of_strings![
-                                    "-map",
-                                    "0:a",
-                                    "-c:a",
-                                    "libopus",
-                                    "-b:a",
-                                    format!("{}", state.bitrate),
-                                    "-ar",
-                                    format!("{}", audio.sample_rate),
-                                    "-ac",
-                                    format!("{}", audio.channels),
-                                ]);
-                            }
-                        }
-                    }
-                }
-                None => {
-                    tracing::error!("no settings for variant {}", state.id);
-                    self.report_error("No settings for variant", true).await;
-                    return;
-                }
-            }
+        Ok(Self {
+            organization_id,
+            room_id,
+            connection_id,
+            _socket_dir: socket_dir,
+            recording_config: result.recording_config,
+            _client: client,
+            ffmpeg: Ffmpeg {
+                stdin: ffmpeg.stdin.take(),
+                process: ffmpeg,
+            },
+            init_segment: None,
+            shutdown: None,
+            tasker: Tasker::new(),
+            screenshot_task: None,
+            last_screenshot: Instant::now(),
+            screenshot_idx: 0,
+            video_input: result.video_input,
+            manifests: tracks
+                .iter()
+                .map(|(_, rendition)| (*rendition, LiveRenditionManifest::default()))
+                .collect(),
+            ready: false,
+            track_state: tracks
+                .iter()
+                .map(|(_, rendition)| (*rendition, TrackState::default()))
+                .collect(),
+            send,
+            recv,
+            tracks,
+            first_init_put: true,
+        })
+    }
 
-            // Common args regardless of copy or transcode mode
-            #[rustfmt::skip]
-            args.extend(vec_of_strings![
-                "-f", "mp4",
-                "-movflags", MP4_FLAGS,
-                "-frag_duration", "1",
-                format!(
-                    "unix://{}",
-                    socket_dir.join(format!("{}.sock", state.id)).display()
-                ),
-            ]);
-        }
-
-        let mut child = StdCommand::new("ffmpeg");
-
-        child
-            .args(&args)
-            .stdin(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::null())
-            .process_group(0)
-            .uid(global.config.transcoder.uid)
-            .gid(global.config.transcoder.gid)
-            .env_clear()
-            .env("PATH", std::env::var("PATH").unwrap_or_default());
-
-        let mut child = match Command::from(child).spawn() {
-            Ok(c) => c,
-            Err(err) => {
-                tracing::error!("failed to spawn ffmpeg: {}", err);
-                self.report_error("failed to spawn ffmpeg", false).await;
-                return;
-            }
-        };
-
-        let mut stdin = child.stdin.take().expect("failed to get stdin");
-
-        let pid = match child.id() {
-            Some(pid) => Pid::from_raw(pid as i32),
-            None => {
-                tracing::error!("failed to get pid");
-                self.report_error("failed to get pid", false).await;
-                return;
-            }
-        };
-
-        let child = pin!(child.wait_with_output());
-        let mut child = SharedFuture::new(child);
+    async fn run(
+        &mut self,
+        global: &Arc<GlobalState>,
+        shutdown_token: CancellationToken,
+        mut streams: impl Stream<Item = (io::Result<TrackOut>, Rendition)> + Unpin,
+    ) -> Result<()> {
+        tracing::info!("starting transcode job");
 
         let mut shutdown_fuse = pin!(shutdown_token.cancelled().fuse());
 
-        let mut ready_count = 0;
+        let mut upload_init_timer = tokio::time::interval(Duration::from_secs(15));
 
-        let (report, rx) = mpsc::channel(10);
-        let mut report_fut = pin!(report_to_ingest(self.client.clone(), rx));
-
-        while select! {
-            r = report_fut.next() => {
-                tracing::info!("reporting to ingest failed: {:#?}", r);
-                false
-            },
-            _ = &mut shutdown_fuse => {
-                report.try_send(TranscoderEventRequest {
-                    request_id: self.req.request_id.clone(),
-                    stream_id: self.req.stream_id.clone(),
-                    event: Some(transcoder_event_request::Event::ShuttingDown(true)),
-                }).is_ok()
-            },
-            msg = self.stream.next() => self.handle_msg(msg, &mut stdin).await,
-            // When FFmpeg exits, we need to exit as well.
-            // This is almost always because the stream was closed.
-            // So we don't need to report an error, however we check the exit code in the complete_loop function.
-            // If the exit code is not 0, we report an error.
-            r = &mut child => {
-                tracing::info!("ffmpeg exited: {:?}", r);
-                false
-            },
-            // This shutting down usually implies that the stream was closed.
-            // So we don't need to report an error.
-            r = &mut set_lock_fut => {
-                if let Err(err) = r {
-                    tracing::error!("set lock error: {:#}", err);
-                } else {
-                    tracing::warn!("set lock done prematurely without error");
-                }
-                false
-            },
-            _ = &mut update_playlist_fut => {
-                tracing::info!("playlist update shutdown while running");
-                false
-            },
-            // This shutting down usually implies that the stream was closed.
-            // So we only report an error if the stream was not closed.
-            f = futures.next() => {
-                tracing::info!("variant stream shutdown while running");
-                if f.unwrap().is_err() {
-                    self.report_error("variant stream shutdown while running", true).await;
-                }
-                false
-            },
-            _ = ready_recv.recv() => {
-                ready_count += 1;
-                if ready_count == self.stream_state().transcodes.len() {
-                    tracing::info!("all variants ready");
-                    report.try_send(TranscoderEventRequest {
-                        request_id: self.req.request_id.clone(),
-                        stream_id: self.req.stream_id.clone(),
-                        event: Some(transcoder_event_request::Event::Started(true)),
-                    }).is_ok()
-                } else {
-                    true
-                }
-            }
-        } {}
-
-        tracing::debug!("shutting down");
-        drop(stdin);
-
-        select! {
-            r = self.complete_loop(pid, child, futures.collect::<Vec<_>>()).timeout(Duration::from_secs(5)) => {
-                if let Err(err) = r {
-                    tracing::error!("failed to complete loop: {:#}", err);
-                    self.report_error("failed to complete loop", false).await;
-                }
-            },
-            r = set_lock_fut => {
-                if let Err(err) = r {
-                    tracing::error!("set lock error: {:#}", err);
-                } else {
-                    tracing::warn!("set lock done prematurely without error");
-                }
-            },
-        }
-
-        drop(report);
-
-        tracing::debug!("waiting for report to ingest to exit");
-
-        // Finish all the report futures
-        while report_fut.next().await.is_some() {
-            tracing::debug!("report to ingest exited");
-        }
-
-        tracing::info!("waiting for playlist update to exit");
-
-        if let Err(err) = release_lock(
-            &global,
-            &redis_mutex_key(&self.req.stream_id),
-            &self.req.request_id,
-        )
-        .timeout(Duration::from_secs(2))
-        .await
-        {
-            tracing::error!("failed to release lock: {:#}", err);
-        };
-
-        tracing::info!("stream shut down");
-    }
-
-    async fn complete_loop<V>(
-        &mut self,
-        pid: Pid,
-        mut ffmpeg: impl futures::Future<Output = Arc<Result<Output, io::Error>>> + Unpin,
-        mut variants: impl futures::Future<Output = V> + Unpin,
-    ) {
-        tracing::info!("waiting for ffmpeg to exit");
-
-        let pid = pid.as_raw();
-
-        let mut timeout =
-            pin!((&mut ffmpeg)
-                .timeout(Duration::from_millis(1000))
-                .then(|r| async {
-                    if let Ok(r) = r {
-                        tracing::info!("ffmpeg exited: {:?}", r);
-
-                        Some(match r.as_ref() {
-                            Ok(r) => !r.status.success(),
-                            Err(_) => true,
-                        })
+        loop {
+            select! {
+                _ = &mut shutdown_fuse => {
+                    self.send.try_send(IngestWatchRequest {
+                        message: Some(ingest_watch_request::Message::Shutdown(
+                            ingest_watch_request::Shutdown::Request as i32,
+                        ))
+                    })?;
+                },
+                msg = self.recv.next() => self.handle_msg(global, msg).await?,
+                r = self.ffmpeg.process.wait() => {
+                    r?;
+                    break;
+                },
+                Some(result) = self.tasker.next_task(global) => {
+                    match result {
+                        Err((task, err)) => {
+                            tracing::error!(error = %err, retry = task.retry_count(), "failed to upload media");
+                            if task.retry_count() < 5 {
+                                self.tasker.requeue(task);
+                            } else {
+                                anyhow::bail!("failed to upload media after 5 retries: {}", err);
+                            }
+                        }
+                        Ok(task) => {
+                            tracing::debug!(key = %task.key(), "completed task");
+                        }
+                    }
+                },
+                Some(screenshot) = async {
+                    if let Some(task) = self.screenshot_task.as_mut() {
+                        let r = task.await;
+                        self.screenshot_task = None;
+                        Some(r)
                     } else {
-                        signal::kill(Pid::from_raw(pid), signal::Signal::SIGTERM).ok();
-                        tracing::debug!("ffmpeg did not exit in time, sending SIGTERM");
-
+                        tracing::trace!("no screenshot to process");
                         None
                     }
-                }));
+                } => {
+                    let screenshot = screenshot?;
+                    self.screenshot_idx += 1;
 
-        let mut variants_done = false;
-        let r = select! {
-            r = &mut timeout => r,
-            _ = &mut variants => {
-                tracing::info!("variants exited");
-                variants_done = true;
-                timeout.await
-            },
-        };
+                    let key = utils::keys::screenshot(
+                        self.organization_id,
+                        self.room_id,
+                        self.connection_id,
+                        self.screenshot_idx,
+                    );
 
-        let failed = if let Some(r) = r {
-            Some(r)
-        } else {
-            let timeout = ffmpeg.timeout(Duration::from_secs(2)).then(|r| async {
-                if let Ok(r) = r {
-                    tracing::info!("ffmpeg exited: {:?}", r);
+                    tracing::debug!(key = %key, "uploading screenshot");
 
-                    Some(match r.as_ref() {
-                        Ok(r) => !r.status.success(),
-                        Err(_) => true,
-                    })
-                } else {
-                    None
+                    self.tasker.upload_media(key, screenshot);
+
+                    self.update_manifest();
                 }
-            });
+                r = streams.next() => {
+                    let Some((result, rendition)) = r else {
+                        break;
+                    };
 
-            if variants_done {
-                timeout.await
-            } else {
-                variants_done = true;
-                tokio::join!(timeout, &mut variants).0
+                    self.handle_track(global, rendition, result)?;
+                },
+                _ = upload_init_timer.tick() => {
+                    self.put_init_segments()?;
+                    self.update_manifest();
+                }
             }
-        };
-
-        let failed = failed.unwrap_or_else(|| {
-            tracing::error!("ffmpeg did not exit in time, sending SIGKILL");
-            signal::kill(Pid::from_raw(pid), signal::Signal::SIGKILL).ok();
-            true
-        });
-
-        if !variants_done {
-            tracing::info!("waiting for variants to exit");
-            variants.await;
         }
 
-        if failed {
-            self.report_error("ffmpeg exited with non-zero status", false)
-                .await;
-        }
-
-        tracing::debug!("ffmpeg exited");
+        Ok(())
     }
 
     async fn handle_msg(
         &mut self,
-        msg: Option<Result<WatchStreamResponse, Status>>,
-        stdin: &mut ChildStdin,
-    ) -> bool {
-        tracing::debug!("recieved message");
-        let msg = match msg {
-            Some(Ok(msg)) => msg.data,
-            _ => {
-                // We should have gotten a shutting down event
-                // TODO: report this to API server
-                tracing::error!("unexpected stream closed");
-                return false;
+        global: &Arc<GlobalState>,
+        msg: Option<Result<IngestWatchResponse, Status>>,
+    ) -> Result<()> {
+        tracing::trace!("recieved message");
+
+        let Some(Ok(msg)) = msg else {
+            if self.shutdown.is_none() {
+                anyhow::bail!("ingest stream closed")
             }
+
+            return Ok(());
         };
 
-        let Some(msg) = msg else {
-            tracing::error!("recieved empty response");
-            return false;
-        };
+        let msg = msg
+            .message
+            .ok_or_else(|| anyhow::anyhow!("ingest sent bad message"))?;
 
         match msg {
-            watch_stream_response::Data::InitSegment(data) => {
-                if stdin.write_all(&data).await.is_err() {
-                    // This is almost always because ffmpeg crashed
-                    // We report an error when we check the exit code
-                    return false;
+            ingest_watch_response::Message::Media(media) => {
+                if let Some(stdin) = &mut self.ffmpeg.stdin {
+                    stdin.write_all(&media.data).await?;
+                } else {
+                    anyhow::bail!("ffmpeg stdin was not open");
+                }
+
+                match media.r#type() {
+                    ingest_watch_response::media::Type::Init => {
+                        self.init_segment = Some(media.data.clone());
+                    }
+                    ingest_watch_response::media::Type::Video => {
+                        if media.keyframe
+                            && self.last_screenshot.elapsed() > Duration::from_secs(5)
+                            && self.screenshot_task.is_none()
+                        {
+                            self.take_screenshot(global, &media.data).await?;
+                        }
+                    }
+                    ingest_watch_response::media::Type::Audio => {}
                 }
             }
-            watch_stream_response::Data::MediaSegment(ms) => {
-                if stdin.write_all(&ms.data).await.is_err() {
-                    // This is almost always because ffmpeg crashed
-                    // We report an error when we check the exit code
-                    return false;
-                }
+            ingest_watch_response::Message::Shutdown(s) => {
+                self.shutdown = ingest_watch_response::Shutdown::from_i32(s);
+                self.ffmpeg.stdin.take();
             }
-            watch_stream_response::Data::ShuttingDown(stream) => {
-                tracing::info!(stream = stream, "shutting down");
-                return false;
+            ingest_watch_response::Message::Ready(_) => {
+                self.ready = true;
+                self.fetch_manifests(global).await?;
+                self.put_init_segments()?;
+                for rendition in self.track_state.keys().cloned().collect::<Vec<_>>() {
+                    self.handle_sample(global, rendition)?;
+                }
+                tracing::info!("ingest reported ready");
             }
         }
 
-        true
+        Ok(())
     }
 
-    async fn report_error(&mut self, err: impl ToString + Send + Sync, fatal: bool) {
-        if let Err(err) = self
-            .client
-            .transcoder_event(TranscoderEventRequest {
-                request_id: self.req.request_id.clone(),
-                stream_id: self.req.stream_id.clone(),
-                event: Some(transcoder_event_request::Event::Error(
-                    transcoder_event_request::Error {
-                        message: err.to_string(),
-                        fatal,
-                    },
-                )),
-            })
-            .timeout(Duration::from_secs(2))
-            .await
-        {
-            tracing::error!("failed to report error: {}", err);
+    async fn take_screenshot(&mut self, global: &Arc<GlobalState>, data: &Bytes) -> Result<()> {
+        if let Some(init_segment) = &self.init_segment {
+            let (width, height) = screenshot_size(&self.video_input);
+
+            let mut child = spawn_ffmpeg_screenshot(
+                global.config.transcoder.ffmpeg_gid,
+                global.config.transcoder.ffmpeg_uid,
+                width,
+                height,
+            )?;
+
+            let mut stdin = child.stdin.take();
+            stdin.as_mut().unwrap().write_all(init_segment).await?;
+            stdin.as_mut().unwrap().write_all(data).await?;
+
+            self.last_screenshot = Instant::now();
+
+            tracing::debug!("taking screenshot");
+
+            self.screenshot_task = Some(Box::pin(async move {
+                let start = Instant::now();
+                let output = child.wait_with_output().await?;
+                if !output.status.success() {
+                    tracing::error!(
+                        "screenshot stdout: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                }
+
+                let duration = format!("{:.5}ms", start.elapsed().as_secs_f64() * 1000.0);
+
+                tracing::debug!(duration, "screenshot captured");
+
+                Ok(Bytes::from(output.stdout))
+            }));
         }
+
+        Ok(())
+    }
+
+    fn handle_track(
+        &mut self,
+        global: &Arc<GlobalState>,
+        rendition: Rendition,
+        result: io::Result<TrackOut>,
+    ) -> Result<()> {
+        match result? {
+            TrackOut::Moov(moov) => {
+                self.track_state.get_mut(&rendition).unwrap().set_moov(moov);
+                self.put_init_segments()?;
+            }
+            TrackOut::Samples(samples) => {
+                self.track_state
+                    .get_mut(&rendition)
+                    .unwrap()
+                    .append_samples(samples);
+                self.handle_sample(global, rendition)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn put_init_segments(&mut self) -> Result<()> {
+        if !self.ready {
+            return Ok(());
+        }
+
+        if self
+            .track_state
+            .iter()
+            .any(|(_, state)| state.init_segment().is_none())
+        {
+            return Ok(());
+        }
+
+        self.track_state.iter().for_each(|(rendition, state)| {
+            let key = utils::keys::init(
+                self.organization_id,
+                self.room_id,
+                self.connection_id,
+                *rendition,
+            );
+
+            let data = state.init_segment().unwrap().clone();
+            self.tasker.upload_media(key, data);
+        });
+
+        if self.first_init_put {
+            self.first_init_put = false;
+
+            let event = Bytes::from(
+                OrganizationEvent {
+                    id: Some(self.organization_id.into()),
+                    timestamp: chrono::Utc::now().timestamp_micros(),
+                    event: Some(organization_event::Event::RoomReady(
+                        organization_event::RoomReady {
+                            room_id: Some(self.room_id.into()),
+                            connection_id: Some(self.connection_id.into()),
+                        },
+                    )),
+                }
+                .encode_to_vec(),
+            );
+
+            let organization_id = self.organization_id;
+            let connection_id = self.connection_id;
+            let room_id = self.room_id;
+
+            self.tasker.custom("room_ready".into(), move |_, global| {
+                let global = global.clone();
+                let event = event.clone();
+                Box::pin(async move {
+                    let resp = sqlx::query(
+                        r#"
+                    UPDATE rooms
+                    SET
+                        updated_at = NOW(),
+                        status = $1
+                    WHERE
+                        organization_id = $2 AND
+                        id = $3 AND
+                        active_ingest_connection_id = $4
+                    "#,
+                    )
+                    .bind(RoomStatus::Ready)
+                    .bind(Uuid::from(organization_id))
+                    .bind(Uuid::from(room_id))
+                    .bind(Uuid::from(connection_id))
+                    .execute(global.db.as_ref())
+                    .await
+                    .map_err(|e| TaskError::Custom(e.into()))?;
+
+                    if resp.rows_affected() != 1 {
+                        return Err(TaskError::Custom(anyhow::anyhow!(
+                            "failed to update room status"
+                        )));
+                    }
+
+                    global
+                        .nats
+                        .publish(global.config.transcoder.events_subject.clone(), event)
+                        .await
+                        .map_err(|e| TaskError::Custom(e.into()))?;
+
+                    Ok(())
+                })
+            });
+        }
+
+        Ok(())
+    }
+
+    fn handle_sample(&mut self, global: &Arc<GlobalState>, rendition: Rendition) -> Result<()> {
+        if !self.ready {
+            return Ok(());
+        }
+
+        let track_state = self.track_state.get_mut(&rendition).unwrap();
+
+        let additions = track_state.split_samples(
+            global.config.transcoder.target_part_duration.as_secs_f64(),
+            global.config.transcoder.max_part_duration.as_secs_f64(),
+            global.config.transcoder.min_segment_duration.as_secs_f64(),
+        );
+
+        for (segment_idx, parts) in additions {
+            for part_idx in parts {
+                let key = utils::keys::part(
+                    self.organization_id,
+                    self.room_id,
+                    self.connection_id,
+                    rendition,
+                    part_idx,
+                );
+
+                let data = track_state
+                    .part(segment_idx, part_idx)
+                    .unwrap()
+                    .data
+                    .clone();
+
+                self.tasker.upload_media(key, data);
+            }
+        }
+
+        let part_keys = track_state
+            .retain_segments(global.config.transcoder.playlist_segments)
+            .into_iter()
+            .flat_map(|s| s.parts.into_iter().map(|p| p.idx))
+            .map(|idx| {
+                utils::keys::part(
+                    self.organization_id,
+                    self.room_id,
+                    self.connection_id,
+                    rendition,
+                    idx,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        for key in part_keys {
+            self.tasker.delete_media(key);
+        }
+
+        self.update_rendition_manifest(rendition);
+
+        Ok(())
+    }
+
+    pub async fn handle_shutdown(
+        &mut self,
+        global: &Arc<GlobalState>,
+        mut streams: impl Stream<Item = (io::Result<TrackOut>, Rendition)> + Unpin,
+    ) -> Result<()> {
+        tracing::info!("shutting down transcoder");
+
+        let mut ffmpeg_done = false;
+
+        match async {
+            loop {
+                select! {
+                    Some(r) = async {
+                        if !ffmpeg_done {
+                            Some(self.ffmpeg.process.wait().timeout(Duration::from_secs(2)).await)
+                        } else {
+                            None
+                        }
+                    } => {
+                        match r {
+                            Ok(Ok(status)) => {
+                                if !status.success() {
+                                    if let Some(mut stderr) = self.ffmpeg.process.stderr.take() {
+                                        let mut buf = Vec::new();
+                                        let size = stderr.read_to_end(&mut buf).await.unwrap_or_default();
+                                        tracing::error!("ffmpeg stdout: {}", String::from_utf8_lossy(&buf[..size]));
+                                    }
+                                }
+                                // ffmpeg exited gracefully
+                            }
+                            Ok(Err(e)) => {
+                                tracing::error!(error = %e, "ffmpeg exited with error");
+                            }
+                            Err(_) => {
+                                tracing::error!("ffmpeg timeout while exit");
+                                self.ffmpeg.process.kill().await.ok();
+
+                                if let Some(mut stderr) = self.ffmpeg.process.stderr.take() {
+                                    let mut buf = Vec::new();
+                                    let size = stderr.read_to_end(&mut buf).await.unwrap_or_default();
+                                    tracing::error!("ffmpeg stdout: {}", String::from_utf8_lossy(&buf[..size]));
+                                }
+                            }
+                        }
+                        ffmpeg_done = true;
+                    },
+                    Some(upload) = self.tasker.next_task(global) => {
+                        if let Err((task, err)) = upload {
+                            tracing::error!(error = %err, "failed to upload media");
+                            self.tasker.requeue(task);
+                        }
+                    },
+                    Some((result, rendition)) = streams.next() => {
+                        self.handle_track(global, rendition, result)?;
+                    },
+                    else => {
+                        break;
+                    }
+                }
+            }
+
+            Ok::<_, anyhow::Error>(())
+        }
+        .timeout(Duration::from_secs(5))
+        .await
+        {
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => {
+                tracing::error!(error = %e, "failed to shutdown transcoder");
+            }
+            Err(_) => {
+                tracing::error!("timeout during shutdown");
+            }
+        }
+
+        self.track_state
+            .iter_mut()
+            .map(|(rendition, state)| {
+                let Some((segment_idx, part_idx)) = state.finish() else {
+                    return *rendition;
+                };
+
+                let key = utils::keys::part(
+                    self.organization_id,
+                    self.room_id,
+                    self.connection_id,
+                    *rendition,
+                    part_idx,
+                );
+
+                let data = state.part(segment_idx, part_idx).unwrap().data.clone();
+
+                self.tasker.upload_media(key, data);
+
+                *rendition
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .for_each(|rendition| {
+                self.update_rendition_manifest(rendition);
+            });
+
+        while let Some(result) = self.tasker.next_task(global).await {
+            if let Err((task, err)) = result {
+                tracing::error!(error = %err, "failed to upload media");
+                self.tasker.requeue(task);
+            }
+        }
+
+        if let Some(shutdown) = self.shutdown.take() {
+            match shutdown {
+                ingest_watch_response::Shutdown::Stream => {
+                    // write the playlist states to shutdown
+                }
+                ingest_watch_response::Shutdown::Transcoder => {
+                    self.send.try_send(IngestWatchRequest {
+                        message: Some(ingest_watch_request::Message::Shutdown(
+                            ingest_watch_request::Shutdown::Complete as i32,
+                        )),
+                    })?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn update_manifest(&mut self) {
+        if !self.ready {
+            return;
+        }
+
+        let key = utils::keys::manifest(self.organization_id, self.room_id, self.connection_id);
+
+        let data: Bytes = LiveManifest {
+            screenshot_idx: self.screenshot_idx,
+        }
+        .encode_to_vec()
+        .into();
+
+        self.tasker.upload_metadata(key, data);
+    }
+
+    fn update_rendition_manifest(&mut self, rendition: Rendition) {
+        if !self.ready {
+            return;
+        }
+
+        let mut info_map = self
+            .track_state
+            .iter()
+            .map(|(rendition, ts)| {
+                (
+                    rendition.to_string(),
+                    live_rendition_manifest::RenditionInfo {
+                        next_part_idx: ts.next_part_idx(),
+                        next_segment_idx: ts.next_segment_idx(),
+                        next_segment_part_idx: ts.next_segment_part_idx(),
+                    },
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        let info = info_map.remove(&rendition.to_string()).unwrap();
+
+        let state = self.track_state.get_mut(&rendition).unwrap();
+
+        let manifest = LiveRenditionManifest {
+            info: Some(info),
+            other_info: info_map,
+            completed: state.complete()
+                && self.shutdown == Some(ingest_watch_response::Shutdown::Stream),
+            timescale: state.timescale(),
+            total_duration: state.total_duration(),
+            recording_ulid: None,
+            segments: state
+                .segments()
+                .map(|s| live_rendition_manifest::Segment {
+                    idx: s.idx,
+                    id: None,
+                    parts: s
+                        .parts
+                        .iter()
+                        .map(|p| live_rendition_manifest::Part {
+                            idx: p.idx,
+                            duration: p.duration,
+                            independent: p.independent,
+                        })
+                        .collect(),
+                })
+                .collect(),
+        };
+
+        if &manifest == self.manifests.get(&rendition).unwrap() {
+            return;
+        }
+
+        let data = Bytes::from(manifest.encode_to_vec());
+
+        let key = utils::keys::rendition_manifest(
+            self.organization_id,
+            self.room_id,
+            self.connection_id,
+            rendition,
+        );
+        self.tasker.upload_metadata(key, data);
+
+        self.manifests.insert(rendition, manifest);
+    }
+
+    async fn fetch_manifests(&mut self, global: &Arc<GlobalState>) -> Result<()> {
+        let rendition_manfiests = async {
+            futures_util::future::try_join_all(self.track_state.keys().map(|rendition| {
+                global
+                    .metadata_store
+                    .get(utils::keys::rendition_manifest(
+                        self.organization_id,
+                        self.room_id,
+                        self.connection_id,
+                        *rendition,
+                    ))
+                    .map_ok(|v| (*rendition, v))
+            }))
+            .await
+        };
+
+        let manifest = async {
+            global
+                .metadata_store
+                .get(utils::keys::manifest(
+                    self.organization_id,
+                    self.room_id,
+                    self.connection_id,
+                ))
+                .await
+        };
+
+        let (rendition_manfiests, manifest) = try_join!(rendition_manfiests, manifest)?;
+
+        if rendition_manfiests.iter().all(|(_, v)| v.is_none()) && manifest.is_none() {
+            return Ok(());
+        }
+
+        let Some(manifest) = manifest else {
+            anyhow::bail!("missing manifest");
+        };
+
+        let manifest = LiveManifest::decode(manifest)?;
+
+        self.screenshot_idx = manifest.screenshot_idx;
+
+        for (rendition, data) in rendition_manfiests {
+            let Some(data) = data else {
+                anyhow::bail!("missing manifest for rendition {}", rendition);
+            };
+
+            let manifest = LiveRenditionManifest::decode(data)?;
+
+            self.track_state
+                .get_mut(&rendition)
+                .unwrap()
+                .apply_manifest(&manifest);
+
+            self.manifests.insert(rendition, manifest);
+        }
+
+        Ok(())
     }
 }

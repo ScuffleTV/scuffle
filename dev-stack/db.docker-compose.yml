@@ -9,15 +9,14 @@ services:
       - "5432:26257"
       - "8080:8080"
 
-  rmq:
-    image: bitnami/rabbitmq:latest
-    environment:
-      RABBITMQ_USERNAME: rabbitmq
-      RABBITMQ_PASSWORD: rabbitmq
-      RABBITMQ_VHOSTS: scuffle
+  nats:
+    image: nats:latest
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "4222:4222"
+      - "8222:8222"
+      - "6222:6222"
+    command:
+      - '-js'
 
   redis:
     image: redis:latest

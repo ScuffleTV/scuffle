@@ -10,8 +10,6 @@ pub mod grpc;
 pub mod logging;
 #[cfg(feature = "prelude")]
 pub mod prelude;
-#[cfg(feature = "rmq")]
-pub mod rmq;
 #[cfg(feature = "signal")]
 pub mod signal;
 

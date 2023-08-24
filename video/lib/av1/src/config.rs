@@ -71,7 +71,7 @@ impl AV1CodecConfigurationRecord {
             chroma_subsampling_y,
             chroma_sample_position,
             initial_presentation_delay_minus_one,
-            config_obu: reader.get_remaining(),
+            config_obu: reader.extract_remaining(),
         })
     }
 

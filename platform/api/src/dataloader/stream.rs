@@ -22,25 +22,25 @@ impl Loader<Uuid> for StreamByIdLoader {
     type Error = Arc<sqlx::Error>;
 
     async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
-        let results = sqlx::query_as!(
-            stream::Model,
-            "SELECT * FROM streams WHERE id = ANY($1)",
-            &keys
-        )
-        .fetch_all(&*self.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to fetch streams: {}", e);
-            Arc::new(e)
-        })?;
+        // let results: Vec<stream::Model> = sqlx::query_as(
+        //     "SELECT * FROM streams WHERE id = ANY($1)",
+        // )
+        // .bind(keys)
+        // .fetch_all(&*self.db)
+        // .await
+        // .map_err(|e| {
+        //     tracing::error!("Failed to fetch streams: {}", e);
+        //     Arc::new(e)
+        // })?;
 
-        let mut map = HashMap::new();
+        // let mut map = HashMap::new();
 
-        for result in results {
-            map.insert(result.id, result);
-        }
+        // for result in results {
+        //     map.insert(result.id, result);
+        // }
 
-        Ok(map)
+        // Ok(map)
+        todo!()
     }
 }
 
@@ -61,24 +61,25 @@ impl Loader<Uuid> for ActiveStreamsByUserIdLoader {
     type Error = Arc<sqlx::Error>;
 
     async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
-        let results = sqlx::query_as!(
-            stream::Model,
-            "SELECT * FROM streams WHERE channel_id = ANY($1) AND deleted = false AND ready_state = 1 ORDER BY created_at DESC",
-            &keys
-        )
-        .fetch_all(&*self.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to fetch streams: {}", e);
-            Arc::new(e)
-        })?;
+        // let results: Vec<stream::Model> = sqlx::query_as(
+        //     "SELECT * FROM streams WHERE channel_id = ANY($1) AND deleted = false AND ready_state = 1 ORDER BY created_at DESC",
+        // )
+        // .bind(keys)
+        // .fetch_all(&*self.db)
+        // .await
+        // .map_err(|e| {
+        //     tracing::error!("Failed to fetch streams: {}", e);
+        //     Arc::new(e)
+        // })?;
 
-        let mut map = HashMap::new();
+        // let mut map = HashMap::new();
 
-        for result in results {
-            map.insert(result.channel_id, result);
-        }
+        // for result in results {
+        //     map.insert(result.channel_id, result);
+        // }
 
-        Ok(map)
+        todo!()
+
+        // Ok(map)
     }
 }

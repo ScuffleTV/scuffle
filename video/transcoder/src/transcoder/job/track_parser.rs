@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, pin::pin};
 
 use anyhow::anyhow;
 use async_stream::stream;
@@ -15,7 +15,7 @@ pub enum TrackOut {
     // a Ftyp and Moov box are always sent at the start of a stream
     Moov(Moov),
     // A moof and mdat box are sent for each segment
-    Sample(TrackSample),
+    Samples(Vec<TrackSample>),
 }
 
 #[derive(Debug, Clone)]
@@ -27,10 +27,12 @@ pub struct TrackSample {
 }
 
 pub fn track_parser(
-    mut input: impl Stream<Item = io::Result<Bytes>> + Unpin,
-) -> impl Stream<Item = io::Result<TrackOut>> {
+    input: impl Stream<Item = io::Result<Bytes>> + Send,
+) -> impl Stream<Item = io::Result<TrackOut>> + Send {
     stream!({
         let mut buffer = BytesMut::new();
+
+        let mut input = pin!(input);
 
         // Main loop for parsing the stream
         while let Some(data) = input.next().await {
@@ -134,34 +136,39 @@ pub fn track_parser(
                         }
 
                         let mut mdat_cursor = io::Cursor::new(mdat.data[0].clone());
-                        for sample in samples {
-                            let data = if let Some(size) = sample.size {
-                                mdat_cursor.read_slice(size as usize).map_err(|e| {
-                                    io::Error::new(
+                        yield Ok(TrackOut::Samples(
+                            samples
+                                .map(|sample| {
+                                    let data =
+                                        if let Some(size) = sample.size {
+                                            mdat_cursor.read_slice(size as usize).map_err(|e| {
+                                                io::Error::new(
                                         io::ErrorKind::InvalidData,
                                         anyhow!("mdat data size not big enough for sample: {}", e),
                                     )
-                                })?
-                            } else {
-                                mdat_cursor.get_remaining()
-                            };
+                                            })?
+                                        } else {
+                                            mdat_cursor.extract_remaining()
+                                        };
 
-                            yield Ok(TrackOut::Sample(TrackSample {
-                                duration: sample.duration.unwrap_or_default(),
-                                keyframe: sample
-                                    .flags
-                                    .map(|f| f.sample_depends_on == 2)
-                                    .unwrap_or_default(),
-                                sample,
-                                data,
-                            }));
-                        }
+                                    io::Result::Ok(TrackSample {
+                                        duration: sample.duration.unwrap_or_default(),
+                                        keyframe: sample
+                                            .flags
+                                            .map(|f| f.sample_depends_on == 2)
+                                            .unwrap_or_default(),
+                                        sample,
+                                        data,
+                                    })
+                                })
+                                .collect::<Result<Vec<_>, _>>()?,
+                        ));
                     }
                     _ => {}
                 }
             }
 
-            buffer.extend_from_slice(&cursor.get_remaining());
+            buffer.extend_from_slice(&cursor.extract_remaining());
         }
     })
 }

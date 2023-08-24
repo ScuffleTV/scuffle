@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package scuffle.video.v1.types;
+
+// ModifyMode is used to determine how to handle a resource modify request.
+enum ModifyMode {
+  // The default mode. If the resource already exists, it will be updated.
+  // If it does not exist, it will be created.
+  UPSERT = 0;
+  // If the resource already exists, it will be updated. If it does not exist,
+  // the request will fail.
+  UPDATE = 1;
+  // If the resource already exists, the request will fail. If it does not
+  // exist, it will be created.
+  CREATE = 2;
+}

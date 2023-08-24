@@ -1,6 +1,8 @@
 use std::{str::FromStr, sync::Arc, time::Duration};
 
+use crate::api::v1::gql::schema;
 use anyhow::{Context as _, Result};
+use async_graphql::SDLExportOptions;
 use common::{context::Context, logging, prelude::FutureTimeout, signal};
 use fred::types::ReconnectPolicy;
 use sqlx::{postgres::PgConnectOptions, ConnectOptions};
@@ -11,8 +13,7 @@ mod config;
 mod database;
 mod dataloader;
 mod global;
-mod grpc;
-mod pb;
+// mod grpc;
 mod subscription;
 
 #[cfg(test)]
@@ -21,6 +22,25 @@ mod tests;
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = config::AppConfig::parse()?;
+
+    if config.export_gql {
+        let schema = schema();
+
+        println!(
+            "{}",
+            schema.sdl_with_options(
+                SDLExportOptions::default()
+                    .federation()
+                    .include_specified_by()
+                    .sorted_arguments()
+                    .sorted_enum_items()
+                    .sorted_fields()
+            )
+        );
+
+        return Ok(());
+    }
+
     logging::init(&config.logging.level, config.logging.mode)?;
 
     if let Some(file) = &config.config_file {
@@ -40,16 +60,16 @@ async fn main() -> Result<()> {
 
     let (ctx, handler) = Context::new();
 
-    let rmq = common::rmq::ConnectionPool::connect(
-        config.rmq.uri.clone(),
-        lapin::ConnectionProperties::default(),
-        Duration::from_secs(30),
-        1,
-    )
-    .timeout(Duration::from_secs(5))
-    .await
-    .context("failed to connect to rabbitmq, timedout")?
-    .context("failed to connect to rabbitmq")?;
+    // let rmq = common::rmq::ConnectionPool::connect(
+    //     config.rmq.uri.clone(),
+    //     lapin::ConnectionProperties::default(),
+    //     Duration::from_secs(30),
+    //     1,
+    // )
+    // .timeout(Duration::from_secs(5))
+    // .await
+    // .context("failed to connect to rabbitmq, timedout")?
+    // .context("failed to connect to rabbitmq")?;
 
     let redis = global::setup_redis(&config).await;
     let subscription_redis =
@@ -57,10 +77,10 @@ async fn main() -> Result<()> {
 
     tracing::info!("connected to redis");
 
-    let global = Arc::new(global::GlobalState::new(config, db, rmq, redis, ctx));
+    let global = Arc::new(global::GlobalState::new(config, db, redis, ctx));
 
     let api_future = tokio::spawn(api::run(global.clone()));
-    let grpc_future = tokio::spawn(grpc::run(global.clone()));
+    // let grpc_future = tokio::spawn(grpc::run(global.clone()));
 
     // Listen on both sigint and sigterm and cancel the context when either is received
     let mut signal_handler = signal::SignalHandler::new()
@@ -69,8 +89,7 @@ async fn main() -> Result<()> {
 
     select! {
         r = api_future => tracing::error!("api stopped unexpectedly: {:?}", r),
-        r = grpc_future => tracing::error!("grpc stopped unexpectedly: {:?}", r),
-        r = global.rmq.handle_reconnects() => tracing::error!("rmq stopped unexpectedly: {:?}", r),
+        // r = grpc_future => tracing::error!("grpc stopped unexpectedly: {:?}", r),
         r = global.subscription_manager.run(global.ctx.clone(), subscription_redis) => tracing::error!("subscription manager stopped unexpectedly: {:?}", r),
         _ = signal_handler.recv() => tracing::info!("shutting down"),
     }

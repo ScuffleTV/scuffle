@@ -229,7 +229,7 @@ impl<S: AsyncReadWrite> Session<S> {
                     .await?;
             }
             RtmpMessageData::AmfData { data } => {
-                self.on_data(stream_id, ChannelData::MetaData { timestamp, data })
+                self.on_data(stream_id, ChannelData::Metadata { timestamp, data })
                     .await?;
             }
         }

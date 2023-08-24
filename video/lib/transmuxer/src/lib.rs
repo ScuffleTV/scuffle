@@ -243,27 +243,20 @@ impl Transmuxer {
             }
 
             let trafs = {
-                let (main_duration, second_duration, main_id, second_id) = if is_audio {
-                    (self.audio_duration, self.video_duration, 2, 1)
+                let (main_duration, main_id) = if is_audio {
+                    (self.audio_duration, 2)
                 } else {
-                    (self.video_duration, self.audio_duration, 1, 2)
+                    (self.video_duration, 1)
                 };
 
-                let mut first_traf = Traf::new(
+                let mut traf = Traf::new(
                     Tfhd::new(main_id, None, None, None, None, None),
                     Some(Trun::new(vec![trun_sample], None)),
                     Some(Tfdt::new(main_duration)),
                 );
-                first_traf.optimize();
+                traf.optimize();
 
-                let mut second_traf = Traf::new(
-                    Tfhd::new(second_id, None, None, None, None, None),
-                    Some(Trun::new(vec![], None)),
-                    Some(Tfdt::new(second_duration)),
-                );
-                second_traf.optimize();
-
-                vec![first_traf, second_traf]
+                vec![traf]
             };
 
             let mut moof = Moof::new(Mfhd::new(self.sequence_number), trafs);

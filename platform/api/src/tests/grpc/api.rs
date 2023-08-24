@@ -2,15 +2,14 @@ use crate::config::{AppConfig, GrpcConfig};
 use crate::database::{global_role::Permission, user};
 use crate::database::{stream, stream_bitrate_update, stream_event};
 use crate::grpc::run;
-use crate::pb;
-use crate::pb::scuffle::backend::{
-    update_live_stream_request, NewLiveStreamRequest, StreamReadyState,
-};
-use crate::pb::scuffle::types::{stream_state, StreamState};
 use crate::tests::global::mock_global_state;
 use chrono::Utc;
 use common::grpc::make_channel;
 use common::prelude::FutureTimeout;
+use pb::scuffle::internal::video::rpc::{
+    update_live_stream_request, NewLiveStreamRequest, StreamReadyState,
+};
+use pb::scuffle::internal::video::types::{stream_state, StreamState};
 use serial_test::serial;
 use std::time::Duration;
 use uuid::Uuid;
@@ -39,15 +38,17 @@ async fn test_serial_grpc_authenticate_invalid_stream_key() {
     )
     .unwrap();
 
-    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::internal::video::rpc::api_client::ApiClient::new(channel);
     let err = client
-        .authenticate_live_stream(pb::scuffle::backend::AuthenticateLiveStreamRequest {
-            app_name: "test".to_string(),
-            stream_key: "test".to_string(),
-            ip_address: "127.0.0.1".to_string(),
-            ingest_address: "127.0.0.1:1234".to_string(),
-            connection_id: Uuid::new_v4().to_string(),
-        })
+        .authenticate_live_stream(
+            pb::scuffle::internal::video::rpc::AuthenticateLiveStreamRequest {
+                app_name: "test".to_string(),
+                stream_key: "test".to_string(),
+                ip_address: "127.0.0.1".to_string(),
+                ingest_address: "127.0.0.1:1234".to_string(),
+                connection_id: Uuid::new_v4().to_string(),
+            },
+        )
         .await
         .unwrap_err();
 
@@ -123,15 +124,17 @@ async fn test_serial_grpc_authenticate_valid_stream_key() {
     )
     .unwrap();
 
-    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::internal::video::rpc::api_client::ApiClient::new(channel);
     let resp = client
-        .authenticate_live_stream(pb::scuffle::backend::AuthenticateLiveStreamRequest {
-            app_name: "test".to_string(),
-            stream_key: user.get_stream_key(),
-            ip_address: "127.0.0.1".to_string(),
-            ingest_address: "127.0.0.1:1234".to_string(),
-            connection_id: Uuid::new_v4().to_string(),
-        })
+        .authenticate_live_stream(
+            pb::scuffle::internal::video::rpc::AuthenticateLiveStreamRequest {
+                app_name: "test".to_string(),
+                stream_key: user.get_stream_key(),
+                ip_address: "127.0.0.1".to_string(),
+                ingest_address: "127.0.0.1:1234".to_string(),
+                connection_id: Uuid::new_v4().to_string(),
+            },
+        )
         .await
         .unwrap_err();
 
@@ -148,13 +151,15 @@ async fn test_serial_grpc_authenticate_valid_stream_key() {
     .unwrap();
 
     let resp = client
-        .authenticate_live_stream(pb::scuffle::backend::AuthenticateLiveStreamRequest {
-            app_name: "test".to_string(),
-            stream_key: user.get_stream_key(),
-            ip_address: "127.0.0.1".to_string(),
-            ingest_address: "127.0.0.1:1234".to_string(),
-            connection_id: Uuid::new_v4().to_string(),
-        })
+        .authenticate_live_stream(
+            pb::scuffle::internal::video::rpc::AuthenticateLiveStreamRequest {
+                app_name: "test".to_string(),
+                stream_key: user.get_stream_key(),
+                ip_address: "127.0.0.1".to_string(),
+                ingest_address: "127.0.0.1:1234".to_string(),
+                connection_id: Uuid::new_v4().to_string(),
+            },
+        )
         .await
         .unwrap()
         .into_inner();
@@ -240,16 +245,18 @@ async fn test_serial_grpc_authenticate_valid_stream_key_ext() {
     )
     .unwrap();
 
-    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::internal::video::rpc::api_client::ApiClient::new(channel);
 
     let resp = client
-        .authenticate_live_stream(pb::scuffle::backend::AuthenticateLiveStreamRequest {
-            app_name: "test".to_string(),
-            stream_key: user.get_stream_key(),
-            ip_address: "127.0.0.1".to_string(),
-            ingest_address: "127.0.0.1:1234".to_string(),
-            connection_id: Uuid::new_v4().to_string(),
-        })
+        .authenticate_live_stream(
+            pb::scuffle::internal::video::rpc::AuthenticateLiveStreamRequest {
+                app_name: "test".to_string(),
+                stream_key: user.get_stream_key(),
+                ip_address: "127.0.0.1".to_string(),
+                ingest_address: "127.0.0.1:1234".to_string(),
+                connection_id: Uuid::new_v4().to_string(),
+            },
+        )
         .await
         .unwrap()
         .into_inner();
@@ -334,16 +341,18 @@ async fn test_serial_grpc_authenticate_valid_stream_key_ext_2() {
     )
     .unwrap();
 
-    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::internal::video::rpc::api_client::ApiClient::new(channel);
 
     let resp = client
-        .authenticate_live_stream(pb::scuffle::backend::AuthenticateLiveStreamRequest {
-            app_name: "test".to_string(),
-            stream_key: user.get_stream_key(),
-            ip_address: "127.0.0.1".to_string(),
-            ingest_address: "127.0.0.1:1234".to_string(),
-            connection_id: Uuid::new_v4().to_string(),
-        })
+        .authenticate_live_stream(
+            pb::scuffle::internal::video::rpc::AuthenticateLiveStreamRequest {
+                app_name: "test".to_string(),
+                stream_key: user.get_stream_key(),
+                ip_address: "127.0.0.1".to_string(),
+                ingest_address: "127.0.0.1:1234".to_string(),
+                connection_id: Uuid::new_v4().to_string(),
+            },
+        )
         .await
         .unwrap()
         .into_inner();
@@ -418,13 +427,13 @@ async fn test_serial_grpc_update_live_stream_state() {
     )
     .unwrap();
 
-    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::internal::video::rpc::api_client::ApiClient::new(channel);
 
     {
         let timestamp = Utc::now().timestamp() as u64;
 
         assert!(client
-            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::internal::video::rpc::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -450,7 +459,7 @@ async fn test_serial_grpc_update_live_stream_state() {
         let timestamp = Utc::now().timestamp() as u64;
 
         assert!(client
-            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::internal::video::rpc::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -476,7 +485,7 @@ async fn test_serial_grpc_update_live_stream_state() {
         let timestamp = Utc::now().timestamp() as u64;
 
         assert!(client
-            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::internal::video::rpc::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -503,7 +512,7 @@ async fn test_serial_grpc_update_live_stream_state() {
         let timestamp = Utc::now().timestamp() as u64;
 
         let res = client
-            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::internal::video::rpc::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -542,7 +551,7 @@ async fn test_serial_grpc_update_live_stream_state() {
         let timestamp = Utc::now().timestamp() as u64;
 
         let res = client
-            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::internal::video::rpc::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -643,13 +652,13 @@ async fn test_serial_grpc_update_live_stream_bitrate() {
     )
     .unwrap();
 
-    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::internal::video::rpc::api_client::ApiClient::new(channel);
 
     {
         let timestamp = Utc::now().timestamp() as u64;
 
         assert!(client
-            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::internal::video::rpc::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -747,13 +756,13 @@ async fn test_serial_grpc_update_live_stream_event() {
     )
     .unwrap();
 
-    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::internal::video::rpc::api_client::ApiClient::new(channel);
 
     {
         let timestamp = Utc::now().timestamp() as u64;
 
         assert!(client
-            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::internal::video::rpc::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -851,7 +860,7 @@ async fn test_serial_grpc_update_live_stream_variants() {
     )
     .unwrap();
 
-    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::internal::video::rpc::api_client::ApiClient::new(channel);
 
     {
         let timestamp = Utc::now().timestamp() as u64;
@@ -912,7 +921,7 @@ async fn test_serial_grpc_update_live_stream_variants() {
         };
 
         assert!(client
-            .update_live_stream(pb::scuffle::backend::UpdateLiveStreamRequest {
+            .update_live_stream(pb::scuffle::internal::video::rpc::UpdateLiveStreamRequest {
                 connection_id: conn_id.to_string(),
                 stream_id: s.id.to_string(),
                 updates: vec![update_live_stream_request::Update {
@@ -999,7 +1008,7 @@ async fn test_serial_grpc_new_live_stream() {
     )
     .unwrap();
 
-    let mut client = pb::scuffle::backend::api_client::ApiClient::new(channel);
+    let mut client = pb::scuffle::internal::video::rpc::api_client::ApiClient::new(channel);
 
     let source_id = Uuid::new_v4().to_string();
     let audio_id = Uuid::new_v4().to_string();

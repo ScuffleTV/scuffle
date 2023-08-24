@@ -8,7 +8,7 @@ use async_stream::try_stream;
 use futures_util::Stream;
 use tonic::{async_trait, Request, Response, Status};
 
-use crate::pb::health::{
+use pb::grpc::health::v1::{
     health_check_response::ServingStatus, health_server, HealthCheckRequest, HealthCheckResponse,
 };
 

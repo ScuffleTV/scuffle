@@ -91,9 +91,7 @@ fn parse_attributes(line: &str) -> Result<HashMap<String, String>, String> {
                 value = String::new();
             }
             ',' => {
-                let Some(key) = key.take() else {
-                    continue
-                };
+                let Some(key) = key.take() else { continue };
 
                 attributes.insert(key, value);
                 value = String::new();

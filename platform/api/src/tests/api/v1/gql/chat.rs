@@ -1,7 +1,6 @@
 use crate::{
     api::v1::gql::ext::RequestExt,
     database::{chat_message, session, user},
-    pb,
 };
 use async_graphql::{Name, Request, Variables};
 use chrono::Utc;
@@ -257,7 +256,9 @@ async fn test_serial_send_message_success() {
         .await
         .unwrap()
         .unwrap();
-    let message = pb::scuffle::events::ChatMessage::decode(message.as_bytes().unwrap()).unwrap();
+    let message =
+        pb::scuffle::internal::platform::events::ChatMessage::decode(message.as_bytes().unwrap())
+            .unwrap();
 
     assert_eq!(message.author_id, user.id.to_string());
     assert_eq!(message.channel_id, channel.id.to_string());

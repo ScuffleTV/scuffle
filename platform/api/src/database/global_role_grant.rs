@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, sqlx::FromRow)]
 /// A grant of a global role to a user.
 /// This allows for Admins to grant roles to other users.
 /// See the `global_role` table for more information.

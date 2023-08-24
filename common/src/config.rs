@@ -80,15 +80,31 @@ pub struct RedisSentinelConfig {
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
-pub struct RmqConfig {
-    /// The URI to use for connecting to RabbitMQ
-    pub uri: String,
+pub struct NatsConfig {
+    /// The URI to use for connecting to Nats
+    pub servers: Vec<String>,
+
+    /// The username to use for authentication (user-pass auth)
+    pub username: Option<String>,
+
+    /// The password to use for authentication (user-pass auth)
+    pub password: Option<String>,
+
+    /// The token to use for authentication (token auth)
+    pub token: Option<String>,
+
+    /// The TLS configuration (can be used for mTLS)
+    pub tls: Option<TlsConfig>,
 }
 
-impl Default for RmqConfig {
+impl Default for NatsConfig {
     fn default() -> Self {
         Self {
-            uri: "amqp://rabbitmq:rabbitmq@localhost:5672/scuffle".to_string(),
+            servers: vec!["localhost:4222".into()],
+            token: None,
+            password: None,
+            tls: None,
+            username: None,
         }
     }
 }

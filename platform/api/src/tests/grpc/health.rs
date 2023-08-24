@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use crate::config::{AppConfig, GrpcConfig};
 use crate::grpc::run;
-use crate::pb;
 use crate::tests::global::mock_global_state;
 
 #[tokio::test]
@@ -28,14 +27,14 @@ async fn test_grpc_health_check() {
     )
     .unwrap();
 
-    let mut client = pb::health::health_client::HealthClient::new(channel);
+    let mut client = pb::grpc::health::v1::health_client::HealthClient::new(channel);
     let resp = client
-        .check(pb::health::HealthCheckRequest::default())
+        .check(pb::grpc::health::v1::HealthCheckRequest::default())
         .await
         .unwrap();
     assert_eq!(
         resp.into_inner().status,
-        pb::health::health_check_response::ServingStatus::Serving as i32
+        pb::grpc::health::v1::health_check_response::ServingStatus::Serving as i32
     );
     handler
         .cancel()
@@ -71,10 +70,10 @@ async fn test_grpc_health_watch() {
     )
     .unwrap();
 
-    let mut client = pb::health::health_client::HealthClient::new(channel);
+    let mut client = pb::grpc::health::v1::health_client::HealthClient::new(channel);
 
     let resp = client
-        .watch(pb::health::HealthCheckRequest::default())
+        .watch(pb::grpc::health::v1::HealthCheckRequest::default())
         .await
         .unwrap();
 
@@ -82,7 +81,7 @@ async fn test_grpc_health_watch() {
     let resp = stream.message().await.unwrap().unwrap();
     assert_eq!(
         resp.status,
-        pb::health::health_check_response::ServingStatus::Serving as i32
+        pb::grpc::health::v1::health_check_response::ServingStatus::Serving as i32
     );
 
     let cancel = handler.cancel();
@@ -90,7 +89,7 @@ async fn test_grpc_health_watch() {
     let resp = stream.message().await.unwrap().unwrap();
     assert_eq!(
         resp.status,
-        pb::health::health_check_response::ServingStatus::NotServing as i32
+        pb::grpc::health::v1::health_check_response::ServingStatus::NotServing as i32
     );
 
     cancel

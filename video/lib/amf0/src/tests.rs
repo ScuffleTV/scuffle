@@ -116,7 +116,11 @@ fn test_read_error_display() {
     assert_eq!(Amf0ReadError::WrongType.to_string(), "wrong type");
 
     assert_eq!(
-        Amf0ReadError::StringParseError(std::str::from_utf8(b"\xFF\xFF").unwrap_err()).to_string(),
+        Amf0ReadError::StringParseError(
+            #[allow(unknown_lints, invalid_from_utf8)]
+            std::str::from_utf8(b"\xFF\xFF").unwrap_err()
+        )
+        .to_string(),
         "string parse error: invalid utf-8 sequence of 1 bytes from index 0"
     );
 

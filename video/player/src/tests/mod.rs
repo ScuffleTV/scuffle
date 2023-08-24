@@ -1,1 +1,1 @@
-mod web;
+mod manifest;

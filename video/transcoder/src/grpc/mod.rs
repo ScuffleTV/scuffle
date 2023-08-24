@@ -1,14 +1,11 @@
-use crate::{
-    global::GlobalState,
-    pb::{health::health_server, scuffle::video::transcoder_server},
-};
+use crate::global::GlobalState;
 use anyhow::Result;
+use pb::grpc::health::v1::health_server;
 use std::sync::Arc;
 use tokio::select;
 use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
 
 pub mod health;
-pub mod transcoder;
 
 pub async fn run(global: Arc<GlobalState>) -> Result<()> {
     tracing::info!("gRPC Listening on {}", global.config.grpc.bind_address);
@@ -27,9 +24,6 @@ pub async fn run(global: Arc<GlobalState>) -> Result<()> {
         tracing::info!("gRPC TLS disabled");
         Server::builder()
     }
-    .add_service(transcoder_server::TranscoderServer::new(
-        transcoder::TranscoderServer::new(&global),
-    ))
     .add_service(health_server::HealthServer::new(health::HealthServer::new(
         &global,
     )))

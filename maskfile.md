@@ -52,7 +52,7 @@ fi
 
 if [ "$no_gql_prepare" != "true" ]; then
     $MASK gql prepare
-    export SCHEMA_URL=$(realpath frontend/website/schema.graphql)
+    export SCHEMA_URL=$(realpath platform/website/schema.graphql)
 fi
 
 if [ "$no_player" != "true" ]; then
@@ -238,7 +238,6 @@ fi
 
 if [ "$no_rust" != "true" ]; then
     cargo audit
-    cd frontend/player && cargo audit && cd ../..
 fi
 
 if [ "$no_js" != "true" ]; then
@@ -272,7 +271,7 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 if [ "$no_rust" != "true" ]; then
-  cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace --fail-fast -r
+  cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace --fail-fast -r --exclude video-player
 fi
 
 if [ "$no_js" != "true" ]; then
@@ -299,7 +298,7 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 sqlx database create
-sqlx migrate run --source ./backend/migrations
+sqlx migrate run --source ./platform/migrations
 ```
 
 #### create (name)
@@ -312,7 +311,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-sqlx migrate add "$name" --source ./backend/migrations -r
+sqlx migrate add "$name" --source ./platform/migrations -r
 ```
 
 ### rollback
@@ -325,7 +324,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-sqlx migrate revert --source ./backend/migrations
+sqlx migrate revert --source ./platform/migrations
 ```
 
 ### prepare
@@ -362,7 +361,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-sqlx database reset --source ./backend/migrations
+sqlx database reset --source ./platform/migrations
 ```
 
 ### up
@@ -580,7 +579,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-cargo run --bin api-gql-generator | pnpm exec prettier --stdin-filepath schema.graphql > schema.graphql
+cargo run --bin platform-api -- --export-gql | pnpm exec prettier --stdin-filepath schema.graphql > schema.graphql
 ```
 
 ### check
@@ -593,7 +592,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-cargo run --bin api-gql-generator | pnpm exec prettier --stdin-filepath schema.graphql | diff - schema.graphql || (echo "GraphQL schema is out of date. Run 'mask gql prepare' to update it." && exit 1)
+cargo run --bin platform-api -- --export-gql | pnpm exec prettier --stdin-filepath schema.graphql | diff - schema.graphql || (echo "GraphQL schema is out of date. Run 'mask gql prepare' to update it." && exit 1)
 
 echo "GraphQL schema is up to date."
 ```

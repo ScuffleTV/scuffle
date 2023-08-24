@@ -87,6 +87,7 @@ macro_rules! out_of_bounds {
 
 use num_order::NumOrd;
 use serde::Deserialize;
+use uuid::Uuid;
 
 macro_rules! bounds_check {
     ($value:ident, $path:ident => $enum:tt, $ty:ty) => {
@@ -724,7 +725,7 @@ impl Config for SystemTime {
             }
             Value::Option(Some(value)) => <Self as Config>::transform(path, *value),
             r => {
-                let system_time = std::time::SystemTime::deserialize(r.clone()).map_err(|_| {
+                let system_time = Self::deserialize(r.clone()).map_err(|_| {
                     ConfigError::new(ConfigErrorType::ValidationError(format!(
                         "{:?} is not convertable into SystemTime",
                         r
@@ -735,6 +736,52 @@ impl Config for SystemTime {
                 Ok(serde_value::to_value(system_time).map_err(|_| {
                     ConfigError::new(ConfigErrorType::ValidationError(format!(
                         "{:?} is not convertable into SystemTime",
+                        r
+                    )))
+                    .with_path(path.clone())
+                })?)
+            }
+        }
+    }
+}
+
+impl Config for Uuid {
+    fn graph() -> Arc<KeyGraph> {
+        Arc::new(KeyGraph::String)
+    }
+
+    fn transform(path: &KeyPath, value: Value) -> Result<Value> {
+        match value {
+            Value::String(s) => {
+                let uuid = s.parse::<Self>().map_err(|_| {
+                    ConfigError::new(ConfigErrorType::ValidationError(format!(
+                        "failed to convert {} into Uuid",
+                        s
+                    )))
+                    .with_path(path.clone())
+                })?;
+
+                Ok(serde_value::to_value(uuid).map_err(|_| {
+                    ConfigError::new(ConfigErrorType::ValidationError(format!(
+                        "{:?} is not convertable into Uuid",
+                        s
+                    )))
+                    .with_path(path.clone())
+                })?)
+            }
+            Value::Option(Some(value)) => <Self as Config>::transform(path, *value),
+            r => {
+                let uuid = Self::deserialize(r.clone()).map_err(|_| {
+                    ConfigError::new(ConfigErrorType::ValidationError(format!(
+                        "{:?} is not convertable into Uuid",
+                        r
+                    )))
+                    .with_path(path.clone())
+                })?;
+
+                Ok(serde_value::to_value(uuid).map_err(|_| {
+                    ConfigError::new(ConfigErrorType::ValidationError(format!(
+                        "{:?} is not convertable into Uuid",
                         r
                     )))
                     .with_path(path.clone())

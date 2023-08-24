@@ -79,14 +79,16 @@ impl io::Read for BytesReader {
 }
 
 pub trait BytesCursor {
-    fn get_remaining(&self) -> Bytes;
+    fn extract_remaining(&mut self) -> Bytes;
     fn read_slice(&mut self, size: usize) -> io::Result<Bytes>;
 }
 
 impl BytesCursor for io::Cursor<Bytes> {
-    fn get_remaining(&self) -> Bytes {
+    fn extract_remaining(&mut self) -> Bytes {
         let position = self.position() as usize;
-        self.get_ref().slice(position..)
+        let remaining = self.get_ref().slice(position..);
+        self.set_position(self.get_ref().len() as u64);
+        remaining
     }
 
     fn read_slice(&mut self, size: usize) -> io::Result<Bytes> {

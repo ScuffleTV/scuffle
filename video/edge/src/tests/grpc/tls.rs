@@ -56,15 +56,15 @@ async fn test_grpc_tls_rsa() {
 
     tokio::time::sleep(Duration::from_millis(500)).await;
 
-    let mut client = crate::pb::health::health_client::HealthClient::new(channel);
+    let mut client = pb::grpc::health::v1::health_client::HealthClient::new(channel);
 
     let resp = client
-        .check(crate::pb::health::HealthCheckRequest::default())
+        .check(pb::grpc::health::v1::HealthCheckRequest::default())
         .await
         .unwrap();
     assert_eq!(
         resp.into_inner().status,
-        crate::pb::health::health_check_response::ServingStatus::Serving as i32
+        pb::grpc::health::v1::health_check_response::ServingStatus::Serving as i32
     );
     handler
         .cancel()
@@ -126,15 +126,15 @@ async fn test_grpc_tls_ec() {
 
     tokio::time::sleep(Duration::from_millis(500)).await;
 
-    let mut client = crate::pb::health::health_client::HealthClient::new(channel);
+    let mut client = pb::grpc::health::v1::health_client::HealthClient::new(channel);
 
     let resp = client
-        .check(crate::pb::health::HealthCheckRequest::default())
+        .check(pb::grpc::health::v1::HealthCheckRequest::default())
         .await
         .unwrap();
     assert_eq!(
         resp.into_inner().status,
-        crate::pb::health::health_check_response::ServingStatus::Serving as i32
+        pb::grpc::health::v1::health_check_response::ServingStatus::Serving as i32
     );
     handler
         .cancel()

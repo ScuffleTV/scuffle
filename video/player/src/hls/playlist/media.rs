@@ -250,7 +250,7 @@ impl MediaPlaylist {
                         return Some(Err("no LAST-MSN attribute found"));
                     };
                     let Ok(last_msn) = last_msn.parse() else {
-                        return Some(Err("LAST-MSN attribute is not a number"));    
+                        return Some(Err("LAST-MSN attribute is not a number"));
                     };
                     let Some(last_part) = attributes.get("LAST-PART") else {
                         return Some(Err("no LAST-PART attribute found"));

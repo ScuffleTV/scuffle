@@ -1,14 +1,11 @@
-use crate::{
-    global::GlobalState,
-    pb::{health::health_server, scuffle::video::ingest_server},
-};
+use crate::global::GlobalState;
 use anyhow::Result;
 use std::sync::Arc;
 use tokio::select;
 use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
 
-pub mod health;
-pub mod ingest;
+mod health;
+mod ingest;
 
 pub async fn run(global: Arc<GlobalState>) -> Result<()> {
     tracing::info!("gRPC Listening on {}", global.config.grpc.bind_address);
@@ -31,12 +28,8 @@ pub async fn run(global: Arc<GlobalState>) -> Result<()> {
         tracing::info!("gRPC TLS disabled");
         Server::builder()
     }
-    .add_service(ingest_server::IngestServer::new(ingest::IngestServer::new(
-        &global,
-    )))
-    .add_service(health_server::HealthServer::new(health::HealthServer::new(
-        &global,
-    )))
+    .add_service(health::HealthServer::new(&global))
+    .add_service(ingest::IngestServer::new(&global))
     .serve_with_shutdown(global.config.grpc.bind_address, async {
         global.ctx.done().await;
     });

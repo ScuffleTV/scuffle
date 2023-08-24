@@ -142,10 +142,7 @@ impl EventManager {
     }
 
     pub fn add_event_listener(&mut self, event: &str, f: JsValue, once: bool) {
-        let listeners = self
-            .events
-            .entry(event.to_string())
-            .or_insert_with(Vec::new);
+        let listeners = self.events.entry(event.to_string()).or_default();
         listeners.push(EventListener {
             f: f.unchecked_into(),
             once,

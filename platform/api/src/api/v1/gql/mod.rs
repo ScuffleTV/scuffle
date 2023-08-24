@@ -104,7 +104,7 @@ pub fn schema() -> MySchema {
 }
 
 pub fn routes(_global: &Arc<GlobalState>) -> Router<Body, RouteError> {
-    let router = Router::builder()
+    Router::builder()
         .data(schema())
         .any_method("/", handlers::graphql_handler)
         .get("/playground", move |_| async move {
@@ -115,7 +115,5 @@ pub fn routes(_global: &Arc<GlobalState>) -> Router<Body, RouteError> {
                 .expect("failed to build response"))
         })
         .build()
-        .expect("failed to build router");
-
-    router
+        .expect("failed to build router")
 }

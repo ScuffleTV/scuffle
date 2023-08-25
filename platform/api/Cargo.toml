@@ -32,14 +32,16 @@ prost = "0.12.1"
 uuid = "1.4.1"
 bitmask-enum = "2.2.2"
 argon2 = "0.5.2"
+ulid = { version = "1.1.0", features = ["uuid"] }
 email_address = "0.2.4"
 rand = "0.8.5"
 lapin = { version = "2.3.1", features = ["native-tls"] }
 tokio-stream = { version = "0.1.14", features = ["sync"] }
-fred = { version = "6.3.2", features = ["enable-native-tls", "sentinel-client", "sentinel-auth", "subscriber-client"] }
+async-nats = "0.32.0"
 
 config = { workspace = true }
 pb = { workspace = true }
+totp-rs = { version = "5.3.0", features = ["gen_secret", "qr"] }
 
 [dev-dependencies]
 tempfile = "3.8.0"

@@ -23,7 +23,7 @@ impl Loader<Uuid> for SessionByIdLoader {
 
     async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
         let results: Vec<session::Model> =
-            sqlx::query_as("SELECT * FROM sessions WHERE id = ANY($1)")
+            sqlx::query_as("SELECT * FROM user_sessions WHERE id = ANY($1)")
                 .bind(keys)
                 .fetch_all(&*self.db)
                 .await

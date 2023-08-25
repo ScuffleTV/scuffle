@@ -16,7 +16,8 @@ service PlaybackSession {
   rpc Get(PlaybackSessionGetRequest) returns (PlaybackSessionGetResponse);
 
   // Revoke playback sessions.
-  rpc Revoke(PlaybackSessionRevokeRequest) returns (PlaybackSessionRevokeResponse);
+  rpc Revoke(PlaybackSessionRevokeRequest)
+      returns (PlaybackSessionRevokeResponse);
 
   // Count the number playback sessions.
   rpc Count(PlaybackSessionCountRequest) returns (PlaybackSessionCountResponse);
@@ -24,12 +25,14 @@ service PlaybackSession {
 
 // The request payload for PlaybackSession.Get.
 message PlaybackSessionGetRequest {
-  // A list of ids to retrieve. If empty, all playback sessions will be returned.
-  // If not empty, only the playback sessions with the specified ids will be returned.
-  // This will be filtered by the other options. (max: 100, min: 0)
+  // A list of ids to retrieve. If empty, all playback sessions will be
+  // returned. If not empty, only the playback sessions with the specified ids
+  // will be returned. This will be filtered by the other options. (max: 100,
+  // min: 0)
   repeated types.Ulid ids = 1;
 
-  // Filter by the user id of the playback session. (this is the value specified when you create a playback session)
+  // Filter by the user id of the playback session. (this is the value specified
+  // when you create a playback session)
   optional string user_id = 2;
 
   // Filter by if the playback session was authorized or not.
@@ -37,7 +40,7 @@ message PlaybackSessionGetRequest {
 
   // Filter by the target of the playback session.
   optional types.PlaybackSessionTarget target = 5;
-  
+
   // The options to use when searching for playback sessions.
   optional types.SearchOptions search = 6;
 }
@@ -50,7 +53,8 @@ message PlaybackSessionGetResponse {
 
 // The request payload for PlaybackSession.Revoke.
 message PlaybackSessionRevokeRequest {
-  // A list of ids to revoke. If empty, one of the other options must be specified.
+  // A list of ids to revoke. If empty, one of the other options must be
+  // specified.
   repeated types.Ulid ids = 1;
 
   // Revoke all playback sessions for the specified user id.
@@ -61,7 +65,8 @@ message PlaybackSessionRevokeRequest {
   // Cannot be used with ids.
   optional types.PlaybackSessionTarget target = 3;
 
-  // Revoke all playback sessions that were created before the specified timestamp.
+  // Revoke all playback sessions that were created before the specified
+  // timestamp.
   optional int64 before = 4;
 }
 
@@ -73,7 +78,8 @@ message PlaybackSessionRevokeResponse {
 
 // The request payload for PlaybackSession.Count.
 message PlaybackSessionCountRequest {
-  // Filter by the user id of the playback session or the target of the playback session.
+  // Filter by the user id of the playback session or the target of the playback
+  // session.
   oneof filter {
     string user_id = 1;
     types.PlaybackSessionTarget target = 2;
@@ -85,6 +91,7 @@ message PlaybackSessionCountResponse {
   // The number of playback sessions that were counted.
   uint64 count = 1;
   // The number of playback sessions that were deduplicated.
-  // This will deduplicate the playback sessions by the user id or ip address if no user id is specified.
+  // This will deduplicate the playback sessions by the user id or ip address if
+  // no user id is specified.
   uint64 deduplicated_count = 2;
 }

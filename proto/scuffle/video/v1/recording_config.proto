@@ -9,32 +9,38 @@ import "scuffle/video/v1/types/ulid.proto";
 import "scuffle/video/v1/types/tags.proto";
 import "scuffle/video/v1/types/search_options.proto";
 
-// This service allows for the creation, modification, and deletion of recording configs.
+// This service allows for the creation, modification, and deletion of recording
+// configs.
 service RecordingConfig {
   // Get a list of recording configs.
   rpc Get(RecordingConfigGetRequest) returns (RecordingConfigGetResponse) {}
 
   // Create a new recording config.
-  rpc Create(RecordingConfigCreateRequest) returns (RecordingConfigCreateResponse) {}
+  rpc Create(RecordingConfigCreateRequest)
+      returns (RecordingConfigCreateResponse) {}
 
   // Modify an existing recording config.
-  rpc Modify(RecordingConfigModifyRequest) returns (RecordingConfigModifyResponse) {}
+  rpc Modify(RecordingConfigModifyRequest)
+      returns (RecordingConfigModifyResponse) {}
 
   // Delete existing recording configs.
-  rpc Delete(RecordingConfigDeleteRequest) returns (RecordingConfigDeleteResponse) {}
+  rpc Delete(RecordingConfigDeleteRequest)
+      returns (RecordingConfigDeleteResponse) {}
 
   // Tag an existing recording config.
   rpc Tag(RecordingConfigTagRequest) returns (RecordingConfigTagResponse) {}
 
   // Untag an existing recording config.
-  rpc Untag(RecordingConfigUntagRequest) returns (RecordingConfigUntagResponse) {}
+  rpc Untag(RecordingConfigUntagRequest)
+      returns (RecordingConfigUntagResponse) {}
 }
 
 // The request payload for RecordingConfig.Get.
 message RecordingConfigGetRequest {
-  // A list of ids to retrieve. If empty, all recording configs will be returned.
-  // If not empty, only the recording configs with the specified ids will be returned.
-  // This will be filtered by the other options. (max: 100, min: 0)
+  // A list of ids to retrieve. If empty, all recording configs will be
+  // returned. If not empty, only the recording configs with the specified ids
+  // will be returned. This will be filtered by the other options. (max: 100,
+  // min: 0)
   repeated types.Ulid ids = 1;
 
   // The options to use when searching for recording configs.

@@ -31,7 +31,7 @@
 	on:mouseleave={onBlur}
 	on:focus={onFocus}
 	on:blur={onBlur}
-	aria-label={`${streamer} streaming ${title} with ${viewersToString(viewers, true)}`}
+	aria-label="{streamer} streaming {title} with {viewersToString(viewers, true)}"
 >
 	{#if focused}
 		<div class="video">

@@ -3,11 +3,10 @@
 
 	const em = createEventDispatcher();
 
-	export let inheritAll = true;
-
 	let el: HTMLElement;
 
 	let ready = false;
+
 	onMount(() => {
 		setTimeout(() => {
 			ready = true;
@@ -32,14 +31,8 @@
 	}
 </script>
 
-<div bind:this={el} class:all={inheritAll}>
-	<slot />
-</div>
-
 <svelte:window on:mousedown={mouseDown} on:mouseup={mouseUp} />
 
-<style lang="scss">
-	.all {
-		all: inherit;
-	}
-</style>
+<div bind:this={el}>
+	<slot />
+</div>

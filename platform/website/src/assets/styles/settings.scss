@@ -1,0 +1,76 @@
+@import "./variables.scss";
+
+.message {
+	font-size: 0.9rem;
+	font-weight: 500;
+
+	&.error {
+		color: $errorColor;
+	}
+
+	&.success {
+		color: $successColor;
+	}
+}
+
+.input {
+	margin-top: 0.5rem;
+	background-color: $bgColor2;
+	border: $borderColor solid 1px;
+	border-radius: 0.5rem;
+}
+
+.button {
+	padding: 0.5rem 1.5rem;
+	font-weight: 500;
+	font-size: 0.9rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+
+	&.secondary {
+		color: $textColor;
+	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
+}
+
+.input.big {
+	padding: 1.5rem 2rem;
+	display: flex;
+	align-items: center;
+	gap: 2rem;
+
+	& > .buttons {
+		flex-grow: 1;
+
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+}
+
+input.input {
+	padding: 0.5rem 0.75rem;
+	font-size: 1rem;
+	font-weight: 500;
+	color: $textColor;
+
+	transition: border-color 0.2s;
+
+	&::placeholder {
+		font-weight: 400;
+	}
+
+	&:focus {
+		outline: none;
+		border-color: $primaryColor;
+	}
+
+	&.invalid:not(:focus) {
+		border-color: $errorColor;
+	}
+}

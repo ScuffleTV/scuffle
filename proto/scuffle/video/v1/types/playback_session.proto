@@ -25,7 +25,8 @@ message PlaybackSession {
   // session. If the user was not authenticated, this will be null.
   optional Ulid playback_key_pair_id = 4;
 
-  // If the session was issued using a playback key pair, this is the time the session was issued.
+  // If the session was issued using a playback key pair, this is the time the
+  // session was issued.
   optional int64 issued_at = 5;
 
   // When this playback session was created.

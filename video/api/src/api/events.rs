@@ -15,6 +15,7 @@ use pb::scuffle::video::v1::{
 type Result<T> = std::result::Result<T, Status>;
 
 pub struct EventsServer {
+    #[allow(dead_code)]
     global: Weak<GlobalState>,
 }
 

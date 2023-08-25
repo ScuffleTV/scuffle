@@ -13,9 +13,9 @@
 	import FullscreenMinimize from "$/components/icons/player/fullscreen-minimize.svelte";
 	import Clip from "$/components/icons/player/clip.svelte";
 	import Lightning from "./icons/player/lightning.svelte";
-	import Spinner from "./user-page/spinner.svelte";
+	import Spinner from "./player/spinner.svelte";
 	import { sideNavHidden, topNavHidden } from "$/store/layout";
-	import { loginMode } from "$/store/login";
+	import { authDialog } from "$/store/auth";
 
 	export let streamId: string;
 	export let controls = true;
@@ -117,22 +117,6 @@
 
 			videoEl.play();
 		});
-		videoEl.addEventListener("playing", () => {
-			state = PlayerState.Playing;
-		});
-		videoEl.addEventListener("play", () => {
-			state = PlayerState.Playing;
-		});
-		videoEl.addEventListener("pause", () => {
-			state = PlayerState.Paused;
-		});
-		videoEl.addEventListener("waiting", () => {
-			state = PlayerState.Loading;
-		});
-		playerEl.addEventListener("fullscreenchange", () => {
-			fullscreen = document.fullscreenElement !== null;
-		});
-		document.body.addEventListener("keydown", onKeyDown);
 	});
 
 	onDestroy(() => {
@@ -142,11 +126,10 @@
 			player.removeListener("variantchange", onVariantChange);
 			player.removeListener("error", onError);
 			player.removeListener("shutdown", onShutdown);
-			document.body.removeEventListener("keydown", onKeyDown);
 		}
 	});
 
-	function onPlayClick(e: UIEvent) {
+	function onPlayClick() {
 		switch (state) {
 			case PlayerState.Playing:
 				videoEl.pause();
@@ -156,7 +139,6 @@
 				videoEl.play();
 				break;
 		}
-		e.preventDefault();
 	}
 
 	function onMouseMove() {
@@ -167,9 +149,8 @@
 		}, 2000);
 	}
 
-	function onLiveClick(e: UIEvent) {
+	function jumpToLive() {
 		videoEl.play();
-		e.preventDefault();
 		if (!videoEl.buffered.length) return;
 
 		if (player.lowLatency) {
@@ -179,66 +160,62 @@
 		}
 	}
 
-	function onVolumeClick(e: UIEvent) {
+	function toggleMuted() {
 		videoEl.muted = !videoEl.muted;
-		e.preventDefault();
 	}
 
-	function onPictureInPictureClick(e: UIEvent) {
+	function togglePictureInPicture() {
 		if (pip) {
 			document.exitPictureInPicture().then(() => (pip = false));
 		} else {
 			videoEl.requestPictureInPicture().then(() => (pip = true));
 		}
-		e.preventDefault();
 	}
 
-	function onClipClick(e: UIEvent) {
+	function onClipClick() {
 		console.log("clip it!");
-		e.preventDefault();
 	}
 
-	function onTheaterModeClick(e: UIEvent) {
+	function toggleTheaterMode() {
 		theaterMode = !theaterMode;
-		e.preventDefault();
 	}
 
-	function onFullscreenClick(e: UIEvent) {
+	function toggleFullscreen() {
 		if (document.fullscreenElement) {
 			document.exitFullscreen();
 		} else {
 			playerEl.requestFullscreen();
 		}
-		e.preventDefault();
 	}
 
 	// Attention: This is a global event handler since it is addded on body!
 	function onKeyDown(e: KeyboardEvent) {
 		// Ignore if in any kind of login window
-		if ($loginMode) return;
+		if ($authDialog) return;
 		// Ignore if the key is held down
 		if (e.repeat) return;
 		// Ignore if controls disabled
 		if (!controls) return;
 		switch (e.key) {
 			case " ":
-				onPlayClick(e);
+			case "k":
+				onPlayClick();
 				break;
 			case "f":
-				onFullscreenClick(e);
+				toggleFullscreen();
 				break;
 			case "m":
-				onVolumeClick(e);
+				toggleMuted();
 				break;
 			case "p":
 				// Ignore if pip mode is not allowed
 				if (!showPip) return;
-				onPictureInPictureClick(e);
+				togglePictureInPicture();
 				break;
 			case "t":
 				// Ignore if theater mode is not allowed
 				if (!showTheater) return;
-				onTheaterModeClick(e);
+				toggleTheaterMode();
 				break;
 			default:
 				return;
@@ -247,16 +224,23 @@
 	}
 </script>
 
+<svelte:window on:keydown={onKeyDown} />
+
 <div
 	class="player"
 	bind:this={playerEl}
 	class:theater-mode={theaterMode}
 	class:controls-hidden={controlsHidden}
 	on:mousemove={onMouseMove}
+	on:fullscreenchange={() => (fullscreen = document.fullscreenElement !== null)}
 	role="none"
 >
 	<video
 		bind:this={videoEl}
+		on:playing={() => (state = PlayerState.Playing)}
+		on:play={() => (state = PlayerState.Playing)}
+		on:pause={() => (state = PlayerState.Paused)}
+		on:waiting={() => (state = PlayerState.Loading)}
 		preload="metadata"
 		autoplay
 		class:paused={state === PlayerState.Paused}
@@ -285,7 +269,7 @@
 			<div>
 				<button
 					title={state === PlayerState.Playing ? "Pause" : "Play"}
-					on:click={onPlayClick}
+					on:click|preventDefault={onPlayClick}
 					disabled={state === PlayerState.Error}
 				>
 					{#if state === PlayerState.Playing}
@@ -297,10 +281,14 @@
 				<button
 					class="live"
 					title="Jump to live"
-					on:click={onLiveClick}
+					on:click|preventDefault={jumpToLive}
 					disabled={state === PlayerState.Loading || state === PlayerState.Error}>LIVE</button
 				>
-				<button title="Volume" on:click={onVolumeClick} disabled={state === PlayerState.Error}>
+				<button
+					title="Volume"
+					on:click|preventDefault={toggleMuted}
+					disabled={state === PlayerState.Error}
+				>
 					<Volume muted={videoEl?.muted} />
 				</button>
 			</div>
@@ -322,7 +310,7 @@
 				{/if}
 				<button
 					title="Clip"
-					on:click={onClipClick}
+					on:click|preventDefault={onClipClick}
 					disabled={state === PlayerState.Loading || state === PlayerState.Error}
 				>
 					<Clip />
@@ -330,7 +318,7 @@
 				{#if showPip && videoEl?.requestPictureInPicture !== undefined}
 					<button
 						title={pip ? "Exit picture-in-picture" : "Enter picture-in-picture"}
-						on:click={onPictureInPictureClick}
+						on:click|preventDefault={togglePictureInPicture}
 					>
 						{#if pip}
 							<ExitPictureInPicture />
@@ -342,7 +330,7 @@
 				{#if showTheater}
 					<button
 						title={theaterMode ? "Exit theater mode" : "Enter theater mode"}
-						on:click={onTheaterModeClick}
+						on:click|preventDefault={toggleTheaterMode}
 					>
 						{#if theaterMode}
 							<ExitTheaterMode />
@@ -351,7 +339,7 @@
 						{/if}
 					</button>
 				{/if}
-				<button title="Enter fullscreen" on:click={onFullscreenClick}>
+				<button title="Enter fullscreen" on:click|preventDefault={toggleFullscreen}>
 					{#if fullscreen}
 						<FullscreenMinimize />
 					{:else}
@@ -367,6 +355,8 @@
 	@import "../assets/styles/variables.scss";
 
 	.player {
+		grid-area: player;
+
 		position: relative;
 		/* For some reason I don't get, this needs to be flex. Otherwise the player div is too high. */
 		display: flex;

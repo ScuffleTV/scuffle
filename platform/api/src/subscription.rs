@@ -4,18 +4,20 @@ use std::{
 };
 
 use anyhow::Result;
+use async_nats::Message;
 use common::context::Context;
-use fred::{clients::SubscriberClient, prelude::PubsubInterface, types::RedisValue};
 use tokio::{
     select,
     sync::{broadcast, mpsc, oneshot, Mutex},
 };
+use tokio_stream::{StreamExt, StreamMap, StreamNotifyClose};
+use tracing::{debug, error, warn};
 
 #[derive(Debug)]
 enum Event {
     Subscribe {
         topic: String,
-        tx: oneshot::Sender<broadcast::Receiver<RedisValue>>,
+        tx: oneshot::Sender<broadcast::Receiver<Message>>,
     },
     Unsubscribe {
         topic: String,
@@ -42,12 +44,12 @@ impl Default for SubscriptionManager {
 
 pub struct SubscriberReceiver<'a> {
     topic: String,
-    rx: broadcast::Receiver<RedisValue>,
+    rx: broadcast::Receiver<Message>,
     manager: &'a SubscriptionManager,
 }
 
 impl Deref for SubscriberReceiver<'_> {
-    type Target = broadcast::Receiver<RedisValue>;
+    type Target = broadcast::Receiver<Message>;
 
     fn deref(&self) -> &Self::Target {
         &self.rx
@@ -61,43 +63,49 @@ impl DerefMut for SubscriberReceiver<'_> {
 }
 
 impl SubscriptionManager {
-    pub async fn run(&self, ctx: Context, redis: SubscriberClient) -> Result<()> {
-        let mut handle = redis.manage_subscriptions();
-
-        let mut topics = HashMap::<String, broadcast::Sender<RedisValue>>::new();
+    pub async fn run(&self, ctx: Context, nats: async_nats::Client) -> Result<()> {
+        let mut topics = HashMap::<String, broadcast::Sender<Message>>::new();
+        let mut subs = StreamMap::new();
 
         let mut events_rx = self.events_rx.lock().await;
-
-        let mut messages = redis.on_message();
 
         loop {
             select! {
                 event = events_rx.recv() => {
+                    debug!("received event: {:?}", event);
+
                     match event.unwrap() {
                         Event::Subscribe { topic, tx } => {
-                            let topic = topic.to_lowercase();
-
                             match topics.get(&topic) {
                                 Some(broadcast) => {
+                                    // TODO: Handle error?
                                     tx.send(broadcast.subscribe()).ok();
                                 },
                                 None => {
                                     let (btx, rx) = broadcast::channel(16);
                                     if tx.send(rx).is_err() {
+                                        // TODO: Handle error?
+                                        warn!("failed to send broadcast receiver to subscriber");
                                         continue;
                                     }
 
-                                    topics.insert(topic.clone(), btx);
+                                    debug!("subscribing to topic: {}", topic);
+                                    let sub = nats.subscribe(topic.clone()).await?;
 
-                                    redis.subscribe(&topic).await?;
+                                    topics.insert(topic.clone(), btx);
+                                    subs.insert(topic, StreamNotifyClose::new(sub));
+                                    debug!("topics: {:?}", topics);
                                 }
                             };
                         }
                         Event::Unsubscribe { topic } => {
+                            debug!("received unsubscribe event for topic: {}", topic);
                             if let Some(btx) = topics.get_mut(&topic) {
                                 if btx.receiver_count() == 0 {
                                     topics.remove(&topic);
-                                    redis.unsubscribe(&topic).await?;
+                                    if let Some(Some(mut sub)) = subs.remove(&topic).map(|s| s.into_inner()) {
+                                        sub.unsubscribe().await?;
+                                    }
                                 }
                             }
 
@@ -107,23 +115,26 @@ impl SubscriptionManager {
                         }
                     }
                 }
-                message = messages.recv() => {
-                    let message = message.unwrap();
+                Some((topic, message)) = subs.next() => {
+                    match message {
+                        Some(message) => {
+                            debug!("received nats message: {:?}", message);
 
-                    let topic = message.channel.to_string().to_lowercase();
+                            let Some(subs) = topics.get(&topic) else {
+                                debug!("received message for unsubscribed topic: {}", topic);
+                                continue;
+                            };
 
-                    let Some(subs) = topics.get(&topic) else {
-                        continue;
-                    };
-
-                    subs.send(message.value).ok();
-                }
-                r = &mut handle => {
-                    r?;
-                    break;
-                }
-                _ = ctx.done() => {
-                    break;
+                            // TODO: Handle error?
+                            if let Err(e) = subs.send(message) {
+                                error!("failed to send message to subscribers: {e}");
+                            }
+                        },
+                        None => {
+                            // nats subscriber closed
+                            topics.remove(&topic);
+                        }
+                    }
                 }
             }
         }

@@ -6,24 +6,15 @@ use chrono::{DateTime, Utc};
 use rand::Rng;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Default)]
-#[repr(i32)]
-pub enum LiveState {
-    #[default]
-    NotLive = 0,
-    Live = 1,
-    LiveReady = 2,
-}
+use super::channel;
 
-impl From<i32> for LiveState {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::NotLive,
-            1 => Self::Live,
-            2 => Self::LiveReady,
-            _ => Self::NotLive,
-        }
-    }
+#[derive(Debug, Clone, Default, sqlx::FromRow)]
+pub struct SearchResult {
+    /// The user.
+    #[sqlx(flatten)]
+    pub user: Model,
+    /// The similarity of the search query to the user's username.
+    pub similarity: f64,
 }
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
@@ -34,26 +25,26 @@ pub struct Model {
     pub username: String,
     /// The display name of the user.
     pub display_name: String,
+    /// The display color of the user.
+    pub display_color: i32,
     /// The hashed password of the user. (argon2)
     pub password_hash: String,
     /// The email of the user.
     pub email: String,
     /// Whether the user has verified their email.
     pub email_verified: bool,
-    /// The time the user was created.
-    pub created_at: DateTime<Utc>,
     /// The time the user last logged in.
     pub last_login_at: DateTime<Utc>,
-    /// The stream key of the user.
-    pub stream_key: String,
-    /// The title of the stream
-    pub stream_title: String,
-    /// The description of the stream
-    pub stream_description: String,
-    /// Whether the stream transcoding is enabled
-    pub stream_transcoding_enabled: bool,
-    /// Whether the stream recording is enabled
-    pub stream_recording_enabled: bool,
+    /// The time the user was last updated.
+    pub updated_at: DateTime<Utc>,
+    /// The time the user was created.
+    pub profile_picture_id: Option<Uuid>,
+    /// The roles of the user.
+    pub roles: Vec<Uuid>,
+
+    /// Channel
+    #[sqlx(flatten)]
+    pub channel: channel::Model,
 }
 
 impl Model {
@@ -70,10 +61,6 @@ impl Model {
         Argon2::default()
             .verify_password(password.as_bytes(), &hash)
             .is_ok()
-    }
-
-    pub fn get_stream_key(&self) -> String {
-        format!("live_{}_{}", self.id.as_u128(), self.stream_key)
     }
 }
 
@@ -160,18 +147,6 @@ pub fn validate_email(email: &str) -> Result<(), &'static str> {
     }
 
     Ok(())
-}
-
-/// Generates a new stream key.
-pub fn generate_stream_key() -> String {
-    let mut rng = rand::thread_rng();
-    let mut key = String::new();
-
-    for _ in 0..24 {
-        key.push(rng.sample(rand::distributions::Alphanumeric).into());
-    }
-
-    key
 }
 
 /// https://www.rapidtables.com/convert/color/hsl-to-rgb.html

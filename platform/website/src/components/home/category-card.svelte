@@ -10,16 +10,16 @@
 
 <a
 	class="category"
-	href={`/categories/${title.toLowerCase()}`}
-	aria-label={`Category ${title} with ${viewersToString(viewers, true)}`}
+	href="/categories/{title.toLowerCase()}"
+	aria-label="Category {title} with {viewersToString(viewers, true)}"
 >
-	<img src={image} alt={`${title} thumbnail`} />
+	<img src={image} alt="{title} thumbnail" />
 	<span>{title}</span>
 	<span class="sr-only">{viewersToString(viewers, true)}</span>
 	<div class="info-container">
 		<span class="title">{title}</span>
 		<div class="viewers">
-			<Fa icon={faUser} size="1.2x" />
+			<Fa icon={faUser} />
 			<span>{viewersToString(viewers, true)}</span>
 		</div>
 	</div>
@@ -44,13 +44,11 @@
 			& > img {
 				transform: scale(1.25);
 				filter: drop-shadow(0 0 0.5rem black);
-				z-index: 2;
 			}
 
 			& > .info-container {
 				opacity: 1;
 				transition: opacity 0.25s 0.05s;
-				z-index: 3;
 			}
 		}
 

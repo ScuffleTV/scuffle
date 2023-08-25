@@ -5,6 +5,6 @@ package scuffle.video.v1.types;
 // A ULID is a 128-bit universally unique identifier.
 // Similar to UUIDs, but time sortable.
 message Ulid {
-    uint64 msb = 1;
-    uint64 lsb = 2;
+  uint64 msb = 1;
+  uint64 lsb = 2;
 }

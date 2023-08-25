@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { page } from "$app/stores";
 
-	const isNotFound = $page.status === 404;
-	const title = isNotFound ? "Not Found" : "Internal Error";
+	let title = $page.error?.message ?? "Error";
 </script>
 
 <svelte:head>
@@ -13,7 +12,11 @@
 	<img src="/Sadge.webp" alt="Sadge" />
 	<h1>{title}</h1>
 	<span>
-		{#if isNotFound}
+		{#if $page.status === 401}
+			You are unauthorized to view this page.
+		{:else if $page.status === 403}
+			You do not have permission to view this page.
+		{:else if $page.status === 404}
 			The page you were looking for could not be found.
 		{:else}
 			An internal error occurred.
@@ -30,8 +33,7 @@
 	@import "../assets/styles/variables.scss";
 
 	.container {
-		grid-row: 2;
-		grid-column: 2 / -1;
+		grid-area: content;
 
 		height: 100%;
 

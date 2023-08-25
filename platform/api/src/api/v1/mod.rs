@@ -10,6 +10,7 @@ use super::error::RouteError;
 pub mod gql;
 pub mod health;
 pub mod jwt;
+pub mod request_context;
 
 pub fn routes(global: &Arc<GlobalState>) -> Router<Body, RouteError> {
     Router::builder()

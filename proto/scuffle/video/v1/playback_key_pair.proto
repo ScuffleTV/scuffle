@@ -13,13 +13,16 @@ service PlaybackKeyPair {
   rpc Get(PlaybackKeyPairGetRequest) returns (PlaybackKeyPairGetResponse);
 
   // Create a new playback key pair.
-  rpc Create(PlaybackKeyPairCreateRequest) returns (PlaybackKeyPairCreateResponse);
+  rpc Create(PlaybackKeyPairCreateRequest)
+      returns (PlaybackKeyPairCreateResponse);
 
   // Modify an existing playback key pair.
-  rpc Modify(PlaybackKeyPairModifyRequest) returns (PlaybackKeyPairModifyResponse);
+  rpc Modify(PlaybackKeyPairModifyRequest)
+      returns (PlaybackKeyPairModifyResponse);
 
   // Delete existing playback key pairs.
-  rpc Delete(PlaybackKeyPairDeleteRequest) returns (PlaybackKeyPairDeleteResponse);
+  rpc Delete(PlaybackKeyPairDeleteRequest)
+      returns (PlaybackKeyPairDeleteResponse);
 
   // Tag an existing playback key pair.
   rpc Tag(PlaybackKeyPairTagRequest) returns (PlaybackKeyPairTagResponse);
@@ -30,9 +33,10 @@ service PlaybackKeyPair {
 
 // The request payload for PlaybackKeyPair.Get.
 message PlaybackKeyPairGetRequest {
-  // A list of ids to retrieve. If empty, all playback key pairs will be returned.
-  // If not empty, only the playback key pairs with the specified ids will be returned.
-  // This will be filtered by the search_options. (max: 100, min: 0)
+  // A list of ids to retrieve. If empty, all playback key pairs will be
+  // returned. If not empty, only the playback key pairs with the specified ids
+  // will be returned. This will be filtered by the search_options. (max: 100,
+  // min: 0)
   repeated types.Ulid ids = 1;
 
   // An optional set of search options to filter the results by.
@@ -66,7 +70,8 @@ message PlaybackKeyPairModifyRequest {
   types.Ulid id = 1;
   // A new public key to use for the playback key pair.
   optional string public_key = 2;
-  // New tags to apply to the playback key pair. (this will replace the existing tags)
+  // New tags to apply to the playback key pair. (this will replace the existing
+  // tags)
   optional types.Tags tags = 3;
 }
 

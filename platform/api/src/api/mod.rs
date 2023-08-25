@@ -56,9 +56,6 @@ pub fn routes(global: &Arc<GlobalState>) -> Router<Body, RouteError> {
         .err_handler_with_info(error_handler)
         // The CORS middleware adds the CORS headers to the response
         .middleware(middleware::cors::cors_middleware(global))
-        // The auth middleware checks the Authorization header, and if it's valid, it adds the user to the request extensions
-        // This way, we can access the user in the handlers, this does not fail the request if the token is invalid or not present.
-        .middleware(middleware::auth::auth_middleware(global))
         .scope("/v1", v1::routes(global))
         .build()
         .expect("failed to build router")

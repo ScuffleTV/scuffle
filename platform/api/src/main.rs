@@ -4,7 +4,6 @@ use crate::api::v1::gql::schema;
 use anyhow::Result;
 use async_graphql::SDLExportOptions;
 use common::{context::Context, logging, signal};
-use fred::types::ReconnectPolicy;
 use sqlx::{postgres::PgConnectOptions, ConnectOptions};
 use tokio::{select, signal::unix::SignalKind, time};
 
@@ -13,7 +12,6 @@ mod config;
 mod database;
 mod dataloader;
 mod global;
-// mod grpc;
 mod subscription;
 
 // #[cfg(test)]
@@ -58,29 +56,20 @@ async fn main() -> Result<()> {
         .await?,
     );
 
+    // Sets the similarity threshold for trigram matching to 0.1
+    // Default is 0.3
+    // https://www.cockroachlabs.com/docs/stable/trigram-indexes#comparisons
+    sqlx::query("SET pg_trgm.similarity_threshold = 0.1")
+        .execute(&*db)
+        .await?;
+
     let (ctx, handler) = Context::new();
 
-    // let rmq = common::rmq::ConnectionPool::connect(
-    //     config.rmq.uri.clone(),
-    //     lapin::ConnectionProperties::default(),
-    //     Duration::from_secs(30),
-    //     1,
-    // )
-    // .timeout(Duration::from_secs(5))
-    // .await
-    // .context("failed to connect to rabbitmq, timedout")?
-    // .context("failed to connect to rabbitmq")?;
+    let nats = global::setup_nats(&config).await?;
 
-    let redis = global::setup_redis(&config).await;
-    let subscription_redis =
-        global::setup_redis_subscription(&config, ReconnectPolicy::new_constant(0, 300)).await;
-
-    tracing::info!("connected to redis");
-
-    let global = Arc::new(global::GlobalState::new(config, db, redis, ctx));
+    let global = Arc::new(global::GlobalState::new(config, db, nats.clone(), ctx));
 
     let api_future = tokio::spawn(api::run(global.clone()));
-    // let grpc_future = tokio::spawn(grpc::run(global.clone()));
 
     // Listen on both sigint and sigterm and cancel the context when either is received
     let mut signal_handler = signal::SignalHandler::new()
@@ -89,8 +78,7 @@ async fn main() -> Result<()> {
 
     select! {
         r = api_future => tracing::error!("api stopped unexpectedly: {:?}", r),
-        // r = grpc_future => tracing::error!("grpc stopped unexpectedly: {:?}", r),
-        r = global.subscription_manager.run(global.ctx.clone(), subscription_redis) => tracing::error!("subscription manager stopped unexpectedly: {:?}", r),
+        r = global.subscription_manager.run(global.ctx.clone(), nats) => tracing::error!("subscription manager stopped unexpectedly: {:?}", r),
         _ = signal_handler.recv() => tracing::info!("shutting down"),
     }
 

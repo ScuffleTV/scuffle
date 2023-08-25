@@ -2,7 +2,7 @@
 	export let content: string;
 </script>
 
-<a class="tag" href="/categories/{content}">
+<a class="tag" href="/tag/{content}">
 	<span class="sr-only">Tag</span>
 	{content}
 </a>

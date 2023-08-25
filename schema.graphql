@@ -6,63 +6,175 @@ type AuthMutation {
 	Login using a username and password. If via websocket this will authenticate the websocket connection.
 	"""
 	login(
+		"""
+		The captcha token from cloudflare turnstile.
+		"""
 		captchaToken: String!
+		"""
+		The password of the user.
+		"""
 		password: String!
+		"""
+		Setting this to false will make it so logging in does not authenticate the connection.
+		"""
 		updateContext: Boolean
+		"""
+		The username of the user.
+		"""
 		username: String!
+		"""
+		The duration of the session in seconds. If not specified it will be 7 days.
+		"""
 		validity: Int
 	): Session!
 	"""
 	Login with a session token. If via websocket this will authenticate the websocket connection.
 	"""
-	loginWithToken(sessionToken: String!, updateContext: Boolean): Session!
+	loginWithToken(
+		"""
+		The JWT Session Token
+		"""
+		sessionToken: String!
+		"""
+		Setting this to false will make it so logging in does not authenticate the connection.
+		"""
+		updateContext: Boolean
+	): Session!
 	"""
 	Logout the user with the given session token. This will invalidate the session token.
 	"""
-	logout(sessionToken: String): Boolean!
+	logout(
+		"""
+		You can provide a session token to logout of, if not provided the session will logout of the currently authenticated session.
+		"""
+		sessionToken: String
+	): Boolean!
 	"""
 	If successful will return a new session for the account which just got created.
 	"""
 	register(
+		"""
+		The captcha token from cloudflare turnstile.
+		"""
 		captchaToken: String!
+		"""
+		The email of the user.
+		"""
 		email: String!
+		"""
+		The password of the user.
+		"""
 		password: String!
+		"""
+		Setting this to false will make it so logging in does not authenticate the connection.
+		"""
 		updateContext: Boolean
+		"""
+		The username of the user.
+		"""
 		username: String!
+		"""
+		The validity of the session in seconds.
+		"""
 		validity: Int
 	): Session!
 }
 
+type Category {
+	id: ULID!
+	name: String!
+	revision: Int!
+	updatedAt: DateRFC3339!
+}
+
+type CategoryQuery {
+	byId(
+		"""
+		The id of the category.
+		"""
+		id: ULID!
+	): Category
+	searchByName(
+		"""
+		The search query.
+		"""
+		query: String!
+	): [CategorySearchResult!]!
+}
+
+type CategorySearchResult {
+	category: Category!
+	similarity: Float!
+}
+
+type Channel {
+	category: Category
+	categoryId: ULID
+	customThumbnailId: ULID
+	description: String
+	followersCount: Int!
+	id: ULID!
+	lastLiveAt: DateRFC3339
+	links: [Link!]!
+	liveViewerCount: Int
+	liveViewerCountUpdatedAt: DateRFC3339
+	offlineBannerId: ULID
+	streamKey: String
+	title: String
+}
+
 type ChatMessage {
-	author: User
-	authorId: UUID!
 	channel: User!
-	channelId: UUID!
+	channelId: ULID!
 	content: String!
-	createdAt: DateRFC3339!
-	id: UUID!
+	id: ULID!
 	type: MessageType!
+	user: User
+	userId: ULID!
 }
 
 type ChatMutation {
-	sendMessage(channelId: UUID!, content: String!): ChatMessage!
+	sendMessage(
+		"""
+		ID of chat room where the message will be send.
+		"""
+		channelId: ULID!
+		"""
+		Message content that will be published.
+		"""
+		content: String!
+	): ChatMessage!
 }
+
+scalar Color
 
 scalar DateRFC3339
 
-type DisplayNameStream {
-	displayName: String!
-	username: String!
+type DisplayColor {
+	color: Color!
+	hue: Float!
+	isGray: Boolean!
 }
 
-type GlobalRole {
-	allowedPermissions: Int!
-	createdAt: DateRFC3339!
-	deniedPermissions: Int!
-	description: String!
-	id: UUID!
+type DisplayColorStream {
+	displayColor: DisplayColor!
+	userId: ULID!
+}
+
+type DisplayNameStream {
+	displayName: String!
+	userId: ULID!
+}
+
+type FollowStream {
+	channelId: ULID!
+	following: Boolean!
+	userId: ULID!
+}
+
+type Link {
 	name: String!
-	rank: Int!
+	url: String!
 }
 
 enum MessageType {
@@ -77,23 +189,30 @@ The root mutation type which contains root level fields.
 type Mutation {
 	auth: AuthMutation!
 	chat: ChatMutation!
+	twoFa: TwoFaMutation!
+	user: UserMutation!
 }
 
 """
 The root query type which contains root level fields.
 """
 type Query {
-	activeStreamsByUserId(id: UUID!): Stream
-	noop: Boolean!
-	userById(id: UUID!): User
-	userByUsername(username: String!): User
+	category: CategoryQuery!
+	search(
+		"""
+		The search query.
+		"""
+		query: String!
+	): SearchResults!
+	user: UserQuery!
+}
+
+type SearchResults {
+	categories: [CategorySearchResult!]!
+	users: [UserSearchResult!]!
 }
 
 type Session {
-	"""
-	Created at
-	"""
-	createdAt: DateRFC3339!
 	"""
 	Expires at
 	"""
@@ -101,7 +220,7 @@ type Session {
 	"""
 	The session's id
 	"""
-	id: UUID!
+	id: ULID!
 	"""
 	Last used at
 	"""
@@ -114,57 +233,151 @@ type Session {
 	"""
 	The user who owns this session
 	"""
-	userId: UUID!
-}
-
-type Stream {
-	channelId: UUID!
-	createdAt: DateRFC3339!
-	deleted: Boolean!
-	description: String!
-	endedAt: DateRFC3339!
-	id: UUID!
-	readyState: Int!
-	recorded: Boolean!
-	title: String!
-	transcoded: Boolean!
+	userId: ULID!
 }
 
 type Subscription {
-	chatMessages(channelId: UUID!): ChatMessage!
+	channelFollowersCount(channelId: ULID!): Int!
+	channelFollows(channelId: ULID!): FollowStream!
+	chatMessages(
+		"""
+		Chat to subscribe to.
+		"""
+		channelId: ULID!
+	): ChatMessage!
 	noop: Boolean!
-	userDisplayName(userId: UUID!): DisplayNameStream!
+	userDisplayColor(userId: ULID!): DisplayColorStream!
+	userDisplayName(userId: ULID!): DisplayNameStream!
+	userFollowing(
+		"""
+		When specified, this subscription is limited to only this channel.
+		"""
+		channelId: ULID
+	): FollowStream!
+}
+
+type TotpSecret {
+	"""
+	Base64 encoded totp qr code.
+	"""
+	qrCode: String!
+}
+
+type TwoFaMutation {
+	"""
+	Enable two factor authentication for the currently authenticated user.
+	"""
+	enable: TotpSecret!
 }
 
 """
-A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
-Strings within GraphQL. UUIDs are used to assign unique identifiers to
-entities without requiring a central allocating authority.
-
-# References
-
-* [Wikipedia: Universally Unique Identifier](http://en.wikipedia.org/wiki/Universally_unique_identifier)
-* [RFC4122: A Universally Unique IDentifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
+A ULID (Universally Unique Lexicographically Sortable Identifier) scalar.
 """
-scalar UUID @specifiedBy(url: "http://tools.ietf.org/html/rfc4122")
+scalar ULID @specifiedBy(url: "https://github.com/ulid/spec")
 
 type User {
-	createdAt: DateRFC3339!
-	displayColor: Int!
+	channel: Channel!
+	displayColor: DisplayColor!
 	displayName: String!
 	email: String!
 	emailVerified: Boolean!
-	globalRoles: [GlobalRole!]!
-	id: UUID!
+	id: ULID!
 	lastLoginAt: DateRFC3339!
-	permissions: Int!
-	streamKey: String!
 	username: String!
+}
+
+type UserMutation {
+	"""
+	Change the display color of the currently logged in user.
+	"""
+	displayColor(
+		"""
+		New display color.
+		"""
+		color: Color!
+	): User!
+	"""
+	Change the display name of the currently logged in user.
+	"""
+	displayName(
+		"""
+		New display name.
+		"""
+		displayName: String!
+	): User!
+	"""
+	Change the email address of the currently logged in user.
+	"""
+	email(
+		"""
+		New email address.
+		"""
+		email: String!
+	): User!
+	"""
+	Follow or unfollow a user.
+	"""
+	follow(
+		"""
+		The channel to (un)follow.
+		"""
+		channelId: ULID!
+		"""
+		Set to true for follow and false for unfollow
+		"""
+		follow: Boolean!
+	): Boolean!
+}
+
+type UserQuery {
+	"""
+	Get a user by their id
+	"""
+	byId(
+		"""
+		The id of the user.
+		"""
+		id: ULID!
+	): User
+	"""
+	Get a user by their username
+	"""
+	byUsername(
+		"""
+		The username of the user.
+		"""
+		username: String!
+	): User
+	following(
+		"""
+		The id of the user.
+		"""
+		id: ULID!
+		"""
+		Restricts the number of returned users, default: no limit
+		"""
+		limit: Int
+	): [User!]!
+	"""
+	Get if the current user is following a given channel
+	"""
+	isFollowing(channelId: ULID!): Boolean!
+	searchByUsername(
+		"""
+		The search query.
+		"""
+		query: String!
+	): [UserSearchResult!]!
+}
+
+type UserSearchResult {
+	similarity: Float!
+	user: User!
 }
 
 extend schema
 	@link(
-		url: "https://specs.apollo.dev/federation/v2.1"
+		url: "https://specs.apollo.dev/federation/v2.3"
 		import: [
 			"@key"
 			"@tag"
@@ -175,6 +388,7 @@ extend schema
 			"@provides"
 			"@requires"
 			"@composeDirective"
+			"@interfaceObject"
 		]
 	)
 directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT

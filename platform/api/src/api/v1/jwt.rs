@@ -5,6 +5,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use hmac::{Hmac, Mac};
 use jwt::{Claims, Header, RegisteredClaims, SignWithKey, Token, VerifyWithKey};
 use sha2::Sha256;
+use ulid::Ulid;
 use uuid::Uuid;
 
 use crate::global::GlobalState;
@@ -98,7 +99,7 @@ impl From<session::Model> for JwtState {
             user_id: session.user_id,
             session_id: session.id,
             expiration: Some(session.expires_at),
-            issued_at: session.created_at,
+            issued_at: Ulid::from(session.id).datetime().into(),
             not_before: None,
             audience: None,
         }

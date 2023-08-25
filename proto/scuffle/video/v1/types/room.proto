@@ -23,7 +23,7 @@ message Room {
 
   // The room status
   RoomStatus status = 4;
-  
+
   // Whether or not the room is currently private.
   bool private = 5;
 

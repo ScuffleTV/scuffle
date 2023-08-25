@@ -49,7 +49,7 @@ message RoomGetRequest {
 
   // Filter by the room's live status.
   optional bool is_live = 5;
-  
+
   // Filter by the room's visibility status.
   optional bool is_private = 6;
 
@@ -66,8 +66,8 @@ message RoomGetResponse {
 // The request payload for Room.Create.
 message RoomCreateRequest {
   // Optionally specify a transcoding config id to use for the room.
-  // By default, if no transcoding config is specified, no transcoding will be done.
-  // Meaning only the source stream will be available.
+  // By default, if no transcoding config is specified, no transcoding will be
+  // done. Meaning only the source stream will be available.
   optional types.Ulid transcoding_config_id = 2;
 
   // Optionally specify a recording config id to use for the room.
@@ -119,8 +119,9 @@ message RoomDeleteRequest {
   // The ids of the rooms to delete.
   repeated types.Ulid ids = 1;
   // Whether or not to delete the recordings for the rooms.
-  // If you delete the recordings for a room, you will not be able to recover them.
-  // If you do not delete the recordings, they will be stored without a room association.
+  // If you delete the recordings for a room, you will not be able to recover
+  // them. If you do not delete the recordings, they will be stored without a
+  // room association.
   bool delete_recordings = 2;
 }
 
@@ -129,7 +130,8 @@ message RoomDeleteResponse {
   // The ids of the rooms that were deleted.
   repeated types.Ulid ids = 1;
 
-  // The recording ids of the recordings that were either deleted or disassociated.
+  // The recording ids of the recordings that were either deleted or
+  // disassociated.
   repeated types.Ulid recording_ids = 2;
 }
 

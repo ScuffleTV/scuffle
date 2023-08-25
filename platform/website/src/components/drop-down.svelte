@@ -20,10 +20,10 @@
 </script>
 
 <MouseTrap on:close={close}>
-	<button on:click={toggle} aria-expanded={expanded} aria-controls={`dropdown-list-${index}`}>
+	<button on:click={toggle} aria-expanded={expanded} aria-controls="dropdown-list-{index}">
 		<slot />
 		{#if expanded}
-			<ul class="list" id={`dropdown-list-${index}`}>
+			<ul class="list" id="dropdown-list-{index}">
 				<slot name="dropdown" />
 			</ul>
 		{/if}
@@ -40,25 +40,43 @@
 			display: flex;
 			flex-direction: column;
 
+			z-index: 1;
+
 			position: absolute;
 			right: 0;
 			width: 10rem;
+			margin: 0;
+			padding: 0;
+			border: $borderColor 1px solid;
+
+			list-style-type: none;
 
 			background-color: $bgColor;
 			filter: drop-shadow(0 0 0.25rem rgba(0, 0, 0, 0.25));
 
-			:global(a),
-			:global(button) {
-				color: $textColor;
-				text-decoration: none;
-				padding: 0.5rem 0.75rem;
-				font-weight: 500;
-				text-align: left;
+			:global(li) {
+				display: flex;
+				flex-direction: column;
+				align-items: stretch;
 
 				&:hover,
 				&:focus-visible {
 					background-color: $bgColorLight;
 				}
+			}
+
+			:global(a),
+			:global(button) {
+				padding: 0.5rem 0.75rem;
+
+				text-align: left;
+				color: $textColor;
+				text-decoration: none;
+				font-weight: 500;
+
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
 			}
 		}
 	}

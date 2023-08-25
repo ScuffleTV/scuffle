@@ -1,9 +1,11 @@
 <script lang="ts">
 	import Fa from "svelte-fa";
-	import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
+	import { faChevronDown, faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
 	import CategoryCard from "$/components/home/category-card.svelte";
 	import SmallStreamPreview from "$/components/home/small-stream-preview.svelte";
 	import BigStreamPreview from "$/components/home/big-stream-preview.svelte";
+	import Logo from "$/components/icons/logo.svelte";
+	import { onMount } from "svelte";
 
 	// We should always load 13 previews because that means that we show 12 previews in the "How about this?" section
 	// 12 is a nice number because it's divisible by 2, 3, 4, and 6 which means that it fills all rows in the grid layout most of the time.
@@ -130,7 +132,127 @@
 			image: "/categories/fortnite.png",
 			viewers: 243,
 		},
+		{
+			title: "Minecraft",
+			image: "/categories/minecraft.png",
+			viewers: 243,
+		},
+		{
+			title: "Valorant",
+			image: "/categories/valorant.png",
+			viewers: 243,
+		},
+		{
+			title: "Deep Rock Galactic",
+			image: "/categories/deep-rock-galactic.png",
+			viewers: 243,
+		},
+		{
+			title: "Fortnite",
+			image: "/categories/fortnite.png",
+			viewers: 243,
+		},
+		{
+			title: "Minecraft",
+			image: "/categories/minecraft.png",
+			viewers: 243,
+		},
+		{
+			title: "Valorant",
+			image: "/categories/valorant.png",
+			viewers: 243,
+		},
+		{
+			title: "Deep Rock Galactic",
+			image: "/categories/deep-rock-galactic.png",
+			viewers: 243,
+		},
+		{
+			title: "Fortnite",
+			image: "/categories/fortnite.png",
+			viewers: 243,
+		},
+		{
+			title: "Minecraft",
+			image: "/categories/minecraft.png",
+			viewers: 243,
+		},
+		{
+			title: "Valorant",
+			image: "/categories/valorant.png",
+			viewers: 243,
+		},
+		{
+			title: "Deep Rock Galactic",
+			image: "/categories/deep-rock-galactic.png",
+			viewers: 243,
+		},
+		{
+			title: "Fortnite",
+			image: "/categories/fortnite.png",
+			viewers: 243,
+		},
+		{
+			title: "Minecraft",
+			image: "/categories/minecraft.png",
+			viewers: 243,
+		},
+		{
+			title: "Valorant",
+			image: "/categories/valorant.png",
+			viewers: 243,
+		},
+		{
+			title: "Deep Rock Galactic",
+			image: "/categories/deep-rock-galactic.png",
+			viewers: 243,
+		},
+		{
+			title: "Fortnite",
+			image: "/categories/fortnite.png",
+			viewers: 243,
+		},
 	];
+
+	function calculatePlaceholderSpan(
+		hbtGridWidth?: number,
+		previewWidth?: number,
+	): number | undefined {
+		if (!hbtGridWidth || !previewWidth) {
+			return undefined;
+		}
+		const gapSize = 2 * 16;
+		const numColumns = Math.round((hbtGridWidth + gapSize) / (previewWidth + gapSize));
+		const numThumbnails = streamPreviews.length - 1;
+		const remainingColumns = numColumns - (numThumbnails % numColumns);
+		if (remainingColumns === numColumns || remainingColumns === 0) {
+			return undefined;
+		}
+		return remainingColumns;
+	}
+
+	let hbtGridWidth: number;
+	let previewWidth: number;
+	$: placeholderSpan = calculatePlaceholderSpan(hbtGridWidth, previewWidth);
+
+	let categoriesSlider: HTMLElement;
+	let scrollLeft: number = 0;
+	let scrollWidth: number = 0;
+
+	function slideCategories(direction: number) {
+		if (categoriesSlider) {
+			categoriesSlider.scrollBy({ left: direction * (9.5 + 2) * 16, behavior: "smooth" });
+		}
+	}
+
+	function onScroll() {
+		if (categoriesSlider) {
+			scrollLeft = categoriesSlider.scrollLeft;
+			scrollWidth = categoriesSlider.scrollWidth;
+		}
+	}
+
+	onMount(onScroll);
 </script>
 
 <svelte:head>
@@ -152,42 +274,82 @@
 </svelte:head>
 
 <div class="content" aria-label="Page content">
-	<BigStreamPreview {...streamPreviews[0]} id="727004a1-7446-4304-868d-ae9bf15b3942" />
+	<div class="bg-gradient"></div>
 
-	<div class="container">
-		<h2 class="title">How about this?</h2>
-		<section class="hbt" role="feed" aria-label="Stream previews">
-			{#each streamPreviews.slice(1) as preview}
-				<article>
-					<SmallStreamPreview {...preview} />
-				</article>
+	<BigStreamPreview {...streamPreviews[0]} id="01H8WMQ6EPH7YFM1PQTJF81TT7" />
+
+	<div class="container hbt-container">
+		<h2 class="title" id="hbt-title">How about this?</h2>
+		<section class="hbt" role="feed" aria-labelledby="hbt-title" bind:offsetWidth={hbtGridWidth}>
+			{#each streamPreviews.slice(1) as preview, i}
+				{#if i === 0}
+					<article bind:offsetWidth={previewWidth}>
+						<SmallStreamPreview {...preview} />
+					</article>
+				{:else}
+					<article>
+						<SmallStreamPreview {...preview} />
+					</article>
+				{/if}
 			{/each}
+			<article
+				class="preview-placeholder"
+				class:hidden={!placeholderSpan}
+				style="grid-column: auto / span {placeholderSpan};"
+			>
+				<Logo width={64} />
+				<span>Go live to appear here</span>
+			</article>
 		</section>
 		<button class="show-more">
 			<h4>show more</h4>
-			<Fa icon={faChevronDown} size="1x" />
+			<Fa icon={faChevronDown} />
 			<hr />
 		</button>
 	</div>
 
-	<div class="container">
-		<h2 class="title">Categories</h2>
-		<section class="categories" role="feed" aria-label="Categories">
+	<div class="container categories-container">
+		<h2 class="title" id="categories-title">Categories</h2>
+		<section
+			class="categories"
+			role="feed"
+			aria-labelledby="categories-title"
+			bind:this={categoriesSlider}
+			on:scroll={onScroll}
+		>
 			{#each categories as category}
 				<article>
 					<CategoryCard {...category} />
 				</article>
 			{/each}
 		</section>
+		{#if scrollLeft > 16 * 9.5}
+			<button on:click={() => slideCategories(-3)} class="slide-button left">
+				<Fa icon={faChevronLeft} />
+			</button>
+		{/if}
+		{#if categoriesSlider && scrollWidth - (scrollLeft + categoriesSlider.offsetWidth) > 16 * 9.5}
+			<button on:click={() => slideCategories(3)} class="slide-button right">
+				<Fa icon={faChevronRight} />
+			</button>
+		{/if}
 	</div>
 </div>
 
 <style lang="scss">
 	@import "../assets/styles/variables.scss";
 
+	@keyframes scale-up {
+		from {
+			transform: scale(0);
+		}
+		to {
+			transform: scale(1);
+		}
+	}
+
 	.content {
-		grid-row: 2;
-		grid-column: 2 / -1;
+		grid-area: content;
 		overflow-y: auto;
 
 		display: flex;
@@ -195,18 +357,38 @@
 		gap: 2rem;
 		align-items: center;
 
-		padding: 1rem;
+		position: relative;
 
-		/* Background Gradient */
-		background: radial-gradient(
-			75% 50% at 0% 0%,
-			rgba($primaryColor, 0.05) 0%,
-			rgba($bgColor, 0) 100%
-		);
+		.bg-gradient {
+			pointer-events: none;
+
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+
+			background: radial-gradient(
+				75% 50% at 0% 0%,
+				rgba($primaryColor, 0.05) 0%,
+				rgba($bgColor, 0) 100%
+			);
+
+			transform-origin: top left;
+			animation: scale-up 0.5s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+		}
 
 		.container {
-			max-width: 125rem;
+			/*
+			    A category card is 9.5rem in width. With a max-width of 126.5rem exactly 11 cards fit next to each other with a gap of 2rem in between and a padding of 1rem left and right.
+			    11 * 9.5 + 10 * 2 + 1 + 1 = 126.5
+			*/
+			max-width: 126.5rem;
 			width: 100%;
+
+			&.hbt-container {
+				padding: 0 1rem;
+			}
 		}
 	}
 
@@ -249,15 +431,81 @@
 
 	.hbt {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
 		gap: 2rem;
-		max-width: 125rem;
+
+		& > .preview-placeholder {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			gap: 0.5rem;
+
+			border: 2px dashed $textColorLight;
+			border-radius: 0.5rem;
+
+			background: linear-gradient(
+				118deg,
+				rgba($primaryColor, 0.05) 0%,
+				rgba(255, 255, 255, 0.05) 100%
+			);
+
+			font-weight: 500;
+
+			&.hidden {
+				display: none;
+			}
+		}
 	}
 
-	.categories {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
-		gap: 2rem;
-		max-width: 125rem;
+	.categories-container {
+		position: relative;
+
+		& > .title {
+			margin-left: 1rem;
+			margin-bottom: -1.5rem;
+		}
+
+		& > .categories {
+			display: flex;
+			gap: 2rem;
+			overflow-x: auto;
+
+			/* Hide scrollbar */
+			-ms-overflow-style: none; /* IE and Edge */
+			scrollbar-width: none; /* Firefox */
+			&::-webkit-scrollbar {
+				display: none; /* Chrome, Safari, Opera */
+			}
+
+			padding: 1rem;
+			padding-top: 2rem;
+
+			& > article {
+				width: 9.5rem;
+			}
+		}
+
+		& > .slide-button {
+			position: absolute;
+
+			top: 0;
+			bottom: 0;
+
+			width: 5rem;
+
+			color: $textColor;
+			font-size: 2rem;
+
+			&.left {
+				left: 0;
+				background: linear-gradient(270deg, rgba($bgColor, 0) 0%, rgba($bgColor, 1) 100%);
+			}
+
+			&.right {
+				right: 0;
+				background: linear-gradient(90deg, rgba($bgColor, 0) 0%, rgba($bgColor, 1) 100%);
+			}
+		}
 	}
 </style>

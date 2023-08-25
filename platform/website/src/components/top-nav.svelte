@@ -1,28 +1,33 @@
 <script lang="ts">
-	import { loginMode, sessionToken } from "$store/login";
+	import { AuthDialog, authDialog, sessionToken, user } from "$/store/auth";
 	import { sideNavCollapsed, topNavHidden } from "$store/layout";
-	import { user } from "$store/user";
 	import LogoText from "./icons/logo-text.svelte";
-	import Avatar from "$/components/icons/avatar.svelte";
 	import Fa from "svelte-fa";
 	import {
 		faChevronLeft,
 		faArrowRightToBracket,
-		faMagnifyingGlass,
+		faUser,
+		faCog,
+		faArrowRightFromBracket,
 	} from "@fortawesome/free-solid-svg-icons";
 	import DropDown from "./drop-down.svelte";
-	import { logout } from "$/lib/user";
+	import { logout } from "$/lib/auth";
+	import DefaultAvatar from "./user/default-avatar.svelte";
+	import { getContextClient } from "@urql/svelte";
+	import Search from "./top-nav/search.svelte";
+
+	const client = getContextClient();
 
 	function openLogin() {
-		$loginMode = 1;
+		$authDialog = AuthDialog.Login;
 	}
 
 	function openSignup() {
-		$loginMode = 2;
+		$authDialog = AuthDialog.Register;
 	}
 
 	function onLogoutClick() {
-		logout();
+		logout(client);
 		$sessionToken = null;
 		$user = null;
 	}
@@ -30,17 +35,6 @@
 	function toggleSideNav() {
 		sideNavCollapsed.update((v) => !v);
 	}
-
-	function search(e: Event) {
-		// When the query is not empty we can let the form submit
-		if (!query) {
-			e.preventDefault();
-			queryInputRef.focus();
-		}
-	}
-
-	let queryInputRef: HTMLInputElement;
-	let query = "";
 </script>
 
 <nav class="top-nav" class:hidden={$topNavHidden} aria-label="Top navigation">
@@ -60,30 +54,34 @@
 			<LogoText />
 		</a>
 	</div>
-	<!-- This form even works with JS disabled -->
-	<search>
-		<form on:submit={search} method="get" action="/search">
-			<input
-				name="q"
-				type="text"
-				placeholder="SEARCH"
-				bind:this={queryInputRef}
-				bind:value={query}
-			/>
-			<button class="search-button" type="submit">
-				<span class="sr-only">Search</span>
-				<Fa icon={faMagnifyingGlass} size="1.2x" />
-			</button>
-		</form>
-	</search>
+	<Search />
 	<div class="nav-right">
 		{#if $user}
+			{#if typeof $user.channel.liveViewerCount === "number"}
+				<a href="/creator-dashboard" class="live-indicator" title="You are live">Live</a>
+			{/if}
 			<DropDown>
-				<Avatar />
-				<li slot="dropdown">
-					<a href="/{$user.username}">Profile</a>
-					<button on:click={onLogoutClick}>Log out</button>
-				</li>
+				<DefaultAvatar userId={$user.id} displayColor={$user.displayColor} />
+				<svelte:fragment slot="dropdown">
+					<li>
+						<a href="/{$user.username}">
+							<Fa icon={faUser} />
+							Profile
+						</a>
+					</li>
+					<li>
+						<a href="/settings">
+							<Fa icon={faCog} />
+							Settings
+						</a>
+					</li>
+					<li>
+						<button on:click={onLogoutClick}>
+							<Fa icon={faArrowRightFromBracket} />
+							Log out
+						</button>
+					</li>
+				</svelte:fragment>
 			</DropDown>
 		{:else}
 			<div class="buttons">
@@ -166,69 +164,40 @@
 		}
 	}
 
-	search {
-		/* First, take 20rem and then shrink by a factor of 1 */
-		flex: 0 1 20rem;
+	.nav-right {
+		/* Take all available space but shrink by a very high factor */
+		flex: 1 9999;
 
-		& > form {
-			/* First, take 20rem and then shrink by a factor of 1 */
-			flex: 0 1 20rem;
+		& > .live-indicator {
+			font-weight: 500;
+			color: $textColor;
+			padding: 0.5rem 1rem;
+			border-radius: 0.5rem;
+			background-color: $bgColor;
 
-			display: flex;
-			justify-content: center;
-			align-items: stretch;
+			text-decoration: none;
 
-			input {
-				flex-grow: 1;
-				width: 6rem;
-				border: 1px solid $borderColor;
-				border-right: none;
-				border-radius: 1rem 0 0 1rem;
-				transition: border-color 0.25s;
-				padding: 0.5rem 1rem;
-				font: inherit;
-				background-color: $bgColor2;
-				color: $textColor;
-				font-weight: 500;
-				outline: 0;
-				&:focus {
-					border-color: $primaryColor;
-					background-color: black;
-				}
-				&::placeholder {
-					color: $textColorLight;
-				}
+			transition: background-color 0.2s;
+
+			&:hover {
+				background-color: $bgColorLight;
 			}
 
-			.search-button {
-				border: 1px solid $borderColor;
-				border-radius: 0 1rem 1rem 0;
-				border-left: none;
-				transition:
-					border-color 0.25s,
-					background-color 0.25s;
-
-				padding: 0.75rem;
-				color: $textColor;
-				background-color: $bgColor2;
-				cursor: pointer;
-
-				display: flex;
-				align-items: center;
-			}
-
-			input:focus + .search-button {
-				background-color: $bgColor;
-				border-color: $primaryColor;
+			&::before {
+				content: "";
+				display: inline-block;
+				width: 0.4rem;
+				height: 0.4rem;
+				background-color: $liveColor;
+				border-radius: 50%;
+				margin-right: 0.4rem;
+				margin-bottom: 0.1rem;
 			}
 		}
 	}
 
 	.buttons,
 	.nav-right {
-		/* Take all available space but shrink by a very high factor */
-		flex: 1 9999;
-
 		display: flex;
 		align-items: center;
 		gap: 1rem;

@@ -5,7 +5,7 @@ await init();
 const video = document.getElementById("video") as HTMLVideoElement;
 
 function bandwidthEstimate() {
-	let bandwidthEstimate = localStorage.getItem("SCUFFLE_PLAYER_bandwidth-estimate");
+	const bandwidthEstimate = localStorage.getItem("SCUFFLE_PLAYER_bandwidth-estimate");
 	if (!bandwidthEstimate) {
 		return undefined;
 	}
@@ -16,7 +16,10 @@ function bandwidthEstimate() {
 }
 
 function saveBandwidthEstimate(bandwidth: number) {
-	localStorage.setItem("SCUFFLE_PLAYER_bandwidth-estimate", `${Math.min(bandwidth, 16 * 1000 * 1000)}`);
+	localStorage.setItem(
+		"SCUFFLE_PLAYER_bandwidth-estimate",
+		`${Math.min(bandwidth, 16 * 1000 * 1000)}`,
+	);
 }
 
 const player = new Player(video, {
@@ -59,7 +62,7 @@ const copyShareLink = document.getElementById("copy-share") as HTMLButtonElement
 copyShareLink.addEventListener("click", () => {
 	const url = new URL(window.location.href);
 
-	let params = new URLSearchParams();
+	const params = new URLSearchParams();
 	params.set("id", roomId.value);
 	params.set("type", player.roomId ? "room" : "recording");
 	params.set("currentTime", `${video.currentTime}`);
@@ -126,7 +129,7 @@ const loop = () => {
 					break;
 				}
 			}
-	
+
 			if (!found) {
 				bufferSize.innerText = "-1";
 			}
@@ -135,28 +138,28 @@ const loop = () => {
 		}
 
 		const currentTime = video.currentTime;
-		const duration = (video.seekable.length ? video.seekable.end(0) : 0);
-	
+		const duration = video.seekable.length ? video.seekable.end(0) : 0;
+
 		videoTime.innerText = `${currentTime.toFixed(3)}`;
 		videoDuration.innerText = `${duration.toFixed(3)}`;
 		latency.innerText = `${(duration - currentTime).toFixed(3)}`;
-		
+
 		resolution.innerText = `${video.videoWidth}x${video.videoHeight}`;
 
 		saveBandwidthEstimate(player.bandwidth || 0);
-	
+
 		const bps = (player.bandwidth || 0) / 1000;
-	
+
 		if (bps > 3000) {
 			bandwidth.innerText = `${(bps / 1000).toFixed(2)}Mbps`;
 		} else {
 			bandwidth.innerText = `${bps.toFixed(2)}Kbps`;
 		}
-	
+
 		const quality = video.getVideoPlaybackQuality();
-	
+
 		droppedFrames.innerText = `${quality.droppedVideoFrames}`;
-	
+
 		const now = performance.now();
 		if (now - lastFrameTime >= 1000) {
 			frameRate.innerText = `${quality.totalVideoFrames - frameCount}`;
@@ -221,7 +224,7 @@ player.on("finished", () => {
 player.on("realtime", () => {
 	console.log("realtime mode changed", player.realtimeMode);
 	realTime.innerText = `${player.realtimeMode}`;
-})
+});
 
 player.on("visibility", () => {
 	console.log("visibility changed", player.visible);
@@ -245,7 +248,7 @@ function loadVideo(type: string, startTime: number) {
 	// Update URL fragment
 	const url = new URL(window.location.href);
 
-	let params = new URLSearchParams();
+	const params = new URLSearchParams();
 	params.set("id", roomId.value);
 	params.set("type", type);
 	if (startTime != -1.0) {
@@ -257,14 +260,17 @@ function loadVideo(type: string, startTime: number) {
 	window.history.replaceState({}, "", url.href);
 
 	let autoPlayed = false;
-	let autoPlay = setInterval(() => {
+	const autoPlay = setInterval(() => {
 		if (autoPlayed) return;
 		autoPlayed = true;
-		video.play().then(() => {
-			clearInterval(autoPlay);
-		}).catch(() => {
-			autoPlayed = false;
-		});
+		video
+			.play()
+			.then(() => {
+				clearInterval(autoPlay);
+			})
+			.catch(() => {
+				autoPlayed = false;
+			});
 	}, 100);
 }
 
@@ -282,11 +288,11 @@ const url = new URL(window.location.href);
 const urlFragment = url.hash.slice(1);
 if (urlFragment) {
 	// Parse the fragment as query parameters
-	let params = new URLSearchParams(urlFragment);
+	const params = new URLSearchParams(urlFragment);
 
-	let id = params.get("id");
-	let type = params.get("type");
-	let currentTime = params.get("currentTime") || "-1.0";
+	const id = params.get("id");
+	const type = params.get("type");
+	const currentTime = params.get("currentTime") || "-1.0";
 	if (id && type) {
 		roomId.value = id;
 

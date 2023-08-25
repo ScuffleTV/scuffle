@@ -13,7 +13,7 @@ async fn test_serial_user_by_username_loader() {
         .await
         .unwrap();
     let user =
-        sqlx::query_as!(user::Model,
+        sqlx::query_as(user::Model,
         "INSERT INTO users(username, display_name, email, password_hash, stream_key) VALUES ($1, $1, $2, $3, $4) RETURNING *",
         "admin",
         "admin@admin.com",

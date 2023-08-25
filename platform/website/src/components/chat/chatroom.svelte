@@ -1,25 +1,20 @@
 <script lang="ts">
-	import { client } from "$lib/gql";
-	import { user } from "$store/user";
+	import { user } from "$store/auth";
 	import { graphql } from "$gql";
-	import { browser } from "$app/environment";
-	import { afterUpdate, onMount } from "svelte";
+	import { afterUpdate } from "svelte";
 	import Fa from "svelte-fa";
 	import { faChevronLeft } from "@fortawesome/free-solid-svg-icons";
 	import { faFaceSmile } from "@fortawesome/free-regular-svg-icons";
 	import Send from "../icons/send.svelte";
 	import Messages, { ChatStatus } from "./messages.svelte";
 	import { writable } from "svelte/store";
+	import { getContextClient } from "@urql/svelte";
 
 	const MAX_MESSAGE_LENGTH = 500;
 
-	let collapsed: boolean = browser && window.localStorage.getItem("chatroom_collapsed") === "true";
-	$: {
-		if (browser) {
-			window.localStorage.setItem("chatroom_collapsed", JSON.stringify(collapsed));
-		}
-	}
+	const client = getContextClient();
 
+	export let collapsed: boolean;
 	export let channelId: string;
 
 	function collapseNav() {
@@ -48,16 +43,6 @@
 		atBottom = messagesEl.scrollTop + messagesEl.offsetHeight >= messagesEl.scrollHeight - 30;
 	}
 
-	onMount(() => {
-		// Scroll to bottom
-		messagesEl.addEventListener("scroll", onScroll);
-		return () => {
-			if (messagesEl) {
-				messagesEl.removeEventListener("scroll", onScroll);
-			}
-		};
-	});
-
 	function scrollToBottom() {
 		// We set at bottom to true so that if new messages are added we scroll to the bottom again
 		atBottom = true;
@@ -76,7 +61,7 @@
 	});
 
 	const newMessageQuery = graphql(`
-		mutation SendMessage($channelId: UUID!, $content: String!) {
+		mutation SendMessage($channelId: ULID!, $content: String!) {
 			chat {
 				sendMessage(channelId: $channelId, content: $content) {
 					id
@@ -87,7 +72,7 @@
 
 	async function sendMessageInner(message: string) {
 		const response = await client
-			.mutation(newMessageQuery, { channelId: channelId, content: message })
+			.mutation(newMessageQuery, { channelId, content: message })
 			.toPromise();
 		if (response.error) {
 			// TODO: Failed to send message
@@ -99,7 +84,6 @@
 			e.preventDefault();
 			sendMessage();
 		}
-		e.stopPropagation();
 	}
 
 	// Remove as soon as widely supported
@@ -158,7 +142,7 @@
 				{/if}
 			</span>
 		</div>
-		<div class="messages" bind:this={messagesEl}>
+		<div class="messages" bind:this={messagesEl} on:scroll={onScroll}>
 			<Messages {channelId} {chatStatus} />
 		</div>
 		{#if atBottom === false}
@@ -173,14 +157,14 @@
 					role="textbox"
 					tabindex="0"
 					bind:innerText={chatMessage}
-					on:keydown={onChatmessageKeydown}
+					on:keydown|stopPropagation={onChatmessageKeydown}
 					on:paste={onChatmessagePaste}
 					contenteditable="true"
 					class:invalid={!inputValid}
 				/>
 				<span class="placeholder" class:hidden={!inputEmpty}>SEND A MESSAGE</span>
 				<button type="button">
-					<Fa icon={faFaceSmile} size="1.5x" />
+					<Fa icon={faFaceSmile} size="1.4x" />
 				</button>
 			</div>
 			<div class="below-input">
@@ -200,7 +184,6 @@
 		position: absolute;
 		top: 0;
 		right: 0;
-		z-index: 6;
 		transform: rotate(0deg) translateY(calc($topNavHeight + 1rem)) translateX(-1rem);
 	}
 

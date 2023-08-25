@@ -1,60 +1,13 @@
-import type { PageLoad } from "./$types";
+import { redirect } from "@sveltejs/kit";
+import type { PageLoadEvent } from "./$types";
 
-import { error } from "@sveltejs/kit";
-import { client } from "$lib/gql";
-import { graphql } from "$/gql";
+export async function load({ parent }: PageLoadEvent) {
+	const data = await parent();
 
-/// This function will be run on SSR and on the client when the page loads.
-export const load = (async ({ params }) => {
-	const user = await client
-		.query(
-			graphql(`
-				query ChannelPageUser($username: String!) {
-					user: userByUsername(username: $username) {
-						id
-						username
-						displayName
-					}
-				}
-			`),
-			{
-				username: params.username,
-			},
-		)
-		.toPromise();
-
-	if (user.error) {
-		throw error(500, {
-			message: "Internal server error",
-		});
+	// When offline
+	if (!data.user.channel.liveViewerCount && data.user.channel.liveViewerCount !== 0) {
+		throw redirect(307, `/${data.user.username}/home`);
 	}
 
-	if (!user.data?.user) {
-		throw error(404, {
-			message: "Not found",
-		});
-	}
-
-	const stream = await client
-		.query(
-			graphql(`
-				query ChannelPageStream($userId: UUID!) {
-					stream: activeStreamsByUserId(id: $userId) {
-						id
-					}
-				}
-			`),
-			{
-				userId: user.data.user.id,
-			},
-		)
-		.toPromise();
-
-	if (stream.error) {
-		throw error(500, {
-			message: "Internal server error",
-		});
-	}
-
-	return { user: user.data.user, stream: stream.data?.stream };
-}) satisfies PageLoad;
+	return { ...data };
+}

@@ -1,7 +1,6 @@
 use async_graphql::{ComplexObject, Context, Enum, SimpleObject};
-use uuid::Uuid;
 
-use super::{date, user::User};
+use super::{ulid::GqlUlid, user::User};
 use crate::{
     api::v1::gql::{
         error::{GqlError, Result, ResultExt},
@@ -20,26 +19,25 @@ pub enum MessageType {
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct ChatMessage {
-    pub id: Uuid,
-    pub channel_id: Uuid,
-    pub author_id: Uuid,
+    pub id: GqlUlid,
+    pub channel_id: GqlUlid,
+    pub user_id: GqlUlid,
     pub content: String,
-    pub created_at: date::DateRFC3339,
     pub r#type: MessageType,
 }
 
 #[ComplexObject]
 impl ChatMessage {
-    pub async fn author(&self, ctx: &Context<'_>) -> Result<Option<User>> {
+    pub async fn user(&self, ctx: &Context<'_>) -> Result<Option<User>> {
         let global = ctx.get_global();
 
-        if self.author_id.is_nil() {
+        if self.user_id.is_nil() {
             return Ok(None);
         }
 
         let user = global
             .user_by_id_loader
-            .load_one(self.author_id)
+            .load_one(self.user_id.into())
             .await
             .map_err_gql("failed to fetch user")?
             .ok_or(GqlError::NotFound.with_message("user not found"))?;
@@ -52,7 +50,7 @@ impl ChatMessage {
 
         let user = global
             .user_by_id_loader
-            .load_one(self.channel_id)
+            .load_one(self.channel_id.into())
             .await
             .map_err_gql("failed to fetch user")?
             .ok_or(GqlError::NotFound.with_message("user not found"))?;
@@ -64,11 +62,10 @@ impl ChatMessage {
 impl From<chat_message::Model> for ChatMessage {
     fn from(model: chat_message::Model) -> Self {
         Self {
-            id: model.id,
-            channel_id: model.channel_id,
-            author_id: model.author_id,
+            id: model.id.into(),
+            channel_id: model.channel_id.into(),
+            user_id: model.user_id.into(),
             content: model.content,
-            created_at: model.created_at.into(),
             r#type: MessageType::User,
         }
     }

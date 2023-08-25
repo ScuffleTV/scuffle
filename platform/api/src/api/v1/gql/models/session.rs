@@ -1,7 +1,6 @@
 use async_graphql::{ComplexObject, Context, SimpleObject};
-use uuid::Uuid;
 
-use super::{date, user::User};
+use super::{date, ulid::GqlUlid, user::User};
 use crate::api::v1::gql::{
     error::{GqlError, Result, ResultExt},
     ext::ContextExt,
@@ -11,17 +10,15 @@ use crate::api::v1::gql::{
 #[graphql(complex)]
 pub struct Session {
     /// The session's id
-    pub id: Uuid,
+    pub id: GqlUlid,
     /// The session's token
     pub token: String,
     /// The user who owns this session
-    pub user_id: Uuid,
+    pub user_id: GqlUlid,
     /// Expires at
     pub expires_at: date::DateRFC3339,
     /// Last used at
     pub last_used_at: date::DateRFC3339,
-    /// Created at
-    pub created_at: date::DateRFC3339,
 
     #[graphql(skip)]
     pub _user: Option<User>,
@@ -38,7 +35,7 @@ impl Session {
 
         let user = global
             .user_by_id_loader
-            .load_one(self.user_id)
+            .load_one(self.user_id.into())
             .await
             .map_err_gql("failed to fetch user")?
             .ok_or(GqlError::NotFound.with_message("user not found"))?;

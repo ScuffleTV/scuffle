@@ -1,0 +1,205 @@
+<script lang="ts">
+	import Chatroom from "$/components/chat/chatroom.svelte";
+	import type { LayoutData } from "./$types";
+	import DefaultAvatar from "$/components/user/default-avatar.svelte";
+	import TabSelector from "$/components/tab-selector.svelte";
+	import DisplayName from "$/components/user/display-name.svelte";
+	import { followersToString } from "$/lib/utils";
+	import FollowButton from "$/components/user/follow-button.svelte";
+	import SubscribeButton from "$/components/user/subscribe-button.svelte";
+	import BrandIcon from "$/components/icons/brand-icon.svelte";
+	import { user } from "$/store/auth";
+
+	export let data: LayoutData;
+	$: channelId = data.user.id;
+
+	$: offlineTabs = [
+		{
+			name: "Home",
+			pathname: `/${data.user.username}/home`,
+		},
+		{
+			name: "Videos",
+			pathname: `/${data.user.username}/videos`,
+		},
+		{
+			name: "Clips",
+			pathname: `/${data.user.username}/clips`,
+		},
+		{
+			name: "About",
+			pathname: `/${data.user.username}/about`,
+		},
+	];
+</script>
+
+<div class="content">
+	<div class="offline-page">
+		<div class="offline-banner">
+			<div class="user-card">
+				<div class="user-info">
+					<!-- Wrapper div -->
+					<div class="avatar">
+						<DefaultAvatar
+							userId={channelId}
+							bind:displayColor={data.user.displayColor}
+							size={3.5 * 16}
+						/>
+					</div>
+					<h1 class="name">
+						<DisplayName userId={channelId} bind:displayName={data.user.displayName} />
+					</h1>
+					<span class="followers">{followersToString(data.user.channel.followersCount)}</span>
+				</div>
+				{#if data.user.channel.description}
+					<span class="description">{data.user.channel.description}</span>
+				{/if}
+				{#if data.user.channel.links.length > 0}
+					<ul class="socials">
+						{#each data.user.channel.links as link}
+							<li>
+								<a href={link.url} target="_blank">
+									<BrandIcon url={link.url} />
+									<span>{link.name}</span>
+								</a>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		</div>
+		<div class="page">
+			<div class="row">
+				<TabSelector tabs={offlineTabs} />
+				<div class="buttons">
+					{#if $user?.id !== channelId}
+						<FollowButton {channelId} bind:following={data.following} />
+						<SubscribeButton />
+					{/if}
+				</div>
+			</div>
+			<slot />
+		</div>
+	</div>
+	<Chatroom {channelId} collapsed />
+</div>
+
+<style lang="scss">
+	@import "../../../assets/styles/variables.scss";
+
+	.content {
+		grid-area: content;
+
+		display: flex;
+
+		overflow-y: auto;
+
+		& > .offline-page {
+			overflow-y: auto;
+
+			flex-grow: 1;
+		}
+	}
+
+	.offline-banner {
+		background: url("/xqc-offline-banner.jpeg");
+		background-size: cover;
+		background-position: center;
+
+		aspect-ratio: 5 / 1;
+
+		display: flex;
+		align-items: center;
+
+		padding: 1rem;
+
+		& > .user-card {
+			background-color: $bgColor;
+			padding: 1rem;
+			border-radius: 0.5rem;
+			border: 2px solid $borderColor;
+
+			max-width: 20rem;
+
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+
+			& > .user-info {
+				display: grid;
+				grid-template-areas: "avatar name" "avatar followers";
+				justify-content: start;
+				column-gap: 0.5rem;
+				row-gap: 0.25rem;
+				grid-template-rows: 1fr 1fr;
+
+				& > .avatar {
+					grid-area: avatar;
+				}
+
+				& > .name {
+					grid-area: name;
+					align-self: end;
+
+					font-size: 1.25rem;
+					font-weight: 600;
+					line-height: 0.9;
+
+					color: $textColor;
+				}
+
+				& > .followers {
+					grid-area: followers;
+					align-self: start;
+
+					font-weight: 500;
+					color: $textColorLight;
+				}
+			}
+
+			& > .description {
+				color: $textColorLighter;
+				text-wrap: wrap;
+			}
+
+			& > .socials {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+
+				& > li {
+					padding: 0.15rem 0;
+
+					& > a {
+						color: $textColor;
+						text-decoration: none;
+						font-weight: 500;
+
+						&:hover,
+						&:focus-visible {
+							& > span {
+								text-decoration: underline;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	.page {
+		padding: 1rem;
+
+		& > .row {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 1rem;
+
+			& > .buttons {
+				display: flex;
+				gap: 1rem;
+			}
+		}
+	}
+</style>

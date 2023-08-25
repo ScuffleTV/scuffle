@@ -1,49 +1,80 @@
 <script lang="ts">
 	import { viewersToString } from "$lib/utils";
 	import { page } from "$app/stores";
+	import type { DisplayColor } from "$/gql/graphql";
+	import DefaultAvatar from "../user/default-avatar.svelte";
+	import { fade } from "svelte/transition";
 
-	export let displayName: string;
+	export let id: string;
 	export let username: string;
-	export let avatar: string;
-	export let game: string;
-	export let viewers: number | null;
+	export let displayName: string;
+	export let displayColor: DisplayColor;
+	export let channel: {
+		liveViewerCount?: number | null;
+		category?: {
+			name: string;
+		} | null;
+	};
+	export let collapsed = false;
+
+	$: isOnline = typeof channel.liveViewerCount === "number";
+
+	$: ariaLabel =
+		typeof channel.liveViewerCount === "number"
+			? `${displayName} streaming ${channel.category?.name ?? ""} with ${viewersToString(
+					channel.liveViewerCount,
+					true,
+			  )}`
+			: `${displayName} is offline`;
+
+	$: selected =
+		$page.url.pathname === `/${username}` || $page.url.pathname.startsWith(`/${username}/`);
 </script>
 
 <a
 	class="streamer-card"
-	href={`/${username}`}
-	class:selected={$page.url.pathname === `/${username}`}
-	aria-label={`${displayName} streaming ${game} with ${viewersToString(viewers, true)}`}
+	href="/{username}"
+	class:selected
+	class:collapsed
+	aria-label={ariaLabel}
+	in:fade={{ duration: 200 }}
 >
-	<img class="avatar" src={avatar} alt="User avatar" class:offline={viewers === null} />
-	<span class="name">{displayName}</span>
-	<span class="game">{game}</span>
-	<span
-		class="viewers"
-		aria-label={viewers ? viewersToString(viewers, true) : "offline"}
-		class:offline={viewers === null}>{viewersToString(viewers)}</span
-	>
+	<div class="avatar">
+		<DefaultAvatar userId={id} {displayColor} size={2 * 16} />
+	</div>
+	{#if !collapsed}
+		<div class="text-container">
+			<span class="name" class:offline={!isOnline}>{displayName}</span>
+			{#if isOnline && channel.category}
+				<span class="category">{channel.category.name}</span>
+			{/if}
+		</div>
+		<span
+			class="viewers"
+			aria-label={typeof channel.liveViewerCount === "number"
+				? viewersToString(channel.liveViewerCount, true)
+				: "offline"}
+			class:online={isOnline}
+			>{typeof channel.liveViewerCount === "number"
+				? viewersToString(channel.liveViewerCount)
+				: "Offline"}</span
+		>
+	{/if}
 </a>
 
 <style lang="scss">
 	@import "../../assets/styles/variables.scss";
 
 	.streamer-card {
-		display: grid;
-		column-gap: 0.5rem;
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
 
 		padding: 0.5rem 0.75rem;
 		padding-left: 0.625rem;
 		color: $textColor;
-		font-family: $sansFont;
 		text-decoration: none;
 		border-left: 0.125rem solid transparent;
-
-		grid-template-rows: 1fr 1fr;
-		grid-template-columns: auto 1fr auto;
-		grid-template-areas:
-			"avatar name viewers"
-			"avatar game .";
 
 		&:hover,
 		&:focus-visible {
@@ -56,48 +87,52 @@
 	}
 
 	.avatar {
-		grid-area: avatar;
-		height: 2rem;
-		aspect-ratio: 1/1;
-		border-radius: 50%;
-		place-self: center;
-		&.offline {
-			filter: grayscale(100%);
-		}
+		justify-self: center;
+
+		display: flex;
+	}
+
+	.text-container {
+		flex-grow: 1;
+
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
 	}
 
 	.name {
-		grid-area: name;
-		align-self: center;
 		color: $textColor;
 		font-weight: 500;
 		font-size: 1rem;
+
+		&.offline {
+			grid-row: 1 / span 2;
+		}
 	}
 
-	.game {
-		grid-area: game;
-		align-self: center;
+	.category {
 		color: $textColorLight;
 		font-weight: 500;
 		font-size: 0.865rem;
 
-		/* if the game is too long, we want to cut it off and add an ellipsis */
+		/* if the category name is too long, we want to cut it off and add an ellipsis */
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
 	.viewers {
-		grid-area: viewers;
-		align-self: center;
 		justify-self: end;
+		align-self: flex-start;
 		color: $textColorLighter;
 		font-weight: 500;
 		font-size: 0.865rem;
+
+		white-space: nowrap;
 	}
 
 	// We need to make a red dot appear on the avatar when the streamer is live.
-	.viewers:not(.offline)::before {
+	.viewers.online::before {
 		content: "";
 		display: inline-block;
 		width: 0.4rem;

@@ -198,7 +198,6 @@ fi
 if [ "$no_rust" != "true" ]; then
     cargo clippy -- -D warnings
     cargo fmt --all --check
-    cargo sqlx prepare --check --workspace -- --all-targets --all-features
     $MASK gql check
 fi
 
@@ -325,30 +324,6 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 sqlx migrate revert --source ./platform/migrations
-```
-
-### prepare
-
-> Prepare the database
-
-**OPTIONS**
-
-- no_format
-  - flags: --no-format
-  - type: bool
-  - desc: Disables formatting
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-cargo sqlx prepare --workspace -- --all-targets --all-features
-
-if [ "$no_format" != "true" ]; then
-    pnpm exec prettier --write .sqlx
-fi
 ```
 
 ### reset

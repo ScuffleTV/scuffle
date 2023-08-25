@@ -1,6 +1,5 @@
 use std::{future, str::FromStr, sync::Arc};
 
-use crate::database::session;
 use async_graphql::{
     http::{WebSocketProtocols, WsMessage},
     Data, ErrorExtensions,
@@ -22,25 +21,22 @@ use crate::{
     api::{
         error::{Result, ResultExt as _, RouteError},
         ext::RequestExt as _,
-        v1::jwt::JwtState,
+        v1::{
+            jwt::JwtState,
+            request_context::{AuthData, RequestContext},
+        },
     },
-    dataloader::user_permissions::UserPermission,
     global::GlobalState,
 };
 
-use super::{
-    error::{GqlError, ResultExt as _},
-    ext::RequestExt as _,
-    request_context::RequestContext,
-    MySchema,
-};
+use super::{error::GqlError, ext::RequestExt as _, MySchema};
 
 async fn websocket_handler(
     ws: HyperWebsocket,
     schema: MySchema,
     global: Arc<GlobalState>,
     protocol: WebSocketProtocols,
-    request_context: Arc<RequestContext>,
+    request_context: RequestContext,
 ) {
     let ws = match ws.await {
         Ok(ws) => ws,
@@ -77,8 +73,7 @@ async fn websocket_handler(
                 // and we fail if the token is invalid, there doesnt seem to be a way to return an error
                 // from the connection_init callback that does not close the connection.
                 // Or a way to tell the client that the token they provided is not valid.
-                let token = params.get("sessionToken").and_then(|v| v.as_str());
-                if let Some(token) = token {
+                if let Some(token) = params.get("sessionToken").and_then(|v| v.as_str()) {
                     // We silently ignore invalid tokens since we don't want to force the user to login
                     // if the token is invalid when they make a request which requires authentication, it will fail.
                     let Some(jwt) = JwtState::verify(&global, token) else {
@@ -87,31 +82,9 @@ async fn websocket_handler(
                             .extend());
                     };
 
-                    let Some(session) = global
-                        .session_by_id_loader
-                        .load_one(jwt.session_id)
-                        .await
-                        .map_err_gql("failed to fetch session")?
-                    else {
-                        return Err(GqlError::InvalidSession
-                            .with_message("invalid session")
-                            .extend());
-                    };
-
-                    if !session.is_valid() {
-                        return Err(GqlError::InvalidSession
-                            .with_message("session has invalidated")
-                            .extend());
+                    if let Ok(data) = AuthData::from_session_id(&global, jwt.session_id).await {
+                        request_context.set_auth(data).await;
                     }
-
-                    let permissions = global
-                        .user_permisions_by_id_loader
-                        .load_one(session.id)
-                        .await
-                        .map_err_gql("failed to fetch permissions")?
-                        .unwrap_or_default();
-
-                    request_context.set_session(Some((session, permissions)));
                 }
 
                 Ok(data)
@@ -138,6 +111,7 @@ async fn websocket_handler(
 
 pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
     if req.method() == hyper::Method::OPTIONS {
+        // TODO: Why this? We have cors middleware
         return Ok(hyper::Response::builder()
             .status(StatusCode::OK)
             .header("Access-Control-Allow-Origin", "*")
@@ -158,7 +132,7 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
 
     let global = req.get_global()?;
 
-    let session = req.context::<(session::Model, UserPermission)>();
+    let context: RequestContext = req.context().expect("missing request context");
 
     // We need to check if this is a websocket upgrade request.
     // If it is, we need to upgrade the request to a websocket request.
@@ -185,22 +159,12 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
                 .expect("failed to set websocket protocol"),
         );
 
-        let request_context = Arc::new(RequestContext::new(true));
-        request_context.set_session(session);
-
         tokio::spawn(websocket_handler(
-            websocket,
-            schema,
-            global,
-            protocol,
-            request_context,
+            websocket, schema, global, protocol, context,
         ));
 
         return Ok(response);
     }
-
-    let session_state = Arc::new(RequestContext::new(false));
-    session_state.set_session(session);
 
     // We need to parse the request body into a GraphQL request.
     // If the request is a post request, we need to parse the body as a GraphQL request.
@@ -241,10 +205,11 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
         }
     }
     .provide_global(global)
-    .provide_context(session_state);
+    .provide_context(context);
 
     let response = schema.execute(request).await;
 
+    // TODO: Why all those headers? We have a CORS middleware
     let mut resp = Response::builder()
         .status(StatusCode::OK)
         .header("Access-Control-Allow-Origin", "*")

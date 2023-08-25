@@ -8,7 +8,8 @@ import "scuffle/video/v1/types/access_token.proto";
 import "scuffle/video/v1/types/access_token_scope.proto";
 import "scuffle/video/v1/types/search_options.proto";
 
-// This service allows for the creation, modification, and deletion of access tokens.
+// This service allows for the creation, modification, and deletion of access
+// tokens.
 service AccessToken {
   // Get a list of recording configs.
   rpc Get(AccessTokenGetRequest) returns (AccessTokenGetResponse) {}
@@ -29,8 +30,8 @@ service AccessToken {
 // The request payload for AccessToken.Get.
 message AccessTokenGetRequest {
   // A list of ids to retrieve. If empty, all access tokens will be returned.
-  // If not empty, only the access tokens with the specified ids will be returned.
-  // This will be filtered by the other options. (max: 100, min: 0)
+  // If not empty, only the access tokens with the specified ids will be
+  // returned. This will be filtered by the other options. (max: 100, min: 0)
   repeated types.Ulid ids = 1;
 
   // The options to use when searching for access tokens.
@@ -46,10 +47,12 @@ message AccessTokenGetResponse {
 // The request payload for AccessToken.Create.
 message AccessTokenCreateRequest {
   // The scopes to apply to the access token. Cannot be empty.
-  // Also cannot have more scopes than then the scope of the current access token.
+  // Also cannot have more scopes than then the scope of the current access
+  // token.
   repeated types.AccessTokenScope scopes = 1;
-  
-  // The time at which the access token will expire. If not specified, the access token will not expire.
+
+  // The time at which the access token will expire. If not specified, the
+  // access token will not expire.
   optional int64 expires_at = 2;
 
   // The tags to apply to the access token.

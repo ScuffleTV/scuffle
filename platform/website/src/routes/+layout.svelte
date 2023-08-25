@@ -1,18 +1,25 @@
 <script lang="ts">
 	import "$assets/styles/global.scss";
 	import TopNav from "$components/top-nav.svelte";
-	import { loginMode } from "$store/login";
-	import Login from "$components/login.svelte";
+	import { authDialog } from "$/store/auth";
+	import AuthDialog from "$/components/auth/auth-dialog.svelte";
 	import { setContextClient } from "@urql/svelte";
-	import { client } from "$lib/gql";
-	import "$lib/user";
+	import "$/lib/auth";
 	import SideNav from "$components/side-nav.svelte";
 	import { onMount } from "svelte";
+	import type { LayoutData } from "./$types";
+	import { building } from "$app/environment";
+	import Spinner from "$/components/spinner.svelte";
 
-	// This provides the GraphQL client to all components in the app.
-	setContextClient(client);
+	export let data: LayoutData;
+
+	setContextClient(data.client);
 
 	let based = false;
+
+	for (const el of document.querySelectorAll(".remove-after-load")) {
+		el.remove();
+	}
 
 	onMount(() => {
 		// Show BASED between 10 and 60 minutes
@@ -23,44 +30,32 @@
 	});
 </script>
 
-<div class="page-body">
-	<header>
-		<a href="#main" class="skip-to-main">Skip to main content</a>
-		<TopNav />
+<header>
+	<a href="#main" class="skip-to-main">Skip to main content</a>
+	<TopNav />
+	{#if !building}
 		<SideNav />
-	</header>
+	{/if}
+</header>
 
-	<main id="main">
+<main id="main">
+	{#if building}
+		<Spinner />
+	{:else}
 		<slot />
 
-		{#if $loginMode}
-			<Login />
+		{#if $authDialog}
+			<AuthDialog />
 		{/if}
 
 		<img class="based" src="/BASED.webp" alt="BASED" class:animate={based} />
-		<img class="based" src="/BASED.webp" alt="BASED" class:animate={based} />
 
 		<footer />
-		<img class="based" src="/BASED.webp" alt="BASED" class:animate={based} />
-
-		<footer />
-	</main>
-</div>
+	{/if}
+</main>
 
 <style lang="scss">
 	@import "../assets/styles/variables.scss";
-
-	.page-body {
-		display: grid;
-		grid-template-areas:
-			"top-nav top-nav top-nav"
-			"side-nav content chat";
-		grid-template-rows: auto 1fr auto;
-		grid-template-columns: auto 1fr auto;
-		min-height: 100vh;
-		max-height: 100vh;
-		overflow: hidden;
-	}
 
 	header,
 	main {

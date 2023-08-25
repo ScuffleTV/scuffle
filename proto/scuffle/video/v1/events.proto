@@ -7,45 +7,46 @@ import "scuffle/video/v1/types/ulid.proto";
 
 // This service allows you to subscribe to events from scuffle.
 service Events {
-    // Subscribe to events from scuffle.
-    rpc Subscribe(stream EventsSubscribeRequest) returns (stream EventsSubscribeResponse) {}
+  // Subscribe to events from scuffle.
+  rpc Subscribe(stream EventsSubscribeRequest)
+      returns (stream EventsSubscribeResponse) {}
 }
 
 // The request payload for Events.Subscribe.
 message EventsSubscribeRequest {
-    // The first message sent by the client must be an OnOpen message.
-    message OnOpen {
-        enum Target {
-            ROOM = 0;
-            RECORDING = 1;
-            ACCESS_TOKEN = 2;
-            PLAYBACK_KEY_PAIR = 3;
-            RECORDING_CONFIG = 4;
-            TRANSCODING_CONFIG = 5;
-            S3_BUCKET = 6;
-        }
+  // The first message sent by the client must be an OnOpen message.
+  message OnOpen {
+    enum Target {
+      ROOM = 0;
+      RECORDING = 1;
+      ACCESS_TOKEN = 2;
+      PLAYBACK_KEY_PAIR = 3;
+      RECORDING_CONFIG = 4;
+      TRANSCODING_CONFIG = 5;
+      S3_BUCKET = 6;
     }
+  }
 
-    // The client must send an AckEvent message for each event it receives.
-    // Otherwise, the event will be requeued and sent to another client.
-    message AckEvent {
-        // The ID of the event to acknowledge.
-        types.Ulid id = 1;
+  // The client must send an AckEvent message for each event it receives.
+  // Otherwise, the event will be requeued and sent to another client.
+  message AckEvent {
+    // The ID of the event to acknowledge.
+    types.Ulid id = 1;
 
-        // If true, the event will be requeued and sent to another client.
-        bool requeue = 2;
-    }
+    // If true, the event will be requeued and sent to another client.
+    bool requeue = 2;
+  }
 
-    // The client must send the first message as an OnOpen message.
-    // All other messages must be AckEvent messages.
-    oneof event {
-        OnOpen on_open = 1;
-        AckEvent ack_event = 2;
-    }
+  // The client must send the first message as an OnOpen message.
+  // All other messages must be AckEvent messages.
+  oneof event {
+    OnOpen on_open = 1;
+    AckEvent ack_event = 2;
+  }
 }
 
 // The response payload for Events.Subscribe.
 message EventsSubscribeResponse {
-    // The event sent by the server.
-    types.Event event = 1;
+  // The event sent by the server.
+  types.Event event = 1;
 }

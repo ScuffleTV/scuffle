@@ -9,51 +9,6 @@ h2 {
 $scrollBarColor: #606364;
 $scrollBarBgColor: #0f1314;
 
-body {
-	margin: 0;
-	background-color: $bgColor;
-	color: $textColor;
-	font-family: $sansFont;
-	max-height: 100vh;
-	min-height: 100vh;
-	min-width: 100vw;
-	max-width: 100vw;
-	overflow-x: hidden;
-	overflow-y: auto;
-
-	&.no-overflow {
-		overflow: hidden;
-	}
-}
-
-* {
-	scrollbar-color: $scrollBarColor $scrollBarBgColor;
-	scrollbar-width: thin;
-}
-
-*::-webkit-scrollbar {
-	width: 0.25rem;
-}
-
-*::-webkit-scrollbar-track {
-	background: $scrollBarBgColor;
-}
-
-*::-webkit-scrollbar-thumb {
-	background: $scrollBarColor;
-}
-
-* {
-	box-sizing: border-box;
-}
-
-/* Remmove all transitions when reduced motion is prefered */
-@media (prefers-reduced-motion: reduce) {
-	* {
-		transition: none !important;
-	}
-}
-
 button {
 	font-family: inherit;
 	cursor: pointer;
@@ -63,13 +18,15 @@ button {
 }
 
 .button {
+	cursor: pointer;
 	transition:
 		color 0.2s,
 		filter 0.2s,
 		border-color 0.2s;
 	font: inherit;
 	border: 1px solid $borderColor;
-	border-radius: 0.6rem;
+	border-radius: 0.4rem;
+	text-decoration: none;
 
 	&.primary {
 		background-color: white;

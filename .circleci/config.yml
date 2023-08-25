@@ -245,7 +245,7 @@ jobs:
           command: tar -czf player-demo.tar.gz -C video/player demo-dist --transform s/demo-dist/player-demo/
 
       - store_artifacts:
-         path: player-demo.tar.gz
+          path: player-demo.tar.gz
 
       - persist_to_workspace:
           root: .

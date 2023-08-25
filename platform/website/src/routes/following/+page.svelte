@@ -19,8 +19,8 @@
 </svelte:head>
 
 <div class="content" aria-label="Page content">
-	<h2 class="title">Following</h2>
-	<section class="following" aria-label="Stream previews">
+	<h2 class="title" id="following-title">Following</h2>
+	<section class="following" aria-labelledby="following-title">
 		{#each following as preview}
 			<article>
 				<SmallStreamPreview {...preview} />
@@ -33,8 +33,7 @@
 	@import "../../assets/styles/variables.scss";
 
 	.content {
-		grid-row: 2;
-		grid-column: 2 / -1;
+		grid-area: content;
 		overflow-y: auto;
 
 		padding: 1rem;

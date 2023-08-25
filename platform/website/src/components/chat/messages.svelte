@@ -8,21 +8,17 @@
 
 <script lang="ts">
 	import { pipe, subscribe, type Subscription } from "wonka";
-	import { client } from "$lib/gql";
 	import { graphql } from "$gql";
 	import { MessageType, type ChatMessage, type User } from "$gql/graphql";
-	import { onMount } from "svelte";
+	import { onDestroy } from "svelte";
 	import type { Writable } from "svelte/store";
+	import { websocketOpen } from "$/store/websocket";
+	import { getContextClient } from "@urql/svelte";
 
 	export let channelId: string;
 	export let onlyUserMessages: boolean = false;
 
-	onMount(() => {
-		subscribeToMessages();
-		return () => {
-			unsubscribeFromMessages();
-		};
-	});
+	const client = getContextClient();
 
 	interface MessageContainer {
 		// Svelte uses this to track changes
@@ -32,21 +28,34 @@
 	}
 
 	export let chatStatus: Writable<ChatStatus>;
+
 	let subscription: Subscription;
 	let svelteIdCounter = 1;
 	let messages: MessageContainer[] = [];
 
+	$: {
+		unsubscribeFromMessages();
+		if ($websocketOpen) {
+			subscribeToMessages(channelId);
+		}
+	}
+
+	onDestroy(() => {
+		unsubscribeFromMessages();
+	});
+
+	$: channelId, (messages = []);
+
 	function createSystemMessage(content: string): ChatMessage {
 		return {
-			authorId: "",
 			// We cast to User because this is a system message and we don't care about the author or the channel
 			channel: {} as User,
-			author: {} as User,
-			channelId: channelId,
-			createdAt: "",
+			channelId,
+			content: content,
 			id: "",
 			type: MessageType.System,
-			content: content,
+			user: {} as User,
+			userId: "",
 		};
 	}
 
@@ -67,40 +76,38 @@
 		}
 	}
 
-	function intColorToStyle(color?: number) {
+	function colorToStyle(color?: string) {
 		if (!color) return "";
-		const r = (color >> 16) & 0xff;
-		const g = (color >> 8) & 0xff;
-		const b = color & 0xff;
-		const a = ((color >> 24) & 0xff) / 255;
-		return `color: rgb(${r}, ${g}, ${b}, ${a === 0.0 ? 1.0 : a});`;
+		return `color: ${color};`;
 	}
 
-	function subscribeToMessages() {
-		chatStatus.set(ChatStatus.Connecting);
+	function subscribeToMessages(channelId: string) {
+		$chatStatus = ChatStatus.Connecting;
 		const subscriptionQuery = graphql(`
-			subscription ChatMessages($channelId: UUID!) {
+			subscription ChatMessages($channelId: ULID!) {
 				chatMessages(channelId: $channelId) {
 					id
 					type
 					content
-					author {
+					user {
 						id
 						username
 						displayName
-						displayColor
+						displayColor {
+							color
+						}
 					}
 				}
 			}
 		`);
 
 		subscription = pipe(
-			client.subscription(subscriptionQuery, { channelId: channelId }),
+			client.subscription(subscriptionQuery, { channelId }),
 			subscribe((response) => {
 				const message = response.data?.chatMessages as ChatMessage | undefined;
 				if (message) {
 					if (message.type === MessageType.Welcome) {
-						chatStatus.set(ChatStatus.Connected);
+						$chatStatus = ChatStatus.Connected;
 					}
 					insertNewMessage(message);
 				} else if (response.error) {
@@ -111,23 +118,23 @@
 	}
 
 	function unsubscribeFromMessages() {
-		chatStatus.set(ChatStatus.Disconnected);
 		if (subscription) {
+			$chatStatus = ChatStatus.Disconnected;
 			subscription.unsubscribe();
 			insertNewMessage(createSystemMessage("Disconnected from chat"));
 		}
 	}
 </script>
 
-{#if $chatStatus === ChatStatus.Connected}
+{#if $chatStatus === ChatStatus.Connected || $chatStatus === ChatStatus.Disconnected}
 	{#each messages as message (message.svelteId)}
 		<div class="message">
 			{#if message.message.type === MessageType.User}
 				<span
 					><span
 						class="message-sender"
-						style={intColorToStyle(message.message.author?.displayColor)}
-						>{message.message.author?.displayName}</span
+						style={colorToStyle(message.message.user?.displayColor.color)}
+						>{message.message.user?.displayName}</span
 					>:
 				</span>
 				<span class="message-text">{message.message.content}</span>

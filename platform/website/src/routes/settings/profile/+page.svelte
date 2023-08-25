@@ -1,0 +1,230 @@
+<script lang="ts">
+	import DefaultAvatar from "$/components/user/default-avatar.svelte";
+	import Color from "$/components/settings/profile/color.svelte";
+	import { user } from "$/store/auth";
+	import { faPalette, faTrashAlt, faUpload } from "@fortawesome/free-solid-svg-icons";
+	import { graphql } from "$gql";
+	import Fa from "svelte-fa";
+	import { getContextClient } from "@urql/svelte";
+	import DisplayName from "$/components/user/display-name.svelte";
+	import Section from "$/components/settings/section.svelte";
+	import StatusBar, { Status } from "$/components/settings/status-bar.svelte";
+	import { beforeNavigate } from "$app/navigation";
+	import SectionContainer from "$/components/settings/section-container.svelte";
+	import UserBanner from "$/components/settings/user-banner.svelte";
+
+	// TODO: Add invisible turnstile captcha
+	// TODO: Improve details text
+
+	const recommendedColors = ["#ff7a00", "#ffe457", "#57ff86", "#00ffd1", "#5786ff", "#8357ff"];
+
+	const client = getContextClient();
+
+	let status = Status.Unchanged;
+
+	let displayName = $user?.displayName;
+	$: displayNameValid = displayName?.toLowerCase() === $user?.displayName.toLowerCase();
+
+	let displayColor = $user?.displayColor.color;
+	let displayColorInput: HTMLInputElement;
+
+	let avatarFiles: FileList;
+	let avatarInput: HTMLInputElement;
+
+	$: status =
+		displayName !== $user?.displayName || displayColor !== $user?.displayColor.color
+			? Status.Changed
+			: Status.Unchanged;
+
+	function saveChanges() {
+		if (displayName !== $user?.displayName) {
+			saveDisplayName();
+		}
+		if (displayColor !== $user?.displayColor.color) {
+			saveDisplayColor();
+		}
+	}
+
+	function saveDisplayName() {
+		if (displayName) {
+			status = Status.Saving;
+			const request = {
+				query: graphql(`
+					mutation SetDisplayName($displayName: String!) {
+						user {
+							resp: displayName(displayName: $displayName) {
+								displayName
+							}
+						}
+					}
+				`),
+				variables: {
+					displayName,
+				},
+			};
+			client
+				.mutation(request.query, request.variables, {
+					requestPolicy: "network-only",
+				})
+				.toPromise()
+				.then((result) => {
+					if (result.data) {
+						displayName = result.data.user.resp.displayName;
+						if ($user) {
+							$user.displayName = result.data.user.resp.displayName;
+						}
+					} else if (result.error && $user) {
+						displayName = $user.displayName;
+					}
+				});
+		}
+	}
+
+	function saveDisplayColor() {
+		if (displayColor) {
+			status = Status.Saving;
+			const request = {
+				query: graphql(`
+					mutation SetDisplayColor($color: Color!) {
+						user {
+							resp: displayColor(color: $color) {
+								displayColor {
+									color
+									hue
+									isGray
+								}
+							}
+						}
+					}
+				`),
+				variables: {
+					color: displayColor,
+				},
+			};
+			client
+				.mutation(request.query, request.variables, {
+					requestPolicy: "network-only",
+				})
+				.toPromise()
+				.then((result) => {
+					if (result.data) {
+						displayColor = result.data.user.resp.displayColor.color;
+						if ($user) {
+							$user.displayColor = result.data.user.resp.displayColor;
+						}
+					} else if (result.error && $user) {
+						displayColor = $user.displayColor.color;
+					}
+				});
+		}
+	}
+
+	$: {
+		if (avatarFiles && avatarFiles[0]) {
+			status = Status.Saving;
+			//TODO: Upload file
+		}
+	}
+</script>
+
+{#if $user}
+	<SectionContainer>
+		<Section title="Profile Picture" details="Shows on your channel page.">
+			<div class="input big">
+				<DefaultAvatar userId={$user.id} displayColor={$user.displayColor} size={6 * 16} />
+				<div class="buttons">
+					<!-- Pseudo button that clicks the hidden input -->
+					<button class="button primary" on:click={() => avatarInput.click()}>
+						<Fa icon={faUpload} />
+						Upload Picture
+					</button>
+					<input
+						type="file"
+						accept="image/png, image/jpeg"
+						bind:this={avatarInput}
+						bind:files={avatarFiles}
+						hidden
+					/>
+					<button class="button secondary">
+						<Fa icon={faTrashAlt} />
+						Remove Picture
+					</button>
+				</div>
+			</div>
+		</Section>
+		<Section
+			title="Display Name"
+			details="What shows up as your channel name."
+			showReset={displayName !== $user.displayName}
+			on:reset={() => (displayName = $user?.displayName)}
+		>
+			<input
+				class="input display-name"
+				class:invalid={!displayNameValid}
+				type="text"
+				placeholder="Display Name"
+				bind:value={displayName}
+			/>
+			{#if !displayNameValid}
+				<span class="error message">You may only change capatilization</span>
+			{/if}
+		</Section>
+		<Section
+			title="Display Color"
+			details="The color of your name in chat."
+			showReset={displayColor !== $user.displayColor.color}
+			on:reset={() => (displayColor = $user?.displayColor.color)}
+		>
+			<div class="input big display-color">
+				<span class="display-name" style="color: {displayColor}">{$user?.displayName}</span>
+				<div class="color-picker">
+					<div class="colors">
+						{#each recommendedColors as color}
+							<Color {color} on:click={() => (displayColor = color)} />
+						{/each}
+					</div>
+					<!-- Pseudo button that clicks the hidden input -->
+					<button class="button primary" on:click={() => displayColorInput.click()}>
+						<Fa icon={faPalette} />
+						Choose Color
+					</button>
+					<input type="color" bind:this={displayColorInput} bind:value={displayColor} hidden />
+				</div>
+			</div>
+		</Section>
+		<StatusBar {status} on:save={saveChanges} saveDisabled={!displayNameValid} />
+	</SectionContainer>
+{/if}
+
+<style lang="scss">
+	@import "../../../assets/styles/variables.scss";
+	@import "../../../assets/styles/settings.scss";
+
+	.input.display-color {
+		& > .display-name {
+			font-weight: 500;
+			font-size: 1.25rem;
+			flex-grow: 1;
+		}
+	}
+
+	.color-picker {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+
+		& > .colors {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.5rem;
+
+			max-width: 20rem;
+		}
+	}
+
+	.input.display-name:focus {
+		& + .message {
+			display: none;
+		}
+	}
+</style>

@@ -3,124 +3,131 @@
 	import type { PageData } from "./$types";
 	import Tag from "$/components/tag.svelte";
 	import Player from "$/components/player.svelte";
-	import Fa from "svelte-fa";
-	import { faPersonWalking, faPersonRunning } from "@fortawesome/free-solid-svg-icons";
-	import { viewersToString } from "$/lib/utils";
+	import { formatDuration, viewersToString } from "$/lib/utils";
+	import { browser } from "$app/environment";
+	import DefaultAvatar from "$/components/user/default-avatar.svelte";
+	import { user } from "$/store/auth";
+	import { onDestroy } from "svelte";
+	import DisplayName from "$/components/user/display-name.svelte";
+	import FollowButton from "$/components/user/follow-button.svelte";
+	import SubscribeButton from "$/components/user/subscribe-button.svelte";
 
 	export let data: PageData;
+	$: channelId = data.user.id;
 
-	const { user, stream } = data;
+	let chatCollapsed = data.chatroomCollapsed;
+
+	$: if (browser) {
+		localStorage.setItem("layout_chatroomCollapsed", JSON.stringify(chatCollapsed));
+	}
+
+	$: viewers =
+		typeof data.user.channel.liveViewerCount === "number"
+			? viewersToString(data.user.channel.liveViewerCount)
+			: undefined;
+
+	let timeLive =
+		data.user.channel.lastLiveAt && formatDuration(new Date(data.user.channel.lastLiveAt));
+	let timeInterval: NodeJS.Timer | number;
+
+	function setTimeLiveInterval() {
+		clearInterval(timeInterval);
+		timeInterval = setInterval(() => {
+			if (data.user.channel.lastLiveAt) {
+				timeLive = formatDuration(new Date(data.user.channel.lastLiveAt));
+			}
+		}, 500);
+	}
+
+	$: if (data.user.channel.lastLiveAt) {
+		setTimeLiveInterval();
+	}
+
+	onDestroy(() => {
+		clearInterval(timeInterval);
+	});
 </script>
 
-<svelte:head>
-	<title>Scuffle - {user.displayName}</title>
-	<meta name="description" content="Watch {user.displayName} live on Scuffle" />
-	<meta
-		name="keywords"
-		content="scuffle, live, stream, watch, {user.displayName}, {user.username}"
-	/>
-
-	<!-- Open Graph -->
-	<meta property="og:type" content="website" />
-	<meta property="og:title" content="Scuffle - {user.displayName}" />
-	<meta property="og:description" content="Watch {user.displayName} live on Scuffle" />
-	<meta
-		property="og:image"
-		content="https://static-cdn.jtvnw.net/jtv_user_pictures/3773bfdd-110b-4911-b914-6f04362a1331-profile_image-70x70.png"
-	/>
-	<meta property="og:image:alt" content="{user.displayName}'s profile picture" />
-	<!-- TODO: Change this when the domain changes -->
-	<meta property="og:url" content="https://scuffle.tv/{user.displayName}" />
-	<meta property="og:site_name" content="Scuffle" />
-	<!-- TODO: Change this when localizing -->
-	<meta property="og:locale" content="en_US" />
-</svelte:head>
-
 <div class="content">
-	{#if stream}
-		<div class="player-container">
-			<Player streamId={stream.id} />
-			<div class="under-player">
-				<div class="row title-row">
-					<h1 class="title">working on https://github.com/scuffletv</h1>
-					<div class="stream-info">
-						<span class="viewers">{viewersToString(103000)}</span>
-						<span class="time">01:20:11</span>
-					</div>
-				</div>
-				<div class="row">
-					<div>
-						<div class="user">
-							<img
-								class="avatar"
-								src="https://static-cdn.jtvnw.net/jtv_user_pictures/3773bfdd-110b-4911-b914-6f04362a1331-profile_image-70x70.png"
-								alt="Avatar"
-							/>
-							<h1 class="name">{user.displayName}</h1>
-							<span class="game">Software and Game Development</span>
-						</div>
-						<button class="button primary">
-							<Fa icon={faPersonWalking} size="1.2x" />
-							<span>Follow</span>
-						</button>
-					</div>
-					<button class="button primary">
-						<Fa icon={faPersonRunning} size="1.2x" />
-						<span>Subscribe</span>
-					</button>
-				</div>
-				<div class="tags">
-					<Tag content="English" />
-					<Tag content="open source" />
-					<Tag content="streaming" />
+	<div class="user-container">
+		<Player streamId={"0"} />
+		<div class="under-player">
+			<div class="row title-row">
+				<h1 class="title">{data.user.channel.title ?? ""}</h1>
+				<div class="stream-info">
+					{#if viewers}
+						<span class="viewers">{viewers}</span>
+					{/if}
+					{#if timeLive}
+						<span class="time">{timeLive}</span>
+					{/if}
 				</div>
 			</div>
+			<div class="row">
+				<div>
+					<div class="user">
+						<!-- Wrapper div -->
+						<div class="avatar">
+							<DefaultAvatar
+								userId={channelId}
+								bind:displayColor={data.user.displayColor}
+								size={40}
+							/>
+						</div>
+						<div class="container">
+							<h1 class="name">
+								<DisplayName userId={channelId} bind:displayName={data.user.displayName} />
+							</h1>
+							{#if data.user.channel.category}
+								<span class="category">{data.user.channel.category.name}</span>
+							{/if}
+						</div>
+					</div>
+					{#if $user?.id !== channelId}
+						<FollowButton {channelId} bind:following={data.following} />
+					{/if}
+				</div>
+				{#if $user?.id !== channelId}
+					<SubscribeButton />
+				{/if}
+			</div>
+			<div class="tags">
+				<Tag content="English" />
+				<Tag content="open source" />
+				<Tag content="streaming" />
+			</div>
 		</div>
-	{:else}
-		<span>Offline</span>
-	{/if}
+	</div>
+	<Chatroom {channelId} bind:collapsed={chatCollapsed} />
 </div>
-
-<Chatroom channelId={user.id} />
 
 <style lang="scss">
 	@import "../../assets/styles/variables.scss";
 
 	.content {
 		grid-area: content;
-		overflow-y: scroll;
 
 		display: flex;
 
-		/* Hide scrollbar */
-		&::-webkit-scrollbar {
-			display: none;
-		}
-		-ms-overflow-style: none;
-		scrollbar-width: none;
+		overflow-y: auto;
 
-		& > .player-container {
+		& > .user-container {
 			flex-grow: 1;
+
+			overflow-y: auto;
 		}
 	}
 
 	.under-player {
-		padding: 0.25rem 0.5rem;
+		grid-area: under-player;
+
+		padding: 1rem;
 		font-family: $sansFont;
 		font-weight: 500;
 
 		display: flex;
-		gap: 0.75rem;
+		gap: 1rem;
 		flex-direction: column;
-
-		.button {
-			padding: 0.25rem 0.5rem;
-			font-weight: 500;
-
-			display: flex;
-			align-items: center;
-			gap: 0.4rem;
-		}
 
 		.row {
 			display: flex;
@@ -144,33 +151,36 @@
 		}
 
 		.user {
-			display: grid;
-			grid-template-areas: "avatar name" "avatar game";
-			column-gap: 0.5rem;
+			display: flex;
+			gap: 0.5rem;
 			align-items: center;
 
 			& > .avatar {
-				grid-area: avatar;
+				grid-row: 1 / -1;
 				width: 2.5rem;
 				height: 2.5rem;
 				border-radius: 50%;
 			}
 
-			& > .name {
-				grid-area: name;
-				font-size: 1.25rem;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-			}
+			& > .container {
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
 
-			& > .game {
-				grid-area: game;
-				font-size: 0.875rem;
-				color: $textColorLight;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
+				& > .name {
+					font-size: 1.25rem;
+					overflow: hidden;
+					text-overflow: ellipsis;
+					white-space: nowrap;
+				}
+
+				& > .category {
+					font-size: 0.875rem;
+					color: $textColorLight;
+					overflow: hidden;
+					text-overflow: ellipsis;
+					white-space: nowrap;
+				}
 			}
 		}
 

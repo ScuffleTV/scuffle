@@ -12,6 +12,8 @@ const config = {
 				scalars: {
 					DateRFC3339: "string",
 					UUID: "string",
+					ULID: "string",
+					Color: "string",
 				},
 			},
 		},

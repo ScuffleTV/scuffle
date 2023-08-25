@@ -17,15 +17,14 @@
 	let chatStatus = writable(ChatStatus.Connecting);
 	let playing = false;
 
-	function onPlayClick(e: MouseEvent) {
+	function onPlayClick(_e: MouseEvent) {
 		playing = true;
-		e.preventDefault();
 	}
 </script>
 
 <div
 	class="preview"
-	aria-label={`${streamer} streaming ${title} with ${viewersToString(viewers, true)}`}
+	aria-label="{streamer} streaming {title} with {viewersToString(viewers, true)}"
 >
 	<div class="stream-info">
 		<a class="user" href="/{streamer}">
@@ -50,7 +49,7 @@
 		{:else}
 			<img src={preview} alt="Stream Thumbnail" class="blurred" aria-hidden="true" />
 			<img src={preview} alt="Stream Thumbnail" class="thumbnail" />
-			<button class="play" on:click={onPlayClick}>
+			<button class="play" on:click|preventDefault={onPlayClick}>
 				<span class="sr-only">Play</span>
 				<Play size={96} />
 			</button>

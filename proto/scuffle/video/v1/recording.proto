@@ -9,7 +9,8 @@ import "scuffle/video/v1/types/search_options.proto";
 
 // This service allows for the modification and deletion of recordings.
 // Recordings cannot be created through this service. They are created
-// automatically when a room is streamed to and a recording configuration attached.
+// automatically when a room is streamed to and a recording configuration
+// attached.
 service Recording {
   // Get a list of recordings.
   rpc Get(RecordingGetRequest) returns (RecordingGetResponse) {}
@@ -64,7 +65,7 @@ message RecordingModifyRequest {
   // Optionally set a new recording_config_id for the recording.
   optional types.Ulid recording_config_id = 3;
 
-  // Optionally set change the visibility of the recording. 
+  // Optionally set change the visibility of the recording.
   optional bool is_public = 4;
 }
 

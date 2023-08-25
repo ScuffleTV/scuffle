@@ -62,7 +62,8 @@ message S3BucketCreateRequest {
   // The region for the s3 bucket.
   string region = 5;
 
-  // The public url for the s3 bucket. (optional, to allow for watching recordings and DVR)
+  // The public url for the s3 bucket. (optional, to allow for watching
+  // recordings and DVR)
   optional string public_url = 6;
 
   // The tags to apply to the s3 bucket.
@@ -76,8 +77,9 @@ message S3BucketCreateResponse {
 }
 
 // The request payload for S3Bucket.Modify.
-// Note you are now allowed to modify the name, endpoint, or region of an s3 bucket.
-// If you want to change any of those, you must delete the s3 bucket and create a new one.
+// Note you are now allowed to modify the name, endpoint, or region of an s3
+// bucket. If you want to change any of those, you must delete the s3 bucket and
+// create a new one.
 message S3BucketModifyRequest {
   // The id of the s3 bucket to modify.
   types.Ulid id = 1;
@@ -88,8 +90,9 @@ message S3BucketModifyRequest {
   // The secret token for the s3 bucket.
   optional string secret_token = 3;
 
-  // The public url for the s3 bucket. (optional, to allow for watching recordings and DVR)
-  // If you want to remove the public url, set this to an empty string.
+  // The public url for the s3 bucket. (optional, to allow for watching
+  // recordings and DVR) If you want to remove the public url, set this to an
+  // empty string.
   optional string public_url = 4;
 
   // New tags to apply to the s3 bucket. (this will replace the existing tags)

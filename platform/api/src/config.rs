@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use anyhow::Result;
-use common::config::{LoggingConfig, RedisConfig, TlsConfig};
+use common::config::{LoggingConfig, NatsConfig, RedisConfig, TlsConfig};
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
@@ -31,11 +31,11 @@ pub struct AppConfig {
     /// JWT Config
     pub jwt: JwtConfig,
 
-    /// GRPC Config
-    pub grpc: GrpcConfig,
-
     /// Redis configuration
     pub redis: RedisConfig,
+
+    /// Nats configuration
+    pub nats: NatsConfig,
 }
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
@@ -85,7 +85,7 @@ pub struct TurnstileConfig {
 impl Default for TurnstileConfig {
     fn default() -> Self {
         Self {
-            secret_key: "DUMMY_KEY__SAMPLE_TEXT".to_string(),
+            secret_key: "1x0000000000000000000000000000000AA".to_string(),
             url: "https://challenges.cloudflare.com/turnstile/v0/siteverify".to_string(),
         }
     }
@@ -110,25 +110,6 @@ impl Default for JwtConfig {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
-#[serde(default)]
-pub struct GrpcConfig {
-    /// Bind address for the GRPC server
-    pub bind_address: SocketAddr,
-
-    /// If we should use TLS for the gRPC server
-    pub tls: Option<TlsConfig>,
-}
-
-impl Default for GrpcConfig {
-    fn default() -> Self {
-        Self {
-            bind_address: "[::]:50051".parse().expect("failed to parse bind address"),
-            tls: None,
-        }
-    }
-}
-
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
@@ -138,10 +119,10 @@ impl Default for AppConfig {
             logging: LoggingConfig::default(),
             api: ApiConfig::default(),
             database: DatabaseConfig::default(),
-            grpc: GrpcConfig::default(),
             jwt: JwtConfig::default(),
             turnstile: TurnstileConfig::default(),
             redis: RedisConfig::default(),
+            nats: NatsConfig::default(),
         }
     }
 }

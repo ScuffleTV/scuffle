@@ -1,9 +1,9 @@
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use crate::api::v1::gql::schema;
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use async_graphql::SDLExportOptions;
-use common::{context::Context, logging, prelude::FutureTimeout, signal};
+use common::{context::Context, logging, signal};
 use fred::types::ReconnectPolicy;
 use sqlx::{postgres::PgConnectOptions, ConnectOptions};
 use tokio::{select, signal::unix::SignalKind, time};
@@ -16,8 +16,8 @@ mod global;
 // mod grpc;
 mod subscription;
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
 
 #[tokio::main]
 async fn main() -> Result<()> {

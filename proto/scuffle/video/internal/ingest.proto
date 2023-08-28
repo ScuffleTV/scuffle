@@ -35,6 +35,8 @@ message IngestWatchResponse {
         Type type = 1;
         bytes data = 2;
         bool keyframe = 3;
+        uint64 timestamp = 4;
+        uint32 timescale = 5;
     }
 
     enum Shutdown {

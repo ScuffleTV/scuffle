@@ -1,48 +1,45 @@
 use std::net::SocketAddr;
 
 use anyhow::Result;
-use common::config::{LoggingConfig, RedisConfig, TlsConfig};
-
-#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
-#[serde(default)]
-/// The API is the backend for the Scuffle service
-pub struct AppConfig {
-    /// The path to the config file
-    pub config_file: Option<String>,
-
-    /// Name of this instance
-    pub name: String,
-
-    ///  The logging config
-    pub logging: LoggingConfig,
-
-    /// Database Config
-    pub database: DatabaseConfig,
-
-    /// GRPC Config
-    pub grpc: GrpcConfig,
-
-    /// Redis configuration
-    pub redis: RedisConfig,
-
-    /// JWT secret used for access tokens
-    pub jwt_secret: String,
-}
+use common::config::{LoggingConfig, NatsConfig, TlsConfig};
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
 pub struct ApiConfig {
-    /// Bind address for the API
+    /// Bind Address
     pub bind_address: SocketAddr,
 
-    /// If we should use TLS for the API server
+    /// The event stream to use
+    pub event_stream: String,
+
+    /// If we should use TLS
     pub tls: Option<TlsConfig>,
 }
 
 impl Default for ApiConfig {
     fn default() -> Self {
         Self {
-            bind_address: "[::]:4000".parse().expect("failed to parse bind address"),
+            bind_address: "[::]:9080".to_string().parse().unwrap(),
+            event_stream: "scuffle_video_events".to_string(),
+            tls: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
+#[serde(default)]
+pub struct GrpcConfig {
+    /// The bind address for the gRPC server
+    pub bind_address: SocketAddr,
+
+    /// If we should use TLS for the gRPC server
+    pub tls: Option<TlsConfig>,
+}
+
+impl Default for GrpcConfig {
+    fn default() -> Self {
+        Self {
+            bind_address: "[::]:50055".to_string().parse().unwrap(),
             tls: None,
         }
     }
@@ -58,40 +55,46 @@ pub struct DatabaseConfig {
 impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
-            uri: "postgres://root@localhost:5432/scuffle_dev".to_string(),
+            uri: "postgres://root@localhost:5432/scuffle_video".to_string(),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
-pub struct GrpcConfig {
-    /// Bind address for the GRPC server
-    pub bind_address: SocketAddr,
+pub struct AppConfig {
+    /// Name of this instance
+    pub name: String,
 
-    /// If we should use TLS for the gRPC server
-    pub tls: Option<TlsConfig>,
-}
+    /// The path to the config file.
+    pub config_file: Option<String>,
 
-impl Default for GrpcConfig {
-    fn default() -> Self {
-        Self {
-            bind_address: "[::]:50051".parse().expect("failed to parse bind address"),
-            tls: None,
-        }
-    }
+    /// The log level to use, this is a tracing env filter
+    pub logging: LoggingConfig,
+
+    /// API client configuration
+    pub api: ApiConfig,
+
+    /// gRPC server configuration
+    pub grpc: GrpcConfig,
+
+    /// Nats configuration
+    pub nats: NatsConfig,
+
+    /// Database configuration
+    pub database: DatabaseConfig,
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
+            name: "scuffle-transcoder".to_string(),
             config_file: Some("config".to_string()),
-            name: "scuffle-api".to_string(),
-            logging: LoggingConfig::default(),
-            database: DatabaseConfig::default(),
+            api: ApiConfig::default(),
             grpc: GrpcConfig::default(),
-            redis: RedisConfig::default(),
-            jwt_secret: "secret".to_string(),
+            logging: LoggingConfig::default(),
+            nats: NatsConfig::default(),
+            database: DatabaseConfig::default(),
         }
     }
 }

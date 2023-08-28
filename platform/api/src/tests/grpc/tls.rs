@@ -38,7 +38,7 @@ async fn test_grpc_tls_rsa() {
         vec![format!("https://localhost:{}", port)],
         Duration::from_secs(0),
         Some(TlsSettings {
-            domain: "localhost".to_string(),
+            domain: Some("localhost".to_string()),
             ca_cert: ca_content,
             identity: client_identity,
         }),
@@ -108,7 +108,7 @@ async fn test_grpc_tls_ec() {
         vec![format!("https://localhost:{}", port)],
         Duration::from_secs(0),
         Some(TlsSettings {
-            domain: "localhost".to_string(),
+            domain: Some("localhost".to_string()),
             ca_cert: ca_content,
             identity: client_identity,
         }),

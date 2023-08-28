@@ -14,61 +14,52 @@ crate-type = ["cdylib"]
 
 [dependencies]
 wasm-bindgen = "0.2.87"
-console_error_panic_hook = "0.1.7"
-tracing = "0.1.37"
-tracing-subscriber = "0.3.17"
-bytes = "1.4.0"
-anyhow = "1.0.72"
 wasm-bindgen-futures = "0.4.37"
-gloo-timers = { version = "0.2.6", features = ["futures"] }
+console_error_panic_hook = "0.1.7"
+tokio = { version = "1.32.0", features = ["sync", "macros"], default-features = false }
+tracing = { version = "0.1.37", default-features = false, features = ["attributes", "std"]}
+tracing-subscriber = { version = "0.3.17", features = ["registry"], default-features = false }
+tracing-core = { version = "0.1.31", default-features = false }
+serde = { version = "1.0.188", features = ["derive"] }
+serde-wasm-bindgen = "0.6.0"
+tsify = { git = "https://github.com/sisou/tsify.git", branch = "sisou/comments" }
 js-sys = "0.3.64"
-url = { version = "2.4.0", features = ["serde"] }
-futures = "0.3.28"
-tokio = { version = "1.29.1", features = ["sync", "macros"] }
-tokio-stream = "0.1.14"
-serde = { version = "1.0.183", features = ["derive"] }
-serde-wasm-bindgen = "0.5.0"
-tsify = "0.4.5"
-serde_json = "1.0.104"
-base64 = "0.21.2"
-tracing-core = "0.1.31"
+ulid = { version = "1.1.0", default-features = false }
+gloo-timers = { version = "0.3.0", features = ["futures"] }
+url = { version = "2.4.1", features = ["serde"] }
+serde_json = "1.0.107"
+bytes = "1.5.0"
+serde_path_to_error = "0.1.14"
 
-bytesio = { workspace = true }
-h264 = { workspace = true }
+video-player-types = { workspace = true }
 mp4 = { workspace = true }
+h264 = { workspace = true }
+bytesio = { workspace = true, default-features = false }
 
 [dependencies.web-sys]
 version = "0.3.64"
 features = [
     "console",
-    "Headers",
-    "Request",
-    "RequestInit",
-    "RequestMode",
-    "Response",
     "Window",
-    "HtmlVideoElement",
-    "MediaSource",
-    "SourceBuffer",
-    "Url",
-    "MediaSourceReadyState",
-    "Event",
-    "ErrorEvent",
-    "TimeRanges",
-    "HtmlMediaElement",
-    "MediaStream",
     "Performance",
-    "Window",
+    "HtmlVideoElement",
+    "PerformanceObserver",
+    "PerformanceObserverEntryList",
+    "PerformanceObserverInit",
+    "PerformanceResourceTiming",
     "XmlHttpRequest",
     "XmlHttpRequestResponseType",
-    "PerformanceResourceTiming",
-    "PerformanceObserver",
-    "PerformanceObserverInit",
-    "PerformanceObserverEntryList",
+    "MediaSource",
+    "Event",
+    "Url",
+    "MediaSource",
+    "MediaSourceReadyState",
+    "SourceBuffer",
+    "SourceBufferList",
+    "SourceBufferAppendMode",
+    "TimeRanges",
+    "ErrorEvent",
+    "Event",
+    "VisibilityState",
+    "Storage",
 ]
-
-[dev-dependencies]
-wasm-bindgen-test = "0.3.37"
-futures = "0.3.28"
-js-sys = "0.3.64"
-wasm-bindgen-futures = "0.4.37"

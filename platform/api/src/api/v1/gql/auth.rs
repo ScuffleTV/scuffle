@@ -2,7 +2,7 @@ use super::error::{GqlError, Result, ResultExt};
 use super::ext::ContextExt;
 use super::models::session::Session;
 use crate::api::v1::jwt::JwtState;
-use crate::database::{session, user};
+use crate::database::user;
 use async_graphql::{Context, Object};
 use chrono::{Duration, Utc};
 
@@ -26,10 +26,10 @@ impl AuthMutation {
         #[graphql(
             desc = "Setting this to false will make it so logging in does not authenticate the connection."
         )]
-        update_context: Option<bool>,
+        _update_context: Option<bool>,
     ) -> Result<Session> {
         let global = ctx.get_global();
-        let request_context = ctx.get_session();
+        let _request_context = ctx.get_session();
 
         if !global
             .validate_turnstile_token(&captcha_token)
@@ -59,7 +59,7 @@ impl AuthMutation {
         }
 
         let login_duration = validity.unwrap_or(60 * 60 * 24 * 7); // 7 days
-        let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
+        let _expires_at = Utc::now() + Duration::seconds(login_duration as i64);
 
         todo!();
         // TODO: maybe look to batch this
@@ -110,12 +110,12 @@ impl AuthMutation {
         #[graphql(
             desc = "Setting this to false will make it so logging in does not authenticate the connection."
         )]
-        update_context: Option<bool>,
+        _update_context: Option<bool>,
     ) -> Result<Session> {
         let global = ctx.get_global();
-        let request_context = ctx.get_session();
+        let _request_context = ctx.get_session();
 
-        let jwt = JwtState::verify(global, &session_token).ok_or(
+        let _jwt = JwtState::verify(global, &session_token).ok_or(
             GqlError::InvalidInput
                 .with_message("Invalid session token")
                 .with_field(vec!["sessionToken"]),
@@ -174,14 +174,14 @@ impl AuthMutation {
         #[graphql(desc = "The password of the user.")] password: String,
         #[graphql(desc = "The email of the user.")] email: String,
         #[graphql(desc = "The captcha token from cloudflare turnstile.")] captcha_token: String,
-        #[graphql(desc = "The validity of the session in seconds.")] validity: Option<u32>,
+        #[graphql(desc = "The validity of the session in seconds.")] _validity: Option<u32>,
         #[graphql(
             desc = "Setting this to false will make it so logging in does not authenticate the connection."
         )]
-        update_context: Option<bool>,
+        _update_context: Option<bool>,
     ) -> Result<Session> {
         let global = ctx.get_global();
-        let request_context = ctx.get_session();
+        let _request_context = ctx.get_session();
 
         if !global
             .validate_turnstile_token(&captcha_token)
@@ -193,7 +193,7 @@ impl AuthMutation {
                 .with_field(vec!["captchaToken"]));
         }
 
-        let display_name = username.clone();
+        let _display_name = username.clone();
         let username = username.to_lowercase();
         let email = email.to_lowercase();
 
@@ -225,7 +225,7 @@ impl AuthMutation {
                 .with_field(vec!["username"]));
         }
 
-        let mut tx = global
+        let _tx = global
             .db
             .begin()
             .await
@@ -314,7 +314,7 @@ impl AuthMutation {
 
         let jwt = session_token.and_then(|token| JwtState::verify(global, &token));
 
-        let session_id = match (
+        let _session_id = match (
             Option::as_ref(&jwt).map(|jwt| jwt.session_id),
             Option::as_ref(&session).map(|(s, _)| s.id),
         ) {

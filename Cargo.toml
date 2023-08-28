@@ -8,7 +8,8 @@ members = [
     "video/lib/*",
     "video/api",
     "video/player",
-    "video/database",
+    "video/player_types",
+    "video/common",
     "common",
     "proto",
     "config/config",
@@ -41,10 +42,8 @@ transmuxer = { path = "video/lib/transmuxer" }
 common = { path = "common", default-features = false }
 config = { path = "config/config" }
 pb = { path = "proto" }
-video-database = { path = "video/database" }
-
-[patch.crates-io]
-fred = { git = "https://github.com/ScuffleTV/fred.rs" }
+video-common = { path = "video/common" }
+video-player-types = { path = "video/player_types" }
 
 [patch."https://github.com/tokio-rs/tracing.git"]
 tracing = { git = "https://github.com/ScuffleTV/tracing" }

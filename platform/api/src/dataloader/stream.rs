@@ -21,7 +21,7 @@ impl Loader<Uuid> for StreamByIdLoader {
     type Value = stream::Model;
     type Error = Arc<sqlx::Error>;
 
-    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
+    async fn load(&self, _keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
         // let results: Vec<stream::Model> = sqlx::query_as(
         //     "SELECT * FROM streams WHERE id = ANY($1)",
         // )
@@ -60,7 +60,7 @@ impl Loader<Uuid> for ActiveStreamsByUserIdLoader {
     type Value = stream::Model;
     type Error = Arc<sqlx::Error>;
 
-    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
+    async fn load(&self, _keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
         // let results: Vec<stream::Model> = sqlx::query_as(
         //     "SELECT * FROM streams WHERE channel_id = ANY($1) AND deleted = false AND ready_state = 1 ORDER BY created_at DESC",
         // )

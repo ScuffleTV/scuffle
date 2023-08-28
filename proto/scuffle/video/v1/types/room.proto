@@ -6,6 +6,7 @@ import "scuffle/video/v1/types/ulid.proto";
 import "scuffle/video/v1/types/room_status.proto";
 import "scuffle/video/v1/types/video_config.proto";
 import "scuffle/video/v1/types/audio_config.proto";
+import "scuffle/video/v1/types/tags.proto";
 
 // A room is a container for a live stream. It contains information about the
 // stream, such as the stream key, the transcoding and recording configurations
@@ -32,6 +33,7 @@ message Room {
   // The video input of the room session.
   // This is reported by the ingest server.
   optional VideoConfig video_input = 7;
+
   // The audio input of the room session.
   // This is reported by the ingest server.
   optional AudioConfig audio_input = 8;
@@ -67,5 +69,5 @@ message Room {
   optional int64 last_disconnected_at = 16;
 
   // The tags associated with the room.
-  map<string, string> tags = 17;
+  Tags tags = 17;
 }

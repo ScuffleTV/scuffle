@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 byteorder = "1.4.3"
-bytes = "1.4.0"
-fixed = "1.23.1"
+bytes = "1.5.0"
+fixed = "1.24.0"
 casey = "0.4.0"
 paste = "1.0.14"
 
@@ -17,5 +17,5 @@ av1 = { workspace = true }
 aac = { workspace = true }
 
 [dev-dependencies]
-serde = { version = "1.0.183", features = ["derive"] }
-serde_json = "1.0.104"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.107"

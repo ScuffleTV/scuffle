@@ -125,11 +125,12 @@ impl Sps {
         }
 
         let width = ((pic_width_in_mbs_minus1 + 1) * 16)
+            - frame_crop_right_offset * 2
+            - frame_crop_left_offset * 2;
+        let height = ((2 - frame_mbs_only_flag as u64) * (pic_height_in_map_units_minus1 + 1) * 16)
             - frame_crop_bottom_offset * 2
             - frame_crop_top_offset * 2;
-        let height = ((2 - frame_mbs_only_flag as u64) * (pic_height_in_map_units_minus1 + 1) * 16)
-            - (frame_crop_right_offset * 2)
-            - (frame_crop_left_offset * 2);
+
         let mut frame_rate = 0.0;
 
         let vui_parameters_present_flag = bit_reader.read_bit()?;

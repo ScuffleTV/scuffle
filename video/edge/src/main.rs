@@ -1,16 +1,14 @@
-use std::{str::FromStr, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
-use async_nats::ServerAddr;
 use common::{context::Context, logging, signal};
-use sqlx::ConnectOptions;
-use sqlx_postgres::PgConnectOptions;
 use tokio::{select, signal::unix::SignalKind, time};
 
 mod config;
 mod edge;
 mod global;
 mod grpc;
+mod subscription;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -24,65 +22,7 @@ async fn main() -> Result<()> {
 
     let (ctx, handler) = Context::new();
 
-    let nats = {
-        let mut options = async_nats::ConnectOptions::new()
-            .connection_timeout(Duration::from_secs(5))
-            .name(&config.name)
-            .retry_on_initial_connect();
-
-        if let Some(user) = &config.nats.username {
-            options = options.user_and_password(
-                user.clone(),
-                config.nats.password.clone().unwrap_or_default(),
-            )
-        } else if let Some(token) = &config.nats.token {
-            options = options.token(token.clone())
-        }
-
-        if let Some(tls) = &config.nats.tls {
-            options = options
-                .require_tls(true)
-                .add_root_certificates((&tls.ca_cert).into())
-                .add_client_certificate((&tls.cert).into(), (&tls.key).into());
-        }
-
-        options
-            .connect(
-                config
-                    .nats
-                    .servers
-                    .iter()
-                    .map(|s| s.parse::<ServerAddr>())
-                    .collect::<Result<Vec<_>, _>>()?,
-            )
-            .await?
-    };
-
-    let db = Arc::new(
-        sqlx::PgPool::connect_with(
-            PgConnectOptions::from_str(&config.database.uri)?
-                .disable_statement_logging()
-                .to_owned(),
-        )
-        .await?,
-    );
-
-    let jetstream = async_nats::jetstream::new(nats.clone());
-    let media_store = jetstream
-        .get_object_store(config.edge.media_ob_store.clone())
-        .await?;
-    let metadata_store = jetstream
-        .get_key_value(config.edge.metadata_kv_store.clone())
-        .await?;
-
-    let global = Arc::new(global::GlobalState::new(
-        config,
-        ctx,
-        nats,
-        db,
-        metadata_store,
-        media_store,
-    ));
+    let global = Arc::new(global::GlobalState::new(ctx, config).await?);
 
     let edge_future = tokio::spawn(edge::run(global.clone()));
     let grpc_future = tokio::spawn(grpc::run(global.clone()));
@@ -95,6 +35,7 @@ async fn main() -> Result<()> {
     select! {
         r = edge_future => tracing::error!("transcoder stopped unexpectedly: {:?}", r),
         r = grpc_future => tracing::error!("grpc stopped unexpectedly: {:?}", r),
+        r = global.subscriber.run(&global.ctx, &global.metadata_store) => tracing::error!("nats stopped unexpectedly: {:?}", r),
         _ = signal_handler.recv() => tracing::info!("shutting down"),
     }
 

@@ -1,10 +1,7 @@
-use std::{str::FromStr, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
-use async_nats::ServerAddr;
 use common::{context::Context, logging, signal};
-use sqlx::ConnectOptions;
-use sqlx_postgres::PgConnectOptions;
 use tokio::{select, signal::unix::SignalKind, time};
 
 mod config;
@@ -25,50 +22,7 @@ async fn main() -> Result<()> {
 
     let (ctx, handler) = Context::new();
 
-    let db = Arc::new(
-        sqlx::PgPool::connect_with(
-            PgConnectOptions::from_str(&config.database.uri)?
-                .disable_statement_logging()
-                .to_owned(),
-        )
-        .await?,
-    );
-
-    let nats = {
-        let mut options = async_nats::ConnectOptions::new()
-            .connection_timeout(Duration::from_secs(5))
-            .name(&config.name)
-            .retry_on_initial_connect();
-
-        if let Some(user) = &config.nats.username {
-            options = options.user_and_password(
-                user.clone(),
-                config.nats.password.clone().unwrap_or_default(),
-            )
-        } else if let Some(token) = &config.nats.token {
-            options = options.token(token.clone())
-        }
-
-        if let Some(tls) = &config.nats.tls {
-            options = options
-                .require_tls(true)
-                .add_root_certificates((&tls.ca_cert).into())
-                .add_client_certificate((&tls.cert).into(), (&tls.key).into());
-        }
-
-        options
-            .connect(
-                config
-                    .nats
-                    .servers
-                    .iter()
-                    .map(|s| s.parse::<ServerAddr>())
-                    .collect::<Result<Vec<_>, _>>()?,
-            )
-            .await?
-    };
-
-    let global = Arc::new(global::GlobalState::new(config, db, nats, ctx));
+    let global = Arc::new(global::GlobalState::new(ctx, config).await?);
 
     let ingest_future = tokio::spawn(ingest::run(global.clone()));
     let grpc_future = tokio::spawn(grpc::run(global.clone()));

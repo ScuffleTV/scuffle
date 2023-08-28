@@ -2,18 +2,50 @@ import init, { Player } from "../pkg/video_player";
 
 await init();
 
-const player = new Player();
+const video = document.getElementById("video") as HTMLVideoElement;
+
+function bandwidthEstimate() {
+	let bandwidthEstimate = localStorage.getItem("SCUFFLE_PLAYER_bandwidth-estimate");
+	if (!bandwidthEstimate) {
+		return undefined;
+	}
+
+	console.log("Using bandwidth estimate from local storage", bandwidthEstimate);
+
+	return parseFloat(bandwidthEstimate);
+}
+
+function saveBandwidthEstimate(bandwidth: number) {
+	localStorage.setItem("SCUFFLE_PLAYER_bandwidth-estimate", `${Math.min(bandwidth, 16 * 1000 * 1000)}`);
+}
+
+const player = new Player(video, {
+	organization_id: "01H8VSWA9CFECP82P8NQJWE1WX",
+	server: "https://troy-edge.scuffle.tv",
+	abr_default_bandwidth: bandwidthEstimate(),
+	logging_level: "info",
+});
+
+declare global {
+	interface Window {
+		SCUFFLE_PLAYER: Player;
+	}
+}
+
+window.SCUFFLE_PLAYER = player;
 
 console.log(player);
 
-const video = document.getElementById("video") as HTMLVideoElement;
 const bufferSize = document.getElementById("buffer-size") as HTMLElement;
 const videoTime = document.getElementById("video-time") as HTMLElement;
+const videoDuration = document.getElementById("video-duration") as HTMLElement;
+const latency = document.getElementById("latency") as HTMLElement;
 const frameRate = document.getElementById("frame-rate") as HTMLElement;
 const resolution = document.getElementById("resolution") as HTMLElement;
 const droppedFrames = document.getElementById("dropped-frames") as HTMLElement;
 const bandwidth = document.getElementById("bandwidth") as HTMLElement;
 const variantId = document.getElementById("variant-id") as HTMLElement;
+const realTime = document.getElementById("realtime") as HTMLElement;
 
 const selectTracksDiv = document.getElementById("select-tracks") as HTMLDivElement;
 const forceTracksDiv = document.getElementById("force-tracks") as HTMLDivElement;
@@ -21,6 +53,28 @@ const forceTracksDiv = document.getElementById("force-tracks") as HTMLDivElement
 const toggleLowLatency = document.getElementById("toggle-low-latency") as HTMLButtonElement;
 const toggleAbr = document.getElementById("toggle-abr") as HTMLButtonElement;
 const jumpToLive = document.getElementById("jump-to-live") as HTMLButtonElement;
+const destroy = document.getElementById("destroy") as HTMLButtonElement;
+const copyShareLink = document.getElementById("copy-share") as HTMLButtonElement;
+
+copyShareLink.addEventListener("click", () => {
+	const url = new URL(window.location.href);
+
+	let params = new URLSearchParams();
+	params.set("id", roomId.value);
+	params.set("type", player.roomId ? "room" : "recording");
+	params.set("currentTime", `${video.currentTime}`);
+
+	url.hash = params.toString();
+
+	navigator.clipboard.writeText(url.href);
+
+	copyShareLink.innerText = "Copied!";
+	copyShareLink.disabled = true;
+	setTimeout(() => {
+		copyShareLink.innerText = "Copy Share Link";
+		copyShareLink.disabled = false;
+	}, 1000);
+});
 
 let lastFrameTime = 0;
 let frameCount = 0;
@@ -33,6 +87,7 @@ toggleLowLatency.innerText = player.lowLatency ? "Disable Low Latency" : "Enable
 
 toggleLowLatency.addEventListener("click", () => {
 	player.lowLatency = !player.lowLatency;
+	jumpToLive.click();
 	toggleLowLatency.innerText = player.lowLatency ? "Disable Low Latency" : "Enable Low Latency";
 });
 
@@ -42,36 +97,74 @@ toggleAbr.addEventListener("click", () => {
 });
 
 jumpToLive.addEventListener("click", () => {
-	if (!video.buffered.length) return;
+	player.toRealtime();
+});
 
-	if (player.lowLatency) {
-		video.currentTime = video.buffered.end(video.buffered.length - 1) - 0.5;
-	} else {
-		video.currentTime = video.buffered.end(video.buffered.length - 1) - 2;
-	}
+destroy.addEventListener("click", () => {
+	player.destroy();
+});
+
+let destroyed = false;
+
+player.on("destroyed", () => {
+	console.log("destroyed");
+	destroyed = true;
 });
 
 const loop = () => {
-	if (video.buffered.length) {
-		bufferSize.innerText = `${(
-			video.buffered.end(video.buffered.length - 1) - video.currentTime
-		).toFixed(3)}`;
-	} else {
-		bufferSize.innerText = "0";
-	}
+	if (destroyed) return;
 
-	videoTime.innerText = `${video.currentTime.toFixed(3)}`;
-	resolution.innerText = `${video.videoWidth}x${video.videoHeight}`;
+	try {
+		if (video.buffered.length) {
+			let found = false;
+			for (let i = 0; i < video.buffered.length; i++) {
+				const start = video.buffered.start(i);
+				const end = video.buffered.end(i);
+				if (video.currentTime >= start && video.currentTime <= end) {
+					bufferSize.innerText = `${(end - video.currentTime).toFixed(3)}`;
+					found = true;
+					break;
+				}
+			}
+	
+			if (!found) {
+				bufferSize.innerText = "-1";
+			}
+		} else {
+			bufferSize.innerText = "0";
+		}
 
-	const quality = video.getVideoPlaybackQuality();
+		const currentTime = video.currentTime;
+		const duration = (video.seekable.length ? video.seekable.end(0) : 0);
+	
+		videoTime.innerText = `${currentTime.toFixed(3)}`;
+		videoDuration.innerText = `${duration.toFixed(3)}`;
+		latency.innerText = `${(duration - currentTime).toFixed(3)}`;
+		
+		resolution.innerText = `${video.videoWidth}x${video.videoHeight}`;
 
-	droppedFrames.innerText = `${quality.droppedVideoFrames}`;
-
-	const now = performance.now();
-	if (now - lastFrameTime >= 1000) {
-		frameRate.innerText = `${quality.totalVideoFrames - frameCount}`;
-		frameCount = quality.totalVideoFrames;
-		lastFrameTime = now;
+		saveBandwidthEstimate(player.bandwidth || 0);
+	
+		const bps = (player.bandwidth || 0) / 1000;
+	
+		if (bps > 3000) {
+			bandwidth.innerText = `${(bps / 1000).toFixed(2)}Mbps`;
+		} else {
+			bandwidth.innerText = `${bps.toFixed(2)}Kbps`;
+		}
+	
+		const quality = video.getVideoPlaybackQuality();
+	
+		droppedFrames.innerText = `${quality.droppedVideoFrames}`;
+	
+		const now = performance.now();
+		if (now - lastFrameTime >= 1000) {
+			frameRate.innerText = `${quality.totalVideoFrames - frameCount}`;
+			frameCount = quality.totalVideoFrames;
+			lastFrameTime = now;
+		}
+	} catch (e) {
+		console.error(e);
 	}
 
 	window.requestAnimationFrame(loop);
@@ -83,69 +176,120 @@ player.on("error", (evt) => {
 	console.error(evt);
 });
 
-player.on("abrchange", (evt) => {
-	const bdw = evt.bandwidth || 0;
-
-	// Convert bps to either kbps or mbps depending on the size
-	if (bdw > 1024 * 1024 * 8) {
-		bandwidth.innerText = `${(bdw / 1024 / 1024).toFixed(2)}mbps`;
-	} else {
-		bandwidth.innerText = `${(bdw / 1024).toFixed(2)}kbps`;
-	}
-
-	toggleAbr.innerText = evt.enabled ? "Disable ABR" : "Enable ABR";
+player.on("abr", () => {
+	toggleAbr.innerText = player.abrEnabled ? "Disable ABR" : "Enable ABR";
 });
 
-player.on("variantchange", (evt) => {
-	variantId.innerText = `${evt.variant_id}`;
+player.on("variant", (change) => {
+	console.log(change);
+	variantId.innerText = `${player.variantId}`;
 });
 
-player.on("manifestloaded", (evt) => {
+player.on("manifestloaded", () => {
 	selectTracksDiv.innerHTML = "";
 	forceTracksDiv.innerHTML = "";
 
-	evt.variants.forEach((variant) => {
+	player.variants.forEach((variant, idx) => {
 		const button = document.createElement("button");
-		button.innerText = `${variant.group} - ${variant.name}`;
+		button.innerText = `${variant.audio_track.name} - ${variant.video_track?.name}`;
 		button.addEventListener("click", () => {
-			player.nextVariantId = variant.id;
+			player.nextVariantId = idx;
 		});
 		selectTracksDiv.appendChild(button);
 
 		const forceButton = document.createElement("button");
-		forceButton.innerText = `${variant.group} - ${variant.name}`;
+		forceButton.innerText = `${variant.audio_track.name} - ${variant.video_track?.name}`;
 		forceButton.addEventListener("click", () => {
-			player.variantId = variant.id;
+			player.variantId = idx;
 		});
 		forceTracksDiv.appendChild(forceButton);
 	});
 });
 
-player.on("shutdown", () => {
-	video.pause();
-	video.src = "";
-	video.load();
+player.on("started", () => {
+	console.log("started");
 });
 
-const loadButton = document.getElementById("load") as HTMLButtonElement;
-const inputUrl = document.getElementById("input-url") as HTMLInputElement;
+player.on("stopped", () => {
+	console.log("stopped");
+});
 
-loadButton.addEventListener("click", () => {
-	player.load(inputUrl.value);
-	player.attach(video);
+player.on("finished", () => {
+	console.log("finished");
+});
+
+player.on("realtime", () => {
+	console.log("realtime mode changed", player.realtimeMode);
+	realTime.innerText = `${player.realtimeMode}`;
+})
+
+player.on("visibility", () => {
+	console.log("visibility changed", player.visible);
+});
+
+const loadRoomButton = document.getElementById("load-room") as HTMLButtonElement;
+const loadRecordingButton = document.getElementById("load-recording") as HTMLButtonElement;
+const roomId = document.getElementById("video-id") as HTMLInputElement;
+
+function loadVideo(type: string, startTime: number) {
+	if (type === "room") {
+		player.loadRoom(roomId.value);
+	} else if (type === "recording") {
+		player.loadRecording(roomId.value);
+	} else {
+		throw new Error("Invalid type");
+	}
+
+	video.currentTime = startTime;
 
 	// Update URL fragment
 	const url = new URL(window.location.href);
-	url.hash = inputUrl.value;
+
+	let params = new URLSearchParams();
+	params.set("id", roomId.value);
+	params.set("type", type);
+	if (startTime != -1.0) {
+		params.set("currentTime", `${startTime}`);
+	}
+
+	url.hash = params.toString();
+
 	window.history.replaceState({}, "", url.href);
+
+	let autoPlayed = false;
+	let autoPlay = setInterval(() => {
+		if (autoPlayed) return;
+		autoPlayed = true;
+		video.play().then(() => {
+			clearInterval(autoPlay);
+		}).catch(() => {
+			autoPlayed = false;
+		});
+	}, 100);
+}
+
+loadRoomButton.addEventListener("click", () => {
+	loadVideo("room", -1.0);
+});
+
+loadRecordingButton.addEventListener("click", () => {
+	loadVideo("recording", -1.0);
 });
 
 // Get URL fragment for the predefined url
 const url = new URL(window.location.href);
 
 const urlFragment = url.hash.slice(1);
-
 if (urlFragment) {
-	inputUrl.value = urlFragment;
-	loadButton.click();
+	// Parse the fragment as query parameters
+	let params = new URLSearchParams(urlFragment);
+
+	let id = params.get("id");
+	let type = params.get("type");
+	let currentTime = params.get("currentTime") || "-1.0";
+	if (id && type) {
+		roomId.value = id;
+
+		loadVideo(type, parseFloat(currentTime));
+	}
 }

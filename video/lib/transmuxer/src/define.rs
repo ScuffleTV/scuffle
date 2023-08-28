@@ -38,6 +38,7 @@ pub struct VideoSettings {
     pub framerate: f64,
     pub bitrate: u32,
     pub codec: VideoCodec,
+    pub timescale: u32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -46,6 +47,7 @@ pub struct AudioSettings {
     pub channels: u8,
     pub bitrate: u32,
     pub codec: AudioCodec,
+    pub timescale: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -12,7 +12,10 @@ use trust_dns_resolver::{
     lookup::Lookup,
     proto::{
         op::Query,
-        rr::{RData, Record, RecordType},
+        rr::{
+            rdata::{A, AAAA, CNAME},
+            RData, Record, RecordType,
+        },
     },
     Name,
 };
@@ -274,7 +277,7 @@ async fn test_dns_resolve_cname() {
                 Arc::from([Record::from_rdata(
                     Name::default(),
                     0,
-                    RData::CNAME(Name::from_utf8("localhost").unwrap()),
+                    RData::CNAME(CNAME(Name::from_utf8("localhost").unwrap())),
                 )]),
             ))
         }
@@ -343,8 +346,8 @@ async fn test_headless_dns_resolve() {
                         Name::default(),
                         0,
                         match addr.ip() {
-                            IpAddr::V4(addr) => RData::A(addr),
-                            IpAddr::V6(addr) => RData::AAAA(addr),
+                            IpAddr::V4(addr) => RData::A(A(addr)),
+                            IpAddr::V6(addr) => RData::AAAA(AAAA(addr)),
                         },
                     )
                 })
@@ -451,8 +454,8 @@ async fn test_dns_resolve_change() {
                         Name::default(),
                         0,
                         match addr.ip() {
-                            IpAddr::V4(addr) => RData::A(addr),
-                            IpAddr::V6(addr) => RData::AAAA(addr),
+                            IpAddr::V4(addr) => RData::A(A(addr)),
+                            IpAddr::V6(addr) => RData::AAAA(AAAA(addr)),
                         },
                     )
                 })

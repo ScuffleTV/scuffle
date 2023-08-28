@@ -1,14 +1,16 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use common::{
     context::{Context, Handler},
     logging,
-    prelude::FutureTimeout,
 };
 
-use crate::{config::AppConfig, global::GlobalState};
+use crate::{
+    config::AppConfig,
+    global::{connect_to_nats, GlobalState},
+};
 
-pub async fn mock_global_state(config: AppConfig) -> (Arc<GlobalState>, Handler) {
+pub async fn mock_global_state(mut config: AppConfig) -> (Arc<GlobalState>, Handler) {
     let (ctx, handler) = Context::new();
 
     dotenvy::dotenv().ok();
@@ -16,19 +18,40 @@ pub async fn mock_global_state(config: AppConfig) -> (Arc<GlobalState>, Handler)
     logging::init(&config.logging.level, config.logging.mode)
         .expect("failed to initialize logging");
 
-    let db = Arc::new(
-        sqlx::PgPool::connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL not set"))
+    config.database.uri = std::env::var("DATABASE_URI").expect("DATABASE_URL must be set");
+    config.nats.servers = vec![std::env::var("NATS_ADDR").expect("NATS_URL must be set")];
+
+    {
+        let nats = connect_to_nats(&config).await.unwrap();
+
+        let jetstream = async_nats::jetstream::new(nats.clone());
+
+        jetstream
+            .create_key_value(async_nats::jetstream::kv::Config {
+                bucket: config.transcoder.metadata_kv_store.clone(),
+                ..Default::default()
+            })
             .await
-            .expect("failed to connect to database"),
-    );
+            .unwrap();
 
-    let nats = async_nats::connect(std::env::var("NATS_URL").expect("NATS_URL not set"))
-        .timeout(Duration::from_secs(5))
-        .await
-        .expect("failed to connect to nats")
-        .expect("failed to connect to nats");
+        jetstream
+            .create_object_store(async_nats::jetstream::object_store::Config {
+                bucket: config.transcoder.media_ob_store.clone(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
 
-    let global = Arc::new(GlobalState::new(config, ctx, nats, db));
+        jetstream
+            .create_stream(async_nats::jetstream::stream::Config {
+                name: config.transcoder.transcoder_request_subject.clone(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+    }
+
+    let global = Arc::new(GlobalState::new(ctx, config).await.unwrap());
 
     (global, handler)
 }

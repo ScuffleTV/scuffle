@@ -2,6 +2,7 @@
 
 use core::fmt::{self, Write};
 use core::sync::atomic::AtomicUsize;
+use std::sync::Arc;
 
 use tracing::field::{Field, Visit};
 use tracing::Subscriber;
@@ -23,12 +24,21 @@ fn measure(name: String, start_mark: String) -> Result<(), JsValue> {
         .measure_with_start_mark(&name, &start_mark)
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct WASMLayerConfig {
     report_logs_in_timings: bool,
     report_logs_in_console: bool,
     use_console_color: bool,
     max_level: tracing::Level,
+}
+
+impl WASMLayerConfig {
+    pub fn new(max_level: tracing::Level) -> Self {
+        WASMLayerConfig {
+            max_level,
+            ..Default::default()
+        }
+    }
 }
 
 impl core::default::Default for WASMLayerConfig {
@@ -43,15 +53,16 @@ impl core::default::Default for WASMLayerConfig {
 }
 
 /// Implements [tracing_subscriber::layer::Layer] which uses [wasm_bindgen] for marking and measuring with `window.performance`
+#[derive(Clone)]
 pub struct WASMLayer {
-    last_event_id: AtomicUsize,
+    last_event_id: Arc<AtomicUsize>,
     config: WASMLayerConfig,
 }
 
 impl WASMLayer {
     pub fn new(config: WASMLayerConfig) -> Self {
         WASMLayer {
-            last_event_id: AtomicUsize::new(0),
+            last_event_id: Arc::new(AtomicUsize::new(0)),
             config,
         }
     }
@@ -206,10 +217,18 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for WASMLayer {
 
 /// Set the global default with [tracing::subscriber::set_global_default]
 pub fn set_as_global_default() {
-    tracing::subscriber::set_global_default(
-        Registry::default().with(WASMLayer::new(WASMLayerConfig::default())),
-    )
-    .expect("default global");
+    tracing::subscriber::set_global_default(registry(WASMLayerConfig::default()))
+        .expect("default global");
+}
+
+pub type LoggingInstance = Layered<WASMLayer, Registry>;
+
+pub fn registry(config: WASMLayerConfig) -> LoggingInstance {
+    Registry::default().with(WASMLayer::new(config))
+}
+
+pub fn set_default(config: WASMLayerConfig) -> tracing_core::dispatcher::DefaultGuard {
+    tracing::subscriber::set_default(Registry::default().with(WASMLayer::new(config)))
 }
 
 struct StringRecorder {
@@ -262,3 +281,13 @@ impl core::default::Default for StringRecorder {
         StringRecorder::new()
     }
 }
+
+macro_rules! scope {
+    ($inner:expr) => {
+        let __ = crate::tracing_wasm::set_default(crate::tracing_wasm::WASMLayerConfig::new(
+            $inner.interface_settings.player_settings.logging_level(),
+        ));
+    };
+}
+
+pub(super) use scope;

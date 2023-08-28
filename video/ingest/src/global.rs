@@ -1,9 +1,15 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::net::SocketAddr;
+use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
+use anyhow::Result;
+use async_nats::ServerAddr;
 use common::context::Context;
+use sqlx::ConnectOptions;
+use sqlx_postgres::PgConnectOptions;
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 use ulid::Ulid;
@@ -39,12 +45,50 @@ fn get_local_ip() -> IpAddr {
 }
 
 impl GlobalState {
-    pub fn new(
-        mut config: AppConfig,
-        db: Arc<sqlx::PgPool>,
-        nats: async_nats::Client,
-        ctx: Context,
-    ) -> Self {
+    pub async fn new(ctx: Context, mut config: AppConfig) -> Result<Self> {
+        let db = Arc::new(
+            sqlx::PgPool::connect_with(
+                PgConnectOptions::from_str(&config.database.uri)?
+                    .disable_statement_logging()
+                    .to_owned(),
+            )
+            .await?,
+        );
+
+        let nats = {
+            let mut options = async_nats::ConnectOptions::new()
+                .connection_timeout(Duration::from_secs(5))
+                .name(&config.name)
+                .retry_on_initial_connect();
+
+            if let Some(user) = &config.nats.username {
+                options = options.user_and_password(
+                    user.clone(),
+                    config.nats.password.clone().unwrap_or_default(),
+                )
+            } else if let Some(token) = &config.nats.token {
+                options = options.token(token.clone())
+            }
+
+            if let Some(tls) = &config.nats.tls {
+                options = options
+                    .require_tls(true)
+                    .add_root_certificates((&tls.ca_cert).into())
+                    .add_client_certificate((&tls.cert).into(), (&tls.key).into());
+            }
+
+            options
+                .connect(
+                    config
+                        .nats
+                        .servers
+                        .iter()
+                        .map(|s| s.parse::<ServerAddr>())
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+                .await?
+        };
+
         if config.grpc.advertise_address.is_empty() {
             // We need to figure out what our advertise address is
             let port = config.grpc.bind_address.port();
@@ -58,13 +102,13 @@ impl GlobalState {
             config.grpc.advertise_address = SocketAddr::new(advertise_address, port).to_string();
         }
 
-        Self {
+        Ok(Self {
             config,
             ctx,
             db,
             jetstream: async_nats::jetstream::new(nats.clone()),
             nats,
             requests: Default::default(),
-        }
+        })
     }
 }

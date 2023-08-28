@@ -1,6 +1,6 @@
 use async_graphql::{Context, SimpleObject, Subscription};
 use futures_util::Stream;
-use prost::Message;
+
 use uuid::Uuid;
 
 use crate::api::v1::gql::{
@@ -26,7 +26,7 @@ impl UserSubscription {
     ) -> Result<impl Stream<Item = Result<DisplayNameStream>> + 'ctx> {
         let global = ctx.get_global();
 
-        let Some(mut user) = global
+        let Some(user) = global
             .user_by_id_loader
             .load_one(user_id)
             .await
@@ -49,7 +49,7 @@ impl UserSubscription {
                 username: user.username.clone(),
             });
 
-            while let Ok(message) = subscription.recv().await {
+            while let Ok(_message) = subscription.recv().await {
                 todo!()
                 // let event = pb::scuffle::internal::platform::events::UserDisplayName::decode(
                 //     message.as_bytes().map_err_gql("invalid redis value")?,

@@ -110,6 +110,15 @@ macro_rules! impl_box {
                 )
             }
 
+            pub fn name(&self) -> &str {
+                match self {
+                    $(
+                        Self::$type(_) => std::str::from_utf8(&$type::NAME).expect("invalid utf8"),
+                    )*
+                    Self::Unknown((header, _)) => std::str::from_utf8(&header.box_type).unwrap_or("unknown"),
+                }
+            }
+
             as_fn!(
                 $($type,)*
             );

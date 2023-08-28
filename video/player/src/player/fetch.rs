@@ -2,6 +2,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use gloo_timers::future::TimeoutFuture;
 use js_sys::ArrayBuffer;
+use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 use url::Url;
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
@@ -10,9 +11,11 @@ use web_sys::{
     PerformanceResourceTiming, XmlHttpRequest, XmlHttpRequestResponseType,
 };
 
-use super::util::{register_events, Holder};
+use super::util::{now, register_events, Holder};
 
 thread_local!(static PERFORMANCE_OBSERVER: PerformanceObserverHolder = PerformanceObserverHolder::new());
+
+pub type FetchResult<T> = Result<T, FetchError>;
 
 struct PerformanceObserverHolder {
     _obs: PerformanceObserver,
@@ -24,7 +27,7 @@ impl PerformanceObserverHolder {
     fn new() -> Self {
         let entries = Rc::new(RefCell::new(Vec::new()));
 
-        tracing::info!("creating performance observer");
+        tracing::trace!("creating performance observer");
 
         let cb = {
             let entries = entries.clone();
@@ -73,20 +76,31 @@ pub struct FetchRequest {
     url: Url,
     headers: HashMap<String, String>,
     method: String,
-    timeout: Option<u32>,
 }
+
 pub struct InflightRequest {
     url: Url,
-    xhr: Holder<XmlHttpRequest>,
-    rx: mpsc::Receiver<()>,
+    xhr: Holder<XmlHttpRequest, FetchEvent>,
+    size: u32,
+    start_time: f64,
+
+    start_time_realitive: f64,
+    ttfb_time_relative: f64,
+    end_time_relative: f64,
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct Metrics {
-    pub start_time: f64,
     pub ttfb: f64,
-    pub download_time: f64,
-    pub download_size: u32,
+    pub relative_ttfb: f64,
+    pub total_duration: f64,
+    pub size: u32,
+    pub file_duration: f64,
+}
+
+enum FetchEvent {
+    Headers(f64),
+    LoadEnd(f64),
 }
 
 impl FetchRequest {
@@ -95,60 +109,59 @@ impl FetchRequest {
             url,
             headers: HashMap::new(),
             method: method.to_string(),
-            timeout: None,
         }
     }
 
-    pub fn header(mut self, key: impl ToString, value: impl ToString) -> Self {
-        self.headers.insert(key.to_string(), value.to_string());
-        self
-    }
-
-    pub fn set_timeout(mut self, timeout: u32) -> Self {
-        self.timeout = Some(timeout);
-        self
-    }
-
-    pub fn start(&self) -> Result<InflightRequest, JsValue> {
+    pub fn start(&self, wakeup: broadcast::Sender<()>) -> FetchResult<InflightRequest> {
         // Make sure the performance observer is initialized
         PERFORMANCE_OBSERVER.with(|_| {});
 
-        let req = XmlHttpRequest::new()?;
+        let req = XmlHttpRequest::new().map_err(FetchError::JsValue)?;
 
         req.set_response_type(XmlHttpRequestResponseType::Arraybuffer);
 
-        if let Some(timeout) = self.timeout {
-            req.set_timeout(timeout);
-        }
-
-        req.open(&self.method, self.url.as_str())?;
+        req.open(&self.method, self.url.as_str())
+            .map_err(FetchError::JsValue)?;
 
         for (key, value) in &self.headers {
-            req.set_request_header(key, value)?;
+            req.set_request_header(key, value)
+                .map_err(FetchError::JsValue)?;
         }
 
-        req.send()?;
+        req.send().map_err(FetchError::JsValue)?;
 
         // We need a large enough buffer to hold all events that can be fired
         // This is becasue we might read the events until the request is done
-        let (tx, rx) = mpsc::channel(4);
+        let (tx, rx) = mpsc::channel(2);
 
         let cb = register_events!(req, {
             "loadend" => {
-                move |_| {
-                    if tx.try_send(()).is_err() {
-                        tracing::warn!("fetch event queue full");
-                    }
+                let tx = tx.clone();
+                move |e: web_sys::Event| {
+                    wakeup.send(()).ok();
+                    tx.try_send(FetchEvent::LoadEnd(e.time_stamp())).ok();
                 }
             },
+            "readystatechange" => {
+                let req = req.clone();
+                move |e: web_sys::Event| {
+                    if req.ready_state() == 2 {
+                        tx.try_send(FetchEvent::Headers(e.time_stamp())).ok();
+                    }
+                }
+            }
         });
 
-        let xhr = Holder::new(req, cb);
+        let xhr = Holder::new(req, rx, cb);
 
         Ok(InflightRequest {
             url: self.url.clone(),
             xhr,
-            rx,
+            size: 0,
+            end_time_relative: -1.0,
+            ttfb_time_relative: -1.0,
+            start_time: js_sys::Date::now(),
+            start_time_realitive: now(),
         })
     }
 
@@ -157,9 +170,31 @@ impl FetchRequest {
     }
 }
 
+#[derive(Debug)]
+pub enum FetchError {
+    JsValue(JsValue),
+    StatusCode(u16, Vec<u8>),
+    Json(serde_json::Error),
+    EmptyResponse,
+    Aborted,
+    InvalidResponse,
+}
+
 impl InflightRequest {
-    pub async fn wait_result(&mut self) -> Result<Vec<u8>, JsValue> {
-        self.rx.recv().await;
+    pub async fn wait_result(&mut self) -> FetchResult<Vec<u8>> {
+        while self.end_time_relative == -1.0 {
+            match self.xhr.events().recv().await {
+                Some(FetchEvent::LoadEnd(end)) => {
+                    self.end_time_relative = end;
+                }
+                Some(FetchEvent::Headers(ttfb)) => {
+                    self.ttfb_time_relative = ttfb;
+                }
+                None => {
+                    return Err(FetchError::Aborted);
+                }
+            }
+        }
 
         while !self.is_done() {
             TimeoutFuture::new(0).await;
@@ -167,68 +202,102 @@ impl InflightRequest {
 
         let result = self.result()?;
 
-        result.ok_or(JsValue::from_str("no result from request"))
+        result.ok_or(FetchError::EmptyResponse)
     }
 
     pub fn is_done(&self) -> bool {
-        self.xhr.ready_state() == XmlHttpRequest::DONE && self.metrics().is_some()
+        self.xhr.ready_state() == XmlHttpRequest::DONE && self.metrics(0.0).is_some()
     }
 
-    pub fn metrics(&self) -> Option<Metrics> {
+    pub fn metrics(&self, file_duration: f64) -> Option<Metrics> {
         let entity = PERFORMANCE_OBSERVER.with(|p| p.get_entries_by_name(self.url.as_str()));
 
-        let Some(entity) = entity.first() else {
-            return None;
-        };
+        let entity = entity.first()?;
 
-        let start_time = entity.fetch_start();
-        let ttfb = entity.response_start() - start_time;
-        let download_time = entity.response_end() - entity.response_start();
-        let download_size = entity.transfer_size() as u32;
-
-        Some(Metrics {
-            start_time,
-            ttfb,
-            download_size,
-            download_time,
-        })
+        if entity.response_start() == 0.0 {
+            // Most likely the server does not add the CORS headers
+            Some(Metrics {
+                size: self.size,
+                ttfb: 0.0,
+                relative_ttfb: self.ttfb_time_relative - self.start_time_realitive,
+                total_duration: self.end_time_relative - self.start_time_realitive,
+                file_duration,
+            })
+        } else {
+            Some(Metrics {
+                ttfb: entity.response_start() - entity.fetch_start(),
+                size: entity.transfer_size() as u32,
+                relative_ttfb: self.ttfb_time_relative - self.start_time_realitive,
+                total_duration: self.end_time_relative - self.start_time_realitive,
+                file_duration,
+            })
+        }
     }
 
-    pub fn result(&mut self) -> Result<Option<Vec<u8>>, JsValue> {
+    pub fn result(&mut self) -> FetchResult<Option<Vec<u8>>> {
         if !self.is_done() {
             return Ok(None);
         }
 
-        if self.xhr.status()? >= 399 {
-            return Err(JsValue::from_str(
-                format!("HTTP Error: {}", self.xhr.status()?).as_str(),
-            ));
+        while let Ok(resp) = self.xhr.events().try_recv() {
+            match resp {
+                FetchEvent::Headers(ttfb) => {
+                    self.ttfb_time_relative = ttfb;
+                }
+                FetchEvent::LoadEnd(end) => {
+                    self.end_time_relative = end;
+                }
+            }
         }
 
-        let resp = self.xhr.response()?;
+        if self.ttfb_time_relative == -1.0 {
+            self.ttfb_time_relative = now();
+        }
+
+        if self.end_time_relative == -1.0 {
+            self.end_time_relative = now();
+        }
+
+        let resp = self.xhr.response().map_err(FetchError::JsValue)?;
         if resp.is_null() {
-            return Err("request aborted or no response".into());
+            return Err(FetchError::EmptyResponse);
         }
 
         let Some(buf) = resp.dyn_ref::<ArrayBuffer>() else {
-            return Err("response is not an ArrayBuffer".into());
+            return Err(FetchError::InvalidResponse);
         };
 
-        Ok(Some(js_sys::Uint8Array::new(buf).to_vec()))
+        let data = js_sys::Uint8Array::new(buf).to_vec();
+
+        let status = self.xhr.status().map_err(FetchError::JsValue)?;
+
+        if let Ok(Some(date)) = self.xhr.get_response_header("Date") {
+            let js_date = js_sys::Date::new(&JsValue::from(date.as_str())).get_time();
+            if !js_date.is_normal() || self.start_time < js_date + 5000.0 {
+                self.size = data.len() as u32;
+            } else {
+                self.size = 0;
+            }
+        } else {
+            self.size = data.len() as u32;
+        }
+
+        if !(200..399).contains(&status) {
+            return Err(FetchError::StatusCode(status, data));
+        }
+
+        Ok(Some(data))
     }
 
     pub fn abort(&self) {
-        self.xhr.abort().ok();
-    }
-
-    pub fn url(&self) -> &Url {
-        &self.url
+        if self.xhr.ready_state() != XmlHttpRequest::DONE {
+            self.xhr.abort().ok();
+        }
     }
 }
 
 impl Drop for InflightRequest {
     fn drop(&mut self) {
-        self.xhr.set_onloadend(None);
         self.abort();
     }
 }

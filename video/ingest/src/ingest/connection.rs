@@ -21,7 +21,7 @@ use tonic::{Status, Streaming};
 use transmuxer::{AudioSettings, MediaSegment, TransmuxResult, Transmuxer, VideoSettings};
 use ulid::Ulid;
 use uuid::Uuid;
-use video_database::room_status::RoomStatus;
+use video_common::database::RoomStatus;
 
 use crate::{define::IncomingTranscoder, global::GlobalState};
 
@@ -61,6 +61,9 @@ struct Connection {
 
     last_transcoder_publish: Instant,
     last_keyframe: Instant,
+
+    video_timescale: u32,
+    audio_timescale: u32,
 
     error: Option<IngestError>,
 
@@ -261,6 +264,8 @@ impl Connection {
             incoming_reciever,
             organization_id,
             room_id,
+            video_timescale: 1,
+            audio_timescale: 1,
             error: None,
         }))
     }
@@ -422,7 +427,7 @@ impl Connection {
             Ok(Some(msg)) => {
                 match msg.message {
                     Some(ingest_watch_request::Message::Shutdown(shutdown)) => {
-                        match ingest_watch_request::Shutdown::from_i32(shutdown).unwrap_or_default()
+                        match ingest_watch_request::Shutdown::try_from(shutdown).unwrap_or_default()
                         {
                             ingest_watch_request::Shutdown::Request => {}
                             ingest_watch_request::Shutdown::Complete => {
@@ -567,6 +572,8 @@ impl Connection {
                         r#type: ingest_watch_response::media::Type::Init.into(),
                         data: init_segment.clone(),
                         keyframe: false,
+                        timestamp: 0,
+                        timescale: 1,
                     },
                 )),
             })
@@ -664,6 +671,9 @@ impl Connection {
         init_data: Bytes,
     ) -> bool {
         self.initial_segment = Some(init_data);
+
+        self.audio_timescale = audio_settings.timescale;
+        self.video_timescale = video_settings.timescale;
 
         let video_settings = pb::scuffle::video::v1::types::VideoConfig {
             bitrate: video_settings.bitrate as i64,
@@ -933,6 +943,11 @@ impl Connection {
                                 },
                                 data: fragment.data.clone(),
                                 keyframe: fragment.keyframe,
+                                timestamp: fragment.timestamp,
+                                timescale: match fragment.ty {
+                                    transmuxer::MediaType::Audio => self.audio_timescale,
+                                    transmuxer::MediaType::Video => self.video_timescale,
+                                },
                             },
                         )),
                     })
@@ -962,6 +977,11 @@ impl Connection {
                                 },
                                 keyframe: segment.keyframe,
                                 data: segment.data.clone(),
+                                timestamp: segment.timestamp,
+                                timescale: match segment.ty {
+                                    transmuxer::MediaType::Audio => self.audio_timescale,
+                                    transmuxer::MediaType::Video => self.video_timescale,
+                                },
                             },
                         )),
                     })

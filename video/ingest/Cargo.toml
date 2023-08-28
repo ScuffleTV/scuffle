@@ -6,31 +6,31 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.72"
+anyhow = "1.0.75"
 tracing = "0.1.37"
 native-tls = "0.2.11"
 tokio-native-tls = "0.3.1"
-async-trait = "0.1.72"
-tokio = { version = "1.29.1", features = ["full"] }
-serde = { version = "1.0.183", features = ["derive"] }
+async-trait = "0.1.73"
+tokio = { version = "1.32.0", features = ["full"] }
+serde = { version = "1.0.188", features = ["derive"] }
 hyper = { version = "0.14.27", features = ["full"] }
-tonic = { version = "0.9.2", features = ["tls"] }
-prost = "0.11.9"
-bytes = "1.4.0"
+tonic = { version = "0.10.1", features = ["tls"] }
+prost = "0.12.1"
+bytes = "1.5.0"
 futures = "0.3.28"
 futures-util = "0.3.28"
-chrono = { version = "0.4.26", default-features = false, features = ["clock"] }
-serde_json = "1.0.104"
+chrono = { version = "0.4.31", default-features = false, features = ["clock"] }
+serde_json = "1.0.107"
 uuid = "1.4.1"
-ulid = { version = "1.0.0", features = ["uuid"] }
+ulid = { version = "1.1.0", features = ["uuid"] }
 async-stream = "0.3.5"
 pnet = "0.34.0"
-async-nats = "0.31.0"
+async-nats = "0.32.0"
 tokio-executor-trait = "2.1.1"
 tokio-reactor-trait = "1.1.0"
 sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono", "uuid"] }
 sqlx-postgres = "0.7.1"
-base64 = "0.21.2"
+base64 = "0.21.4"
 tokio-stream = "0.1.14"
 
 common = { workspace = true, features = ["default"] }
@@ -42,10 +42,10 @@ mp4 = { workspace = true }
 aac = { workspace = true }
 config = { workspace = true }
 pb = { workspace = true }
-video-database = { workspace = true }
+video-common = { workspace = true }
 
 [dev-dependencies]
 dotenvy = "0.15.7"
 portpicker = "0.1.1"
 serial_test = "2.0.0"
-tempfile = "3.7.1"
+tempfile = "3.8.0"

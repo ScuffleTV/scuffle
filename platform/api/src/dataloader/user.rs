@@ -21,7 +21,7 @@ impl Loader<String> for UserByUsernameLoader {
     type Value = user::Model;
     type Error = Arc<sqlx::Error>;
 
-    async fn load(&self, keys: &[String]) -> Result<HashMap<String, Self::Value>, Self::Error> {
+    async fn load(&self, _keys: &[String]) -> Result<HashMap<String, Self::Value>, Self::Error> {
         // let results = sqlx::query_as!(
         //     user::Model,
         //     "SELECT * FROM users WHERE username = ANY($1)",
@@ -57,7 +57,7 @@ impl Loader<Uuid> for UserByIdLoader {
     type Value = user::Model;
     type Error = Arc<sqlx::Error>;
 
-    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
+    async fn load(&self, _keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
         // let results = sqlx::query_as!(user::Model, "SELECT * FROM users WHERE id = ANY($1)", &keys)
         //     .fetch_all(&*self.db)
         //     .await

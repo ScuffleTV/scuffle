@@ -9,13 +9,11 @@
 		"wasm:watch": "cargo watch --watch src --watch Cargo.toml -s \"pnpm run wasm:build:dev\"",
 		"watch": "pnpm run wasm:watch & vite build --watch",
 		"update": "pnpm update",
-		"build": "pnpm run clean && pnpm run wasm:build && tsc && vite build && vite build -c vite.demo.config.ts",
-		"build:dev": "pnpm run clean && pnpm run wasm:build:dev && tsc && vite build && vite build -c vite.demo.config.ts",
+		"build": "pnpm run clean && pnpm run wasm:build && tsc && vite build",
+		"dev": "pnpm run wasm:watch & vite",
+		"preview": "vite preview",
 		"lint": "prettier --check \"**/*\" -u && eslint . --ext .js,.ts && cargo fmt --check && cargo clippy -- -D warnings",
 		"format": "prettier --write \"**/*\" -u && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged",
-		"demo:dev": "pnpm run wasm:watch & vite",
-		"demo:build": "pnpm run wasm:build --release && tsc && vite build -c vite.demo.config.ts",
-		"demo:preview": "vite preview -c vite.demo.config.ts",
 		"clean": "rimraf dist pkg"
 	},
 	"module": "./pkg/video_player.js",
@@ -24,15 +22,15 @@
 		"pkg"
 	],
 	"devDependencies": {
-		"@typescript-eslint/eslint-plugin": "^6.3.0",
-		"@typescript-eslint/parser": "^6.3.0",
+		"@typescript-eslint/eslint-plugin": "^6.7.2",
+		"@typescript-eslint/parser": "^6.7.2",
 		"astring": "^1.8.6",
-		"eslint": "^8.46.0",
+		"eslint": "^8.50.0",
 		"eslint-config-prettier": "^8.10.0",
-		"prettier": "^3.0.1",
+		"prettier": "^3.0.3",
 		"rimraf": "^5.0.1",
-		"typescript": "^5.1.6",
+		"typescript": "^5.2.2",
 		"vite": "^4.4.9",
-		"vite-plugin-dts": "^3.5.1"
+		"vite-plugin-dts": "^3.5.4"
 	}
 }

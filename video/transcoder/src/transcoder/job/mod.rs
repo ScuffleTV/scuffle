@@ -20,7 +20,7 @@ use pb::scuffle::video::internal::{
     LiveManifest,
 };
 use pb::scuffle::video::internal::{live_rendition_manifest, LiveRenditionManifest};
-use pb::scuffle::video::v1::types::{RecordingConfig, VideoConfig};
+use pb::scuffle::video::v1::types::VideoConfig;
 use prost::Message as _;
 use tokio::io::AsyncReadExt;
 use tokio::process::Child;
@@ -32,18 +32,20 @@ use tokio_util::sync::CancellationToken;
 use tonic::{transport::Channel, Status};
 use ulid::Ulid;
 use uuid::Uuid;
-use video_database::rendition::Rendition;
-use video_database::room_status::RoomStatus;
+use video_common::database::{Rendition, RoomStatus};
 
 use crate::global::GlobalState;
 use crate::transcoder::job::track_parser::track_parser;
 use crate::transcoder::job::utils::{
     bind_socket, perform_sql_operations, spawn_ffmpeg, spawn_ffmpeg_screenshot, unix_stream,
+    upload_media_generator, MultiTasker,
 };
 
 use self::renditions::screenshot_size;
 use self::track_parser::TrackOut;
-use self::utils::{TaskError, Tasker, TrackState};
+use self::utils::{
+    delete_media_generator, upload_metadata_generator, Recording, TaskDomain, TaskError, TrackState,
+};
 
 mod renditions;
 mod track_parser;
@@ -101,7 +103,7 @@ struct Job {
     _socket_dir: CleanupPath,
 
     video_input: VideoConfig,
-    recording_config: Option<RecordingConfig>,
+    recording: Option<Recording>,
 
     ready: bool,
     init_segment: Option<Bytes>,
@@ -109,8 +111,9 @@ struct Job {
     track_state: HashMap<Rendition, TrackState>,
     manifests: HashMap<Rendition, LiveRenditionManifest>,
 
-    tasker: Tasker,
-    screenshot_task: Option<TaskFuture<Bytes>>,
+    tasker: MultiTasker,
+
+    screenshot_task: Option<TaskFuture<(Bytes, f64)>>,
 
     ffmpeg: Ffmpeg,
 
@@ -159,7 +162,7 @@ impl Job {
             %room_id,
             %connection_id,
             transcoding_config_id = %result.transcoding_config.id.to_ulid(),
-            recording_config_name = %result.recording_config.as_ref().map(|v| v.id.to_ulid().to_string()).unwrap_or_default(),
+            recording_id = %result.recording.as_ref().map(|r| r.id().to_string()).unwrap_or_default(),
             "got new stream request",
         );
 
@@ -170,10 +173,6 @@ impl Job {
         );
         if let Err(err) = tokio::fs::create_dir_all(&socket_dir.0).await {
             anyhow::bail!("failed to create socket dir: {}", err)
-        }
-
-        if result.recording_config.is_some() {
-            todo!("implement recording");
         }
 
         let tracks = result
@@ -229,12 +228,25 @@ impl Job {
             .context("failed to connect to ingest")??
             .into_inner();
 
+        let mut tasker = MultiTasker::new();
+
+        tasker.add_domain(TaskDomain::Generic);
+        tasker.add_domain(TaskDomain::Thumbnail);
+        for rendition in tracks.iter().map(|(_, r)| *r) {
+            tasker.add_domain(TaskDomain::Normal(rendition));
+        }
+        if let Some(recording) = &result.recording {
+            for rendition in recording.renditions() {
+                tasker.add_domain(TaskDomain::Recording(*rendition));
+            }
+        }
+
         Ok(Self {
             organization_id,
             room_id,
             connection_id,
             _socket_dir: socket_dir,
-            recording_config: result.recording_config,
+            recording: result.recording,
             _client: client,
             ffmpeg: Ffmpeg {
                 stdin: ffmpeg.stdin.take(),
@@ -242,7 +254,7 @@ impl Job {
             },
             init_segment: None,
             shutdown: None,
-            tasker: Tasker::new(),
+            tasker,
             screenshot_task: None,
             last_screenshot: Instant::now(),
             screenshot_idx: 0,
@@ -289,18 +301,18 @@ impl Job {
                     r?;
                     break;
                 },
-                Some(result) = self.tasker.next_task(global) => {
+                Some(result) = self.tasker.next_task(global.clone()) => {
                     match result {
                         Err((task, err)) => {
-                            tracing::error!(error = %err, retry = task.retry_count(), "failed to upload media");
                             if task.retry_count() < 5 {
+                                tracing::error!(error = %err, retry = task.retry_count(), id = task.id(), domain = ?task.domain(), "failed to upload media");
                                 self.tasker.requeue(task);
                             } else {
                                 anyhow::bail!("failed to upload media after 5 retries: {}", err);
                             }
                         }
                         Ok(task) => {
-                            tracing::debug!(key = %task.key(), "completed task");
+                            tracing::debug!(key = %task.id(), domain = ?task.domain(), "completed task");
                         }
                     }
                 },
@@ -314,19 +326,27 @@ impl Job {
                         None
                     }
                 } => {
-                    let screenshot = screenshot?;
+                    let (screenshot, start_time) = screenshot?;
                     self.screenshot_idx += 1;
 
-                    let key = utils::keys::screenshot(
+                    let id = Ulid::new();
+
+                    let key = video_common::keys::screenshot(
                         self.organization_id,
                         self.room_id,
                         self.connection_id,
                         self.screenshot_idx,
                     );
 
-                    tracing::debug!(key = %key, "uploading screenshot");
+                    self.tasker.submit(
+                        TaskDomain::Generic,
+                        format!("screenshot_{idx}", idx = self.screenshot_idx),
+                        upload_media_generator(key, screenshot.clone()),
+                    );
 
-                    self.tasker.upload_media(key, screenshot);
+                    if let Some(recording) = &mut self.recording {
+                        self.tasker.submit_task(recording.upload_thumbnail(id, self.screenshot_idx, start_time, screenshot));
+                    }
 
                     self.update_manifest();
                 }
@@ -383,14 +403,22 @@ impl Job {
                             && self.last_screenshot.elapsed() > Duration::from_secs(5)
                             && self.screenshot_task.is_none()
                         {
-                            self.take_screenshot(global, &media.data).await?;
+                            self.take_screenshot(
+                                global,
+                                &media.data,
+                                media.timestamp as f64 / media.timescale as f64,
+                            )
+                            .await?;
                         }
                     }
                     ingest_watch_response::media::Type::Audio => {}
                 }
             }
             ingest_watch_response::Message::Shutdown(s) => {
-                self.shutdown = ingest_watch_response::Shutdown::from_i32(s);
+                self.shutdown = Some(
+                    ingest_watch_response::Shutdown::try_from(s)
+                        .unwrap_or(ingest_watch_response::Shutdown::Transcoder),
+                );
                 self.ffmpeg.stdin.take();
             }
             ingest_watch_response::Message::Ready(_) => {
@@ -407,7 +435,16 @@ impl Job {
         Ok(())
     }
 
-    async fn take_screenshot(&mut self, global: &Arc<GlobalState>, data: &Bytes) -> Result<()> {
+    async fn take_screenshot(
+        &mut self,
+        global: &Arc<GlobalState>,
+        data: &Bytes,
+        start_time: f64,
+    ) -> Result<()> {
+        if !self.ready {
+            return Ok(());
+        }
+
         if let Some(init_segment) = &self.init_segment {
             let (width, height) = screenshot_size(&self.video_input);
 
@@ -440,7 +477,7 @@ impl Job {
 
                 tracing::debug!(duration, "screenshot captured");
 
-                Ok(Bytes::from(output.stdout))
+                Ok((Bytes::from(output.stdout), start_time))
             }));
         }
 
@@ -484,7 +521,7 @@ impl Job {
         }
 
         self.track_state.iter().for_each(|(rendition, state)| {
-            let key = utils::keys::init(
+            let key = video_common::keys::init(
                 self.organization_id,
                 self.room_id,
                 self.connection_id,
@@ -492,7 +529,11 @@ impl Job {
             );
 
             let data = state.init_segment().unwrap().clone();
-            self.tasker.upload_media(key, data);
+            self.tasker.submit_with_abort(
+                TaskDomain::Normal(*rendition),
+                "init",
+                upload_media_generator(key, data),
+            );
         });
 
         if self.first_init_put {
@@ -516,12 +557,13 @@ impl Job {
             let connection_id = self.connection_id;
             let room_id = self.room_id;
 
-            self.tasker.custom("room_ready".into(), move |_, global| {
-                let global = global.clone();
-                let event = event.clone();
-                Box::pin(async move {
-                    let resp = sqlx::query(
-                        r#"
+            self.tasker
+                .submit_with_abort(TaskDomain::Generic, "room_ready", move |global| {
+                    let global = global.clone();
+                    let event = event.clone();
+                    Box::pin(async move {
+                        let resp = sqlx::query(
+                            r#"
                     UPDATE rooms
                     SET
                         updated_at = NOW(),
@@ -531,37 +573,45 @@ impl Job {
                         id = $3 AND
                         active_ingest_connection_id = $4
                     "#,
-                    )
-                    .bind(RoomStatus::Ready)
-                    .bind(Uuid::from(organization_id))
-                    .bind(Uuid::from(room_id))
-                    .bind(Uuid::from(connection_id))
-                    .execute(global.db.as_ref())
-                    .await
-                    .map_err(|e| TaskError::Custom(e.into()))?;
-
-                    if resp.rows_affected() != 1 {
-                        return Err(TaskError::Custom(anyhow::anyhow!(
-                            "failed to update room status"
-                        )));
-                    }
-
-                    global
-                        .nats
-                        .publish(global.config.transcoder.events_subject.clone(), event)
+                        )
+                        .bind(RoomStatus::Ready)
+                        .bind(Uuid::from(organization_id))
+                        .bind(Uuid::from(room_id))
+                        .bind(Uuid::from(connection_id))
+                        .execute(global.db.as_ref())
                         .await
                         .map_err(|e| TaskError::Custom(e.into()))?;
 
-                    Ok(())
-                })
-            });
+                        if resp.rows_affected() != 1 {
+                            return Err(TaskError::Custom(anyhow::anyhow!(
+                                "failed to update room status"
+                            )));
+                        }
+
+                        global
+                            .nats
+                            .publish(global.config.transcoder.events_subject.clone(), event)
+                            .await
+                            .map_err(|e| TaskError::Custom(e.into()))?;
+
+                        Ok(())
+                    })
+                });
+
+            if let Some(recording) = &mut self.recording {
+                self.track_state.iter().for_each(|(rendition, state)| {
+                    self.tasker.submit_task_with_abort(
+                        recording.upload_init(*rendition, state.init_segment().unwrap().clone()),
+                    );
+                });
+            }
         }
 
         Ok(())
     }
 
     fn handle_sample(&mut self, global: &Arc<GlobalState>, rendition: Rendition) -> Result<()> {
-        if !self.ready {
+        if !self.ready || self.first_init_put {
             return Ok(());
         }
 
@@ -575,7 +625,7 @@ impl Job {
 
         for (segment_idx, parts) in additions {
             for part_idx in parts {
-                let key = utils::keys::part(
+                let key = video_common::keys::part(
                     self.organization_id,
                     self.room_id,
                     self.connection_id,
@@ -583,33 +633,52 @@ impl Job {
                     part_idx,
                 );
 
-                let data = track_state
-                    .part(segment_idx, part_idx)
-                    .unwrap()
-                    .data
-                    .clone();
+                let segment = track_state.segment(segment_idx).unwrap();
 
-                self.tasker.upload_media(key, data);
+                let part = segment.part(part_idx).unwrap();
+
+                if let Some(recording) = &mut self.recording {
+                    if let Some(task) = recording.upload_part(
+                        rendition,
+                        segment.id,
+                        segment.idx,
+                        part.data.clone(),
+                        segment
+                            .parts
+                            .first()
+                            .map(|p| p.start_ts)
+                            .unwrap_or_default() as f64
+                            / track_state.timescale() as f64,
+                        segment.duration() as f64 / track_state.timescale() as f64,
+                        false,
+                    ) {
+                        self.tasker.submit_task_with_abort(task);
+                    }
+                }
+                self.tasker.submit(
+                    TaskDomain::Normal(rendition),
+                    format!("part_{part_idx}"),
+                    upload_media_generator(key, part.data.clone()),
+                );
             }
         }
 
-        let part_keys = track_state
+        for idx in track_state
             .retain_segments(global.config.transcoder.playlist_segments)
             .into_iter()
             .flat_map(|s| s.parts.into_iter().map(|p| p.idx))
-            .map(|idx| {
-                utils::keys::part(
+        {
+            self.tasker.submit(
+                TaskDomain::Normal(rendition),
+                format!("delete_part_{idx}"),
+                delete_media_generator(video_common::keys::part(
                     self.organization_id,
                     self.room_id,
                     self.connection_id,
                     rendition,
                     idx,
-                )
-            })
-            .collect::<Vec<_>>();
-
-        for key in part_keys {
-            self.tasker.delete_media(key);
+                )),
+            );
         }
 
         self.update_rendition_manifest(rendition);
@@ -663,10 +732,14 @@ impl Job {
                         }
                         ffmpeg_done = true;
                     },
-                    Some(upload) = self.tasker.next_task(global) => {
+                    Some(upload) = self.tasker.next_task(global.clone()) => {
                         if let Err((task, err)) = upload {
-                            tracing::error!(error = %err, "failed to upload media");
-                            self.tasker.requeue(task);
+                            if task.retry_count() < 5 {
+                                tracing::error!(error = %err, "failed to upload media");
+                                self.tasker.requeue(task);
+                            } else {
+                                anyhow::bail!("failed to upload media after 5 retries: {}", err);
+                            }
                         }
                     },
                     Some((result, rendition)) = streams.next() => {
@@ -694,12 +767,12 @@ impl Job {
 
         self.track_state
             .iter_mut()
-            .map(|(rendition, state)| {
-                let Some((segment_idx, part_idx)) = state.finish() else {
+            .map(|(rendition, track_state)| {
+                let Some((segment_idx, part_idx)) = track_state.finish() else {
                     return *rendition;
                 };
 
-                let key = utils::keys::part(
+                let key = video_common::keys::part(
                     self.organization_id,
                     self.room_id,
                     self.connection_id,
@@ -707,9 +780,33 @@ impl Job {
                     part_idx,
                 );
 
-                let data = state.part(segment_idx, part_idx).unwrap().data.clone();
+                let segment = track_state.segment(segment_idx).unwrap();
+                let part = segment.part(part_idx).unwrap();
 
-                self.tasker.upload_media(key, data);
+                self.tasker.submit(
+                    TaskDomain::Normal(*rendition),
+                    format!("part_{segment_idx}_{part_idx}"),
+                    upload_media_generator(key, part.data.clone()),
+                );
+
+                if let Some(recording) = &mut self.recording {
+                    if let Some(task) = recording.upload_part(
+                        *rendition,
+                        track_state.segment(segment_idx).unwrap().id,
+                        segment_idx,
+                        part.data.clone(),
+                        segment
+                            .parts
+                            .first()
+                            .map(|p| p.start_ts)
+                            .unwrap_or_default() as f64
+                            / track_state.timescale() as f64,
+                        segment.duration() as f64 / track_state.timescale() as f64,
+                        true,
+                    ) {
+                        self.tasker.submit_task_with_abort(task);
+                    }
+                }
 
                 *rendition
             })
@@ -719,10 +816,15 @@ impl Job {
                 self.update_rendition_manifest(rendition);
             });
 
-        while let Some(result) = self.tasker.next_task(global).await {
+        while let Some(result) = self.tasker.next_task(global.clone()).await {
             if let Err((task, err)) = result {
-                tracing::error!(error = %err, "failed to upload media");
-                self.tasker.requeue(task);
+                if task.retry_count() < 5 {
+                    tracing::error!(error = %err, "failed to upload media");
+                    self.tasker.requeue(task);
+                } else {
+                    tracing::error!("failed to upload media after 5 retries: {}", err);
+                    break;
+                }
             }
         }
 
@@ -749,7 +851,8 @@ impl Job {
             return;
         }
 
-        let key = utils::keys::manifest(self.organization_id, self.room_id, self.connection_id);
+        let key =
+            video_common::keys::manifest(self.organization_id, self.room_id, self.connection_id);
 
         let data: Bytes = LiveManifest {
             screenshot_idx: self.screenshot_idx,
@@ -757,7 +860,11 @@ impl Job {
         .encode_to_vec()
         .into();
 
-        self.tasker.upload_metadata(key, data);
+        self.tasker.submit_with_abort(
+            TaskDomain::Generic,
+            "manifest",
+            upload_metadata_generator(key, data),
+        );
     }
 
     fn update_rendition_manifest(&mut self, rendition: Rendition) {
@@ -775,6 +882,7 @@ impl Job {
                         next_part_idx: ts.next_part_idx(),
                         next_segment_idx: ts.next_segment_idx(),
                         next_segment_part_idx: ts.next_segment_part_idx(),
+                        last_independent_part_idx: ts.last_independent_part_idx(),
                     },
                 )
             })
@@ -784,19 +892,41 @@ impl Job {
 
         let state = self.track_state.get_mut(&rendition).unwrap();
 
+        let completed =
+            state.complete() && self.shutdown == Some(ingest_watch_response::Shutdown::Stream);
+
         let manifest = LiveRenditionManifest {
             info: Some(info),
             other_info: info_map,
-            completed: state.complete()
-                && self.shutdown == Some(ingest_watch_response::Shutdown::Stream),
+            completed,
             timescale: state.timescale(),
             total_duration: state.total_duration(),
-            recording_ulid: None,
+            recording_data: if let Some(recording) = &self.recording {
+                if recording.allow_dvr() {
+                    Some(live_rendition_manifest::RecordingData {
+                        recording_ulid: Some(recording.id().into()),
+                        thumbnails: recording
+                            .recent_thumbnails()
+                            .map(|item| {
+                                live_rendition_manifest::recording_data::RecordingThumbnail {
+                                    idx: item.idx,
+                                    timestamp: item.start_time as f32,
+                                    ulid: Some(item.id.into()),
+                                }
+                            })
+                            .collect(),
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            },
             segments: state
                 .segments()
                 .map(|s| live_rendition_manifest::Segment {
                     idx: s.idx,
-                    id: None,
+                    id: Some(s.id.into()),
                     parts: s
                         .parts
                         .iter()
@@ -816,13 +946,17 @@ impl Job {
 
         let data = Bytes::from(manifest.encode_to_vec());
 
-        let key = utils::keys::rendition_manifest(
+        let key = video_common::keys::rendition_manifest(
             self.organization_id,
             self.room_id,
             self.connection_id,
             rendition,
         );
-        self.tasker.upload_metadata(key, data);
+        self.tasker.submit_with_abort(
+            TaskDomain::Normal(rendition),
+            "manifest",
+            upload_metadata_generator(key, data),
+        );
 
         self.manifests.insert(rendition, manifest);
     }
@@ -832,7 +966,7 @@ impl Job {
             futures_util::future::try_join_all(self.track_state.keys().map(|rendition| {
                 global
                     .metadata_store
-                    .get(utils::keys::rendition_manifest(
+                    .get(video_common::keys::rendition_manifest(
                         self.organization_id,
                         self.room_id,
                         self.connection_id,
@@ -846,7 +980,7 @@ impl Job {
         let manifest = async {
             global
                 .metadata_store
-                .get(utils::keys::manifest(
+                .get(video_common::keys::manifest(
                     self.organization_id,
                     self.room_id,
                     self.connection_id,
@@ -874,6 +1008,12 @@ impl Job {
             };
 
             let manifest = LiveRenditionManifest::decode(data)?;
+
+            if let Some(recording) = &mut self.recording {
+                if let Some(data) = &manifest.recording_data {
+                    recording.recover_recordings(&data.thumbnails);
+                }
+            }
 
             self.track_state
                 .get_mut(&rendition)

@@ -47,11 +47,11 @@ impl RouteError {
         }
     }
 
-    fn with_source(self, source: Option<anyhow::Error>) -> Self {
+    pub fn with_source(self, source: Option<anyhow::Error>) -> Self {
         Self { source, ..self }
     }
 
-    fn with_location(self, location: &'static Location<'static>) -> Self {
+    pub fn with_location(self, location: &'static Location<'static>) -> Self {
         Self { location, ..self }
     }
 }
@@ -68,29 +68,35 @@ impl From<hyper::Response<Body>> for RouteError {
     }
 }
 
-impl From<(StatusCode, &'_ str)> for RouteError {
+impl<S: AsRef<str>> From<(StatusCode, S)> for RouteError {
     #[track_caller]
-    fn from(status: (StatusCode, &'_ str)) -> Self {
+    fn from(status: (StatusCode, S)) -> Self {
         Self {
             source: None,
             span: tracing::Span::current(),
             location: Location::caller(),
-            response: make_response!(status.0, json!({ "message": status.1, "success": false })),
+            response: make_response!(
+                status.0,
+                json!({ "message": status.1.as_ref(), "success": false })
+            ),
         }
     }
 }
 
-impl<T> From<(StatusCode, &'_ str, T)> for RouteError
+impl<S: AsRef<str>, T> From<(StatusCode, S, T)> for RouteError
 where
     T: Into<anyhow::Error> + Debug + Display,
 {
     #[track_caller]
-    fn from(status: (StatusCode, &'_ str, T)) -> Self {
+    fn from(status: (StatusCode, S, T)) -> Self {
         Self {
             source: Some(status.2.into()),
             span: tracing::Span::current(),
             location: Location::caller(),
-            response: make_response!(status.0, json!({ "message": status.1, "success": false })),
+            response: make_response!(
+                status.0,
+                json!({ "message": status.1.as_ref(), "success": false })
+            ),
         }
     }
 }

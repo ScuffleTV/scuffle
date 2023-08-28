@@ -19,7 +19,8 @@ use mp4::{
     },
     BoxType,
 };
-use pb::scuffle::video::internal::LiveRenditionManifest;
+use pb::{ext::UlidExt, scuffle::video::internal::LiveRenditionManifest};
+use ulid::Ulid;
 
 use crate::transcoder::job::track_parser::TrackSample;
 
@@ -30,6 +31,7 @@ pub struct Part {
     pub data: Bytes,
     pub duration: u32,
     pub idx: u32,
+    pub start_ts: u64,
     pub independent: bool,
 }
 
@@ -47,11 +49,16 @@ impl std::fmt::Debug for Part {
 pub struct Segment {
     pub parts: Vec<Part>,
     pub idx: u32,
+    pub id: Ulid,
 }
 
 impl Segment {
     pub fn part(&self, idx: u32) -> Option<&Part> {
         self.parts.iter().find(|p| p.idx == idx)
+    }
+
+    pub fn duration(&self) -> u32 {
+        self.parts.iter().map(|p| p.duration).sum()
     }
 }
 
@@ -70,6 +77,7 @@ pub struct TrackState {
     next_part_idx: u32,
     next_segment_idx: u32,
     next_segment_part_idx: u32,
+    last_independent_part_idx: u32,
 
     complete: bool,
 }
@@ -82,6 +90,8 @@ impl std::fmt::Debug for TrackState {
             .field("total_duration", &self.total_duration)
             .field("next_part_idx", &self.next_part_idx)
             .field("next_segment_idx", &self.next_segment_idx)
+            .field("next_segment_part_idx", &self.next_segment_part_idx)
+            .field("last_independent_part_idx", &self.last_independent_part_idx)
             .field("complete", &self.complete)
             .finish()
     }
@@ -112,6 +122,10 @@ impl TrackState {
         self.next_segment_part_idx
     }
 
+    pub fn last_independent_part_idx(&self) -> u32 {
+        self.last_independent_part_idx
+    }
+
     pub fn apply_manifest(&mut self, manifest: &LiveRenditionManifest) {
         let Some(info) = manifest.info.as_ref() else {
             return;
@@ -122,6 +136,7 @@ impl TrackState {
         self.total_duration = manifest.total_duration;
         self.timescale = manifest.timescale;
         self.next_segment_part_idx = info.next_segment_part_idx;
+        self.last_independent_part_idx = info.last_independent_part_idx;
 
         let mut segments = manifest
             .segments
@@ -136,14 +151,24 @@ impl TrackState {
                         duration: p.duration,
                         idx: p.idx,
                         independent: p.independent,
+                        start_ts: 0,
                     })
                     .collect(),
+                id: s.id.to_ulid(),
             })
             .collect::<Vec<_>>();
 
         segments.sort_unstable_by_key(|s| s.idx);
 
         self.segments = segments.into();
+
+        self.segments.push_back(Segment {
+            idx: self.next_segment_idx,
+            parts: vec![],
+            id: Ulid::new(),
+        });
+
+        self.next_segment_idx += 1;
     }
 
     pub fn complete(&self) -> bool {
@@ -157,10 +182,6 @@ impl TrackState {
         } else {
             None
         }
-    }
-
-    pub fn part(&self, segment_idx: u32, part_idx: u32) -> Option<&Part> {
-        self.segment(segment_idx)?.part(part_idx)
     }
 
     pub fn retain_segments(&mut self, count: usize) -> Vec<Segment> {
@@ -241,11 +262,13 @@ impl TrackState {
             self.segments.push_back(Segment {
                 parts: vec![part],
                 idx: self.next_segment_idx,
+                id: Ulid::new(),
             });
             self.next_segment_idx += 1;
-            self.next_segment_part_idx = 1;
             self.next_segment_idx - 1
         };
+
+        self.next_segment_part_idx = 0;
 
         Some((segment_idx, part_idx))
     }
@@ -292,7 +315,12 @@ impl TrackState {
             duration,
             idx: self.next_part_idx,
             independent: contains_keyframe,
+            start_ts: self.total_duration,
         };
+
+        if part.independent {
+            self.last_independent_part_idx = part.idx;
+        }
 
         self.next_part_idx += 1;
         self.next_segment_part_idx += 1;
@@ -373,6 +401,7 @@ impl TrackState {
             self.segments.push_back(Segment {
                 parts: vec![],
                 idx: self.next_segment_idx,
+                id: Ulid::new(),
             });
             self.next_segment_idx += 1;
             self.next_segment_part_idx = 0;
@@ -405,6 +434,7 @@ impl TrackState {
                     self.segments.push_back(Segment {
                         parts: vec![],
                         idx: self.next_segment_idx,
+                        id: Ulid::new(),
                     });
                     self.next_segment_idx += 1;
                     self.next_segment_part_idx = 0;

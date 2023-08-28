@@ -10,8 +10,9 @@
 			<div>
 				<div id="input">
 					<h1>Input</h1>
-					<input type="text" id="input-url" placeholder="URL" />
-					<button id="load">Load</button>
+					<input type="text" id="video-id" placeholder="Recording/Room ID" />
+					<button id="load-room">Load Room</button>
+					<button id="load-recording">Load Recording</button>
 				</div>
 				<video id="video" controls autoplay muted></video>
 			</div>
@@ -25,14 +26,19 @@
 					<button id="toggle-abr"></button>
 					<button id="toggle-low-latency"></button>
 					<button id="jump-to-live">Jump to Live</button>
+					<button id="destroy">Destroy</button>
+					<button id="copy-share">Copy Share</button>
 				</div>
 				<h1>Video Time: <span id="video-time"></span></h1>
 				<h1>Buffer Size: <span id="buffer-size"></span></h1>
+				<h1>Video Duration: <span id="video-duration"></span></h1>
+				<h1>Latency: <span id="latency"></span></h1>
 				<h1>Frame Rate: <span id="frame-rate"></span></h1>
 				<h1>Dropped Frames: <span id="dropped-frames"></span></h1>
 				<h1>Resolution: <span id="resolution"></span></h1>
 				<h1>Bandwidth: <span id="bandwidth"></span></h1>
 				<h1>Variant Id: <span id="variant-id"></span></h1>
+				<h1>Realtime: <span id="realtime"></span></h1>
 			</div>
 		</div>
 		<style>
@@ -53,7 +59,7 @@
 				margin-bottom: 20px;
 			}
 
-			#input-url {
+			#room-id {
 				width: 600px;
 			}
 		</style>

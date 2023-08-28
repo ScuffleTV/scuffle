@@ -12,22 +12,29 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use common::{config::LoggingConfig, logging, prelude::FutureTimeout};
 use futures_util::Stream;
-use pb::scuffle::video::{
-    internal::{
-        events::{organization_event, OrganizationEvent, TranscoderRequest},
-        ingest_server::{Ingest, IngestServer},
-        ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse,
-        LiveRenditionManifest,
+use pb::{
+    ext::UlidExt,
+    scuffle::video::{
+        internal::{
+            events::{organization_event, OrganizationEvent, TranscoderRequest},
+            ingest_server::{Ingest, IngestServer},
+            ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse,
+            LiveRenditionManifest,
+        },
+        v1::types::{AudioConfig, Rendition, VideoConfig},
     },
-    v1::types::{AudioConfig, RenditionAudio, RenditionVideo, VideoConfig},
 };
 use prost::Message;
 use tokio::{process::Command, sync::mpsc};
 use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use tonic::Response;
 use transmuxer::{TransmuxResult, Transmuxer};
+use ulid::Ulid;
 use uuid::Uuid;
-use video_database::{adapter::TraitAdapterVec, room::Room, room_status::RoomStatus};
+use video_common::{
+    database::{Room, RoomStatus, TraitProtobufVec},
+    ext::AsyncReadExt as _,
+};
 
 use crate::{
     config::{AppConfig, TranscoderConfig},
@@ -87,9 +94,10 @@ async fn test_transcode() {
 
     let (global, handler) = crate::tests::global::mock_global_state(AppConfig {
         transcoder: TranscoderConfig {
-            events_subject: Uuid::new_v4().to_string(),
-            transcoder_request_subject: Uuid::new_v4().to_string(),
-            kv_bucket: Uuid::new_v4().to_string(),
+            events_subject: Ulid::new().to_string(),
+            transcoder_request_subject: Ulid::new().to_string(),
+            metadata_kv_store: Ulid::new().to_string(),
+            media_ob_store: Ulid::new().to_string(),
             ..Default::default()
         },
         logging: LoggingConfig {
@@ -99,25 +107,6 @@ async fn test_transcode() {
         ..Default::default()
     })
     .await;
-
-    global
-        .jetstream
-        .create_stream(async_nats::jetstream::stream::Config {
-            name: global.config.transcoder.transcoder_request_subject.clone(),
-            ..Default::default()
-        })
-        .await
-        .unwrap();
-
-    let kv = global
-        .jetstream
-        .create_key_value(async_nats::jetstream::kv::Config {
-            bucket: global.config.transcoder.kv_bucket.clone(),
-            max_age: Duration::from_secs(60),
-            ..Default::default()
-        })
-        .await
-        .unwrap();
 
     let mut event_stream = global
         .nats
@@ -131,15 +120,15 @@ async fn test_transcode() {
 
     let transcoder_run_handle = tokio::spawn(transcoder::run(global.clone()));
 
-    let req_id = Uuid::new_v4();
+    let req_id = Ulid::new();
 
-    let room_name = Uuid::new_v4().simple().to_string();
-    let org_id = Uuid::new_v4();
-    let connection_id = Uuid::new_v4();
+    let room_id = Ulid::new();
+    let org_id = Ulid::new();
+    let connection_id = Ulid::new();
 
     sqlx::query(
         r#"
-    INSERT INTO organization (
+    INSERT INTO organizations (
         id,
         name
     ) VALUES (
@@ -147,17 +136,17 @@ async fn test_transcode() {
         $2
     )"#,
     )
-    .bind(org_id)
-    .bind(&room_name)
+    .bind(Uuid::from(org_id))
+    .bind(Uuid::from(room_id).simple().to_string())
     .execute(global.db.as_ref())
     .await
     .unwrap();
 
     sqlx::query(
         r#"
-    INSERT INTO room (
+    INSERT INTO rooms (
+        id,
         organization_id,
-        name,
         active_ingest_connection_id,
         stream_key,
         video_input,
@@ -171,10 +160,10 @@ async fn test_transcode() {
         $6
     )"#,
     )
-    .bind(org_id)
-    .bind(&room_name)
-    .bind(connection_id)
-    .bind(&room_name)
+    .bind(Uuid::from(room_id))
+    .bind(Uuid::from(org_id))
+    .bind(Uuid::from(connection_id))
+    .bind(Uuid::from(room_id).simple().to_string())
     .bind(
         VideoConfig {
             bitrate: 7358 * 1024,
@@ -182,7 +171,7 @@ async fn test_transcode() {
             fps: 60,
             height: 2160,
             width: 3840,
-            rendition: RenditionVideo::SourceVideo.into(),
+            rendition: Rendition::VideoSource.into(),
         }
         .encode_to_vec(),
     )
@@ -192,7 +181,7 @@ async fn test_transcode() {
             codec: "mp4a.40.2".to_string(),
             channels: 2,
             sample_rate: 48000,
-            rendition: RenditionAudio::SourceAudio.into(),
+            rendition: Rendition::AudioSource.into(),
         }
         .encode_to_vec(),
     )
@@ -205,10 +194,10 @@ async fn test_transcode() {
         .publish(
             global.config.transcoder.transcoder_request_subject.clone(),
             TranscoderRequest {
-                room_name: room_name.clone(),
-                organization_id: org_id.to_string(),
-                request_id: req_id.to_string(),
-                connection_id: connection_id.to_string(),
+                room_id: Some(room_id.into()),
+                organization_id: Some(org_id.into()),
+                request_id: Some(req_id.into()),
+                connection_id: Some(connection_id.into()),
                 grpc_endpoint: format!("localhost:{}", port),
             }
             .encode_to_vec()
@@ -236,6 +225,9 @@ async fn test_transcode() {
 
     let flv = flv::Flv::demux(&mut cursor).unwrap();
 
+    let mut video = None;
+    let mut audio = None;
+
     for tag in flv.tags {
         transmuxer.add_tag(tag);
         tracing::debug!("added tag");
@@ -243,13 +235,21 @@ async fn test_transcode() {
         tokio::time::sleep(Duration::from_millis(10)).await;
         if let Some(data) = transmuxer.mux().unwrap() {
             match data {
-                TransmuxResult::InitSegment { data, .. } => {
+                TransmuxResult::InitSegment {
+                    data,
+                    video_settings,
+                    audio_settings,
+                } => {
+                    video = Some(video_settings);
+                    audio = Some(audio_settings);
                     sender
                         .send(Ok(IngestWatchResponse {
                             message: Some(ingest_watch_response::Message::Media(
                                 ingest_watch_response::Media {
                                     data,
                                     keyframe: false,
+                                    timescale: 0,
+                                    timestamp: 0,
                                     r#type: ingest_watch_response::media::Type::Init.into(),
                                 },
                             )),
@@ -272,6 +272,15 @@ async fn test_transcode() {
                                 ingest_watch_response::Media {
                                     data: ms.data,
                                     keyframe: ms.keyframe,
+                                    timescale: match ms.ty {
+                                        transmuxer::MediaType::Audio => {
+                                            audio.as_ref().unwrap().timescale
+                                        }
+                                        transmuxer::MediaType::Video => {
+                                            video.as_ref().unwrap().timescale
+                                        }
+                                    },
+                                    timestamp: ms.timestamp,
                                     r#type: match ms.ty {
                                         transmuxer::MediaType::Audio => {
                                             ingest_watch_response::media::Type::Audio.into()
@@ -292,12 +301,12 @@ async fn test_transcode() {
 
     {
         let event = OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-        assert_eq!(event.id, org_id.to_string());
+        assert_eq!(event.id.to_ulid(), org_id);
         assert!(event.timestamp > 0);
         match event.event {
             Some(organization_event::Event::RoomReady(r)) => {
-                assert_eq!(r.room_name, room_name);
-                assert_eq!(r.connection_id, connection_id.to_string());
+                assert_eq!(r.room_id.to_ulid(), room_id);
+                assert_eq!(r.connection_id.to_ulid(), connection_id);
             }
             _ => panic!("unexpected event"),
         };
@@ -306,29 +315,42 @@ async fn test_transcode() {
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     let video_manifest = LiveRenditionManifest::decode(
-        kv.get(format!(
-            "{}.{}.{}.video_source.manifest",
-            org_id, &room_name, connection_id
-        ))
-        .await
-        .unwrap()
-        .unwrap(),
+        global
+            .metadata_store
+            .get(video_common::keys::rendition_manifest(
+                org_id,
+                room_id,
+                connection_id,
+                Rendition::VideoSource.into(),
+            ))
+            .await
+            .unwrap()
+            .unwrap(),
     )
     .unwrap();
     let audio_manifest = LiveRenditionManifest::decode(
-        kv.get(format!(
-            "{}.{}.{}.audio_source.manifest",
-            org_id, &room_name, connection_id
-        ))
-        .await
-        .unwrap()
-        .unwrap(),
+        global
+            .metadata_store
+            .get(video_common::keys::rendition_manifest(
+                org_id,
+                room_id,
+                connection_id,
+                Rendition::AudioSource.into(),
+            ))
+            .await
+            .unwrap()
+            .unwrap(),
     )
     .unwrap();
 
-    assert_eq!(video_manifest.parts.len(), 3);
-    assert!(video_manifest.parts.iter().skip(1).all(|p| !p.independent));
-    assert!(video_manifest.parts[0].independent);
+    assert_eq!(video_manifest.segments.len(), 1);
+    assert_eq!(video_manifest.segments[0].parts.len(), 3);
+    assert!(video_manifest.segments[0]
+        .parts
+        .iter()
+        .skip(1)
+        .all(|p| !p.independent));
+    assert!(video_manifest.segments[0].parts[0].independent);
     assert!(!video_manifest.completed);
     assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_idx, 1);
     assert_eq!(video_manifest.info.as_ref().unwrap().next_part_idx, 3);
@@ -338,8 +360,12 @@ async fn test_transcode() {
     );
     assert_eq!(video_manifest.other_info["audio_source"].next_part_idx, 3);
 
-    assert_eq!(audio_manifest.parts.len(), 3);
-    assert!(audio_manifest.parts.iter().all(|p| p.independent));
+    assert_eq!(audio_manifest.segments.len(), 1);
+    assert_eq!(audio_manifest.segments[0].parts.len(), 3);
+    assert!(audio_manifest.segments[0]
+        .parts
+        .iter()
+        .all(|p| p.independent));
     assert!(!audio_manifest.completed);
     assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_idx, 1);
     assert_eq!(audio_manifest.info.as_ref().unwrap().next_part_idx, 3);
@@ -366,29 +392,42 @@ async fn test_transcode() {
     tokio::time::sleep(Duration::from_millis(250)).await;
 
     let video_manifest = LiveRenditionManifest::decode(
-        kv.get(format!(
-            "{}.{}.{}.video_source.manifest",
-            org_id, &room_name, connection_id
-        ))
-        .await
-        .unwrap()
-        .unwrap(),
+        global
+            .metadata_store
+            .get(video_common::keys::rendition_manifest(
+                org_id,
+                room_id,
+                connection_id,
+                Rendition::VideoSource.into(),
+            ))
+            .await
+            .unwrap()
+            .unwrap(),
     )
     .unwrap();
     let audio_manifest = LiveRenditionManifest::decode(
-        kv.get(format!(
-            "{}.{}.{}.audio_source.manifest",
-            org_id, &room_name, connection_id
-        ))
-        .await
-        .unwrap()
-        .unwrap(),
+        global
+            .metadata_store
+            .get(video_common::keys::rendition_manifest(
+                org_id,
+                room_id,
+                connection_id,
+                Rendition::AudioSource.into(),
+            ))
+            .await
+            .unwrap()
+            .unwrap(),
     )
     .unwrap();
 
-    assert_eq!(video_manifest.parts.len(), 4);
-    assert!(video_manifest.parts.iter().skip(1).all(|p| !p.independent));
-    assert!(video_manifest.parts[0].independent);
+    assert_eq!(video_manifest.segments.len(), 1);
+    assert_eq!(video_manifest.segments[0].parts.len(), 4);
+    assert!(video_manifest.segments[0]
+        .parts
+        .iter()
+        .skip(1)
+        .all(|p| !p.independent));
+    assert!(video_manifest.segments[0].parts[0].independent);
     assert!(video_manifest.completed);
     assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_idx, 1);
     assert_eq!(video_manifest.info.as_ref().unwrap().next_part_idx, 4);
@@ -399,8 +438,12 @@ async fn test_transcode() {
     assert_eq!(video_manifest.other_info["audio_source"].next_part_idx, 4);
     assert_eq!(video_manifest.total_duration, 59000); // verified with ffprobe
 
-    assert_eq!(audio_manifest.parts.len(), 4);
-    assert!(audio_manifest.parts.iter().all(|p| p.independent));
+    assert_eq!(video_manifest.segments.len(), 1);
+    assert_eq!(audio_manifest.segments[0].parts.len(), 4);
+    assert!(audio_manifest.segments[0]
+        .parts
+        .iter()
+        .all(|p| p.independent));
     assert!(audio_manifest.completed);
     assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_idx, 1);
     assert_eq!(audio_manifest.info.as_ref().unwrap().next_part_idx, 4);
@@ -411,41 +454,65 @@ async fn test_transcode() {
     assert_eq!(audio_manifest.other_info["video_source"].next_part_idx, 4);
     assert_eq!(audio_manifest.total_duration, 48128); // verified with ffprobe
 
-    let mut video_parts = vec![kv
-        .get(format!(
-            "{}.{}.{}.video_source.init",
-            org_id, &room_name, connection_id
+    let mut video_parts = vec![global
+        .media_store
+        .get(video_common::keys::init(
+            org_id,
+            room_id,
+            connection_id,
+            Rendition::VideoSource.into(),
         ))
         .await
         .unwrap()
+        .read_all()
+        .await
         .unwrap()];
-    let mut audio_parts = vec![kv
-        .get(format!(
-            "{}.{}.{}.audio_source.init",
-            org_id, &room_name, connection_id
+    let mut audio_parts = vec![global
+        .media_store
+        .get(video_common::keys::init(
+            org_id,
+            room_id,
+            connection_id,
+            Rendition::AudioSource.into(),
         ))
         .await
         .unwrap()
+        .read_all()
+        .await
         .unwrap()];
 
     for i in 1..=3 {
         video_parts.push(
-            kv.get(format!(
-                "{}.{}.{}.video_source.{}",
-                org_id, &room_name, connection_id, i
-            ))
-            .await
-            .unwrap()
-            .unwrap(),
+            global
+                .media_store
+                .get(video_common::keys::part(
+                    org_id,
+                    room_id,
+                    connection_id,
+                    Rendition::VideoSource.into(),
+                    i,
+                ))
+                .await
+                .unwrap()
+                .read_all()
+                .await
+                .unwrap(),
         );
         audio_parts.push(
-            kv.get(format!(
-                "{}.{}.{}.audio_source.{}",
-                org_id, &room_name, connection_id, i
-            ))
-            .await
-            .unwrap()
-            .unwrap(),
+            global
+                .media_store
+                .get(video_common::keys::part(
+                    org_id,
+                    room_id,
+                    connection_id,
+                    Rendition::AudioSource.into(),
+                    i,
+                ))
+                .await
+                .unwrap()
+                .read_all()
+                .await
+                .unwrap(),
         );
     }
 
@@ -528,10 +595,10 @@ async fn test_transcode() {
     assert_eq!(json["streams"][0]["duration_ts"], 48128);
     assert_eq!(json["streams"][0]["time_base"], "1/48000");
 
-    let room: Room = sqlx::query_as("SELECT * FROM room WHERE organization_id = $1 AND name = $2 AND active_ingest_connection_id = $3")
-        .bind(org_id)
-        .bind(&room_name)
-        .bind(connection_id)
+    let room: Room = sqlx::query_as("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2 AND active_ingest_connection_id = $3")
+        .bind(Uuid::from(org_id))
+        .bind(Uuid::from(room_id))
+        .bind(Uuid::from(connection_id))
         .fetch_one(global.db.as_ref())
         .await
         .unwrap();
@@ -541,34 +608,26 @@ async fn test_transcode() {
     let video_output = room.video_output.unwrap().into_vec();
     let audio_output = room.audio_output.unwrap().into_vec();
 
-    assert_eq!(
-        active_transcoding_config.audio_renditions,
-        vec![RenditionAudio::SourceAudio as i32]
-    );
-    assert_eq!(
-        active_transcoding_config.video_renditions,
-        vec![RenditionVideo::SourceVideo as i32]
-    );
-    assert_eq!(active_transcoding_config.name, "");
+    assert!(active_transcoding_config
+        .renditions
+        .contains(&(Rendition::VideoSource as i32)));
+    assert!(active_transcoding_config
+        .renditions
+        .contains(&(Rendition::AudioSource as i32)));
+    assert_eq!(active_transcoding_config.id.to_ulid(), Ulid::nil());
     assert_eq!(active_transcoding_config.created_at, 0);
 
     assert_eq!(video_output.len(), 1);
     assert_eq!(audio_output.len(), 1);
 
-    assert_eq!(
-        video_output[0].rendition,
-        RenditionVideo::SourceVideo as i32
-    );
+    assert_eq!(video_output[0].rendition, Rendition::VideoSource as i32);
     assert_eq!(video_output[0].codec, "avc1.64002a");
     assert_eq!(video_output[0].bitrate, 7358 * 1024);
     assert_eq!(video_output[0].fps, 60);
     assert_eq!(video_output[0].height, 2160);
     assert_eq!(video_output[0].width, 3840);
 
-    assert_eq!(
-        audio_output[0].rendition,
-        RenditionAudio::SourceAudio as i32
-    );
+    assert_eq!(audio_output[0].rendition, Rendition::AudioSource as i32);
     assert_eq!(audio_output[0].codec, "mp4a.40.2");
     assert_eq!(audio_output[0].bitrate, 130 * 1024);
     assert_eq!(audio_output[0].channels, 2);
@@ -598,9 +657,10 @@ async fn test_transcode_reconnect() {
 
     let (global, handler) = crate::tests::global::mock_global_state(AppConfig {
         transcoder: TranscoderConfig {
-            events_subject: Uuid::new_v4().to_string(),
-            transcoder_request_subject: Uuid::new_v4().to_string(),
-            kv_bucket: Uuid::new_v4().to_string(),
+            events_subject: Ulid::new().to_string(),
+            transcoder_request_subject: Ulid::new().to_string(),
+            metadata_kv_store: Ulid::new().to_string(),
+            media_ob_store: Ulid::new().to_string(),
             ..Default::default()
         },
         logging: LoggingConfig {
@@ -620,16 +680,6 @@ async fn test_transcode_reconnect() {
         .await
         .unwrap();
 
-    let kv = global
-        .jetstream
-        .create_key_value(async_nats::jetstream::kv::Config {
-            bucket: global.config.transcoder.kv_bucket.clone(),
-            max_age: Duration::from_secs(60),
-            ..Default::default()
-        })
-        .await
-        .unwrap();
-
     let mut event_stream = global
         .nats
         .subscribe(global.config.transcoder.events_subject.clone())
@@ -642,15 +692,15 @@ async fn test_transcode_reconnect() {
 
     let transcoder_run_handle = tokio::spawn(transcoder::run(global.clone()));
 
-    let req_id = Uuid::new_v4();
+    let req_id = Ulid::new();
 
-    let room_name = Uuid::new_v4().simple().to_string();
-    let org_id = Uuid::new_v4();
-    let connection_id = Uuid::new_v4();
+    let room_id = Ulid::new();
+    let org_id = Ulid::new();
+    let connection_id = Ulid::new();
 
     sqlx::query(
         r#"
-    INSERT INTO organization (
+    INSERT INTO organizations (
         id,
         name
     ) VALUES (
@@ -658,17 +708,17 @@ async fn test_transcode_reconnect() {
         $2
     )"#,
     )
-    .bind(org_id)
-    .bind(&room_name)
+    .bind(Uuid::from(org_id))
+    .bind(Uuid::from(room_id).simple().to_string())
     .execute(global.db.as_ref())
     .await
     .unwrap();
 
     sqlx::query(
         r#"
-    INSERT INTO room (
+    INSERT INTO rooms (
         organization_id,
-        name,
+        id,
         active_ingest_connection_id,
         stream_key,
         video_input,
@@ -682,10 +732,10 @@ async fn test_transcode_reconnect() {
         $6
     )"#,
     )
-    .bind(org_id)
-    .bind(&room_name)
-    .bind(connection_id)
-    .bind(&room_name)
+    .bind(Uuid::from(org_id))
+    .bind(Uuid::from(room_id))
+    .bind(Uuid::from(connection_id))
+    .bind(Uuid::from(room_id).simple().to_string())
     .bind(
         VideoConfig {
             bitrate: 7358 * 1024,
@@ -693,7 +743,7 @@ async fn test_transcode_reconnect() {
             fps: 60,
             height: 3840,
             width: 2160,
-            rendition: RenditionVideo::SourceVideo.into(),
+            rendition: Rendition::VideoSource.into(),
         }
         .encode_to_vec(),
     )
@@ -703,7 +753,7 @@ async fn test_transcode_reconnect() {
             codec: "mp4a.40.2".to_string(),
             channels: 2,
             sample_rate: 48000,
-            rendition: RenditionAudio::SourceAudio.into(),
+            rendition: Rendition::AudioSource.into(),
         }
         .encode_to_vec(),
     )
@@ -736,10 +786,10 @@ async fn test_transcode_reconnect() {
             .publish(
                 global.config.transcoder.transcoder_request_subject.clone(),
                 TranscoderRequest {
-                    room_name: room_name.clone(),
-                    organization_id: org_id.to_string(),
-                    request_id: req_id.to_string(),
-                    connection_id: connection_id.to_string(),
+                    room_id: Some(room_id.into()),
+                    organization_id: Some(org_id.into()),
+                    request_id: Some(req_id.into()),
+                    connection_id: Some(connection_id.into()),
                     grpc_endpoint: format!("localhost:{}", port),
                 }
                 .encode_to_vec()
@@ -758,19 +808,30 @@ async fn test_transcode_reconnect() {
         assert_eq!(
             receiver.message().await.unwrap().unwrap().message.unwrap(),
             ingest_watch_request::Message::Open(ingest_watch_request::Open {
-                request_id: req_id.to_string(),
+                request_id: Some(req_id.into()),
             })
         );
 
+        let mut audio = None;
+        let mut video = None;
+
         for packet in &packets {
             match packet {
-                TransmuxResult::InitSegment { data, .. } => {
+                TransmuxResult::InitSegment {
+                    data,
+                    audio_settings,
+                    video_settings,
+                } => {
+                    audio = Some(audio_settings);
+                    video = Some(video_settings);
                     sender
                         .send(Ok(IngestWatchResponse {
                             message: Some(ingest_watch_response::Message::Media(
                                 ingest_watch_response::Media {
                                     data: data.clone(),
                                     keyframe: false,
+                                    timescale: 0,
+                                    timestamp: 0,
                                     r#type: ingest_watch_response::media::Type::Init.into(),
                                 },
                             )),
@@ -796,6 +857,15 @@ async fn test_transcode_reconnect() {
                                 ingest_watch_response::Media {
                                     data: ms.data.clone(),
                                     keyframe: ms.keyframe,
+                                    timescale: match ms.ty {
+                                        transmuxer::MediaType::Audio => {
+                                            audio.as_ref().unwrap().timescale
+                                        }
+                                        transmuxer::MediaType::Video => {
+                                            video.as_ref().unwrap().timescale
+                                        }
+                                    },
+                                    timestamp: ms.timestamp,
                                     r#type: match ms.ty {
                                         transmuxer::MediaType::Audio => {
                                             ingest_watch_response::media::Type::Audio.into()
@@ -816,12 +886,12 @@ async fn test_transcode_reconnect() {
         {
             let event =
                 OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-            assert_eq!(event.id, org_id.to_string());
+            assert_eq!(event.id.to_ulid(), org_id);
             assert!(event.timestamp > 0);
             match event.event {
                 Some(organization_event::Event::RoomReady(r)) => {
-                    assert_eq!(r.room_name, room_name);
-                    assert_eq!(r.connection_id, connection_id.to_string());
+                    assert_eq!(r.room_id.to_ulid(), room_id);
+                    assert_eq!(r.connection_id.to_ulid(), connection_id);
                 }
                 _ => panic!("unexpected event"),
             };
@@ -843,35 +913,48 @@ async fn test_transcode_reconnect() {
         );
 
         let video_manifest = LiveRenditionManifest::decode(
-            kv.get(format!(
-                "{}.{}.{}.video_source.manifest",
-                org_id, &room_name, connection_id
-            ))
-            .await
-            .unwrap()
-            .unwrap(),
+            global
+                .metadata_store
+                .get(video_common::keys::rendition_manifest(
+                    org_id,
+                    room_id,
+                    connection_id,
+                    Rendition::VideoSource.into(),
+                ))
+                .await
+                .unwrap()
+                .unwrap(),
         )
         .unwrap();
         let audio_manifest = LiveRenditionManifest::decode(
-            kv.get(format!(
-                "{}.{}.{}.audio_source.manifest",
-                org_id, &room_name, connection_id
-            ))
-            .await
-            .unwrap()
-            .unwrap(),
+            global
+                .metadata_store
+                .get(video_common::keys::rendition_manifest(
+                    org_id,
+                    room_id,
+                    connection_id,
+                    Rendition::AudioSource.into(),
+                ))
+                .await
+                .unwrap()
+                .unwrap(),
         )
         .unwrap();
 
-        assert_eq!(video_manifest.parts.len(), 4);
-        assert!(video_manifest.parts.iter().skip(1).all(|p| !p.independent));
-        assert!(video_manifest.parts[0].independent);
+        assert_eq!(video_manifest.segments.len(), 1);
+        assert_eq!(video_manifest.segments[0].parts.len(), 4);
+        assert!(video_manifest.segments[0]
+            .parts
+            .iter()
+            .skip(1)
+            .all(|p| !p.independent));
+        assert!(video_manifest.segments[0].parts[0].independent);
         assert!(!video_manifest.completed);
         assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_idx, 1);
         assert_eq!(video_manifest.info.as_ref().unwrap().next_part_idx, 4);
         assert_eq!(
             video_manifest.info.as_ref().unwrap().next_segment_part_idx,
-            4
+            0
         );
         assert_eq!(
             video_manifest.other_info["audio_source"].next_segment_idx,
@@ -880,12 +963,16 @@ async fn test_transcode_reconnect() {
         assert_eq!(video_manifest.other_info["audio_source"].next_part_idx, 4);
         assert_eq!(
             video_manifest.other_info["audio_source"].next_segment_part_idx,
-            4
+            0
         );
         assert_eq!(video_manifest.total_duration, 59000); // verified with ffprobe
 
-        assert_eq!(audio_manifest.parts.len(), 4);
-        assert!(audio_manifest.parts.iter().all(|p| p.independent));
+        assert_eq!(video_manifest.segments.len(), 1);
+        assert_eq!(audio_manifest.segments[0].parts.len(), 4);
+        assert!(audio_manifest.segments[0]
+            .parts
+            .iter()
+            .all(|p| p.independent));
         assert!(!audio_manifest.completed);
         assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_idx, 1);
         assert_eq!(audio_manifest.info.as_ref().unwrap().next_part_idx, 4);
@@ -896,23 +983,23 @@ async fn test_transcode_reconnect() {
         assert_eq!(audio_manifest.other_info["video_source"].next_part_idx, 4);
         assert_eq!(
             audio_manifest.other_info["video_source"].next_segment_part_idx,
-            4
+            0
         );
         assert_eq!(audio_manifest.total_duration, 48128); // verified with ffprobe
     }
 
     {
-        let new_req_id = Uuid::new_v4();
+        let new_req_id = Ulid::new();
 
         global
             .nats
             .publish(
                 global.config.transcoder.transcoder_request_subject.clone(),
                 TranscoderRequest {
-                    room_name: room_name.clone(),
-                    organization_id: org_id.to_string(),
-                    request_id: new_req_id.to_string(),
-                    connection_id: connection_id.to_string(),
+                    room_id: Some(room_id.into()),
+                    organization_id: Some(org_id.into()),
+                    request_id: Some(new_req_id.into()),
+                    connection_id: Some(connection_id.into()),
                     grpc_endpoint: format!("localhost:{}", port),
                 }
                 .encode_to_vec()
@@ -931,19 +1018,30 @@ async fn test_transcode_reconnect() {
         assert_eq!(
             receiver.message().await.unwrap().unwrap().message.unwrap(),
             ingest_watch_request::Message::Open(ingest_watch_request::Open {
-                request_id: new_req_id.to_string(),
+                request_id: Some(new_req_id.into()),
             })
         );
 
+        let mut audio = None;
+        let mut video = None;
+
         for packet in &packets {
             match packet {
-                TransmuxResult::InitSegment { data, .. } => {
+                TransmuxResult::InitSegment {
+                    data,
+                    audio_settings,
+                    video_settings,
+                } => {
+                    audio = Some(audio_settings);
+                    video = Some(video_settings);
                     sender
                         .send(Ok(IngestWatchResponse {
                             message: Some(ingest_watch_response::Message::Media(
                                 ingest_watch_response::Media {
                                     data: data.clone(),
                                     keyframe: false,
+                                    timescale: 0,
+                                    timestamp: 0,
                                     r#type: ingest_watch_response::media::Type::Init.into(),
                                 },
                             )),
@@ -969,6 +1067,15 @@ async fn test_transcode_reconnect() {
                                 ingest_watch_response::Media {
                                     data: ms.data.clone(),
                                     keyframe: ms.keyframe,
+                                    timescale: match ms.ty {
+                                        transmuxer::MediaType::Audio => {
+                                            audio.as_ref().unwrap().timescale
+                                        }
+                                        transmuxer::MediaType::Video => {
+                                            video.as_ref().unwrap().timescale
+                                        }
+                                    },
+                                    timestamp: ms.timestamp,
                                     r#type: match ms.ty {
                                         transmuxer::MediaType::Audio => {
                                             ingest_watch_response::media::Type::Audio.into()
@@ -989,12 +1096,12 @@ async fn test_transcode_reconnect() {
         {
             let event =
                 OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-            assert_eq!(event.id, org_id.to_string());
+            assert_eq!(event.id.to_ulid(), org_id);
             assert!(event.timestamp > 0);
             match event.event {
                 Some(organization_event::Event::RoomReady(r)) => {
-                    assert_eq!(r.room_name, room_name);
-                    assert_eq!(r.connection_id, connection_id.to_string());
+                    assert_eq!(r.room_id.to_ulid(), room_id);
+                    assert_eq!(r.connection_id.to_ulid(), connection_id);
                 }
                 _ => panic!("unexpected event"),
             };
@@ -1016,88 +1123,115 @@ async fn test_transcode_reconnect() {
         );
 
         let video_manifest = LiveRenditionManifest::decode(
-            kv.get(format!(
-                "{}.{}.{}.video_source.manifest",
-                org_id, &room_name, connection_id
-            ))
-            .await
-            .unwrap()
-            .unwrap(),
+            global
+                .metadata_store
+                .get(video_common::keys::rendition_manifest(
+                    org_id,
+                    room_id,
+                    connection_id,
+                    Rendition::VideoSource.into(),
+                ))
+                .await
+                .unwrap()
+                .unwrap(),
         )
         .unwrap();
         let audio_manifest = LiveRenditionManifest::decode(
-            kv.get(format!(
-                "{}.{}.{}.audio_source.manifest",
-                org_id, &room_name, connection_id
-            ))
-            .await
-            .unwrap()
-            .unwrap(),
+            global
+                .metadata_store
+                .get(video_common::keys::rendition_manifest(
+                    org_id,
+                    room_id,
+                    connection_id,
+                    Rendition::AudioSource.into(),
+                ))
+                .await
+                .unwrap()
+                .unwrap(),
         )
         .unwrap();
 
-        assert_eq!(video_manifest.parts.len(), 8);
+        assert_eq!(video_manifest.segments.len(), 2);
+        assert_eq!(video_manifest.segments[0].parts.len(), 4);
+        assert_eq!(video_manifest.segments[1].parts.len(), 4);
         assert_eq!(
-            video_manifest
+            video_manifest.segments[0]
                 .parts
                 .iter()
                 .filter(|p| p.independent)
                 .count(),
-            2
+            1
         );
-        assert!(video_manifest.parts[0].independent);
-        assert!(video_manifest.parts[4].independent);
+        assert_eq!(
+            video_manifest.segments[1]
+                .parts
+                .iter()
+                .filter(|p| p.independent)
+                .count(),
+            1
+        );
+        assert!(video_manifest.segments[0].parts[0].independent);
+        assert!(video_manifest.segments[1].parts[0].independent);
         assert!(!video_manifest.completed);
-        assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_idx, 1);
+        assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_idx, 2);
         assert_eq!(video_manifest.info.as_ref().unwrap().next_part_idx, 8);
         assert_eq!(
             video_manifest.info.as_ref().unwrap().next_segment_part_idx,
-            8
+            0
         );
         assert_eq!(
             video_manifest.other_info["audio_source"].next_segment_idx,
-            1
+            2
         );
         assert_eq!(video_manifest.other_info["audio_source"].next_part_idx, 8);
         assert_eq!(
             video_manifest.other_info["audio_source"].next_segment_part_idx,
-            8
+            0
         );
         assert_eq!(video_manifest.total_duration, 59000 * 2); // verified with ffprobe
 
-        assert_eq!(audio_manifest.parts.len(), 8);
-        assert!(audio_manifest.parts.iter().all(|p| p.independent));
+        assert_eq!(video_manifest.segments.len(), 2);
+        assert_eq!(audio_manifest.segments[0].parts.len(), 4);
+        assert_eq!(audio_manifest.segments[1].parts.len(), 4);
+        assert!(audio_manifest.segments[0]
+            .parts
+            .iter()
+            .all(|p| p.independent));
+        assert!(audio_manifest.segments[1]
+            .parts
+            .iter()
+            .all(|p| p.independent));
         assert!(!audio_manifest.completed);
-        assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_idx, 1);
+        assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_idx, 2);
         assert_eq!(audio_manifest.info.as_ref().unwrap().next_part_idx, 8);
         assert_eq!(
             audio_manifest.info.as_ref().unwrap().next_segment_part_idx,
-            8
+            0
         );
         assert_eq!(
             audio_manifest.other_info["video_source"].next_segment_idx,
-            1
+            2
         );
         assert_eq!(audio_manifest.other_info["video_source"].next_part_idx, 8);
         assert_eq!(
             audio_manifest.other_info["video_source"].next_segment_part_idx,
-            8
+            0
         );
         assert_eq!(audio_manifest.total_duration, 48128 * 2); // verified with ffprobe
     }
 
     {
-        let new_req_id = Uuid::new_v4();
+        let new_req_id = Ulid::new();
 
         global
             .nats
             .publish(
                 global.config.transcoder.transcoder_request_subject.clone(),
                 TranscoderRequest {
-                    room_name: room_name.clone(),
-                    organization_id: org_id.to_string(),
-                    request_id: new_req_id.to_string(),
-                    connection_id: connection_id.to_string(),
+                    room_id: Some(room_id.into()),
+                    organization_id: Some(org_id.into()),
+                    request_id: Some(new_req_id.into()),
+                    connection_id: Some(connection_id.into()),
                     grpc_endpoint: format!("localhost:{}", port),
                 }
                 .encode_to_vec()
@@ -1116,19 +1250,30 @@ async fn test_transcode_reconnect() {
         assert_eq!(
             receiver.message().await.unwrap().unwrap().message.unwrap(),
             ingest_watch_request::Message::Open(ingest_watch_request::Open {
-                request_id: new_req_id.to_string(),
+                request_id: Some(new_req_id.into()),
             })
         );
 
+        let mut audio = None;
+        let mut video = None;
+
         for packet in &packets {
             match packet {
-                TransmuxResult::InitSegment { data, .. } => {
+                TransmuxResult::InitSegment {
+                    data,
+                    audio_settings,
+                    video_settings,
+                } => {
+                    audio = Some(audio_settings);
+                    video = Some(video_settings);
                     sender
                         .send(Ok(IngestWatchResponse {
                             message: Some(ingest_watch_response::Message::Media(
                                 ingest_watch_response::Media {
                                     data: data.clone(),
                                     keyframe: false,
+                                    timescale: 0,
+                                    timestamp: 0,
                                     r#type: ingest_watch_response::media::Type::Init.into(),
                                 },
                             )),
@@ -1154,6 +1299,15 @@ async fn test_transcode_reconnect() {
                                 ingest_watch_response::Media {
                                     data: ms.data.clone(),
                                     keyframe: ms.keyframe,
+                                    timescale: match ms.ty {
+                                        transmuxer::MediaType::Audio => {
+                                            audio.as_ref().unwrap().timescale
+                                        }
+                                        transmuxer::MediaType::Video => {
+                                            video.as_ref().unwrap().timescale
+                                        }
+                                    },
+                                    timestamp: ms.timestamp,
                                     r#type: match ms.ty {
                                         transmuxer::MediaType::Audio => {
                                             ingest_watch_response::media::Type::Audio.into()
@@ -1174,12 +1328,12 @@ async fn test_transcode_reconnect() {
         {
             let event =
                 OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-            assert_eq!(event.id, org_id.to_string());
+            assert_eq!(event.id.to_ulid(), org_id);
             assert!(event.timestamp > 0);
             match event.event {
                 Some(organization_event::Event::RoomReady(r)) => {
-                    assert_eq!(r.room_name, room_name);
-                    assert_eq!(r.connection_id, connection_id.to_string());
+                    assert_eq!(r.room_id.to_ulid(), room_id);
+                    assert_eq!(r.connection_id.to_ulid(), connection_id);
                 }
                 _ => panic!("unexpected event"),
             };
@@ -1201,89 +1355,130 @@ async fn test_transcode_reconnect() {
         );
 
         let video_manifest = LiveRenditionManifest::decode(
-            kv.get(format!(
-                "{}.{}.{}.video_source.manifest",
-                org_id, &room_name, connection_id
-            ))
-            .await
-            .unwrap()
-            .unwrap(),
+            global
+                .metadata_store
+                .get(video_common::keys::rendition_manifest(
+                    org_id,
+                    room_id,
+                    connection_id,
+                    Rendition::VideoSource.into(),
+                ))
+                .await
+                .unwrap()
+                .unwrap(),
         )
         .unwrap();
         let audio_manifest = LiveRenditionManifest::decode(
-            kv.get(format!(
-                "{}.{}.{}.audio_source.manifest",
-                org_id, &room_name, connection_id
-            ))
-            .await
-            .unwrap()
-            .unwrap(),
+            global
+                .metadata_store
+                .get(video_common::keys::rendition_manifest(
+                    org_id,
+                    room_id,
+                    connection_id,
+                    Rendition::AudioSource.into(),
+                ))
+                .await
+                .unwrap()
+                .unwrap(),
         )
         .unwrap();
 
-        assert_eq!(video_manifest.parts.len(), 12);
+        assert_eq!(video_manifest.segments.len(), 3);
+        assert_eq!(video_manifest.segments[0].parts.len(), 4);
+        assert_eq!(video_manifest.segments[1].parts.len(), 4);
+        assert_eq!(video_manifest.segments[2].parts.len(), 4);
         assert_eq!(
-            video_manifest
+            video_manifest.segments[0]
                 .parts
                 .iter()
                 .filter(|p| p.independent)
                 .count(),
-            3
+            1
         );
-        assert!(video_manifest.parts[0].independent);
-        assert!(video_manifest.parts[4].independent);
-        assert!(video_manifest.parts[8].independent);
+        assert_eq!(
+            video_manifest.segments[1]
+                .parts
+                .iter()
+                .filter(|p| p.independent)
+                .count(),
+            1
+        );
+        assert_eq!(
+            video_manifest.segments[2]
+                .parts
+                .iter()
+                .filter(|p| p.independent)
+                .count(),
+            1
+        );
+        assert!(video_manifest.segments[0].parts[0].independent);
+        assert!(video_manifest.segments[1].parts[0].independent);
+        assert!(video_manifest.segments[2].parts[0].independent);
         assert!(!video_manifest.completed);
-        assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_idx, 1);
+        assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_idx, 3);
         assert_eq!(video_manifest.info.as_ref().unwrap().next_part_idx, 12);
         assert_eq!(
             video_manifest.info.as_ref().unwrap().next_segment_part_idx,
-            12
+            0
         );
         assert_eq!(
             video_manifest.other_info["audio_source"].next_segment_idx,
-            2
+            3
         );
-        assert_eq!(video_manifest.other_info["audio_source"].next_part_idx, 13);
+        assert_eq!(video_manifest.other_info["audio_source"].next_part_idx, 12);
         assert_eq!(
             video_manifest.other_info["audio_source"].next_segment_part_idx,
-            4
+            0
         );
         assert_eq!(video_manifest.total_duration, 59000 * 3); // verified with ffprobe
 
-        assert_eq!(audio_manifest.parts.len(), 13);
-        assert!(audio_manifest.parts.iter().all(|p| p.independent));
+        assert_eq!(audio_manifest.segments.len(), 3);
+        assert_eq!(audio_manifest.segments[0].parts.len(), 4);
+        assert_eq!(audio_manifest.segments[1].parts.len(), 4);
+        assert_eq!(audio_manifest.segments[2].parts.len(), 4);
+        assert!(audio_manifest.segments[0]
+            .parts
+            .iter()
+            .all(|p| p.independent));
+        assert!(audio_manifest.segments[1]
+            .parts
+            .iter()
+            .all(|p| p.independent));
+        assert!(audio_manifest.segments[2]
+            .parts
+            .iter()
+            .all(|p| p.independent));
         assert!(!audio_manifest.completed);
-        assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_idx, 2);
-        assert_eq!(audio_manifest.info.as_ref().unwrap().next_part_idx, 13);
+        assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_idx, 3);
+        assert_eq!(audio_manifest.info.as_ref().unwrap().next_part_idx, 12);
         assert_eq!(
             audio_manifest.info.as_ref().unwrap().next_segment_part_idx,
-            4
+            0
         );
         assert_eq!(
             audio_manifest.other_info["video_source"].next_segment_idx,
-            1
+            3
         );
         assert_eq!(audio_manifest.other_info["video_source"].next_part_idx, 12);
         assert_eq!(
             audio_manifest.other_info["video_source"].next_segment_part_idx,
-            12
+            0
         );
         assert_eq!(audio_manifest.total_duration, 48128 * 3); // verified with ffprobe
     }
 
     {
-        let new_req_id = Uuid::new_v4();
+        let new_req_id = Ulid::new();
 
         global
             .nats
             .publish(
                 global.config.transcoder.transcoder_request_subject.clone(),
                 TranscoderRequest {
-                    room_name: room_name.clone(),
-                    organization_id: org_id.to_string(),
-                    request_id: new_req_id.to_string(),
-                    connection_id: connection_id.to_string(),
+                    room_id: Some(room_id.into()),
+                    organization_id: Some(org_id.into()),
+                    request_id: Some(new_req_id.into()),
+                    connection_id: Some(connection_id.into()),
                     grpc_endpoint: format!("localhost:{}", port),
                 }
                 .encode_to_vec()
@@ -1302,19 +1497,30 @@ async fn test_transcode_reconnect() {
         assert_eq!(
             receiver.message().await.unwrap().unwrap().message.unwrap(),
             ingest_watch_request::Message::Open(ingest_watch_request::Open {
-                request_id: new_req_id.to_string(),
+                request_id: Some(new_req_id.into()),
             })
         );
 
+        let mut audio = None;
+        let mut video = None;
+
         for packet in &packets {
             match packet {
-                TransmuxResult::InitSegment { data, .. } => {
+                TransmuxResult::InitSegment {
+                    data,
+                    audio_settings,
+                    video_settings,
+                } => {
+                    audio = Some(audio_settings);
+                    video = Some(video_settings);
                     sender
                         .send(Ok(IngestWatchResponse {
                             message: Some(ingest_watch_response::Message::Media(
                                 ingest_watch_response::Media {
                                     data: data.clone(),
                                     keyframe: false,
+                                    timescale: 0,
+                                    timestamp: 0,
                                     r#type: ingest_watch_response::media::Type::Init.into(),
                                 },
                             )),
@@ -1340,6 +1546,15 @@ async fn test_transcode_reconnect() {
                                 ingest_watch_response::Media {
                                     data: ms.data.clone(),
                                     keyframe: ms.keyframe,
+                                    timescale: match ms.ty {
+                                        transmuxer::MediaType::Audio => {
+                                            audio.as_ref().unwrap().timescale
+                                        }
+                                        transmuxer::MediaType::Video => {
+                                            video.as_ref().unwrap().timescale
+                                        }
+                                    },
+                                    timestamp: ms.timestamp,
                                     r#type: match ms.ty {
                                         transmuxer::MediaType::Audio => {
                                             ingest_watch_response::media::Type::Audio.into()
@@ -1360,12 +1575,12 @@ async fn test_transcode_reconnect() {
         {
             let event =
                 OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-            assert_eq!(event.id, org_id.to_string());
+            assert_eq!(event.id.to_ulid(), org_id);
             assert!(event.timestamp > 0);
             match event.event {
                 Some(organization_event::Event::RoomReady(r)) => {
-                    assert_eq!(r.room_name, room_name);
-                    assert_eq!(r.connection_id, connection_id.to_string());
+                    assert_eq!(r.room_id.to_ulid(), room_id);
+                    assert_eq!(r.connection_id.to_ulid(), connection_id);
                 }
                 _ => panic!("unexpected event"),
             };
@@ -1382,74 +1597,118 @@ async fn test_transcode_reconnect() {
         assert!(receiver.message().await.unwrap().is_none());
 
         let video_manifest = LiveRenditionManifest::decode(
-            kv.get(format!(
-                "{}.{}.{}.video_source.manifest",
-                org_id, &room_name, connection_id
-            ))
-            .await
-            .unwrap()
-            .unwrap(),
+            global
+                .metadata_store
+                .get(video_common::keys::rendition_manifest(
+                    org_id,
+                    room_id,
+                    connection_id,
+                    Rendition::VideoSource.into(),
+                ))
+                .await
+                .unwrap()
+                .unwrap(),
         )
         .unwrap();
         let audio_manifest = LiveRenditionManifest::decode(
-            kv.get(format!(
-                "{}.{}.{}.audio_source.manifest",
-                org_id, &room_name, connection_id
-            ))
-            .await
-            .unwrap()
-            .unwrap(),
+            global
+                .metadata_store
+                .get(video_common::keys::rendition_manifest(
+                    org_id,
+                    room_id,
+                    connection_id,
+                    Rendition::AudioSource.into(),
+                ))
+                .await
+                .unwrap()
+                .unwrap(),
         )
         .unwrap();
 
-        assert_eq!(video_manifest.parts.len(), 16);
+        assert_eq!(video_manifest.segments.len(), 4);
+        assert_eq!(video_manifest.segments[0].parts.len(), 4);
+        assert_eq!(video_manifest.segments[1].parts.len(), 4);
+        assert_eq!(video_manifest.segments[2].parts.len(), 4);
+        assert_eq!(video_manifest.segments[3].parts.len(), 4);
         assert_eq!(
-            video_manifest
+            video_manifest.segments[0]
                 .parts
                 .iter()
                 .filter(|p| p.independent)
                 .count(),
-            4
+            1
         );
-        assert!(video_manifest.parts[0].independent);
-        assert!(video_manifest.parts[4].independent);
-        assert!(video_manifest.parts[8].independent);
-        assert!(video_manifest.parts[12].independent);
+        assert_eq!(
+            video_manifest.segments[1]
+                .parts
+                .iter()
+                .filter(|p| p.independent)
+                .count(),
+            1
+        );
+        assert_eq!(
+            video_manifest.segments[2]
+                .parts
+                .iter()
+                .filter(|p| p.independent)
+                .count(),
+            1
+        );
+        assert_eq!(
+            video_manifest.segments[3]
+                .parts
+                .iter()
+                .filter(|p| p.independent)
+                .count(),
+            1
+        );
+        assert!(video_manifest.segments[0].parts[0].independent);
+        assert!(video_manifest.segments[1].parts[0].independent);
+        assert!(video_manifest.segments[2].parts[0].independent);
+        assert!(video_manifest.segments[3].parts[0].independent);
         assert!(video_manifest.completed);
-        assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_idx, 2);
+        assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_idx, 4);
         assert_eq!(video_manifest.info.as_ref().unwrap().next_part_idx, 16);
         assert_eq!(
             video_manifest.info.as_ref().unwrap().next_segment_part_idx,
-            4
+            0
         );
         assert_eq!(
             video_manifest.other_info["audio_source"].next_segment_idx,
-            2
+            4
         );
-        assert_eq!(video_manifest.other_info["audio_source"].next_part_idx, 17);
+        assert_eq!(video_manifest.other_info["audio_source"].next_part_idx, 16);
         assert_eq!(
             video_manifest.other_info["audio_source"].next_segment_part_idx,
-            8
+            0
         );
         assert_eq!(video_manifest.total_duration, 59000 * 4); // verified with ffprobe
 
-        assert_eq!(audio_manifest.parts.len(), 17);
-        assert!(audio_manifest.parts.iter().all(|p| p.independent));
+        assert_eq!(audio_manifest.segments.len(), 4);
+        assert_eq!(audio_manifest.segments[0].parts.len(), 4);
+        assert_eq!(audio_manifest.segments[1].parts.len(), 4);
+        assert_eq!(audio_manifest.segments[2].parts.len(), 4);
+        assert_eq!(audio_manifest.segments[3].parts.len(), 4);
+        assert!(audio_manifest
+            .segments
+            .iter()
+            .flat_map(|s| s.parts.iter())
+            .all(|p| p.independent));
         assert!(audio_manifest.completed);
-        assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_idx, 2);
-        assert_eq!(audio_manifest.info.as_ref().unwrap().next_part_idx, 17);
+        assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_idx, 4);
+        assert_eq!(audio_manifest.info.as_ref().unwrap().next_part_idx, 16);
         assert_eq!(
             audio_manifest.info.as_ref().unwrap().next_segment_part_idx,
-            8
+            0
         );
         assert_eq!(
             audio_manifest.other_info["video_source"].next_segment_idx,
-            2
+            4
         );
         assert_eq!(audio_manifest.other_info["video_source"].next_part_idx, 16);
         assert_eq!(
             audio_manifest.other_info["video_source"].next_segment_part_idx,
-            4
+            0
         );
         assert_eq!(audio_manifest.total_duration, 48128 * 4); // verified with ffprobe
     }

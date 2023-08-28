@@ -4,6 +4,7 @@ package scuffle.video.v1.types;
 
 import "scuffle/video/v1/types/ulid.proto";
 import "scuffle/video/v1/types/access_token_scope.proto";
+import "scuffle/video/v1/types/tags.proto";
 
 message AccessToken  {
     // The id of the access token
@@ -25,5 +26,5 @@ message AccessToken  {
     optional int64 expires_at = 6;
 
     // The tags that this access token has
-    map<string, string> tags = 7;
+    Tags tags = 7;
 }

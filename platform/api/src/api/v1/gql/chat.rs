@@ -1,12 +1,8 @@
-use crate::api::v1::gql::error::ResultExt;
-use crate::database::chat_message;
-use prost::Message;
+use super::error::Result;
 
-use super::error::{GqlError, Result};
-use super::ext::ContextExt;
 use super::models::chat_message::ChatMessage;
 use async_graphql::{Context, Object};
-use fred::prelude::PubsubInterface;
+
 use uuid::Uuid;
 
 const MAX_MESSAGE_LENGTH: usize = 500;
@@ -19,9 +15,9 @@ impl ChatMutation {
     // Send message in chat. You need to be logged in for that.
     async fn send_message<'ctx>(
         &self,
-        ctx: &Context<'_>,
-        #[graphql(desc = "ID of chat room where the message will be send.")] channel_id: Uuid,
-        #[graphql(desc = "Message content that will be published.")] content: String,
+        _ctx: &Context<'_>,
+        #[graphql(desc = "ID of chat room where the message will be send.")] _channel_id: Uuid,
+        #[graphql(desc = "Message content that will be published.")] _content: String,
     ) -> Result<ChatMessage> {
         todo!()
         // let global = ctx.get_global();

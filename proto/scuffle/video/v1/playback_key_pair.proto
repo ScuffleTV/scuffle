@@ -3,80 +3,117 @@ syntax = "proto3";
 package scuffle.video.v1;
 
 import "scuffle/video/v1/types/playback_key_pair.proto";
-import "scuffle/video/v1/types/modify_mode.proto";
+import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/video/v1/types/tags.proto";
+import "scuffle/video/v1/types/search_options.proto";
 
-// PlaybackKeyPair is a service for managing playback key pairs.
-// Playback key pairs are used to authenticate playback requests.
-// They are used to ensure that only authorized users can view a stream.
+// This service allows for creating, modifying, and deleting playback key pairs.
 service PlaybackKeyPair {
-  // Modifys a new playback key pair, or updates an existing one.
-  rpc Modify(PlaybackKeyPairModifyRequest)
-      returns (PlaybackKeyPairModifyResponse);
-
-  // Gets playback key pairs.
+  // Get a list of playback key pairs.
   rpc Get(PlaybackKeyPairGetRequest) returns (PlaybackKeyPairGetResponse);
 
-  // Deletes playback key pairs.
-  rpc Delete(PlaybackKeyPairDeleteRequest)
-      returns (PlaybackKeyPairDeleteResponse);
+  // Create a new playback key pair.
+  rpc Create(PlaybackKeyPairCreateRequest) returns (PlaybackKeyPairCreateResponse);
+
+  // Modify an existing playback key pair.
+  rpc Modify(PlaybackKeyPairModifyRequest) returns (PlaybackKeyPairModifyResponse);
+
+  // Delete existing playback key pairs.
+  rpc Delete(PlaybackKeyPairDeleteRequest) returns (PlaybackKeyPairDeleteResponse);
+
+  // Tag an existing playback key pair.
+  rpc Tag(PlaybackKeyPairTagRequest) returns (PlaybackKeyPairTagResponse);
+
+  // Untag an existing playback key pair.
+  rpc Untag(PlaybackKeyPairUntagRequest) returns (PlaybackKeyPairUntagResponse);
 }
 
-// PlaybackKeyPairModifyRequest is a request to PlaybackKeyPair.Modify
-// Allows you to create a new playback key pair, or update an existing one.
-message PlaybackKeyPairModifyRequest {
-  // The name of the key pair
-  string name = 1;
-
-  // The public key to use
-  string public_key = 2;
-
-  // The mode is used to determine how to handle the request.
-  // Either, upsert, create, or update. (default upsert)
-  types.ModifyMode mode = 3;
-}
-
-// PlaybackKeyPairModifyResponse is a response to PlaybackKeyPair.Modify
-message PlaybackKeyPairModifyResponse {
-  // The new or updated playback key pair.
-  types.PlaybackKeyPair playback_key_pair = 1;
-
-  // Whether or not the key pair was created.
-  bool created = 2;
-}
-
-// PlaybackKeyPairGetRequest is a request to PlaybackKeyPair.Get
-// Allows you to get playback key pairs.
-// You can filter by names (exact match).
-// Allows for pagination using the previous created_at timestamp.
+// The request payload for PlaybackKeyPair.Get.
 message PlaybackKeyPairGetRequest {
-  // Names to filter by, if any. (max 100)
-  // If multiple names are provided, they will be combined with OR.
-  repeated string names = 1;
+  // A list of ids to retrieve. If empty, all playback key pairs will be returned.
+  // If not empty, only the playback key pairs with the specified ids will be returned.
+  // This will be filtered by the search_options. (max: 100, min: 0)
+  repeated types.Ulid ids = 1;
 
-  // The maximum number of key pairs to return (default 100, max 1000)
-  uint32 limit = 2;
-
-  // The timestamp to start getting playback key pairs from.
-  // If not provided, will start from the beginning.
-  // If provided, will start from the first playback keypair after the
-  // timestamp. This is a unix timestamp in nanoseconds.
-  optional int64 created_at = 3;
+  // An optional set of search options to filter the results by.
+  optional types.SearchOptions search_options = 2;
 }
 
-// PlaybackKeyPairGetResponse is a response to PlaybackKeyPair.Get
+// The response payload for PlaybackKeyPair.Get.
 message PlaybackKeyPairGetResponse {
-  // The keypairs that were found.
+  // The list of playback key pairs that were retrieved.
   repeated types.PlaybackKeyPair playback_key_pairs = 1;
 }
 
-// Deletes playback key pairs
-message PlaybackKeyPairDeleteRequest {
-  // Names to delete (max 100, min 1)
-  repeated string names = 1;
+// The request payload for PlaybackKeyPair.Create.
+message PlaybackKeyPairCreateRequest {
+  // The public key to use for the playback key pair.
+  string public_key = 1;
+
+  // The tags to apply to the playback key pair.
+  types.Tags tags = 2;
 }
 
-// The Names of the key pairs deleted
+// The response payload for PlaybackKeyPair.Create.
+message PlaybackKeyPairCreateResponse {
+  // The playback key pair that was created.
+  types.PlaybackKeyPair playback_key_pair = 1;
+}
+
+// The request payload for PlaybackKeyPair.Modify.
+message PlaybackKeyPairModifyRequest {
+  // The id of the playback key pair to modify.
+  types.Ulid id = 1;
+  // A new public key to use for the playback key pair.
+  optional string public_key = 2;
+  // New tags to apply to the playback key pair. (this will replace the existing tags)
+  optional types.Tags tags = 3;
+}
+
+// The response payload for PlaybackKeyPair.Modify.
+message PlaybackKeyPairModifyResponse {
+  // The playback key pair that was modified. (this will include the new values)
+  types.PlaybackKeyPair playback_key_pair = 1;
+}
+
+// The request payload for PlaybackKeyPair.Delete.
+message PlaybackKeyPairDeleteRequest {
+  // The ids of the playback key pairs to delete.
+  repeated types.Ulid ids = 1;
+}
+
+// The response payload for PlaybackKeyPair.Delete.
 message PlaybackKeyPairDeleteResponse {
-  // Names that were deleted
-  repeated string names = 1;
+  // The ids of the playback key pairs that were deleted.
+  repeated types.Ulid ids = 1;
+}
+
+// The request payload for PlaybackKeyPair.Tag.
+message PlaybackKeyPairTagRequest {
+  // The id of the playback key pair to tag.
+  types.Ulid id = 1;
+
+  // The tags to apply to the playback key pair.
+  types.Tags tags = 2;
+}
+
+// The response payload for PlaybackKeyPair.Tag.
+message PlaybackKeyPairTagResponse {
+  // The new tags on the playback key pair.
+  types.Tags tags = 1;
+}
+
+// The request payload for PlaybackKeyPair.Untag.
+message PlaybackKeyPairUntagRequest {
+  // The id of the playback key pair to untag.
+  types.Ulid id = 1;
+
+  // The tags to remove from the playback key pair.
+  repeated string tags = 2;
+}
+
+// The response payload for PlaybackKeyPair.Untag.
+message PlaybackKeyPairUntagResponse {
+  // The new tags on the playback key pair.
+  types.Tags tags = 1;
 }

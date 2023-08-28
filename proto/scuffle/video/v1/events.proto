@@ -2,58 +2,50 @@ syntax = "proto3";
 
 package scuffle.video.v1;
 
-import "scuffle/video/v1/types/events.proto";
+import "scuffle/video/v1/types/event.proto";
+import "scuffle/video/v1/types/ulid.proto";
 
-// The Events service provides a stream of events that occur in the system.
+// This service allows you to subscribe to events from scuffle.
 service Events {
-    // Subscribe to events. The client should send an `OnOpen` event to
-    // indicate that it is ready to receive events. The server will respond
-    // with Events. The client should send an `AckEvent` event to indicate
-    // that it has processed the event. If the client does not send an
-    // `AckEvent` event, the server will resend the event after a timeout.
+    // Subscribe to events from scuffle.
     rpc Subscribe(stream EventsSubscribeRequest) returns (stream EventsSubscribeResponse) {}
 }
 
-// EventsSubscribeRequest is a request to Events.Subscribe
-// Allows the client to receive events.
+// The request payload for Events.Subscribe.
 message EventsSubscribeRequest {
-    // The OnOpen event is sent by the client to indicate that it is ready to
-    // receive events.
+    // The first message sent by the client must be an OnOpen message.
     message OnOpen {
-        // The group is used to load balance events across multiple clients.
-        // If the client wants to share events with other clients, it should
-        // use the same group name. If the client wants to receive events
-        // that are not shared with other clients, it should use a unique
-        // group name.
-        string group = 1;
+        enum Target {
+            ROOM = 0;
+            RECORDING = 1;
+            ACCESS_TOKEN = 2;
+            PLAYBACK_KEY_PAIR = 3;
+            RECORDING_CONFIG = 4;
+            TRANSCODING_CONFIG = 5;
+            S3_BUCKET = 6;
+        }
     }
 
-    // The AckEvent event is sent by the client to indicate that it has
-    // processed the event.
+    // The client must send an AckEvent message for each event it receives.
+    // Otherwise, the event will be requeued and sent to another client.
     message AckEvent {
-        // The ID of the event that was processed.
-        string id = 1;
+        // The ID of the event to acknowledge.
+        types.Ulid id = 1;
 
-        // If true, the server will resend the event after a timeout.
-        // If false, the server will not resend the event.
+        // If true, the event will be requeued and sent to another client.
         bool requeue = 2;
     }
 
-    // The event that was sent by the client.
+    // The client must send the first message as an OnOpen message.
+    // All other messages must be AckEvent messages.
     oneof event {
-        // The OnOpen event is sent by the client to indicate that it is ready
-        // This should be the first event sent by the client and should not
-        // be sent again.
         OnOpen on_open = 1;
-
-        // The AckEvent event is sent by the client to indicate that it has
-        // processed the event.
         AckEvent ack_event = 2;
     }
 }
 
-// EventsSubscribeResponse is a response from Events.Subscribe
+// The response payload for Events.Subscribe.
 message EventsSubscribeResponse {
-    // The event that was sent by the server.
-    types.Events event = 1;
+    // The event sent by the server.
+    types.Event event = 1;
 }

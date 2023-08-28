@@ -50,6 +50,39 @@ fn test_parse_sps2() {
 }
 
 #[test]
+fn test_parse_sps3() {
+    let sps = Bytes::from(vec![
+        103, 100, 0, 42, 172, 178, 0, 240, 4, 79, 203, 128, 181, 1, 1, 1, 64, 0, 0, 3, 0, 64, 0, 0,
+        30, 35, 198, 12, 146,
+    ]);
+
+    let sps = Sps::parse(sps).unwrap();
+
+    assert_eq!(sps.profile_idc, 100);
+    assert_eq!(sps.level_idc, 42);
+    assert_eq!(
+        sps.ext,
+        Some(SpsExtended {
+            chroma_format_idc: 1,
+            bit_depth_luma_minus8: 0,
+            bit_depth_chroma_minus8: 0,
+        })
+    );
+    assert_eq!(sps.width, 1920);
+    assert_eq!(sps.height, 1080);
+    assert_eq!(sps.frame_rate, 60.0);
+    assert_eq!(
+        sps.color_config,
+        Some(ColorConfig {
+            full_range: false,
+            matrix_coefficients: 1,
+            color_primaries: 1,
+            transfer_characteristics: 1,
+        })
+    );
+}
+
+#[test]
 fn test_config_demux() {
     let data = Bytes::from(b"\x01d\0\x1f\xff\xe1\0\x1dgd\0\x1f\xac\xd9A\xe0m\xf9\xe6\xa0  (\0\0\x03\0\x08\0\0\x03\x01\xe0x\xc1\x8c\xb0\x01\0\x06h\xeb\xe3\xcb\"\xc0\xfd\xf8\xf8\0".to_vec());
 
@@ -87,8 +120,8 @@ fn test_config_demux() {
         })
     );
 
-    assert_eq!(sps.width, 468);
-    assert_eq!(sps.height, 864);
+    assert_eq!(sps.width, 480);
+    assert_eq!(sps.height, 852);
     assert_eq!(sps.frame_rate, 30.0);
     assert_eq!(
         sps.color_config,

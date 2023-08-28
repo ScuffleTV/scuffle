@@ -4,7 +4,7 @@ use common::vec_of_strings;
 use mp4::codec::{AudioCodec, VideoCodec};
 use pb::scuffle::video::v1::types::{AudioConfig, Rendition as PbRendition, VideoConfig};
 use tokio::process::{Child, Command};
-use video_database::rendition::Rendition;
+use video_common::database::Rendition;
 
 pub fn spawn_ffmpeg(
     gid: u32,
@@ -234,26 +234,17 @@ pub fn spawn_ffmpeg_screenshot(
     width: i32,
     height: i32,
 ) -> anyhow::Result<Child> {
+    #[rustfmt::skip]
     let args = vec_of_strings![
-        "-v",
-        "error",
-        "-i",
-        "-",
-        "-threads",
-        "1",
-        "-analyzeduration",
-        "32",
-        "-probesize",
-        "32",
-        "-frames:v",
-        "1",
-        "-f",
-        "image2pipe",
-        "-c:v",
-        "mjpeg",
-        "-vf",
-        format!("scale={}:{}", width, height),
-        "-y",
+        "-v", "error",
+        "-i", "-",
+        "-threads", "1",
+        "-analyzeduration", "32",
+        "-probesize", "32",
+        "-frames:v", "1",
+        "-f", "image2pipe",
+        "-c:v", "mjpeg",
+        "-vf", format!("scale={}:{}", width, height),
         "-",
     ];
 

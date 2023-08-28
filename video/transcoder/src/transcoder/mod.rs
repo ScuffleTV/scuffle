@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use async_nats::jetstream::consumer::pull::Config;
 use futures::StreamExt;
 use tokio::select;
@@ -37,9 +37,13 @@ pub async fn run(global: Arc<GlobalState>) -> Result<()> {
                     bail!("nats stream closed");
                 };
 
-                let m = m.map_err(|e| {
-                    anyhow!("failed to get message: {}", e)
-                })?;
+                let m = match m {
+                    Ok(m) => m,
+                    Err(e) => {
+                        tracing::error!("error receiving message: {}", e);
+                        continue;
+                    }
+                };
 
                 tokio::spawn(handle_message(global.clone(), m, child_token.clone()));
             },

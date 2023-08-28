@@ -18,7 +18,7 @@ use pb::scuffle::video::internal::ingest_client::IngestClient;
 use pb::scuffle::video::internal::{
     ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse,
 };
-use pb::scuffle::video::v1::types::{RenditionAudio, RenditionVideo};
+use pb::scuffle::video::v1::types::Rendition;
 use prost::Message;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
@@ -27,7 +27,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use ulid::Ulid;
 use uuid::Uuid;
-use video_database::room::Room;
+use video_common::database::Room;
 
 use crate::config::{AppConfig, GrpcConfig, IngestConfig, RtmpConfig};
 use crate::global;
@@ -340,7 +340,7 @@ async fn test_ingest_stream() {
         _ => panic!("unexpected event"),
     }
 
-    let room: video_database::room::Room =
+    let room: video_common::database::Room =
         sqlx::query_as("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
             .bind(Uuid::from(state.org_id))
             .bind(Uuid::from(state.room_id))
@@ -356,14 +356,14 @@ async fn test_ingest_stream() {
     let video_input = room.video_input.unwrap();
     let audio_input = room.audio_input.unwrap();
 
-    assert_eq!(video_input.rendition, RenditionVideo::SourceVideo as i32);
+    assert_eq!(video_input.rendition(), Rendition::VideoSource);
     assert_eq!(video_input.codec, "avc1.64001f");
-    assert_eq!(video_input.width, 468);
-    assert_eq!(video_input.height, 864);
+    assert_eq!(video_input.width, 480);
+    assert_eq!(video_input.height, 852);
     assert_eq!(video_input.fps, 30);
     assert_eq!(video_input.bitrate, 1276158);
 
-    assert_eq!(audio_input.rendition, RenditionAudio::SourceAudio as i32);
+    assert_eq!(audio_input.rendition(), Rendition::AudioSource);
     assert_eq!(audio_input.codec, "mp4a.40.2");
     assert_eq!(audio_input.sample_rate, 44100);
     assert_eq!(audio_input.channels, 2);
@@ -371,7 +371,7 @@ async fn test_ingest_stream() {
 
     assert_eq!(
         room.status,
-        video_database::room_status::RoomStatus::WaitingForTranscoder
+        video_common::database::RoomStatus::WaitingForTranscoder
     );
 
     let msg = state.transcoder_request().await;
@@ -506,18 +506,14 @@ async fn test_ingest_stream() {
 
     tracing::info!("waiting for transcoder to exit");
 
-    let room: video_database::room::Room =
-        sqlx::query_as("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
-            .bind(Uuid::from(state.org_id))
-            .bind(Uuid::from(state.room_id))
-            .fetch_one(state.global.db.as_ref())
-            .await
-            .unwrap();
+    let room: Room = sqlx::query_as("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
+        .bind(Uuid::from(state.org_id))
+        .bind(Uuid::from(state.room_id))
+        .fetch_one(state.global.db.as_ref())
+        .await
+        .unwrap();
 
-    assert_eq!(
-        room.status,
-        video_database::room_status::RoomStatus::Offline
-    );
+    assert_eq!(room.status, video_common::database::RoomStatus::Offline);
     assert!(room.last_disconnected_at.is_some());
     assert!(room.last_live_at.is_some());
     assert!(room.video_input.is_none());
@@ -684,10 +680,7 @@ async fn test_ingest_stream_shutdown() {
         .await
         .unwrap();
 
-    assert_eq!(
-        room.status,
-        video_database::room_status::RoomStatus::Offline
-    );
+    assert_eq!(room.status, video_common::database::RoomStatus::Offline);
     assert!(room.last_disconnected_at.is_some());
     assert!(room.last_live_at.is_some());
     assert!(room.active_ingest_connection_id.is_none());
@@ -726,7 +719,7 @@ async fn test_ingest_stream_transcoder_full() {
 
     assert_eq!(
         room.status,
-        video_database::room_status::RoomStatus::WaitingForTranscoder
+        video_common::database::RoomStatus::WaitingForTranscoder
     );
     assert!(room.last_disconnected_at.is_none());
     assert!(room.last_live_at.is_some());
@@ -749,7 +742,7 @@ async fn test_ingest_stream_transcoder_full() {
     let msg = state.transcoder_request().await;
     assert_eq!(
         msg.connection_id.to_uuid(),
-        room.active_ingest_connection_id.unwrap()
+        room.active_ingest_connection_id.unwrap().0.into(),
     );
     assert!(!msg.request_id.to_ulid().is_nil());
     assert_eq!(msg.organization_id.to_ulid(), state.org_id);

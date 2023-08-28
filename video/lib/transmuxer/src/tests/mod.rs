@@ -47,6 +47,7 @@ fn test_transmuxer_avc_aac() {
                         height: 2160,
                         framerate: 60.0,
                         bitrate: 7358243,
+                        timescale: 60000,
                         codec: VideoCodec::Avc {
                             profile: 100,
                             level: 51,
@@ -62,6 +63,7 @@ fn test_transmuxer_avc_aac() {
                         sample_rate: 48000,
                         channels: 2,
                         bitrate: 130127,
+                        timescale: 48000,
                         codec: AudioCodec::Aac {
                             object_type: AudioObjectType::AacLowComplexity,
                         }
@@ -158,6 +160,7 @@ fn test_transmuxer_av1_aac() {
                         height: 1440,
                         framerate: 144.0,
                         bitrate: 2560000,
+                        timescale: 144000,
                         codec: VideoCodec::Av1 {
                             profile: 0,
                             level: 13,
@@ -184,6 +187,7 @@ fn test_transmuxer_av1_aac() {
                         sample_rate: 48000,
                         bitrate: 163840,
                         channels: 2,
+                        timescale: 48000,
                         codec: AudioCodec::Aac {
                             object_type: AudioObjectType::AacLowComplexity,
                         }
@@ -280,6 +284,7 @@ fn test_transmuxer_hevc_aac() {
                         height: 1440,
                         framerate: 144.0,
                         bitrate: 2560000,
+                        timescale: 144000,
                         codec: VideoCodec::Hevc {
                             general_profile_space: 0,
                             profile_compatibility: 64,
@@ -298,6 +303,7 @@ fn test_transmuxer_hevc_aac() {
                         sample_rate: 48000,
                         channels: 2,
                         bitrate: 163840,
+                        timescale: 48000,
                         codec: AudioCodec::Aac {
                             object_type: AudioObjectType::AacLowComplexity,
                         }

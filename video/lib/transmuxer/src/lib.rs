@@ -296,7 +296,7 @@ impl Transmuxer {
                     data: writer.dispose(),
                     ty: MediaType::Audio,
                     keyframe: false,
-                    timestamp: tag.timestamp as u64,
+                    timestamp: self.audio_duration - total_duration as u64,
                 })));
             } else {
                 self.video_duration += total_duration as u64;
@@ -305,7 +305,7 @@ impl Transmuxer {
                     data: writer.dispose(),
                     ty: MediaType::Video,
                     keyframe: is_keyframe,
-                    timestamp: tag.timestamp as u64,
+                    timestamp: self.video_duration - total_duration as u64,
                 })));
             }
         }
@@ -600,12 +600,14 @@ impl Transmuxer {
                 framerate: video_fps,
                 codec: video_codec,
                 bitrate: estimated_video_bitrate,
+                timescale: video_timescale,
             },
             AudioSettings {
                 codec: audio_codec,
                 sample_rate: audio_sample_rate,
                 channels: audio_channels,
                 bitrate: estimated_audio_bitrate,
+                timescale: audio_sample_rate,
             },
         )))
     }

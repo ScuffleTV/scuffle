@@ -2,8 +2,9 @@ use std::time::Duration;
 
 use common::grpc::make_channel;
 use common::prelude::FutureTimeout;
+use ulid::Ulid;
 
-use crate::config::{AppConfig, GrpcConfig};
+use crate::config::{AppConfig, GrpcConfig, TranscoderConfig};
 use crate::grpc::run;
 use crate::tests::global::mock_global_state;
 
@@ -13,6 +14,13 @@ async fn test_grpc_health_check() {
     let (global, handler) = mock_global_state(AppConfig {
         grpc: GrpcConfig {
             bind_address: format!("0.0.0.0:{}", port).parse().unwrap(),
+            ..Default::default()
+        },
+        transcoder: TranscoderConfig {
+            events_subject: Ulid::new().to_string(),
+            media_ob_store: Ulid::new().to_string(),
+            metadata_kv_store: Ulid::new().to_string(),
+            transcoder_request_subject: Ulid::new().to_string(),
             ..Default::default()
         },
         ..Default::default()
@@ -57,6 +65,13 @@ async fn test_grpc_health_watch() {
     let (global, handler) = mock_global_state(AppConfig {
         grpc: GrpcConfig {
             bind_address: format!("0.0.0.0:{}", port).parse().unwrap(),
+            ..Default::default()
+        },
+        transcoder: TranscoderConfig {
+            events_subject: Ulid::new().to_string(),
+            media_ob_store: Ulid::new().to_string(),
+            metadata_kv_store: Ulid::new().to_string(),
+            transcoder_request_subject: Ulid::new().to_string(),
             ..Default::default()
         },
         ..Default::default()

@@ -4,6 +4,7 @@ package scuffle.video.v1.types;
 
 import "scuffle/video/v1/types/ulid.proto";
 import "scuffle/video/v1/types/rendition.proto";
+import "scuffle/video/v1/types/tags.proto";
 
 // A TranscodingConfig defines how a stream should be transcoded.
 // By providing a rendition list you can define the output renditions.
@@ -21,5 +22,5 @@ message TranscodingConfig {
   int64 updated_at = 4;
 
   // The tags associated with the transcoding config.
-  map<string, string> tags = 5;
+  Tags tags = 5;
 }

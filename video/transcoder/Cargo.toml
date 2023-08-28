@@ -6,32 +6,33 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.72"
+anyhow = "1.0.75"
 tracing = "0.1.37"
 native-tls = "0.2.11"
 tokio-native-tls = "0.3.1"
-tokio = { version = "1.29.1", features = ["full"] }
-serde = { version = "1.0.183", features = ["derive"] }
+tokio = { version = "1.32.0", features = ["full"] }
+serde = { version = "1.0.188", features = ["derive"] }
 hyper = { version = "0.14.27", features = ["full"] }
-tonic = { version = "0.9.2", features = ["tls"] }
-chrono = { version = "0.4.26", default-features = false, features = ["clock"] }
-prost = "0.11.9"
+tonic = { version = "0.10.1", features = ["tls"] }
+chrono = { version = "0.4.31", default-features = false, features = ["clock"] }
+prost = "0.12.1"
 async-stream = "0.3.5"
 futures = "0.3.28"
 futures-util = "0.3.28"
-bytes = "1.4.0"
-async-trait = "0.1.72"
+bytes = "1.5.0"
+async-trait = "0.1.73"
 url-parse = "1.0.7"
-nix = "0.26.2"
+nix = { version = "0.27.1", features = ["fs", "user"] }
 sha2 = "0.10.7"
-tokio-util = "0.7.8"
+tokio-util = { version = "0.7.9", features = ["compat"] }
 tokio-stream = "0.1.14"
-ulid = { version = "1.0.0", features = ["uuid"] }
+ulid = { version = "1.1.0", features = ["uuid"] }
 uuid = { version = "1.4.1", features = ["serde", "v4"] }
-async-nats = "0.31.0"
+async-nats = "0.32.0"
 sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono", "uuid"] }
 sqlx-postgres = "0.7.1"
-thiserror = "1.0.47"
+thiserror = "1.0.48"
+rust-s3 = "0.33.0"
 
 aac = { workspace = true }
 mp4 = { workspace = true }
@@ -39,13 +40,13 @@ common = { workspace = true, features = ["default"] }
 bytesio = { workspace = true, features = ["default"] }
 config = { workspace = true }
 pb = { workspace = true }
-video-database = { workspace = true }
+video-common = { workspace = true }
 
 [dev-dependencies]
 dotenvy = "0.15.7"
 portpicker = "0.1.1"
 serial_test = "2.0.0"
-tempfile = "3.7.1"
-serde_json = "1.0.105"
+tempfile = "3.8.0"
+serde_json = "1.0.107"
 transmuxer = { workspace = true }
 flv = { workspace = true }

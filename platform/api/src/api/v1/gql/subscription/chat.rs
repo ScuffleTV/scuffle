@@ -1,8 +1,8 @@
 use async_graphql::{Context, Subscription};
 use async_stream::stream;
-use chrono::{TimeZone, Utc};
+
 use futures_util::Stream;
-use prost::Message;
+
 use uuid::Uuid;
 
 use crate::api::v1::gql::{
@@ -48,7 +48,7 @@ impl ChatSubscription {
 
         Ok(stream!({
             yield Ok(welcome_message);
-            while let Ok(message) = message_stream.recv().await {
+            while let Ok(_message) = message_stream.recv().await {
                 todo!()
                 // let event = pb::scuffle::internal::platform::events::ChatMessage::decode(
                 //     message.as_bytes().map_err_gql("invalid redis value type")?,

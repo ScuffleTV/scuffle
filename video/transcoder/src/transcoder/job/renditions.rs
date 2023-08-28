@@ -125,12 +125,20 @@ pub fn determine_output_renditions(
 }
 
 pub fn screenshot_size(video_input: &VideoConfig) -> (i32, i32) {
+    const MAX_SCREENSHOT_SIZE: i32 = 180;
+
     let aspect_ratio = video_input.width as f64 / video_input.height as f64;
 
-    let (width, height) = if aspect_ratio > 1.0 && video_input.height as u32 > 720 {
-        ((720.0 * aspect_ratio).round() as i32, 720)
-    } else if aspect_ratio < 1.0 && video_input.width as u32 > 720 {
-        (720, (720.0 / aspect_ratio).round() as i32)
+    let (width, height) = if aspect_ratio > 1.0 && video_input.height > MAX_SCREENSHOT_SIZE {
+        (
+            (MAX_SCREENSHOT_SIZE as f64 * aspect_ratio).round() as i32,
+            MAX_SCREENSHOT_SIZE,
+        )
+    } else if aspect_ratio < 1.0 && video_input.width > MAX_SCREENSHOT_SIZE {
+        (
+            MAX_SCREENSHOT_SIZE,
+            (MAX_SCREENSHOT_SIZE as f64 / aspect_ratio).round() as i32,
+        )
     } else {
         (video_input.width, video_input.height)
     };

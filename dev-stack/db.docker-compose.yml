@@ -18,10 +18,29 @@ services:
     command:
       - '-js'
 
-  redis:
-    image: redis:latest
+  minio:
+    image: minio/minio
     ports:
-      - "6379:6379"
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - "MINIO_ACCESS_KEY=root"
+      - "MINIO_SECRET_KEY=scuffle123"
+    command: server /export --console-address ":9001"
+
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      set -eux;
+      /usr/bin/mc config host add myminio http://minio:9000 root scuffle123;
+      /usr/bin/mc rb --force myminio/scuffle-video || true;
+      /usr/bin/mc mb myminio/scuffle-video;
+      /usr/bin/mc anonymous set download myminio/scuffle-video;
+      exit 0;
+      "
 
 networks:
   default:

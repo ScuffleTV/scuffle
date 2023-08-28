@@ -4,8 +4,9 @@ use common::prelude::FutureTimeout;
 use std::path::PathBuf;
 use std::time::Duration;
 use tonic::transport::{Certificate, Identity};
+use ulid::Ulid;
 
-use crate::config::{AppConfig, GrpcConfig};
+use crate::config::{AppConfig, GrpcConfig, TranscoderConfig};
 use crate::grpc::run;
 use crate::tests::global::mock_global_state;
 
@@ -23,6 +24,13 @@ async fn test_grpc_tls_rsa() {
                 key: dir.join("server.rsa.key").to_str().unwrap().to_string(),
                 domain: Some("localhost".to_string()),
             }),
+        },
+        transcoder: TranscoderConfig {
+            events_subject: Ulid::new().to_string(),
+            media_ob_store: Ulid::new().to_string(),
+            metadata_kv_store: Ulid::new().to_string(),
+            transcoder_request_subject: Ulid::new().to_string(),
+            ..Default::default()
         },
         ..Default::default()
     })
@@ -94,6 +102,13 @@ async fn test_grpc_tls_ec() {
                 key: dir.join("server.ec.key").to_str().unwrap().to_string(),
                 domain: Some("localhost".to_string()),
             }),
+        },
+        transcoder: TranscoderConfig {
+            events_subject: Ulid::new().to_string(),
+            media_ob_store: Ulid::new().to_string(),
+            metadata_kv_store: Ulid::new().to_string(),
+            transcoder_request_subject: Ulid::new().to_string(),
+            ..Default::default()
         },
         ..Default::default()
     })

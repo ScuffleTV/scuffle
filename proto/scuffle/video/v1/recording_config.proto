@@ -3,118 +3,121 @@ syntax = "proto3";
 package scuffle.video.v1;
 
 import "scuffle/video/v1/types/rendition.proto";
-import "scuffle/video/v1/types/modify_mode.proto";
 import "scuffle/video/v1/types/recording_lifecycle_policy.proto";
 import "scuffle/video/v1/types/recording_config.proto";
+import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/video/v1/types/tags.proto";
+import "scuffle/video/v1/types/search_options.proto";
 
-// RecordingConfig is the service for managing recording configs.
-// Recording configs are used to determine what renditions to record for a
-// stream. They also allow you to set lifecycle policies for the recordings.
-// Recording configs are applied to rooms via the room's recording_config_name.
-// If a room does not have a recording_config_name, it will not be recorded.
+// This service allows for the creation, modification, and deletion of recording configs.
 service RecordingConfig {
-  // Modify or update a recording config.
-  rpc Modify(RecordingConfigModifyRequest)
-      returns (RecordingConfigModifyResponse) {}
-
-  // Get recording configs.
+  // Get a list of recording configs.
   rpc Get(RecordingConfigGetRequest) returns (RecordingConfigGetResponse) {}
 
-  // Delete recording configs.
-  rpc Delete(RecordingConfigDeleteRequest)
-      returns (RecordingConfigDeleteResponse) {}
+  // Create a new recording config.
+  rpc Create(RecordingConfigCreateRequest) returns (RecordingConfigCreateResponse) {}
+
+  // Modify an existing recording config.
+  rpc Modify(RecordingConfigModifyRequest) returns (RecordingConfigModifyResponse) {}
+
+  // Delete existing recording configs.
+  rpc Delete(RecordingConfigDeleteRequest) returns (RecordingConfigDeleteResponse) {}
+
+  // Tag an existing recording config.
+  rpc Tag(RecordingConfigTagRequest) returns (RecordingConfigTagResponse) {}
+
+  // Untag an existing recording config.
+  rpc Untag(RecordingConfigUntagRequest) returns (RecordingConfigUntagResponse) {}
 }
 
-// RecordingConfigModifyRequest is the request message for
-// RecordingConfig.Modify Allows you to create a new recording config, or update
-// an existing one.
-message RecordingConfigModifyRequest {
-  // The name of the recording config to create.
-  string name = 1;
-
-  message RenditionList {
-    // A list of renditions to store for this recording config. (min 1)
-    repeated types.Rendition renditions = 1;
-  }
-
-  // A list of renditions to store for this recording config.
-  // If not provided the existing renditions will not be updated.
-  // If not provided and the recording config does not exist, the default
-  // renditions will be used. [ SOURCE, HD, SD ] If provided and renditions are
-  // not provided will return an error.
-  optional RenditionList stored_renditions = 2;
-
-  message LifecyclePolicyList {
-    // A list of lifecycle policies to apply to this recording config. (min 1)
-    repeated types.RecordingLifecyclePolicy items = 1;
-  }
-
-  // A list of lifecycle policies to apply to this recording config.
-  // These policies will be applied to all recordings that are associated with
-  // this recording config. If not provided the existing lifecycle policies will
-  // not be updated. If not provided and the recording config does not exist,
-  // the default lifecycle policies will be used. [ ] (no policies)
-  optional LifecyclePolicyList lifecycle_policies = 3;
-
-  // The mode is used to determine how to handle the request.
-  // Either, upsert, create, or update. (default upsert)
-  types.ModifyMode mode = 4;
-}
-
-// RecordingConfigModifyResponse is the response message for
-// RecordingConfig.Modify
-message RecordingConfigModifyResponse {
-  // The created recording config.
-  types.RecordingConfig recording_config = 1;
-
-  // Whether the recording config was created or not.
-  bool created = 2;
-}
-
-// RecordingConfigGetRequest is the request message for RecordingConfig.Get
-// Allows you to get back a list of recording configs.
-// You can filter by names (exact match).
-// Allows for pagination using the previous created_at timestamp.
+// The request payload for RecordingConfig.Get.
 message RecordingConfigGetRequest {
-  // Names to get (empty for all)
-  repeated string names = 1;
+  // A list of ids to retrieve. If empty, all recording configs will be returned.
+  // If not empty, only the recording configs with the specified ids will be returned.
+  // This will be filtered by the other options. (max: 100, min: 0)
+  repeated types.Ulid ids = 1;
 
-  // The number of recording configs to return. (default 100, max 1000)
-  int32 limit = 2;
-
-  // The timestamp to start getting recording configs from.
-  // If not provided, will start from the beginning.
-  // If provided, will start from the first recording config created after the
-  // timestamp. This is a unix timestamp in nanoseconds.
-  optional int64 created_at = 3;
+  // The options to use when searching for recording configs.
+  optional types.SearchOptions search_options = 2;
 }
 
-// RecordingConfigGetResponse is the response message for RecordingConfig.Get
+// The response payload for RecordingConfig.Get.
 message RecordingConfigGetResponse {
-  // The recording configs that were found.
+  // The list of recording configs that were retrieved.
   repeated types.RecordingConfig recording_configs = 1;
 }
 
-// RecordingConfigDeleteRequest is the request message for
-// RecordingConfig.Delete You can delete multiple recording configs at once by
-// providing a list of names.
-message RecordingConfigDeleteRequest {
-  // Names to delete (max 100, min 1)
-  repeated string names = 1;
+// The request payload for RecordingConfig.Create.
+message RecordingConfigCreateRequest {
+  repeated types.Rendition stored_renditions = 1;
+  repeated types.RecordingLifecyclePolicy lifecycle_policies = 2;
+  types.Tags tags = 3;
+}
 
-  // Delete the recordings which are associated with the recording configs.
-  // If the records are not deleted, they will be without a recording config.
-  // Therefore they will not be deleted automatically.
-  // (default false)
+// The response payload for RecordingConfig.Create.
+message RecordingConfigCreateResponse {
+  types.RecordingConfig recording_config = 1;
+}
+
+// The request payload for RecordingConfig.Modify.
+message RecordingConfigModifyRequest {
+  message RenditionList {
+    repeated types.Rendition items = 1;
+  }
+
+  message LifecyclePolicyList {
+    repeated types.RecordingLifecyclePolicy items = 1;
+  }
+
+  types.Ulid id = 1;
+  optional RenditionList stored_renditions = 2;
+  optional LifecyclePolicyList lifecycle_policies = 3;
+  optional types.Tags tags = 4;
+}
+
+// The response payload for RecordingConfig.Modify.
+message RecordingConfigModifyResponse {
+  types.RecordingConfig recording_config = 1;
+}
+
+// The request payload for RecordingConfig.Delete.
+message RecordingConfigDeleteRequest {
+  repeated types.Ulid ids = 1;
   bool delete_recordings = 2;
 }
 
-// RecordingConfigDeleteResponse is the response message for
-// RecordingConfig.Delete
+// The response payload for RecordingConfig.Delete.
 message RecordingConfigDeleteResponse {
-  // The names of the recording configs that were deleted.
-  repeated string names = 1;
+  repeated types.Ulid ids = 1;
+  repeated types.Ulid recording_ids = 2;
+}
 
-  // The ids of the recordings that were either deleted or disassociated.
-  repeated string recording_ids = 2;
+// The request payload for RecordingConfig.Tag.
+message RecordingConfigTagRequest {
+  // The id of the recording config to tag.
+  types.Ulid id = 1;
+
+  // The tags to apply to the recording config.
+  types.Tags tags = 2;
+}
+
+// The response payload for RecordingConfig.Tag.
+message RecordingConfigTagResponse {
+  // The new tags on the recording config.
+  types.Tags tags = 1;
+}
+
+// The request payload for RecordingConfig.Untag.
+message RecordingConfigUntagRequest {
+  // The id of the recording config to untag.
+  types.Ulid id = 1;
+
+  // The tags to remove from the recording config.
+  repeated string tags = 2;
+}
+
+// The response payload for RecordingConfig.Untag.
+message RecordingConfigUntagResponse {
+  // The new tags on the recording config.
+  types.Tags tags = 1;
 }

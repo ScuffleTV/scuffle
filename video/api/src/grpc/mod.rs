@@ -4,19 +4,10 @@ use std::sync::Arc;
 use tokio::select;
 use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
 
-mod events;
 mod health;
-mod playback_key_pair;
-mod playback_session;
-mod recording;
-mod recording_config;
-mod room;
-mod transcoder_config;
-
-mod utils;
 
 pub async fn run(global: Arc<GlobalState>) -> Result<()> {
-    tracing::info!("GRPC Listening on {}", global.config.grpc.bind_address);
+    tracing::info!("gRPC Listening on {}", global.config.grpc.bind_address);
 
     let server = if let Some(tls) = &global.config.grpc.tls {
         let cert = tokio::fs::read(&tls.cert).await?;
@@ -32,14 +23,7 @@ pub async fn run(global: Arc<GlobalState>) -> Result<()> {
         tracing::info!("gRPC TLS disabled");
         Server::builder()
     }
-    .add_service(room::RoomServer::new(&global))
     .add_service(health::HealthServer::new(&global))
-    .add_service(playback_key_pair::PlaybackKeyPairServer::new(&global))
-    .add_service(playback_session::PlaybackSessionServer::new(&global))
-    .add_service(recording::RecordingServer::new(&global))
-    .add_service(recording_config::RecordingConfigServer::new(&global))
-    .add_service(transcoder_config::TranscoderConfigServer::new(&global))
-    .add_service(events::EventsServer::new(&global))
     .serve_with_shutdown(global.config.grpc.bind_address, async {
         global.ctx.done().await;
     });

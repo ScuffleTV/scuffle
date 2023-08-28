@@ -10,36 +10,43 @@ logging = ["dep:log", "dep:tracing", "dep:tracing-log", "dep:tracing-subscriber"
 grpc = ["dep:tonic", "dep:anyhow", "dep:async-trait", "dep:futures", "dep:http", "dep:tower", "dep:trust-dns-resolver", "dep:tracing"]
 context = ["dep:tokio", "dep:tokio-util"]
 prelude = ["dep:tokio"]
-signal = []
+signal = ["tokio/signal", "tokio/process"]
 macros = []
+dataloader = ["dep:fnv", "dep:futures-util", "dep:futures-channel", "dep:futures-timer"]
 config = ["dep:config", "dep:serde", "logging"]
 
-default = ["logging", "grpc", "context", "prelude", "signal", "macros", "config"]
+default = ["logging", "grpc", "context", "prelude", "signal", "macros", "config", "dataloader"]
 
 [dependencies]
-log = { version = "0.4.19", optional = true }
+log = { version = "0.4.20", optional = true }
 http = { version = "0.2.9", optional = true }
 tower = { version = "0.4.13", optional = true }
 config = { workspace = true, optional = true }
-anyhow = { version = "1.0.72", optional = true }
+anyhow = { version = "1.0.75", optional = true }
 futures = { version = "0.3.28", optional = true }
 tracing = { version = "0.2.0", optional = true, git = "https://github.com/tokio-rs/tracing.git" }
 arc-swap = { version = "1.6.0", optional = true }
-tokio-util = { version = "0.7.8", optional = true }
-async-trait = { version = "0.1.72", optional = true }
-tonic = { version = "0.9.2", features = ["tls"], optional = true }
-tokio = { version = "1.29.1", features = ["sync", "rt"], optional = true }
-serde = { version = "1.0.183", features = ["derive"], optional = true }
+tokio-util = { version = "0.7.9", optional = true }
+async-trait = { version = "0.1.73", optional = true }
+tonic = { version = "0.10.1", features = ["tls"], optional = true }
+tokio = { version = "1.32.0", features = ["sync", "rt"], optional = true }
+serde = { version = "1.0.188", features = ["derive"], optional = true }
 tracing-log = { version = "0.2.0", features = ["env_logger"], optional = true, git = "https://github.com/tokio-rs/tracing.git" }
 once_cell = { version = "1.18.0", optional = true }
-trust-dns-resolver = { version = "0.22.0", features = ["tokio-runtime"], optional = true }
+trust-dns-resolver = { version = "0.23.0", features = ["tokio-runtime"], optional = true }
 tracing-subscriber = { version = "0.3.0", features = ["fmt", "env-filter", "json"], optional = true, git = "https://github.com/tokio-rs/tracing.git" }
-thiserror = { version = "1.0.44", optional = true }
+thiserror = { version = "1.0.48", optional = true }
+
+fnv = { version = "1.0.7", optional = true }
+futures-util = { version = "0.3.28", optional = true }
+futures-channel = { version = "0.3.28", optional = true }
+futures-timer = { version = "3.0.2", optional = true }
 
 [dev-dependencies]
-prost = "0.11.9"
-tempfile = "3.7.1"
+prost = "0.12.1"
+tempfile = "3.8.0"
 portpicker = "0.1.1"
+serial_test = "2.0.0"
 
 [build-dependencies]
-tonic-build = "0.9.2"
+tonic-build = "0.10.1"

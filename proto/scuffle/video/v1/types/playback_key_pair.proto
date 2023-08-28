@@ -3,6 +3,7 @@ syntax = "proto3";
 package scuffle.video.v1.types;
 
 import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/video/v1/types/tags.proto";
 
 // A key pair is used to allow for private playback of a recording or live
 // stream. You can create one by generating a public and private key pair, and
@@ -28,5 +29,5 @@ message PlaybackKeyPair {
   int64 updated_at = 4;
 
   // The tags of the key pair.
-  map<string, string> tags = 5;
+  Tags tags = 5;
 }

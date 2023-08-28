@@ -192,11 +192,11 @@ impl<R: DnsResolver> ChannelController<R> {
                             match record {
                                 // If we get an A record back, we convert it to an SocketAddr with the port and then into a EndpointType::Ip.
                                 RData::A(a) => {
-                                    Some(EndpointType::Ip(SocketAddr::new(a.into(), port)))
+                                    Some(EndpointType::Ip(SocketAddr::new(a.0.into(), port)))
                                 }
                                 // If we get an AAAA record back, we convert it to an SocketAddr with the port and then into a EndpointType::Ip.
                                 RData::AAAA(aaaa) => {
-                                    Some(EndpointType::Ip(SocketAddr::new(aaaa.into(), port)))
+                                    Some(EndpointType::Ip(SocketAddr::new(aaaa.0.into(), port)))
                                 }
                                 // If we get a CNAME record back, we convert it to an EndpointType::CName with the port.
                                 RData::CNAME(cname) => {

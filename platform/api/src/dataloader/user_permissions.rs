@@ -28,8 +28,8 @@ impl Loader<Uuid> for UserPermissionsByIdLoader {
     type Value = UserPermission;
     type Error = Arc<sqlx::Error>;
 
-    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
-        let default_role: Option<global_role::Model> =
+    async fn load(&self, _keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
+        let _default_role: Option<global_role::Model> =
             sqlx::query_as("SELECT * FROM global_roles WHERE rank = -1")
                 .fetch_optional(&*self.db)
                 .await

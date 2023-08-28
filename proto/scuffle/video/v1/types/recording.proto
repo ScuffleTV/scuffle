@@ -4,6 +4,7 @@ package scuffle.video.v1.types;
 
 import "scuffle/video/v1/types/ulid.proto";
 import "scuffle/video/v1/types/rendition.proto";
+import "scuffle/video/v1/types/tags.proto";
 
 // A recording is a collection of renditions of a recorded room.
 // It created when a room is goes live using and contains a recording
@@ -42,4 +43,6 @@ message Recording {
 
   // The time the recording was finished
   optional int64 ended_at = 9;
+
+  Tags tags = 10;
 }

@@ -3,102 +3,115 @@ syntax = "proto3";
 package scuffle.video.v1;
 
 import "scuffle/video/v1/types/recording.proto";
+import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/video/v1/types/tags.proto";
+import "scuffle/video/v1/types/search_options.proto";
 
-// A recording is a video that was recorded in a room.
-// It can be public or private and it is managed by lifecycle policies.
-// You can start recording rooms by attaching a RecordingConfig to a room. 
+// This service allows for the modification and deletion of recordings.
+// Recordings cannot be created through this service. They are created
+// automatically when a room is streamed to and a recording configuration attached.
 service Recording {
-  // Get recordings.
+  // Get a list of recordings.
   rpc Get(RecordingGetRequest) returns (RecordingGetResponse) {}
 
-  // Modify recordings.
+  // Modify an existing recording.
   rpc Modify(RecordingModifyRequest) returns (RecordingModifyResponse) {}
 
-  // Delete recordings.
+  // Delete existing recordings.
   rpc Delete(RecordingDeleteRequest) returns (RecordingDeleteResponse) {}
+
+  // Tag an existing recording.
+  rpc Tag(RecordingTagRequest) returns (RecordingTagResponse) {}
+
+  // Untag an existing recording.
+  rpc Untag(RecordingUntagRequest) returns (RecordingUntagResponse) {}
 }
 
-// RecordingGetRequest is a request to Recording.Get
-// Allows you to get recordings.
-// You can filter by room name or id for exact matches.
-// You can also limit the number of recordings returned.
-// Allows for pagination using the previous created_at timestamp.
+// The request payload for Recording.Get.
 message RecordingGetRequest {
-  // The ID of the recording to get (exact match). (max 100)
-  repeated string id = 1;
+  // A list of ids to retrieve. If empty, all recordings will be returned.
+  // If not empty, only the recordings with the specified ids will be returned.
+  // This will be filtered by the search_options. (max: 100, min: 0)
+  repeated types.Ulid ids = 1;
 
-  // Get recording by room name. If not set, get all recordings.
-  // If you provide a empty string it will return all recordings without a room
-  // name.
-  optional string room_name = 2;
+  // Optionally filter the recordings by room_id.
+  optional types.Ulid room_id = 2;
 
-  // Get recordings by the recording config name.
-  optional string recording_config_name = 3;
+  // Optionally filter the recordings by recording_config_id.
+  optional types.Ulid recording_config_id = 3;
 
-  // The number of recording to return. (default 100, max 1000)
-  int32 limit = 4;
+  // Optionally filter the recordings by is_public.
+  optional bool is_public = 4;
 
-  // The timestamp to start getting recording from.
-  // If not provided, will start from the beginning.
-  // If provided, will start from the first recording created after the
-  // timestamp. If reverse is true, will start from the first recording created
-  // before the timestamp. This is a unix timestamp in nanoseconds.
-  optional int64 created_at = 5;
-
-  // Whether to reverse the order of the rooms.
-  bool reverse = 6;
+  // An optional set of search options to filter the results by.
+  optional types.SearchOptions search_options = 5;
 }
 
-// RecordingGetResponse is a response to Recording.Get
+// The response payload for Recording.Get.
 message RecordingGetResponse {
-  // The recordings that were found.
+  // The list of recordings that were retrieved.
   repeated types.Recording recordings = 1;
 }
 
-// RecordingModifyRequest is a request to Recording.Modify
-// Allows you to modify recordings.
+// The request payload for Recording.Modify.
 message RecordingModifyRequest {
-  // The IDs of the recording to modify. (max 100, min 1)
-  repeated string id = 1;
+  // The id of the recording to modify.
+  types.Ulid id = 1;
 
-  // The new room name for the recording.
-  // If not set, the room name will not be changed.
-  optional string room_name = 2;
+  // Optionally set a new room_id for the recording.
+  optional types.Ulid room_id = 2;
 
-  // Update the recording config name.
-  // If not set, the recording config name will not be changed.
-  optional string recording_config_name = 3;
+  // Optionally set a new recording_config_id for the recording.
+  optional types.Ulid recording_config_id = 3;
 
-  // Whether the recording is public.
-  // If not set, the recording will not be changed.
-  // Changing this will effect the recording immediately.
-  // If the recording is public, it will be available to anyone with the link.
-  // If the recording is not public, you will need to issue signed tokens to
-  // access it.
+  // Optionally set change the visibility of the recording. 
   optional bool is_public = 4;
 }
 
-// RecordingModifyResponse is a response to Recording.Modify
+// The response payload for Recording.Modify.
 message RecordingModifyResponse {
-  // The IDs of the recordings that were modified.
-  repeated string ids = 1;
+  // The recording that was modified.
+  types.Recording recording = 1;
 }
 
-// RecordingDeleteRequest is a request to Recording.Delete
-// Allows you to delete multiple recordings by specifying their IDs or by room
-// name.
+// The request payload for Recording.Delete.
 message RecordingDeleteRequest {
-  // The ID of the recording to delete. (max 100)
-  // Cannot be used with the room_name field.
-  repeated string ids = 1;
-
-  // Delete recording by room name. If not set, delete all recordings.
-  // Cannot be used with the ids field.
-  optional string room_name = 2;
+  // The ids of the recordings to delete.
+  repeated types.Ulid ids = 1;
 }
 
-// RecordingDeleteResponse is a response to Recording.Delete
+// The response payload for Recording.Delete.
 message RecordingDeleteResponse {
-  // The IDs of the recordings that were deleted.
-  repeated string ids = 1;
+  // The ids of the recordings that were deleted.
+  repeated types.Ulid ids = 1;
+}
+
+// The request payload for Recording.Tag.
+message RecordingTagRequest {
+  // The id of the recording to tag.
+  types.Ulid id = 1;
+
+  // The tags to apply to the recording.
+  types.Tags tags = 2;
+}
+
+// The response payload for Recording.Tag.
+message RecordingTagResponse {
+  // The new tags on the recording.
+  types.Tags tags = 1;
+}
+
+// The request payload for Recording.Untag.
+message RecordingUntagRequest {
+  // The id of the recording to untag.
+  types.Ulid id = 1;
+
+  // The tags to remove from the recording.
+  repeated string tags = 2;
+}
+
+// The response payload for Recording.Untag.
+message RecordingUntagResponse {
+  // The new tags on the recording.
+  types.Tags tags = 1;
 }

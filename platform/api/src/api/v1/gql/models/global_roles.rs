@@ -17,7 +17,7 @@ pub struct GlobalRole {
 }
 
 impl From<global_role::Model> for GlobalRole {
-    fn from(value: global_role::Model) -> Self {
+    fn from(_value: global_role::Model) -> Self {
         todo!()
         // Self {
         //     id: value.id,

@@ -32,14 +32,18 @@ impl ChatMutation {
         let request_context = ctx.get_req_context();
 
         if content.len() > MAX_MESSAGE_LENGTH {
-            return Err(GqlError::InvalidInput.with_message("Message too long"));
+            return Err(GqlError::InvalidInput {
+                fields: vec!["content"],
+                message: "Message is too long",
+            }
+            .into());
         }
 
         // TODO: check if user is banned from chat
         let auth = request_context
             .auth()
             .await
-            .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
+            .map_err_gql(GqlError::NotLoggedIn)?;
 
         // TODO: Check if the user is allowed to send messages in this chat
         let message_id = Ulid::new();
@@ -52,7 +56,7 @@ impl ChatMutation {
         .bind(content.clone())
         .fetch_one(global.db.as_ref())
         .await
-        .map_err_gql("Failed to insert chat message")?;
+        .map_err_gql("failed to insert chat message")?;
 
         match global
             .nats
@@ -65,7 +69,7 @@ impl ChatMutation {
             Ok(_) => {}
             Err(e) => {
                 error!("failed to publish nats message: {}", e);
-                return Err(GqlError::InternalServerError.with_message("Failed to publish message"));
+                return Err(GqlError::InternalServerError("Failed to publish message").into());
             }
         };
 

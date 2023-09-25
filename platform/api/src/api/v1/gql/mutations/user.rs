@@ -29,12 +29,11 @@ impl UserMutation {
         let auth = request_context
             .auth()
             .await
-            .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
+            .map_err_gql(GqlError::NotLoggedIn)?;
 
-        database::User::validate_email(&email).map_err(|e| {
-            GqlError::InvalidInput
-                .with_message(e)
-                .with_field(vec!["email"])
+        database::User::validate_email(&email).map_err(|e| GqlError::InvalidInput {
+            fields: vec!["email"],
+            message: e,
         })?;
 
         let user: database::User = sqlx::query_as(
@@ -61,20 +60,23 @@ impl UserMutation {
         let auth = request_context
             .auth()
             .await
-            .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
+            .map_err_gql(GqlError::NotLoggedIn)?;
 
         // TDOD: Can we combine the two queries into one?
         let user: database::User = global
             .user_by_id_loader
             .load(auth.session.user_id.0)
             .await
-            .ok()
             .map_err_gql("failed to fetch user")?
-            .ok_or(GqlError::NotFound.with_message("user not found"))?;
+            .map_err_gql(GqlError::NotFound("user"))?;
 
         // Check case
         if user.username.to_lowercase() != display_name.to_lowercase() {
-            return Err(GqlError::InvalidInput.with_message("Display name must match username"));
+            return Err(GqlError::InvalidInput {
+                fields: vec!["display_name"],
+                message: "Display name must match username case",
+            }
+            .into());
         }
 
         let user: database::User = sqlx::query_as(
@@ -85,7 +87,7 @@ impl UserMutation {
         .bind(user.username)
         .fetch_one(global.db.as_ref())
         .await
-        .map_err_gql("Failed to update user")?;
+        .map_err_gql("failed to update user")?;
 
         let user_id = user.id.0.to_string();
 
@@ -101,7 +103,7 @@ impl UserMutation {
                 .into(),
             )
             .await
-            .map_err(|_| GqlError::InternalServerError.with_message("Failed to publish message"))?;
+            .map_err(|_| "Failed to publish message")?;
 
         Ok(user.into())
     }
@@ -115,10 +117,7 @@ impl UserMutation {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context
-            .auth()
-            .await
-            .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
+        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
 
         let user: database::User =
             sqlx::query_as("UPDATE users SET display_color = $1 WHERE id = $2 RETURNING *")
@@ -126,7 +125,7 @@ impl UserMutation {
                 .bind(auth.session.user_id)
                 .fetch_one(global.db.as_ref())
                 .await
-                .map_err_gql("Failed to update user")?;
+                .map_err_gql("failed to update user")?;
 
         let user_id = user.id.0.to_string();
 
@@ -142,7 +141,7 @@ impl UserMutation {
                 .into(),
             )
             .await
-            .map_err(|_| GqlError::InternalServerError.with_message("Failed to publish message"))?;
+            .map_err_gql("failed to publish message")?;
 
         Ok(user.into())
     }
@@ -157,13 +156,14 @@ impl UserMutation {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context
-            .auth()
-            .await
-            .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
+        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
 
         if auth.session.user_id.0 == channel_id.to_ulid() {
-            return Err(GqlError::InvalidInput.with_message("You cannot follow yourself"));
+            return Err(GqlError::InvalidInput {
+                fields: vec!["channel_id"],
+                message: "Cannot follow yourself",
+            }
+            .into());
         }
 
         sqlx::query("UPSERT INTO channel_user(user_id, channel_id, following) VALUES ($1, $2, $3)")
@@ -172,7 +172,7 @@ impl UserMutation {
             .bind(follow)
             .execute(global.db.as_ref())
             .await
-            .map_err_gql("Failed to update follow")?;
+            .map_err_gql("failed to update follow")?;
 
         let user_id = auth.session.user_id.0.to_string();
         let channel_id = channel_id.to_string();
@@ -193,13 +193,13 @@ impl UserMutation {
             .nats
             .publish(user_subject, msg.clone())
             .await
-            .map_err(|_| GqlError::InternalServerError.with_message("Failed to publish message"))?;
+            .map_err_gql("failed to publish message")?;
 
         global
             .nats
             .publish(channel_subject, msg)
             .await
-            .map_err(|_| GqlError::InternalServerError.with_message("Failed to publish message"))?;
+            .map_err_gql("failed to publish message")?;
 
         Ok(follow)
     }

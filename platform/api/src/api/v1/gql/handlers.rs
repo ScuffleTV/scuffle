@@ -2,7 +2,7 @@ use std::{future, str::FromStr, sync::Arc};
 
 use async_graphql::{
     http::{WebSocketProtocols, WsMessage},
-    Data, ErrorExtensions,
+    Data,
 };
 use futures_util::{SinkExt, StreamExt};
 use hyper::{body::HttpBody, header, Body, Request, Response, StatusCode};
@@ -19,7 +19,7 @@ use tokio::select;
 
 use crate::{
     api::{
-        error::{Result, ResultExt as _, RouteError},
+        error::{ApiError, Result, ResultExt as _},
         ext::RequestExt as _,
         v1::{
             jwt::JwtState,
@@ -77,9 +77,7 @@ async fn websocket_handler(
                     // We silently ignore invalid tokens since we don't want to force the user to login
                     // if the token is invalid when they make a request which requires authentication, it will fail.
                     let Some(jwt) = JwtState::verify(&global, token) else {
-                        return Err(GqlError::InvalidSession
-                            .with_message("invalid session token")
-                            .extend());
+                        return Err(GqlError::InvalidSession.into());
                     };
 
                     if let Ok(data) = AuthData::from_session_id(&global, jwt.session_id).await {
@@ -146,10 +144,10 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
                     .split(',')
                     .find_map(|p| WebSocketProtocols::from_str(p.trim()).ok())
             })
-            .ok_or((StatusCode::BAD_REQUEST, "Invalid websocket protocol"))?;
+            .ok_or(ApiError::InvalidWsProtocol)?;
 
-        let (mut response, websocket) = hyper_tungstenite::upgrade(&mut req, None)
-            .map_err_route((StatusCode::BAD_REQUEST, "Failed to upgrade to websocket"))?;
+        let (mut response, websocket) =
+            hyper_tungstenite::upgrade(&mut req, None).map_err(ApiError::WsUpgrade)?;
 
         response.headers_mut().insert(
             header::SEC_WEBSOCKET_PROTOCOL,
@@ -175,8 +173,8 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
                 .body_mut()
                 .data()
                 .await
-                .and_then(|f| f.ok())
-                .ok_or((StatusCode::BAD_REQUEST, "Invalid request body"))?;
+                .map_err_route(ApiError::NoGqlRequest)?
+                .map_err(ApiError::ParseHttpBody)?;
 
             let content_type = req
                 .headers()
@@ -189,19 +187,14 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
                 Default::default(),
             )
             .await
-            .map_err_route((StatusCode::BAD_REQUEST, "Invalid request body"))?
+            .map_err(ApiError::ParseGql)?
         }
         hyper::Method::GET => {
-            let query = req.uri().query().unwrap_or("");
-
-            async_graphql::http::parse_query_string(query)
-                .map_err_route((StatusCode::BAD_REQUEST, "Invalid query string"))?
+            let query = req.uri().query().ok_or(ApiError::NoGqlRequest)?;
+            async_graphql::http::parse_query_string(query)?
         }
         _ => {
-            return Err(RouteError::from((
-                StatusCode::METHOD_NOT_ALLOWED,
-                "Invalid request method",
-            )))
+            return Err(ApiError::HttpMethodNotAllowed.into());
         }
     }
     .provide_global(global)

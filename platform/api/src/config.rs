@@ -1,6 +1,5 @@
 use std::net::SocketAddr;
 
-use anyhow::Result;
 use common::config::{LoggingConfig, NatsConfig, RedisConfig, TlsConfig};
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
@@ -128,7 +127,7 @@ impl Default for AppConfig {
 }
 
 impl AppConfig {
-    pub fn parse() -> Result<Self> {
+    pub fn parse() -> config::Result<Self> {
         let (mut config, config_file) =
             common::config::parse::<Self>(!cfg!(test), Self::default().config_file)?;
 

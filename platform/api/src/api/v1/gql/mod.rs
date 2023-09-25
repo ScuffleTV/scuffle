@@ -4,12 +4,11 @@ use async_graphql::{extensions, Schema};
 use hyper::{Body, Response};
 use routerify::Router;
 
-use crate::{api::error::RouteError, global::GlobalState};
+use crate::{api::error::ApiErrorInterface, global::GlobalState};
 
 pub mod error;
 pub mod ext;
 pub mod handlers;
-mod middleware;
 pub mod models;
 pub mod mutations;
 pub mod queries;
@@ -32,12 +31,9 @@ pub fn schema() -> MySchema {
     .finish()
 }
 
-pub fn routes(global: &Arc<GlobalState>) -> Router<Body, RouteError> {
+pub fn routes(_global: &Arc<GlobalState>) -> Router<Body, ApiErrorInterface> {
     Router::builder()
         .data(schema())
-        // The auth middleware checks the Authorization header, and if it's valid, it adds the user to the request extensions
-        // This way, we can access the user in the handlers, this does not fail the request if the token is invalid or not present.
-        .middleware(middleware::auth::auth_middleware(global))
         .any_method("/", handlers::graphql_handler)
         .get("/playground", move |_| async move {
             Ok(Response::builder()

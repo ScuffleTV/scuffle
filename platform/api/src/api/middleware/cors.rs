@@ -4,10 +4,10 @@ use hyper::http::header;
 use hyper::Body;
 use routerify::Middleware;
 
-use crate::api::error::RouteError;
+use crate::api::error::ApiErrorInterface;
 use crate::global::GlobalState;
 
-pub fn cors_middleware(_: &Arc<GlobalState>) -> Middleware<Body, RouteError> {
+pub fn cors_middleware(_: &Arc<GlobalState>) -> Middleware<Body, ApiErrorInterface> {
     Middleware::post(|mut resp| async move {
         resp.headers_mut()
             .insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());

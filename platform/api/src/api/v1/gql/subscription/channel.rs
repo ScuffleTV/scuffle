@@ -24,14 +24,14 @@ impl ChannelSubscription {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context
-            .auth()
-            .await
-            .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
+        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
 
         // TODO: allow other users with permissions
         if auth.session.user_id.0 != channel_id.to_ulid() {
-            return Err(GqlError::Unauthorized.with_message("You are not the channel owner"));
+            return Err(GqlError::Unauthorized {
+                field: "channel_follows",
+            }
+            .into());
         }
 
         let mut subscription = global
@@ -41,20 +41,20 @@ impl ChannelSubscription {
                 channel_id.to_ulid().to_string()
             ))
             .await
-            .map_err_gql("Failed to subscribe to channel follows")?;
+            .map_err_gql("failed to subscribe to channel follows")?;
 
         Ok(async_stream::stream!({
             while let Ok(message) = subscription.recv().await {
                 let event = pb::scuffle::platform::internal::events::UserFollowChannel::decode(
                     message.payload,
                 )
-                .map_err_gql("Failed to decode user follow")?;
+                .map_err_gql("failed to decode user follow")?;
 
                 let user_id = Ulid::from_string(&event.user_id)
-                    .map_err_gql("Failed to decode user id")?
+                    .map_err_gql("failed to decode user id")?
                     .into();
                 let channel_id = Ulid::from_string(&event.channel_id)
-                    .map_err_gql("Failed to decode channel id")?
+                    .map_err_gql("failed to decode channel id")?
                     .into();
 
                 yield Ok(FollowStream {
@@ -74,14 +74,14 @@ impl ChannelSubscription {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context
-            .auth()
-            .await
-            .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
+        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
 
         // TODO: allow other users with permissions
         if auth.session.user_id.0 != channel_id.to_ulid() {
-            return Err(GqlError::Unauthorized.with_message("You are not the channel owner"));
+            return Err(GqlError::Unauthorized {
+                field: "channel_followers_count",
+            }
+            .into());
         }
 
         let (mut followers,) = sqlx::query_as(
@@ -90,7 +90,7 @@ impl ChannelSubscription {
         .bind(channel_id.to_uuid())
         .fetch_one(global.db.as_ref())
         .await
-        .map_err_gql("Failed to fetch followers")?;
+        .map_err_gql("failed to fetch followers")?;
 
         let mut subscription = global
             .subscription_manager
@@ -99,7 +99,7 @@ impl ChannelSubscription {
                 channel_id.to_ulid().to_string()
             ))
             .await
-            .map_err_gql("Failed to subscribe to channel follows")?;
+            .map_err_gql("failed to subscribe to channel follows")?;
 
         Ok(async_stream::stream!({
             yield Ok(followers);
@@ -107,7 +107,7 @@ impl ChannelSubscription {
                 let event = pb::scuffle::platform::internal::events::UserFollowChannel::decode(
                     message.payload,
                 )
-                .map_err_gql("Failed to decode user follow")?;
+                .map_err_gql("failed to decode user follow")?;
 
                 if event.following {
                     followers += 1;

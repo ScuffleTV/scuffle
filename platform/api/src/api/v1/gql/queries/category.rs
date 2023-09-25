@@ -22,7 +22,6 @@ impl CategoryQuery {
             .category_by_id_loader
             .load(id.to_ulid())
             .await
-            .ok()
             .map_err_gql("failed to fetch category")?;
 
         Ok(user.map(Into::into))

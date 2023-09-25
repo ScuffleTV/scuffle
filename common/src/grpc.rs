@@ -1,6 +1,5 @@
 use std::{collections::HashSet, fmt, net::SocketAddr, time::Duration};
 
-use anyhow::Result;
 use async_trait::async_trait;
 use futures::future;
 use http::Uri;
@@ -13,6 +12,20 @@ use trust_dns_resolver::{
     proto::rr::{RData, RecordType},
     TokioAsyncResolver,
 };
+
+#[derive(Debug, thiserror::Error)]
+pub enum GrpcError {
+    #[error("failed to resolve hostname: {0}")]
+    ResolveHostnameError(String),
+    #[error("resolve error: {0}")]
+    Resolve(#[from] ResolveError),
+    #[error("no addresses provided")]
+    NoAddresses,
+    #[error("invalid address: {0}")]
+    InvalidAddress(String),
+    #[error("invalid uri: {0}")]
+    InvalidUri(#[from] http::uri::InvalidUri),
+}
 
 #[derive(Clone, Debug)]
 /// Options for creating a gRPC channel.
@@ -106,8 +119,8 @@ struct ChannelControllerOpts {
 }
 
 impl<R: DnsResolver> ChannelController<R> {
-    fn new(resolver: R, opts: ChannelControllerOpts) -> Result<Self> {
-        Ok(Self {
+    fn new(resolver: R, opts: ChannelControllerOpts) -> Self {
+        Self {
             last_addresses: HashSet::new(),
             resolver,
             sender: opts.sender,
@@ -118,7 +131,7 @@ impl<R: DnsResolver> ChannelController<R> {
             enable_ipv6: opts.enable_ipv6,
             enable_ipv4: opts.enable_ipv4,
             tls: opts.tls,
-        })
+        }
     }
 
     /// Starts the controller
@@ -174,7 +187,7 @@ impl<R: DnsResolver> ChannelController<R> {
                     }
                 }
 
-                Err(anyhow::anyhow!("Failed to resolve hostname: {}", hostname))
+                Err(GrpcError::ResolveHostnameError(hostname.clone()))
             }
         });
 
@@ -301,7 +314,7 @@ pub fn make_channel(
     addresses: Vec<String>,
     interval: Duration,
     tls: Option<TlsSettings>,
-) -> Result<Channel> {
+) -> Result<Channel, GrpcError> {
     make_channel_with_opts(ChannelOpts {
         addresses,
         tls,
@@ -317,7 +330,7 @@ pub fn make_channel(
 /// when the DNS records change. Allowing for a more dynamic way of connecting
 /// to services. This funtion allows you to provide your own options.
 #[inline(always)]
-pub fn make_channel_with_opts(opts: ChannelOpts) -> Result<Channel> {
+pub fn make_channel_with_opts(opts: ChannelOpts) -> Result<Channel, GrpcError> {
     make_channel_with_resolver(TokioAsyncResolver::tokio_from_system_conf()?, opts)
 }
 
@@ -330,10 +343,10 @@ pub fn make_channel_with_opts(opts: ChannelOpts) -> Result<Channel> {
 pub fn make_channel_with_resolver<R: DnsResolver>(
     resolver: R,
     opts: ChannelOpts,
-) -> Result<Channel> {
+) -> Result<Channel, GrpcError> {
     // We first check if any addresses were provided.
     if opts.addresses.is_empty() {
-        return Err(anyhow::anyhow!("no addresses provided"));
+        return Err(GrpcError::NoAddresses);
     }
 
     // 128 is an arbitrary number, but it should be enough for most use cases.
@@ -354,7 +367,7 @@ pub fn make_channel_with_resolver<R: DnsResolver>(
 
         // Get the host from the Uri, or return an error if it doesn't exist.
         let Some(address) = uri.host() else {
-            return Err(anyhow::anyhow!("invalid address: {}", address));
+            return Err(GrpcError::InvalidAddress(address));
         };
 
         // If the address is an IP address, we add it to the ip_addresses HashSet.
@@ -379,7 +392,7 @@ pub fn make_channel_with_resolver<R: DnsResolver>(
             enable_ipv6: opts.enable_ipv6,
             enable_ipv4: opts.enable_ipv4,
         },
-    )?;
+    );
 
     // We spawn the controller on a new task.
     tokio::spawn(controller.start());

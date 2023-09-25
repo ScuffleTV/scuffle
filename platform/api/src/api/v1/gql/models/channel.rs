@@ -43,8 +43,7 @@ impl Channel {
             .category_by_id_loader
             .load(category_id.into())
             .await
-            .ok()
-            .map_err_gql("Failed to fetch category")?;
+            .map_err_gql("failed to fetch category")?;
 
         Ok(category.map(Into::into))
     }
@@ -62,9 +61,10 @@ impl Channel {
             }
         }
 
-        Err(GqlError::Unauthorized
-            .with_message("you are not allowed to see this field")
-            .with_field(vec!["stream_key"]))
+        Err(GqlError::Unauthorized {
+            field: "stream_key",
+        }
+        .into())
     }
 
     async fn followers_count(&self, ctx: &Context<'_>) -> Result<i64> {
@@ -76,7 +76,7 @@ impl Channel {
         .bind(self.id.to_uuid())
         .fetch_one(global.db.as_ref())
         .await
-        .map_err_gql("Failed to fetch followers")?;
+        .map_err_gql("failed to fetch followers")?;
 
         Ok(followers)
     }

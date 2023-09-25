@@ -1,13 +1,12 @@
-use anyhow::Result;
 use hyper::{server::conn::Http, Body, Response, StatusCode};
 use routerify::{RequestInfo, RequestServiceBuilder, Router};
 use serde_json::json;
-use std::sync::Arc;
+use std::{io, sync::Arc};
 use tokio::{net::TcpSocket, select};
 
 use crate::{api::macros::make_response, global::GlobalState};
 
-use self::error::{RouteError, ShouldLog};
+use self::error::{ApiError, ApiErrorInterface};
 
 pub mod error;
 pub mod ext;
@@ -19,24 +18,31 @@ async fn error_handler(
     err: Box<(dyn std::error::Error + Send + Sync + 'static)>,
     info: RequestInfo,
 ) -> Response<Body> {
-    match err.downcast::<RouteError>() {
+    match err.downcast::<ApiErrorInterface>() {
         Ok(err) => {
             let location = err.location();
 
-            err.span().in_scope(|| match err.should_log() {
-                ShouldLog::Yes => {
-                    tracing::error!(location = location.to_string(), error = ?err, "http error")
+            err.span().in_scope(|| match err.error() {
+                ApiError::InternalServerError(_) => {
+                    tracing::error!(
+                        location = location.to_string(),
+                        error = err.to_string(),
+                        "http error"
+                    );
                 }
-                ShouldLog::Debug => {
-                    tracing::debug!(location = location.to_string(), error = ?err, "http error")
+                _ => {
+                    tracing::debug!(
+                        location = location.to_string(),
+                        error = err.to_string(),
+                        "http error"
+                    );
                 }
-                ShouldLog::No => (),
             });
 
             err.response()
         }
         Err(err) => {
-            tracing::error!(error = ?err, info = ?info, "unhandled http error");
+            tracing::error!(error = err, info = ?info, "unhandled http error");
             make_response!(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 json!({ "message": "Internal Server Error", "success": false })
@@ -45,7 +51,7 @@ async fn error_handler(
     }
 }
 
-pub fn routes(global: &Arc<GlobalState>) -> Router<Body, RouteError> {
+pub fn routes(global: &Arc<GlobalState>) -> Router<Body, ApiErrorInterface> {
     let weak = Arc::downgrade(global);
     Router::builder()
         .data(weak)
@@ -56,12 +62,15 @@ pub fn routes(global: &Arc<GlobalState>) -> Router<Body, RouteError> {
         .err_handler_with_info(error_handler)
         // The CORS middleware adds the CORS headers to the response
         .middleware(middleware::cors::cors_middleware(global))
+        // The auth middleware checks the Authorization header, and if it's valid, it adds the user to the request extensions
+        // This way, we can access the user in the handlers, this does not fail the request if the token is invalid or not present.
+        .middleware(middleware::auth::auth_middleware(global))
         .scope("/v1", v1::routes(global))
         .build()
         .expect("failed to build router")
 }
 
-pub async fn run(global: Arc<GlobalState>) -> Result<()> {
+pub async fn run(global: Arc<GlobalState>) -> io::Result<()> {
     tracing::info!("Listening on {}", global.config.api.bind_address);
     let socket = if global.config.api.bind_address.is_ipv6() {
         TcpSocket::new_v6()?

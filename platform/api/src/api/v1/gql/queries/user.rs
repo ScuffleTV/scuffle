@@ -27,7 +27,6 @@ impl UserQuery {
             .user_by_username_loader
             .load(username.to_lowercase())
             .await
-            .ok()
             .map_err_gql("failed to fetch user")?;
 
         Ok(user.map(Into::into))
@@ -45,7 +44,6 @@ impl UserQuery {
             .user_by_id_loader
             .load(id.to_ulid())
             .await
-            .ok()
             .map_err_gql("failed to fetch user")?;
 
         Ok(user.map(models::user::User::from))
@@ -74,10 +72,7 @@ impl UserQuery {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context
-            .auth()
-            .await
-            .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
+        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
 
         let (is_following,): (bool,) = sqlx::query_as(
             "SELECT following FROM channel_user WHERE user_id = $1 AND channel_id = $2",
@@ -86,7 +81,7 @@ impl UserQuery {
         .bind(channel_id.to_uuid())
         .fetch_optional(global.db.as_ref())
         .await
-        .map_err_gql("Failed to fetch channel_user")?
+        .map_err_gql("failed to fetch channel_user")?
         .unwrap_or((false,));
 
         Ok(is_following)
@@ -102,14 +97,11 @@ impl UserQuery {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context
-            .auth()
-            .await
-            .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
+        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
 
         // TODO: Also allow users with permission
         if id.to_ulid() != auth.session.user_id.0 {
-            return Err(GqlError::Unauthorized.with_message("You can only fetch your own follows"));
+            return Err(GqlError::Unauthorized { field: "following" }.into());
         }
 
         // This query is not very good, we should have some paging mechinsm with ids.
@@ -120,7 +112,7 @@ impl UserQuery {
         .bind(limit.map(|l| l as i64))
         .fetch_all(global.db.as_ref())
         .await
-        .map_err_gql("Failed to fetch channels")?;
+        .map_err_gql("failed to fetch channels")?;
 
         Ok(channels.into_iter().map(Into::into).collect())
     }

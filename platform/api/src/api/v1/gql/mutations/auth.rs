@@ -41,29 +41,31 @@ impl AuthMutation {
         if !global
             .validate_turnstile_token(&captcha_token)
             .await
-            .map_err_gql("Failed to validate captcha token")?
+            .map_err_gql("failed to validate captcha token")?
         {
-            return Err(GqlError::InvalidInput
-                .with_message("Captcha token is not valid")
-                .with_field(vec!["captchaToken"]));
+            return Err(GqlError::InvalidInput {
+                fields: vec!["captchaToken"],
+                message: "capcha token is invalid",
+            }
+            .into());
         }
 
         let user = global
             .user_by_username_loader
             .load(username.to_lowercase())
             .await
-            .ok()
-            .map_err_gql("Failed to fetch user")?
-            .ok_or(
-                GqlError::InvalidInput
-                    .with_message("Invalid username or password")
-                    .with_field(vec!["username", "password"]),
-            )?;
+            .map_err_gql("failed to fetch user")?
+            .map_err_gql(GqlError::InvalidInput {
+                fields: vec!["username", "password"],
+                message: "invalid username or password",
+            })?;
 
         if !user.verify_password(&password) {
-            return Err(GqlError::InvalidInput
-                .with_message("Invalid username or password")
-                .with_field(vec!["username", "password"]));
+            return Err(GqlError::InvalidInput {
+                fields: vec!["username", "password"],
+                message: "invalid username or password",
+            }
+            .into());
         }
 
         let login_duration = validity.unwrap_or(60 * 60 * 24 * 7); // 7 days
@@ -74,7 +76,7 @@ impl AuthMutation {
             .db
             .begin()
             .await
-            .map_err_gql("Failed to start transaction")?;
+            .map_err_gql("failed to start transaction")?;
 
         let session: database::Session = sqlx::query_as(
             "INSERT INTO user_sessions (id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
@@ -84,29 +86,29 @@ impl AuthMutation {
         .bind(expires_at)
         .fetch_one(&mut *tx)
         .await
-        .map_err_gql("Failed to create session")?;
+        .map_err_gql("failed to create session")?;
 
         sqlx::query("UPDATE users SET last_login_at = NOW() WHERE id = $1")
             .bind(user.id)
             .execute(&mut *tx)
             .await
-            .map_err_gql("Failed to update user")?;
+            .map_err_gql("failed to update user")?;
 
         tx.commit()
             .await
-            .map_err_gql("Failed to commit transaction")?;
+            .map_err_gql("failed to commit transaction")?;
 
         let jwt = JwtState::from(session.clone());
 
         let token = jwt
             .serialize(global)
-            .ok_or((GqlError::InternalServerError, "Failed to serialize JWT"))?;
+            .ok_or(GqlError::InternalServerError("failed to serialize JWT"))?;
 
         // We need to update the request context with the new session
         if update_context.unwrap_or(true) {
             let auth_data = AuthData::from_session_and_user(global, session.clone(), &user)
                 .await
-                .map_err(|e| GqlError::InternalServerError.with_message(e))?;
+                .map_err(GqlError::InternalServerError)?;
             request_context.set_auth(auth_data).await;
         }
 
@@ -133,11 +135,10 @@ impl AuthMutation {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let jwt = JwtState::verify(global, &session_token).ok_or(
-            GqlError::InvalidInput
-                .with_message("Invalid session token")
-                .with_field(vec!["sessionToken"]),
-        )?;
+        let jwt = JwtState::verify(global, &session_token).map_err_gql(GqlError::InvalidInput {
+            fields: vec!["sessionToken"],
+            message: "invalid session token",
+        })?;
 
         // TODO: maybe look to batch this
         let session: database::Session = sqlx::query_as(
@@ -147,21 +148,20 @@ impl AuthMutation {
         .fetch_optional(global.db.as_ref())
         .await
         .map_err_gql("failed to fetch session")?
-        .ok_or(
-            GqlError::InvalidInput
-                .with_message("Invalid session token")
-                .with_field(vec!["sessionToken"]),
-        )?;
+        .map_err_gql(GqlError::InvalidInput {
+            fields: vec!["sessionToken"],
+            message: "invalid session token",
+        })?;
 
         if !session.is_valid() {
-            return Err(GqlError::InvalidSession.with_message("Session token is no longer valid"));
+            return Err(GqlError::InvalidSession.into());
         }
 
         // We need to update the request context with the new session
         if update_context.unwrap_or(true) {
             let auth_data = AuthData::from_session(global, session.clone())
                 .await
-                .map_err(|e| GqlError::InternalServerError.with_message(e))?;
+                .map_err(GqlError::InternalServerError)?;
             request_context.set_auth(auth_data).await;
         }
 
@@ -196,51 +196,51 @@ impl AuthMutation {
         if !global
             .validate_turnstile_token(&captcha_token)
             .await
-            .map_err_gql("Failed to validate captcha token")?
+            .map_err_gql("failed to validate captcha token")?
         {
-            return Err(GqlError::InvalidInput
-                .with_message("Capcha token is invalid")
-                .with_field(vec!["captchaToken"]));
+            return Err(GqlError::InvalidInput {
+                fields: vec!["captchaToken"],
+                message: "capcha token is invalid",
+            }
+            .into());
         }
 
         let display_name = username.clone();
         let username = username.to_lowercase();
         let email = email.to_lowercase();
 
-        database::User::validate_username(&username).map_err(|e| {
-            GqlError::InvalidInput
-                .with_message(e)
-                .with_field(vec!["username"])
+        database::User::validate_username(&username).map_err(|e| GqlError::InvalidInput {
+            fields: vec!["username"],
+            message: e,
         })?;
-        database::User::validate_password(&password).map_err(|e| {
-            GqlError::InvalidInput
-                .with_message(e)
-                .with_field(vec!["password"])
+        database::User::validate_password(&password).map_err(|e| GqlError::InvalidInput {
+            fields: vec!["password"],
+            message: e,
         })?;
-        database::User::validate_email(&email).map_err(|e| {
-            GqlError::InvalidInput
-                .with_message(e)
-                .with_field(vec!["email"])
+        database::User::validate_email(&email).map_err(|e| GqlError::InvalidInput {
+            fields: vec!["email"],
+            message: e,
         })?;
 
         if global
             .user_by_username_loader
             .load(username.clone())
             .await
-            .ok()
             .map_err_gql("failed to fetch user")?
             .is_some()
         {
-            return Err(GqlError::InvalidInput
-                .with_message("Username already taken")
-                .with_field(vec!["username"]));
+            return Err(GqlError::InvalidInput {
+                fields: vec!["username"],
+                message: "username already taken",
+            }
+            .into());
         }
 
         let mut tx = global
             .db
             .begin()
             .await
-            .map_err_gql("Failed to create user")?;
+            .map_err_gql("failed to create user")?;
 
         // TODO: maybe look to batch this
         let user: database::User = sqlx::query_as("INSERT INTO users (id, username, display_name, display_color, password_hash, email) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *")
@@ -252,7 +252,7 @@ impl AuthMutation {
             .bind(email)
             .fetch_one(&mut *tx)
             .await
-            .map_err_gql("Failed to create user")?;
+            .map_err_gql("failed to create user")?;
 
         let login_duration = validity.unwrap_or(60 * 60 * 24 * 7); // 7 days
         let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
@@ -266,17 +266,17 @@ impl AuthMutation {
         .bind(expires_at)
         .fetch_one(&mut *tx)
         .await
-        .map_err_gql("Failed to create session")?;
+        .map_err_gql("failed to create session")?;
 
         let jwt = JwtState::from(session.clone());
 
         let token = jwt
             .serialize(global)
-            .ok_or((GqlError::InternalServerError, "Failed to serialize JWT"))?;
+            .map_err_gql("failed to serialize JWT")?;
 
         tx.commit()
             .await
-            .map_err_gql("Failed to commit transaction")?;
+            .map_err_gql("failed to commit transaction")?;
 
         // We need to update the request context with the new session
         if update_context.unwrap_or(true) {
@@ -284,13 +284,8 @@ impl AuthMutation {
                 .global_state_loader
                 .load(())
                 .await
-                .ok()
-                .map_err_gql(
-                    GqlError::InternalServerError.with_message("Failed to fetch global state"),
-                )?
-                .ok_or(
-                    GqlError::InternalServerError.with_message("Failed to fetch global state"),
-                )?;
+                .map_err_gql("failed to fetch global state")?
+                .map_err_gql("global state not found")?;
             // default is no roles and default permissions
             let auth_data = AuthData {
                 session: session.clone(),
@@ -323,17 +318,16 @@ impl AuthMutation {
         let request_context = ctx.get_req_context();
 
         let session_id = if let Some(token) = &session_token {
-            let jwt = JwtState::verify(global, token).ok_or(
-                GqlError::InvalidInput
-                    .with_message("Invalid session token")
-                    .with_field(vec!["sessionToken"]),
-            )?;
+            let jwt = JwtState::verify(global, token).map_err_gql(GqlError::InvalidInput {
+                fields: vec!["sessionToken"],
+                message: "invalid session token",
+            })?;
             jwt.session_id
         } else {
             request_context
                 .auth()
                 .await
-                .ok_or(GqlError::InvalidInput.with_message("Not logged in"))?
+                .map_err_gql(GqlError::NotLoggedIn)?
                 .session
                 .id
                 .0
@@ -344,7 +338,7 @@ impl AuthMutation {
             .bind(Uuid::from(session_id))
             .execute(global.db.as_ref())
             .await
-            .map_err_gql("Failed to update session")?;
+            .map_err_gql("failed to update session")?;
 
         if session_token.is_none() {
             request_context.reset_auth().await;

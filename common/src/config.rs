@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::Result;
-
 use crate::logging;
 
 #[derive(Debug, Clone, Default, PartialEq, config::Config, serde::Deserialize)]
@@ -134,7 +132,7 @@ impl Default for RedisConfig {
 pub fn parse<C: config::Config + 'static>(
     enable_cli: bool,
     config_file: Option<String>,
-) -> Result<(C, Option<String>)> {
+) -> config::Result<(C, Option<String>)> {
     let mut builder = config::ConfigBuilder::new();
 
     if enable_cli {
@@ -157,7 +155,7 @@ pub fn parse<C: config::Config + 'static>(
             }
             Err(err) => {
                 if key_provided || !err.is_io() {
-                    return Err(err.into());
+                    return Err(err);
                 }
 
                 tracing::debug!("failed to load config file: {}", err);

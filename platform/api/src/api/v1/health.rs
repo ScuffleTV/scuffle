@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::{
     api::{
-        error::{Result, RouteError},
+        error::{Result, ApiErrorInterface},
         macros::make_response,
     },
     global::GlobalState,
@@ -21,7 +21,7 @@ async fn health(_: Request<Body>) -> Result<Response<Body>> {
     ))
 }
 
-pub fn routes(_global: &Arc<GlobalState>) -> Router<Body, RouteError> {
+pub fn routes(_global: &Arc<GlobalState>) -> Router<Body, ApiErrorInterface> {
     Router::builder()
         .get("/", health)
         .build()

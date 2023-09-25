@@ -37,9 +37,8 @@ impl Session {
             .user_by_id_loader
             .load(self.user_id.into())
             .await
-            .ok()
             .map_err_gql("failed to fetch user")?
-            .ok_or(GqlError::NotFound.with_message("user not found"))?;
+            .ok_or(GqlError::NotFound("user"))?;
 
         Ok(User::from(user))
     }

@@ -61,9 +61,7 @@ impl User {
             }
         }
 
-        Err(GqlError::Unauthorized
-            .with_message("you are not allowed to see this field")
-            .with_field(vec!["email"]))
+        Err(GqlError::Unauthorized { field: "email" }.into())
     }
 
     async fn email_verified(&self, ctx: &Context<'_>) -> Result<bool> {
@@ -79,9 +77,10 @@ impl User {
             }
         }
 
-        Err(GqlError::Unauthorized
-            .with_message("you are not allowed to see this field")
-            .with_field(vec!["emailVerified"]))
+        Err(GqlError::Unauthorized {
+            field: "emailVerified",
+        }
+        .into())
     }
 
     async fn last_login_at(&self, ctx: &Context<'_>) -> Result<&DateRFC3339> {
@@ -97,9 +96,10 @@ impl User {
             }
         }
 
-        Err(GqlError::Unauthorized
-            .with_message("you are not allowed to see this field")
-            .with_field(vec!["lastLoginAt"]))
+        Err(GqlError::Unauthorized {
+            field: "lastLoginAt",
+        }
+        .into())
     }
 }
 

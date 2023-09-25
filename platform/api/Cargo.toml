@@ -6,7 +6,6 @@ authors = ["Scuffle <opensource@scuffle.tv>"]
 description = "Scuffle API server"
 
 [dependencies]
-anyhow = "1.0.75"
 tracing = "0.1.37"
 tokio = { version = "1.32.0", features = ["full"] }
 serde = { version = "1.0.188", features = ["derive"] }
@@ -45,6 +44,7 @@ bytes = "1.5.0"
 config = { workspace = true }
 pb = { workspace = true }
 totp-rs = { version = "5.3.0", features = ["gen_secret", "qr"] }
+thiserror = "1.0.48"
 
 [dev-dependencies]
 tempfile = "3.8.0"

@@ -6,25 +6,56 @@ use std::{
 use hyper::{Body, StatusCode};
 use serde_json::json;
 
-use super::macros::make_response;
+use super::{macros::make_response, middleware::auth::AuthError};
 
-pub type Result<T, E = RouteError> = std::result::Result<T, E>;
+pub type Result<T, E = ApiErrorInterface> = std::result::Result<T, E>;
 
-pub struct RouteError {
-    source: Option<anyhow::Error>,
+#[derive(thiserror::Error, Debug)]
+pub enum ApiError {
+    #[error("failed to upgrade ws connection: {0}")]
+    WsUpgrade(hyper_tungstenite::tungstenite::error::ProtocolError),
+    #[error("no gql request found")]
+    NoGqlRequest,
+    #[error("failed to parse http body: {0}")]
+    ParseHttpBody(hyper::Error),
+    #[error("invalid ws protocol")]
+    InvalidWsProtocol,
+    #[error("failed to parse gql request: {0}")]
+    ParseGql(#[from] async_graphql::ParseRequestError),
+    #[error("http method not allowed")]
+    HttpMethodNotAllowed,
+    #[error("failed to auth: {0}")]
+    Auth(#[from] AuthError),
+    #[error("internal server error: {0}")]
+    InternalServerError(&'static str),
+}
+
+impl From<ApiError> for hyper::Response<Body> {
+    fn from(value: ApiError) -> Self {
+        let status = match &value {
+            ApiError::WsUpgrade(_) => StatusCode::BAD_REQUEST,
+            ApiError::NoGqlRequest => StatusCode::BAD_REQUEST,
+            ApiError::ParseHttpBody(_) => StatusCode::BAD_REQUEST,
+            ApiError::InvalidWsProtocol => StatusCode::BAD_REQUEST,
+            ApiError::ParseGql(_) => StatusCode::BAD_REQUEST,
+            ApiError::HttpMethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
+            ApiError::Auth(_) => StatusCode::UNAUTHORIZED,
+            ApiError::InternalServerError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+        make_response!(
+            status,
+            json!({ "message": value.to_string(), "success": false })
+        )
+    }
+}
+
+pub struct ApiErrorInterface {
+    error: ApiError,
     location: &'static Location<'static>,
     span: tracing::Span,
-    response: hyper::Response<Body>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ShouldLog {
-    Yes,
-    Debug,
-    No,
-}
-
-impl RouteError {
+impl ApiErrorInterface {
     pub fn span(&self) -> &tracing::Span {
         &self.span
     }
@@ -33,22 +64,12 @@ impl RouteError {
         self.location
     }
 
+    pub fn error(&self) -> &ApiError {
+        &self.error
+    }
+
     pub fn response(self) -> hyper::Response<Body> {
-        self.response
-    }
-
-    pub fn should_log(&self) -> ShouldLog {
-        match self.response.status().is_server_error() {
-            true => ShouldLog::Yes,
-            false => match self.source.is_some() {
-                true => ShouldLog::Debug,
-                false => ShouldLog::No,
-            },
-        }
-    }
-
-    fn with_source(self, source: Option<anyhow::Error>) -> Self {
-        Self { source, ..self }
+        self.error.into()
     }
 
     fn with_location(self, location: &'static Location<'static>) -> Self {
@@ -56,107 +77,80 @@ impl RouteError {
     }
 }
 
-impl From<hyper::Response<Body>> for RouteError {
+impl From<&'static str> for ApiErrorInterface {
     #[track_caller]
-    fn from(res: hyper::Response<Body>) -> Self {
+    fn from(message: &'static str) -> Self {
         Self {
-            source: None,
+            error: ApiError::InternalServerError(message),
             span: tracing::Span::current(),
             location: Location::caller(),
-            response: res,
         }
     }
 }
 
-impl From<(StatusCode, &'_ str)> for RouteError {
-    #[track_caller]
-    fn from(status: (StatusCode, &'_ str)) -> Self {
-        Self {
-            source: None,
-            span: tracing::Span::current(),
-            location: Location::caller(),
-            response: make_response!(status.0, json!({ "message": status.1, "success": false })),
-        }
-    }
-}
-
-impl<T> From<(StatusCode, &'_ str, T)> for RouteError
+impl<T> From<T> for ApiErrorInterface
 where
-    T: Into<anyhow::Error> + Debug + Display,
+    ApiError: From<T>,
 {
     #[track_caller]
-    fn from(status: (StatusCode, &'_ str, T)) -> Self {
+    fn from(error: T) -> Self {
         Self {
-            source: Some(status.2.into()),
+            error: ApiError::from(error),
             span: tracing::Span::current(),
             location: Location::caller(),
-            response: make_response!(status.0, json!({ "message": status.1, "success": false })),
         }
     }
 }
 
-impl From<&'_ str> for RouteError {
-    #[track_caller]
-    fn from(message: &'_ str) -> Self {
-        Self {
-            source: None,
-            span: tracing::Span::current(),
-            location: Location::caller(),
-            response: make_response!(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                json!({ "message": message, "success": false })
-            ),
-        }
-    }
-}
-
-impl Debug for RouteError {
+impl Debug for ApiErrorInterface {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.source {
-            Some(err) => write!(f, "RouteError: {:?}", err),
-            None => write!(f, "RouteError: Unknown Source"),
-        }
+        Debug::fmt(&self.error, f)
     }
 }
 
-impl Display for RouteError {
+impl Display for ApiErrorInterface {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.source {
-            Some(err) => write!(f, "RouteError: {}", err),
-            None => write!(f, "RouteError: Unknown Source"),
-        }
+        Display::fmt(&self.error, f)
     }
 }
 
-impl std::error::Error for RouteError {
+impl std::error::Error for ApiErrorInterface {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match &self.source {
-            Some(err) => Some(err.as_ref()),
-            None => None,
-        }
+        Some(&self.error)
     }
 }
 
 pub trait ResultExt<T, E>: Sized {
     fn map_err_route<C>(self, ctx: C) -> Result<T>
     where
-        RouteError: From<C>;
+        ApiErrorInterface: From<C>;
+}
+
+impl<T> ResultExt<T, ()> for std::option::Option<T> {
+    #[track_caller]
+    fn map_err_route<C>(self, ctx: C) -> Result<T>
+    where
+        ApiErrorInterface: From<C>,
+    {
+        match self {
+            Some(val) => Ok(val),
+            None => Err(ApiErrorInterface::from(ctx).with_location(Location::caller())),
+        }
+    }
 }
 
 impl<T, E> ResultExt<T, E> for std::result::Result<T, E>
 where
-    anyhow::Error: From<E>,
+    ApiError: From<E>,
 {
     #[track_caller]
     fn map_err_route<C>(self, ctx: C) -> Result<T>
     where
-        RouteError: From<C>,
+        ApiErrorInterface: From<C>,
     {
         match self {
             Ok(val) => Ok(val),
-            Err(err) => Err(RouteError::from(ctx)
-                .with_source(Some(err.into()))
-                .with_location(Location::caller())),
+            Err(_) => Err(ApiErrorInterface::from(ctx).with_location(Location::caller())),
         }
     }
 }

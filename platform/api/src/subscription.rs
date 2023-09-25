@@ -3,7 +3,6 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use anyhow::Result;
 use async_nats::Message;
 use common::context::Context;
 use tokio::{
@@ -13,8 +12,20 @@ use tokio::{
 use tokio_stream::{StreamExt, StreamMap, StreamNotifyClose};
 use tracing::{debug, error, warn};
 
+#[derive(thiserror::Error, Debug)]
+pub enum SubscriptionManagerError {
+    #[error("subscribe error: {0}")]
+    Subscribe(#[from] async_nats::SubscribeError),
+    #[error("unsubscribe error: {0}")]
+    Unsubscribe(#[from] async_nats::UnsubscribeError),
+    #[error("send error: {0}")]
+    Send(#[from] mpsc::error::SendError<Event>),
+    #[error("receive error: {0}")]
+    Receive(#[from] oneshot::error::RecvError),
+}
+
 #[derive(Debug)]
-enum Event {
+pub enum Event {
     Subscribe {
         topic: String,
         tx: oneshot::Sender<broadcast::Receiver<Message>>,
@@ -63,7 +74,11 @@ impl DerefMut for SubscriberReceiver<'_> {
 }
 
 impl SubscriptionManager {
-    pub async fn run(&self, ctx: Context, nats: async_nats::Client) -> Result<()> {
+    pub async fn run(
+        &self,
+        ctx: Context,
+        nats: async_nats::Client,
+    ) -> Result<(), SubscriptionManagerError> {
         let mut topics = HashMap::<String, broadcast::Sender<Message>>::new();
         let mut subs = StreamMap::new();
 
@@ -142,7 +157,10 @@ impl SubscriptionManager {
         Ok(())
     }
 
-    pub async fn subscribe(&self, topic: impl ToString) -> Result<SubscriberReceiver<'_>> {
+    pub async fn subscribe(
+        &self,
+        topic: impl ToString,
+    ) -> Result<SubscriberReceiver<'_>, SubscriptionManagerError> {
         let (tx, rx) = oneshot::channel();
 
         self.events_tx.send(Event::Subscribe {

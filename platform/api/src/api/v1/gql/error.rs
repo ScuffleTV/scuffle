@@ -1,119 +1,105 @@
-use std::{
-    fmt::{Display, Formatter},
-    panic::Location,
-    sync::Arc,
-};
-
 use async_graphql::ErrorExtensions;
+use std::panic::Location;
 
 pub type Result<T, E = GqlErrorInterface> = std::result::Result<T, E>;
 
 #[derive(Clone)]
 pub struct GqlErrorInterface {
-    kind: GqlError,
-    message: Option<String>,
-    fields: Vec<String>,
+    error: GqlError,
     span: tracing::Span,
-    source: Option<Arc<anyhow::Error>>,
     location: &'static Location<'static>,
 }
 
 impl GqlErrorInterface {
-    fn with_source(self, source: Option<anyhow::Error>) -> Self {
-        Self {
-            source: source.map(Arc::new),
-            ..self
-        }
-    }
-
     fn with_location(self, location: &'static Location<'static>) -> Self {
         Self { location, ..self }
     }
-
-    pub fn with_field(self, fields: Vec<&str>) -> Self {
-        let fields = fields.into_iter().map(|f| f.to_string()).collect();
-        Self { fields, ..self }
-    }
-
-    pub fn with_message(self, message: String) -> Self {
-        Self {
-            message: Some(message),
-            ..self
-        }
-    }
-
-    fn display(&self) -> String {
-        match &self.message {
-            Some(msg) => format!("{}: {}", self.kind, msg),
-            None => format!("{}", self.kind),
-        }
-    }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
-
+#[derive(PartialEq, Eq, Clone, Debug, thiserror::Error)]
 pub enum GqlError {
     /// An internal server error occurred.
-    InternalServerError,
+    #[error("internal server error: {0}")]
+    InternalServerError(&'static str),
     /// The input was invalid.
-    InvalidInput,
+    #[error("invalid input for {fields:?}: {message}")]
+    InvalidInput {
+        fields: Vec<&'static str>,
+        message: &'static str,
+    },
     /// The session is no longer valid.
+    #[error("invalid session")]
     InvalidSession,
     /// Not Implemented
+    #[error("not implemented")]
     NotImplemented,
     /// Unauthorized
-    Unauthorized,
+    #[error("unauthorized to see this field: {field}")]
+    Unauthorized { field: &'static str },
+    /// Not Logged In
+    #[error("not logged in")]
+    NotLoggedIn,
     /// Not Found
-    NotFound,
-}
-
-impl Display for GqlError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GqlError::InternalServerError => write!(f, "InternalServerError"),
-            GqlError::InvalidInput => write!(f, "InvalidInput"),
-            GqlError::InvalidSession => write!(f, "InvalidSession"),
-            GqlError::NotImplemented => write!(f, "NotImplemented"),
-            GqlError::Unauthorized => write!(f, "Unauthorized"),
-            GqlError::NotFound => write!(f, "NotFound"),
-        }
-    }
+    #[error("{0} not found")]
+    NotFound(&'static str),
 }
 
 impl GqlError {
-    #[track_caller]
-    pub fn with_message(self, message: &str) -> GqlErrorInterface {
-        GqlErrorInterface {
-            kind: self,
-            message: Some(message.to_string()),
-            span: tracing::Span::current(),
-            source: None,
-            fields: Vec::new(),
-            location: Location::caller(),
+    pub fn kind(&self) -> &'static str {
+        match self {
+            GqlError::InternalServerError(_) => "InternalServerError",
+            GqlError::InvalidInput { .. } => "InvalidInput",
+            GqlError::InvalidSession => "InvalidSession",
+            GqlError::NotImplemented => "NotImplemented",
+            GqlError::Unauthorized { .. } => "Unauthorized",
+            GqlError::NotLoggedIn => "NotLoggedIn",
+            GqlError::NotFound(_) => "NotFound",
+        }
+    }
+
+    pub fn message(&self) -> String {
+        match self {
+            GqlError::InternalServerError(msg) => msg.to_string(),
+            GqlError::InvalidInput { message, .. } => message.to_string(),
+            _ => self.to_string(),
+        }
+    }
+
+    pub fn fields(&self) -> Vec<&'static str> {
+        match self {
+            GqlError::InvalidInput { fields, .. } => fields.to_vec(),
+            _ => Vec::new(),
         }
     }
 }
 
 impl ErrorExtensions for GqlErrorInterface {
     fn extend(&self) -> async_graphql::Error {
-        let err = async_graphql::Error::new(self.display()).extend_with(|_, e| {
-            e.set("kind", self.kind.to_string());
-            if let Some(message) = &self.message {
-                e.set("reason", message.as_str());
-            }
-
-            e.set("fields", self.fields.as_slice());
+        let err = async_graphql::Error::new(self.error.to_string()).extend_with(|_, e| {
+            e.set("kind", self.error.kind());
+            e.set("reason", self.error.message());
+            e.set("fields", self.error.fields());
         });
 
-        match self.kind {
-            GqlError::InternalServerError => {
+        match self.error {
+            GqlError::InternalServerError(_) => {
                 self.span.in_scope(|| {
-                    tracing::error!(error = ?self.source, location = self.location.to_string(), "gql error: {}", self.display());
+                    tracing::error!(
+                        error = self.error.to_string(),
+                        location = self.location.to_string(),
+                        "gql error: {}",
+                        self.error
+                    );
                 });
             }
             _ => {
                 self.span.in_scope(|| {
-                    tracing::debug!(error = ?self.source, location = self.location.to_string(), "gql error: {}", self.display());
+                    tracing::debug!(
+                        error = self.error.to_string(),
+                        location = self.location.to_string(),
+                        "gql error: {}",
+                        self.error
+                    );
                 });
             }
         }
@@ -122,69 +108,23 @@ impl ErrorExtensions for GqlErrorInterface {
     }
 }
 
-impl From<(GqlError, &'_ str)> for GqlErrorInterface {
-    #[track_caller]
-    fn from((kind, message): (GqlError, &'_ str)) -> Self {
-        Self {
-            kind,
-            message: Some(message.to_string()),
-            span: tracing::Span::current(),
-            source: None,
-            fields: Vec::new(),
-            location: Location::caller(),
-        }
-    }
-}
-
 impl From<GqlError> for GqlErrorInterface {
     #[track_caller]
-    fn from(kind: GqlError) -> Self {
+    fn from(error: GqlError) -> Self {
         Self {
-            kind,
-            message: None,
+            error,
             span: tracing::Span::current(),
-            source: None,
-            fields: Vec::new(),
             location: Location::caller(),
         }
     }
 }
 
-impl
-    From<(
-        GqlError,
-        &'_ str,
-        &'static (dyn std::error::Error + Sync + Send),
-    )> for GqlErrorInterface
-{
+impl From<&'static str> for GqlErrorInterface {
     #[track_caller]
-    fn from(
-        (kind, message, err): (
-            GqlError,
-            &'_ str,
-            &'static (dyn std::error::Error + Sync + Send),
-        ),
-    ) -> Self {
+    fn from(msg: &'static str) -> Self {
         Self {
-            kind,
-            fields: Vec::new(),
-            message: Some(message.to_string()),
+            error: GqlError::InternalServerError(msg),
             span: tracing::Span::current(),
-            source: Some(Arc::new(err.into())),
-            location: Location::caller(),
-        }
-    }
-}
-
-impl From<&'_ str> for GqlErrorInterface {
-    #[track_caller]
-    fn from(msg: &'_ str) -> Self {
-        Self {
-            fields: Vec::new(),
-            kind: GqlError::InternalServerError,
-            message: Some(msg.to_string()),
-            span: tracing::Span::current(),
-            source: None,
             location: Location::caller(),
         }
     }
@@ -202,10 +142,7 @@ pub trait ResultExt<T, E>: Sized {
         GqlErrorInterface: From<C>;
 }
 
-impl<T, E> ResultExt<T, E> for std::result::Result<T, E>
-where
-    anyhow::Error: From<E>,
-{
+impl<T, E> ResultExt<T, E> for std::result::Result<T, E> {
     #[track_caller]
     fn map_err_gql<C>(self, ctx: C) -> Result<T, GqlErrorInterface>
     where
@@ -213,9 +150,7 @@ where
     {
         match self {
             Ok(v) => Ok(v),
-            Err(e) => Err(GqlErrorInterface::from(ctx)
-                .with_source(Some(e.into()))
-                .with_location(Location::caller())),
+            Err(_) => Err(GqlErrorInterface::from(ctx).with_location(Location::caller())),
         }
     }
 }
@@ -228,9 +163,7 @@ impl<T> ResultExt<T, ()> for std::option::Option<T> {
     {
         match self {
             Some(v) => Ok(v),
-            None => Err(GqlErrorInterface::from(ctx)
-                .with_location(Location::caller())
-                .with_source(None)),
+            None => Err(GqlErrorInterface::from(ctx).with_location(Location::caller())),
         }
     }
 }

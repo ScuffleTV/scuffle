@@ -1,7 +1,6 @@
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use crate::api::v1::gql::schema;
-use anyhow::Result;
 use async_graphql::SDLExportOptions;
 use common::{context::Context, logging, signal};
 use sqlx::{postgres::PgConnectOptions, ConnectOptions};
@@ -17,8 +16,21 @@ mod subscription;
 // #[cfg(test)]
 // mod tests;
 
+/// The root of all evil
+#[derive(Debug, thiserror::Error)]
+enum RootError {
+    #[error("config error: {0}")]
+    Config(#[from] ::config::ConfigError),
+    #[error("logging error: {0}")]
+    Logging(#[from] logging::LoggingError),
+    #[error("database error: {0}")]
+    Sqlx(#[from] sqlx::Error),
+    #[error("failed to setup nats: {0}")]
+    SetupNatsError(#[from] global::SetupNatsError),
+}
+
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), RootError> {
     let config = config::AppConfig::parse()?;
 
     if config.export_gql {

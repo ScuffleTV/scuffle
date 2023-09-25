@@ -1,3 +1,4 @@
+use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -60,7 +61,15 @@ impl GlobalState {
     }
 }
 
-pub async fn setup_nats(config: &AppConfig) -> anyhow::Result<async_nats::Client> {
+#[derive(thiserror::Error, Debug)]
+pub enum SetupNatsError {
+    #[error("failed to parse address: {0}")]
+    AddressParse(io::Error),
+    #[error("connect error: {0}")]
+    ConnectError(#[from] async_nats::ConnectError),
+}
+
+pub async fn setup_nats(config: &AppConfig) -> Result<async_nats::Client, SetupNatsError> {
     let mut options = async_nats::ConnectOptions::new()
         .connection_timeout(Duration::from_secs(5))
         .name(&config.name)
@@ -82,16 +91,15 @@ pub async fn setup_nats(config: &AppConfig) -> anyhow::Result<async_nats::Client
             .add_client_certificate((&tls.cert).into(), (&tls.key).into());
     }
 
-    let nats = options
-        .connect(
-            config
-                .nats
-                .servers
-                .iter()
-                .map(|s| s.parse::<async_nats::ServerAddr>())
-                .collect::<Result<Vec<_>, _>>()?,
-        )
-        .await?;
+    let nats_addrs = config
+        .nats
+        .servers
+        .iter()
+        .map(|s| s.parse::<async_nats::ServerAddr>())
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(SetupNatsError::AddressParse)?;
+
+    let nats = options.connect(nats_addrs).await?;
 
     tracing::info!("connected to nats");
 

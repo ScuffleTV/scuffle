@@ -842,7 +842,6 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 name = "common"
 version = "0.0.1"
 dependencies = [
- "anyhow",
  "arc-swap",
  "async-trait",
  "config",
@@ -2869,7 +2868,6 @@ checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 name = "platform-api"
 version = "0.0.1"
 dependencies = [
- "anyhow",
  "arc-swap",
  "argon2",
  "async-graphql",
@@ -2905,6 +2903,7 @@ dependencies = [
  "sqlx",
  "sqlx-postgres",
  "tempfile",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "tokio-tungstenite",

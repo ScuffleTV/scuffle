@@ -39,20 +39,21 @@ impl UserSubscription {
             .user_by_id_loader
             .load(user_id.to_ulid())
             .await
-            .ok()
-            .map_err_gql("Failed to fetch user")?
+            .map_err_gql("failed to fetch user")?
             .map(|u| u.display_name)
         else {
-            return Err(GqlError::NotFound
-                .with_message("user not found")
-                .with_field(vec!["user_id"]));
+            return Err(GqlError::InvalidInput {
+                fields: vec!["user_id"],
+                message: "user not found",
+            }
+            .into());
         };
 
         let mut subscription = global
             .subscription_manager
             .subscribe(format!("user.{}.display_name", user_id.to_ulid()))
             .await
-            .map_err_gql("Failed to subscribe to user display name")?;
+            .map_err_gql("failed to subscribe to user display name")?;
 
         Ok(async_stream::stream!({
             yield Ok(DisplayNameStream {
@@ -64,10 +65,10 @@ impl UserSubscription {
                 let event = pb::scuffle::platform::internal::events::UserDisplayName::decode(
                     message.payload,
                 )
-                .map_err_gql("Failed to decode user display name")?;
+                .map_err_gql("failed to decode user display name")?;
 
                 let user_id = Ulid::from_string(&event.user_id)
-                    .map_err_gql("Failed to decode user id")?
+                    .map_err_gql("failed to decode user id")?
                     .into();
 
                 yield Ok(DisplayNameStream {
@@ -89,20 +90,21 @@ impl UserSubscription {
             .user_by_id_loader
             .load(user_id.to_ulid())
             .await
-            .ok()
-            .map_err_gql("Failed to fetch user")?
+            .map_err_gql("failed to fetch user")?
             .map(|u| u.display_color)
         else {
-            return Err(GqlError::NotFound
-                .with_message("user not found")
-                .with_field(vec!["user_id"]));
+            return Err(GqlError::InvalidInput {
+                fields: vec!["user_id"],
+                message: "user not found",
+            }
+            .into());
         };
 
         let mut subscription = global
             .subscription_manager
             .subscribe(format!("user.{}.display_color", user_id.to_ulid()))
             .await
-            .map_err_gql("Failed to subscribe to user display name")?;
+            .map_err_gql("failed to subscribe to user display name")?;
 
         Ok(async_stream::stream!({
             yield Ok(DisplayColorStream {
@@ -114,10 +116,10 @@ impl UserSubscription {
                 let event = pb::scuffle::platform::internal::events::UserDisplayColor::decode(
                     message.payload,
                 )
-                .map_err_gql("Failed to decode user display name")?;
+                .map_err_gql("failed to decode user display name")?;
 
                 let user_id = Ulid::from_string(&event.user_id)
-                    .map_err_gql("Failed to decode user id")?
+                    .map_err_gql("failed to decode user id")?
                     .into();
 
                 yield Ok(DisplayColorStream {
@@ -137,10 +139,7 @@ impl UserSubscription {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context
-            .auth()
-            .await
-            .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
+        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
 
         let user_id: Ulid = auth.session.user_id.into();
 
@@ -148,7 +147,7 @@ impl UserSubscription {
             .subscription_manager
             .subscribe(format!("user.{}.follows", user_id.to_string()))
             .await
-            .map_err_gql("Failed to subscribe to user follows")?;
+            .map_err_gql("failed to subscribe to user follows")?;
 
         Ok(async_stream::stream!({
             if let Some(channel_id) = channel_id {
@@ -159,7 +158,7 @@ impl UserSubscription {
                 .bind(channel_id.to_uuid())
                 .fetch_optional(global.db.as_ref())
                 .await
-                .map_err_gql("Failed to fetch channel_user")?
+                .map_err_gql("failed to fetch channel_user")?
                 .unwrap_or((false,));
                 yield Ok(FollowStream {
                     user_id: user_id.into(),
@@ -172,13 +171,13 @@ impl UserSubscription {
                 let event = pb::scuffle::platform::internal::events::UserFollowChannel::decode(
                     message.payload,
                 )
-                .map_err_gql("Failed to decode user follow")?;
+                .map_err_gql("failed to decode user follow")?;
 
                 let user_id = Ulid::from_string(&event.user_id)
-                    .map_err_gql("Failed to decode user id")?
+                    .map_err_gql("failed to decode user id")?
                     .into();
                 let event_channel_id = Ulid::from_string(&event.channel_id)
-                    .map_err_gql("Failed to decode channel id")?;
+                    .map_err_gql("failed to decode channel id")?;
 
                 if channel_id.is_some_and(|i| event_channel_id != *i) {
                     continue;

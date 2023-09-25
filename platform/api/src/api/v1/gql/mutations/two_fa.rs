@@ -21,25 +21,24 @@ impl TwoFaMutation {
         let auth = request_context
             .auth()
             .await
-            .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
+            .map_err_gql(GqlError::NotLoggedIn)?;
 
         // Check if already enabled.
         let user: database::User = global
             .user_by_id_loader
             .load(auth.session.user_id.0)
             .await
-            .ok()
             .map_err_gql("failed to fetch user")?
-            .ok_or(GqlError::NotFound.with_message("user not found"))?;
+            .map_err_gql(GqlError::NotFound("user"))?;
 
         todo!("check totp secret is set on user struct");
 
         // Generate new secret.
         let secret = totp_rs::Secret::generate_secret()
             .to_bytes()
-            .map_err(|_| GqlError::InternalServerError.with_message("failed generate secret"))?;
+            .map_err_gql("failed generate secret")?;
         let mut rfc = totp_rs::Rfc6238::with_defaults(secret.clone())
-            .map_err(|_| GqlError::InternalServerError.with_message("failed generate secret"))?;
+            .map_err_gql("failed generate secret")?;
         rfc.issuer("Scuffle".to_string());
         rfc.account_name(user.username);
 
@@ -55,7 +54,7 @@ impl TwoFaMutation {
 
         let qr_code = totp
             .get_qr_base64()
-            .map_err(|_| GqlError::InternalServerError.with_message("failed generate qr code"))?;
+            .map_err_gql("failed generate qr code")?;
 
         Ok(TotpSecret { qr_code })
     }

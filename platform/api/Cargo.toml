@@ -17,7 +17,7 @@ routerify = "3.0.0"
 serde_json = "1.0.107"
 reqwest = { version = "0.11.22", features = ["json"] }
 chrono = { version = "0.4.31", default-features = false, features = ["serde", "clock"] }
-async-graphql = { version = "6.0.7", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "opentelemetry", "string_number", "uuid"] }
+async-graphql = { version = "6.0.7", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "string_number"] }
 hyper-tungstenite = "0.11.1"
 async-stream = "0.3.5"
 futures = "0.3.28"
@@ -43,7 +43,7 @@ bytes = "1.5.0"
 
 config = { workspace = true }
 pb = { workspace = true }
-totp-rs = { version = "5.4.0", features = ["gen_secret", "qr"] }
+totp-rs = { version = "5.4.0", features = ["qr"] }
 thiserror = "1.0.49"
 
 [dev-dependencies]

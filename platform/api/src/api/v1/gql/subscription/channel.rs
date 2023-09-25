@@ -3,6 +3,7 @@ use futures_util::Stream;
 use prost::Message;
 use ulid::Ulid;
 
+use crate::api::middleware::auth::AuthError;
 use crate::api::v1::gql::{
     error::{GqlError, Result, ResultExt},
     ext::ContextExt,
@@ -24,7 +25,10 @@ impl ChannelSubscription {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
+        let auth = request_context
+            .auth()
+            .await?
+            .ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
         // TODO: allow other users with permissions
         if auth.session.user_id.0 != channel_id.to_ulid() {
@@ -74,7 +78,10 @@ impl ChannelSubscription {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
+        let auth = request_context
+            .auth()
+            .await?
+            .ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
         // TODO: allow other users with permissions
         if auth.session.user_id.0 != channel_id.to_ulid() {
@@ -89,8 +96,7 @@ impl ChannelSubscription {
         )
         .bind(channel_id.to_uuid())
         .fetch_one(global.db.as_ref())
-        .await
-        .map_err_gql("failed to fetch followers")?;
+        .await?;
 
         let mut subscription = global
             .subscription_manager

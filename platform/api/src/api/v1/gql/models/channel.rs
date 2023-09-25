@@ -51,7 +51,7 @@ impl Channel {
     async fn stream_key(&self, ctx: &Context<'_>) -> Result<&Option<String>> {
         let request_context = ctx.get_req_context();
 
-        let auth = request_context.auth().await;
+        let auth = request_context.auth().await?;
 
         if let Some(auth) = auth {
             if Ulid::from(auth.session.user_id) == *self.id

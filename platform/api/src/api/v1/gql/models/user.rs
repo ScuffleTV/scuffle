@@ -42,6 +42,8 @@ pub struct User {
     pub email_verified_: bool,
     #[graphql(skip)]
     pub last_login_at_: DateRFC3339,
+    #[graphql(skip)]
+    pub totp_enabled_: bool,
 }
 
 /// TODO: find a better way to check if a user is allowed to read a field.
@@ -51,7 +53,7 @@ impl User {
     async fn email(&self, ctx: &Context<'_>) -> Result<&str> {
         let request_context = ctx.get_req_context();
 
-        let auth = request_context.auth().await;
+        let auth = request_context.auth().await?;
 
         if let Some(auth) = auth {
             if Ulid::from(auth.session.user_id) == *self.id
@@ -67,7 +69,7 @@ impl User {
     async fn email_verified(&self, ctx: &Context<'_>) -> Result<bool> {
         let request_context = ctx.get_req_context();
 
-        let auth = request_context.auth().await;
+        let auth = request_context.auth().await?;
 
         if let Some(auth) = auth {
             if Ulid::from(auth.session.user_id) == *self.id
@@ -86,7 +88,7 @@ impl User {
     async fn last_login_at(&self, ctx: &Context<'_>) -> Result<&DateRFC3339> {
         let request_context = ctx.get_req_context();
 
-        let auth = request_context.auth().await;
+        let auth = request_context.auth().await?;
 
         if let Some(auth) = auth {
             if Ulid::from(auth.session.user_id) == *self.id
@@ -98,6 +100,24 @@ impl User {
 
         Err(GqlError::Unauthorized {
             field: "lastLoginAt",
+        }
+        .into())
+    }
+
+    async fn totp_enabled(&self, ctx: &Context<'_>) -> Result<bool> {
+        let request_context = ctx.get_req_context();
+        let auth = request_context.auth().await?;
+
+        if let Some(auth) = auth {
+            if Ulid::from(auth.session.user_id) == *self.id
+                || auth.user_permissions.has_permission(RolePermission::Admin)
+            {
+                return Ok(self.totp_enabled_);
+            }
+        }
+
+        Err(GqlError::Unauthorized {
+            field: "totpEnabled",
         }
         .into())
     }
@@ -114,6 +134,7 @@ impl From<database::User> for User {
             email_: value.email,
             email_verified_: value.email_verified,
             last_login_at_: value.last_login_at.into(),
+            totp_enabled_: value.totp_enabled,
         }
     }
 }

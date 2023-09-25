@@ -50,9 +50,9 @@
 		subscription?.unsubscribe();
 	}
 
-	function onClick() {
+	async function onClick() {
 		if ($user) {
-			client
+			const res = await client
 				.mutation(
 					graphql(`
 						mutation Follow($channelId: ULID!, $follow: Boolean!) {
@@ -63,12 +63,10 @@
 					`),
 					{ channelId, follow: !following },
 				)
-				.toPromise()
-				.then((res) => {
-					if (res.data) {
-						following = res.data.user.following;
-					}
-				});
+				.toPromise();
+			if (res.data) {
+				following = res.data.user.following;
+			}
 		} else {
 			$authDialog = AuthDialog.Login;
 		}

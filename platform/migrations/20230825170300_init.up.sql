@@ -6,7 +6,9 @@ CREATE TABLE users (
     display_name VARCHAR(32) NOT NULL,
     display_color INT4 NOT NULL,
     password_hash VARCHAR(256) NOT NULL,
+    totp_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     totp_secret BYTES,
+    two_fa_backup_codes INT4[],
     email VARCHAR(256) NOT NULL,
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -33,6 +35,7 @@ CREATE TABLE users (
 CREATE TABLE user_sessions (
     id UUID NOT NULL PRIMARY KEY,
     user_id UUID NOT NULL,
+    two_fa_solved BOOLEAN NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

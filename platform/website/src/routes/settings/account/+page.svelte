@@ -1,18 +1,17 @@
-<script>
+<script lang="ts">
 	import SectionContainer from "$/components/settings/section-container.svelte";
 	import Section from "$/components/settings/section.svelte";
 	import StatusBar, { Status } from "$/components/settings/status-bar.svelte";
 	import { graphql } from "$/gql";
 	import { user } from "$/store/auth";
-	import {
-		faCheckCircle,
-		faDownload,
-		faPen,
-		faShieldHalved,
-	} from "@fortawesome/free-solid-svg-icons";
+	import { faCheckCircle, faPen, faXmarkCircle } from "@fortawesome/free-solid-svg-icons";
+	import ShieldCheck from "$components/icons/settings/shield-check.svelte";
+	import ShieldX from "$components/icons/settings/shield-x.svelte";
 	import { getContextClient } from "@urql/svelte";
 	import Fa from "svelte-fa";
 	import { z } from "zod";
+	import Enable2fa from "$/components/settings/account/enable-2fa.svelte";
+	import Disable2fa from "$/components/settings/account/disable-2fa.svelte";
 
 	//TODO: Improve detail texts
 
@@ -70,6 +69,18 @@
 			saveEmail();
 		}
 	}
+
+	enum Dialog {
+		None,
+		Enable2Fa,
+		Disable2Fa,
+	}
+
+	let showDialog = Dialog.None;
+
+	function closeDialog() {
+		showDialog = Dialog.None;
+	}
 </script>
 
 {#if $user}
@@ -86,6 +97,7 @@
 					class="input email"
 					class:revealed={emailRevealed}
 					disabled={!emailRevealed}
+					autocomplete="email"
 					bind:value={email}
 				/>
 				{#if !emailRevealed}
@@ -110,24 +122,37 @@
 		</Section>
 		<Section title="2-Factor-Authentication" details="2FA adds more security to your account.">
 			<div class="input big">
-				<div class="twofa-state">
-					<Fa icon={faShieldHalved} />
-					<span>Enabled</span>
+				<div class="twofa-state" class:enabled={$user.totpEnabled}>
+					{#if $user.totpEnabled}
+						<ShieldCheck />
+						<span>Enabled</span>
+					{:else}
+						<ShieldX size={25} />
+						<span>Disabled</span>
+					{/if}
 				</div>
 				<div class="buttons">
-					<button class="button primary">
-						<Fa icon={faCheckCircle} />
-						Enable 2FA
-					</button>
-					<button class="button secondary">
-						<Fa icon={faDownload} />
-						Download Backup Codes
-					</button>
+					{#if $user.totpEnabled}
+						<button class="button primary" on:click={() => (showDialog = Dialog.Disable2Fa)}>
+							<Fa icon={faXmarkCircle} />
+							Disable 2FA
+						</button>
+					{:else}
+						<button class="button primary" on:click={() => (showDialog = Dialog.Enable2Fa)}>
+							<Fa icon={faCheckCircle} />
+							Enable 2FA
+						</button>
+					{/if}
 				</div>
 			</div>
 		</Section>
 		<StatusBar {status} on:save={saveChanges} saveDisabled={!emailValid} />
 	</SectionContainer>
+	{#if showDialog === Dialog.Enable2Fa}
+		<Enable2fa on:close={closeDialog} />
+	{:else if showDialog === Dialog.Disable2Fa}
+		<Disable2fa on:close={closeDialog} />
+	{/if}
 {/if}
 
 <style lang="scss">
@@ -170,6 +195,12 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 0.5rem;
+
+		filter: drop-shadow(0 0 20px rgba($errorColor, 0.5));
+
+		&.enabled {
+			filter: drop-shadow(0 0 20px rgba($successColor, 0.5));
+		}
 
 		span {
 			font-size: 1rem;

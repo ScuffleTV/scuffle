@@ -21,7 +21,10 @@ pub trait Cache<L: Loader<S>, S = RandomState> {
 /// This trait is marked as unsafe because the implementor must ensure that the Cache is safe for concurrent access.
 /// This will almost always be with some kind of interior mutability. Such as a `RwLock` or `Mutex`. Or if the cache performs no-ops on mutation.
 /// Look at `SharedCache` for an example.
-pub unsafe trait AutoImplCacheRef<L: Loader<S>, S = RandomState>: AutoImplCacheMutRef<L, S> {}
+pub unsafe trait AutoImplCacheRef<L: Loader<S>, S = RandomState>:
+    AutoImplCacheMutRef<L, S>
+{
+}
 
 #[inline(always)]
 #[allow(clippy::mut_from_ref)]

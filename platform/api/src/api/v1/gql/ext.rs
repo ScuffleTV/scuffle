@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use async_graphql::extensions::ExtensionContext;
 use async_graphql::Context;
 
 use crate::global::GlobalState;
@@ -12,6 +13,16 @@ pub trait ContextExt {
 }
 
 impl ContextExt for Context<'_> {
+    fn get_global(&self) -> &Arc<GlobalState> {
+        self.data_unchecked()
+    }
+
+    fn get_req_context(&self) -> &RequestContext {
+        self.data_unchecked()
+    }
+}
+
+impl ContextExt for ExtensionContext<'_> {
     fn get_global(&self) -> &Arc<GlobalState> {
         self.data_unchecked()
     }

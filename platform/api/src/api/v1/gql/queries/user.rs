@@ -1,10 +1,13 @@
 use async_graphql::{Context, Object};
 
 use crate::{
-    api::v1::gql::{
-        error::{GqlError, Result, ResultExt},
-        ext::ContextExt,
-        models::{self, ulid::GqlUlid},
+    api::{
+        middleware::auth::AuthError,
+        v1::gql::{
+            error::{GqlError, Result, ResultExt},
+            ext::ContextExt,
+            models::{self, ulid::GqlUlid},
+        },
     },
     database,
 };
@@ -15,6 +18,24 @@ pub struct UserQuery;
 
 #[Object]
 impl UserQuery {
+    /// Get the user of the current context(session)
+    async fn with_current_context(&self, ctx: &Context<'_>) -> Result<models::user::User> {
+        let global = ctx.get_global();
+        let auth = ctx
+            .get_req_context()
+            .auth()
+            .await?
+            .ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
+
+        global
+            .user_by_id_loader
+            .load(auth.session.user_id.0)
+            .await
+            .map_err_gql("failed to fetch user")?
+            .map_err_gql(GqlError::NotFound("user"))
+            .map(Into::into)
+    }
+
     /// Get a user by their username
     async fn by_username(
         &self,
@@ -72,7 +93,10 @@ impl UserQuery {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
+        let auth = request_context
+            .auth()
+            .await?
+            .ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
         let (is_following,): (bool,) = sqlx::query_as(
             "SELECT following FROM channel_user WHERE user_id = $1 AND channel_id = $2",
@@ -80,8 +104,7 @@ impl UserQuery {
         .bind(auth.session.user_id)
         .bind(channel_id.to_uuid())
         .fetch_optional(global.db.as_ref())
-        .await
-        .map_err_gql("failed to fetch channel_user")?
+        .await?
         .unwrap_or((false,));
 
         Ok(is_following)
@@ -97,7 +120,10 @@ impl UserQuery {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
+        let auth = request_context
+            .auth()
+            .await?
+            .ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
         // TODO: Also allow users with permission
         if id.to_ulid() != auth.session.user_id.0 {
@@ -111,8 +137,7 @@ impl UserQuery {
         .bind(id.to_uuid())
         .bind(limit.map(|l| l as i64))
         .fetch_all(global.db.as_ref())
-        .await
-        .map_err_gql("failed to fetch channels")?;
+        .await?;
 
         Ok(channels.into_iter().map(Into::into).collect())
     }

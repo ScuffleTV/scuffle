@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::{
     api::{
-        error::{Result, ApiErrorInterface},
+        error::{ApiErrorInterface, Result},
         macros::make_response,
     },
     global::GlobalState,

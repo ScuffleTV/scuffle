@@ -7,6 +7,16 @@ use rand::Rng;
 
 use super::{Channel, Ulid};
 
+#[derive(PartialEq, Eq, Clone, Debug, thiserror::Error)]
+pub enum TotpError {
+    #[error("cannot find secret, please generate a secret first")]
+    NoSecret,
+    #[error("failed to initilize totp")]
+    Initilize,
+    #[error("failed to generate totp code")]
+    Generate,
+}
+
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct User {
     /// The unique identifier for the user.
@@ -19,6 +29,12 @@ pub struct User {
     pub display_color: i32,
     /// The hashed password of the user. (argon2)
     pub password_hash: String,
+    /// Whether two factor authentication is enabled for the user.
+    pub totp_enabled: bool,
+    /// The secret used for two factor authentication.
+    pub totp_secret: Option<Vec<u8>>,
+    /// The backup codes used for two factor authentication.
+    pub two_fa_backup_codes: Option<Vec<i32>>,
     /// The email of the user.
     pub email: String,
     /// Whether the user has verified their email.
@@ -51,6 +67,28 @@ impl User {
         Argon2::default()
             .verify_password(password.as_bytes(), &hash)
             .is_ok()
+    }
+
+    pub fn verify_totp_code(&self, code: &str, backup_codes: bool) -> Result<bool, TotpError> {
+        // TODO: Remove backup code when used
+        let totp_secret = self.totp_secret.clone().ok_or(TotpError::NoSecret)?;
+        let rfc = totp_rs::Rfc6238::with_defaults(totp_secret).map_err(|_| TotpError::Initilize)?;
+        let totp = totp_rs::TOTP::from_rfc6238(rfc).unwrap();
+
+        if totp.generate_current().map_err(|_| TotpError::Generate)? == code {
+            return Ok(true);
+        } else if backup_codes {
+            // Check backup codes.
+            if let Some(two_fa_backup_codes) = &self.two_fa_backup_codes {
+                if let Ok(code) = u32::from_str_radix(code, 16) {
+                    if two_fa_backup_codes.contains(&(code as i32)) {
+                        return Ok(true);
+                    }
+                }
+            };
+        }
+
+        Ok(false)
     }
 
     /// Generates a new password hash using argon2.

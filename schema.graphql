@@ -78,6 +78,15 @@ type AuthMutation {
 		"""
 		validity: Int
 	): Session!
+	"""
+	Verify a TOTP code for the currently authenticated user.
+	"""
+	verifyTotpCode(
+		"""
+		The TOTP code to verify.
+		"""
+		code: String!
+	): Session!
 }
 
 type Category {
@@ -189,7 +198,6 @@ The root mutation type which contains root level fields.
 type Mutation {
 	auth: AuthMutation!
 	chat: ChatMutation!
-	twoFa: TwoFaMutation!
 	user: UserMutation!
 }
 
@@ -229,7 +237,10 @@ type Session {
 	The session's token
 	"""
 	token: String!
-	user: User!
+	"""
+	Whether the user has solved the two-factor authentication challenge
+	"""
+	twoFaSolved: Boolean!
 	"""
 	The user who owns this session
 	"""
@@ -258,6 +269,10 @@ type Subscription {
 
 type TotpSecret {
 	"""
+	List of backup codes.
+	"""
+	backupCodes: [String!]!
+	"""
 	Base64 encoded totp qr code.
 	"""
 	qrCode: String!
@@ -265,9 +280,17 @@ type TotpSecret {
 
 type TwoFaMutation {
 	"""
-	Enable two factor authentication for the currently authenticated user.
+	Disable TOTP for the currently authenticated user.
 	"""
-	enable: TotpSecret!
+	disableTotp(password: String!): User!
+	"""
+	Enable TOTP for the currently authenticated user.
+	"""
+	enableTotp(code: String!): User!
+	"""
+	Generate a new TOTP secret for the currently authenticated user.
+	"""
+	generateTotp: TotpSecret!
 }
 
 """
@@ -283,6 +306,7 @@ type User {
 	emailVerified: Boolean!
 	id: ULID!
 	lastLoginAt: DateRFC3339!
+	totpEnabled: Boolean!
 	username: String!
 }
 
@@ -327,6 +351,7 @@ type UserMutation {
 		"""
 		follow: Boolean!
 	): Boolean!
+	twoFa: TwoFaMutation!
 }
 
 type UserQuery {
@@ -368,6 +393,10 @@ type UserQuery {
 		"""
 		query: String!
 	): [UserSearchResult!]!
+	"""
+	Get the user of the current context(session)
+	"""
+	withCurrentContext: User!
 }
 
 type UserSearchResult {

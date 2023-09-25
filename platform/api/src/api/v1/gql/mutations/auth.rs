@@ -1,3 +1,4 @@
+use crate::api::middleware::auth::AuthError;
 use crate::api::v1::jwt::JwtState;
 use crate::api::v1::request_context::AuthData;
 use crate::{
@@ -72,31 +73,24 @@ impl AuthMutation {
         let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
 
         // TODO: maybe look to batch this
-        let mut tx = global
-            .db
-            .begin()
-            .await
-            .map_err_gql("failed to start transaction")?;
+        let mut tx = global.db.begin().await?;
 
         let session: database::Session = sqlx::query_as(
-            "INSERT INTO user_sessions (id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
+            "INSERT INTO user_sessions (id, user_id, two_fa_solved, expires_at) VALUES ($1, $2, $3, $4) RETURNING *",
         )
         .bind(Uuid::from(Ulid::new()))
         .bind(user.id)
+        .bind(!user.totp_enabled)
         .bind(expires_at)
         .fetch_one(&mut *tx)
-        .await
-        .map_err_gql("failed to create session")?;
+        .await?;
 
         sqlx::query("UPDATE users SET last_login_at = NOW() WHERE id = $1")
             .bind(user.id)
             .execute(&mut *tx)
-            .await
-            .map_err_gql("failed to update user")?;
+            .await?;
 
-        tx.commit()
-            .await
-            .map_err_gql("failed to commit transaction")?;
+        tx.commit().await?;
 
         let jwt = JwtState::from(session.clone());
 
@@ -116,9 +110,68 @@ impl AuthMutation {
             id: session.id.0.into(),
             token,
             user_id: session.user_id.0.into(),
+            two_fa_solved: session.two_fa_solved,
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
-            _user: Some(user.into()),
+        })
+    }
+
+    /// Verify a TOTP code for the currently authenticated user.
+    async fn verify_totp_code(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "The TOTP code to verify.")] code: String,
+    ) -> Result<Session> {
+        let global = ctx.get_global();
+        let request_context = ctx.get_req_context();
+
+        // Notice that we're using `auth_unchecked` here, because the 2fa challenge isn't solved yet
+        let mut auth = request_context
+            .auth_unchecked()
+            .await
+            .ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
+        // Still need to check if the session is valid
+        if !auth.session.is_valid() {
+            return Err(GqlError::Auth(AuthError::InvalidToken).into());
+        }
+
+        let user = global
+            .user_by_id_loader
+            .load(auth.session.user_id.into())
+            .await
+            .ok()
+            .map_err_gql("failed to fetch user")?
+            .ok_or(GqlError::NotFound("user"))?;
+
+        if !user.verify_totp_code(&code, true)? {
+            return Err(GqlError::InvalidInput {
+                fields: vec!["code"],
+                message: "wrong code",
+            }
+            .into());
+        }
+
+        let session: database::Session = sqlx::query_as(
+            "UPDATE user_sessions SET two_fa_solved = true WHERE id = $1 RETURNING *",
+        )
+        .bind(auth.session.id)
+        .fetch_one(global.db.as_ref())
+        .await?;
+        auth.session = session.clone();
+        request_context.set_auth(auth).await;
+
+        let jwt = JwtState::from(session.clone());
+        let token = jwt
+            .serialize(global)
+            .ok_or(GqlError::InternalServerError("failed to serialize JWT"))?;
+
+        Ok(Session {
+            id: session.id.0.into(),
+            token,
+            user_id: session.user_id.0.into(),
+            two_fa_solved: session.two_fa_solved,
+            expires_at: session.expires_at.into(),
+            last_used_at: session.last_used_at.into(),
         })
     }
 
@@ -146,15 +199,14 @@ impl AuthMutation {
         )
         .bind(Uuid::from(jwt.session_id))
         .fetch_optional(global.db.as_ref())
-        .await
-        .map_err_gql("failed to fetch session")?
+        .await?
         .map_err_gql(GqlError::InvalidInput {
             fields: vec!["sessionToken"],
             message: "invalid session token",
         })?;
 
         if !session.is_valid() {
-            return Err(GqlError::InvalidSession.into());
+            return Err(GqlError::Auth(AuthError::InvalidToken).into());
         }
 
         // We need to update the request context with the new session
@@ -169,9 +221,9 @@ impl AuthMutation {
             id: session.id.0.into(),
             token: session_token,
             user_id: session.user_id.0.into(),
+            two_fa_solved: session.two_fa_solved,
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
-            _user: None,
         })
     }
 
@@ -236,11 +288,7 @@ impl AuthMutation {
             .into());
         }
 
-        let mut tx = global
-            .db
-            .begin()
-            .await
-            .map_err_gql("failed to create user")?;
+        let mut tx = global.db.begin().await?;
 
         // TODO: maybe look to batch this
         let user: database::User = sqlx::query_as("INSERT INTO users (id, username, display_name, display_color, password_hash, email) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *")
@@ -251,22 +299,21 @@ impl AuthMutation {
             .bind(database::User::hash_password(&password))
             .bind(email)
             .fetch_one(&mut *tx)
-            .await
-            .map_err_gql("failed to create user")?;
+            .await?;
 
         let login_duration = validity.unwrap_or(60 * 60 * 24 * 7); // 7 days
         let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
 
         // TODO: maybe look to batch this
         let session: database::Session = sqlx::query_as(
-            "INSERT INTO user_sessions (id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
+            "INSERT INTO user_sessions (id, user_id, two_fa_solved, expires_at) VALUES ($1, $2, $3, $4) RETURNING *",
         )
         .bind(Uuid::from(Ulid::new()))
         .bind(user.id)
+        .bind(!user.totp_enabled)
         .bind(expires_at)
         .fetch_one(&mut *tx)
-        .await
-        .map_err_gql("failed to create session")?;
+        .await?;
 
         let jwt = JwtState::from(session.clone());
 
@@ -274,9 +321,7 @@ impl AuthMutation {
             .serialize(global)
             .map_err_gql("failed to serialize JWT")?;
 
-        tx.commit()
-            .await
-            .map_err_gql("failed to commit transaction")?;
+        tx.commit().await?;
 
         // We need to update the request context with the new session
         if update_context.unwrap_or(true) {
@@ -299,9 +344,9 @@ impl AuthMutation {
             id: session.id.0.into(),
             token,
             user_id: session.user_id.0.into(),
+            two_fa_solved: session.two_fa_solved,
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
-            _user: Some(user.into()),
         })
     }
 
@@ -326,8 +371,8 @@ impl AuthMutation {
         } else {
             request_context
                 .auth()
-                .await
-                .map_err_gql(GqlError::NotLoggedIn)?
+                .await?
+                .map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?
                 .session
                 .id
                 .0
@@ -337,8 +382,7 @@ impl AuthMutation {
         sqlx::query("DELETE FROM user_sessions WHERE id = $1")
             .bind(Uuid::from(session_id))
             .execute(global.db.as_ref())
-            .await
-            .map_err_gql("failed to update session")?;
+            .await?;
 
         if session_token.is_none() {
             request_context.reset_auth().await;

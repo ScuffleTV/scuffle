@@ -4,7 +4,7 @@ use tokio::sync::RwLock;
 use ulid::Ulid;
 
 use crate::{
-    api::v1::gql::error::Result,
+    api::{middleware::auth::AuthError, v1::gql::error::Result},
     database::{Role, RolePermission, Session, User},
     global::GlobalState,
 };
@@ -80,6 +80,7 @@ impl AuthData {
         global: &Arc<GlobalState>,
         session_id: Ulid,
     ) -> Result<Self, &'static str> {
+        // TODO: Return proper error
         let session = global
             .session_by_id_loader
             .load(session_id)
@@ -87,7 +88,6 @@ impl AuthData {
             .map_err(|_| "failed to fetch session")?
             .and_then(|s| s.is_valid().then_some(s))
             .ok_or("session is no longer valid")?;
-
         Self::from_session(global, session).await
     }
 }
@@ -111,8 +111,24 @@ impl RequestContext {
         guard.auth = None;
     }
 
-    pub async fn auth(&self) -> Option<AuthData> {
+    pub async fn auth_unchecked(&self) -> Option<AuthData> {
         let guard = self.0.read().await;
         guard.auth.clone()
+    }
+
+    pub async fn auth(&self) -> Result<Option<AuthData>, AuthError> {
+        match self.auth_unchecked().await {
+            Some(auth) => {
+                // TODO: Refetch session from db?
+                if !auth.session.is_valid() {
+                    Err(AuthError::InvalidToken)
+                } else if !auth.session.is_two_fa_solved() {
+                    Err(AuthError::UnsolvedTwoFaChallenge)
+                } else {
+                    Ok(Some(auth))
+                }
+            }
+            None => Ok(None),
+        }
     }
 }

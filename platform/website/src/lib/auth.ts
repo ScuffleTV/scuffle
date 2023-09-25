@@ -1,31 +1,15 @@
 import { graphql } from "$/gql";
-import type { User } from "$/gql/graphql";
 import type { Client } from "@urql/svelte";
 
-export async function verifyToken(client: Client, token: string): Promise<User | null> {
+export async function verifyToken(client: Client, token: string) {
 	const result = await client
 		.mutation(
 			graphql(`
 				mutation LoginWithToken($token: String!) {
 					auth {
 						loginWithToken(sessionToken: $token, updateContext: true) {
-							user {
-								id
-								displayName
-								displayColor {
-									color
-									hue
-									isGray
-								}
-								username
-								email
-								emailVerified
-								lastLoginAt
-								channel {
-									id
-									liveViewerCount
-								}
-							}
+							token
+							twoFaSolved
 						}
 					}
 				}
@@ -34,7 +18,39 @@ export async function verifyToken(client: Client, token: string): Promise<User |
 		)
 		.toPromise();
 
-	return (result.data?.auth.loginWithToken.user as User) || null;
+	return result.data?.auth.loginWithToken || null;
+}
+
+export function getUser(client: Client) {
+	return client
+		.query(
+			graphql(`
+				query GetUser {
+					user {
+						resp: withCurrentContext {
+							id
+							displayName
+							displayColor {
+								color
+								hue
+								isGray
+							}
+							username
+							email
+							emailVerified
+							lastLoginAt
+							channel {
+								id
+								liveViewerCount
+							}
+							totpEnabled
+						}
+					}
+				}
+			`),
+			{},
+		)
+		.toPromise();
 }
 
 export async function logout(client: Client, token?: string) {

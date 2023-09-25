@@ -3,6 +3,7 @@ use futures_util::Stream;
 use prost::Message;
 use ulid::Ulid;
 
+use crate::api::middleware::auth::AuthError;
 use crate::api::v1::gql::{
     error::{GqlError, Result, ResultExt},
     ext::ContextExt,
@@ -43,7 +44,7 @@ impl UserSubscription {
             .map(|u| u.display_name)
         else {
             return Err(GqlError::InvalidInput {
-                fields: vec!["user_id"],
+                fields: vec!["userId"],
                 message: "user not found",
             }
             .into());
@@ -94,7 +95,7 @@ impl UserSubscription {
             .map(|u| u.display_color)
         else {
             return Err(GqlError::InvalidInput {
-                fields: vec!["user_id"],
+                fields: vec!["userId"],
                 message: "user not found",
             }
             .into());
@@ -139,7 +140,10 @@ impl UserSubscription {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
+        let auth = request_context
+            .auth()
+            .await?
+            .ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
         let user_id: Ulid = auth.session.user_id.into();
 

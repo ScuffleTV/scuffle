@@ -21,6 +21,7 @@ use crate::{
     api::{
         error::{ApiError, Result, ResultExt as _},
         ext::RequestExt as _,
+        middleware::auth::AuthError,
         v1::{
             jwt::JwtState,
             request_context::{AuthData, RequestContext},
@@ -77,7 +78,7 @@ async fn websocket_handler(
                     // We silently ignore invalid tokens since we don't want to force the user to login
                     // if the token is invalid when they make a request which requires authentication, it will fail.
                     let Some(jwt) = JwtState::verify(&global, token) else {
-                        return Err(GqlError::InvalidSession.into());
+                        return Err(GqlError::Auth(AuthError::InvalidToken).into());
                     };
 
                     if let Ok(data) = AuthData::from_session_id(&global, jwt.session_id).await {

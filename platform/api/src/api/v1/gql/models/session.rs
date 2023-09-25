@@ -1,13 +1,8 @@
-use async_graphql::{ComplexObject, Context, SimpleObject};
+use async_graphql::SimpleObject;
 
-use super::{date, ulid::GqlUlid, user::User};
-use crate::api::v1::gql::{
-    error::{GqlError, Result, ResultExt},
-    ext::ContextExt,
-};
+use super::{date, ulid::GqlUlid};
 
 #[derive(SimpleObject)]
-#[graphql(complex)]
 pub struct Session {
     /// The session's id
     pub id: GqlUlid,
@@ -15,31 +10,10 @@ pub struct Session {
     pub token: String,
     /// The user who owns this session
     pub user_id: GqlUlid,
+    /// Whether the user has solved the two-factor authentication challenge
+    pub two_fa_solved: bool,
     /// Expires at
     pub expires_at: date::DateRFC3339,
     /// Last used at
     pub last_used_at: date::DateRFC3339,
-
-    #[graphql(skip)]
-    pub _user: Option<User>,
-}
-
-#[ComplexObject]
-impl Session {
-    pub async fn user(&self, ctx: &Context<'_>) -> Result<User> {
-        if let Some(user) = &self._user {
-            return Ok(user.clone());
-        }
-
-        let global = ctx.get_global();
-
-        let user = global
-            .user_by_id_loader
-            .load(self.user_id.into())
-            .await
-            .map_err_gql("failed to fetch user")?
-            .ok_or(GqlError::NotFound("user"))?;
-
-        Ok(User::from(user))
-    }
 }

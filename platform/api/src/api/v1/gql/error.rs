@@ -1,5 +1,7 @@
 use async_graphql::ErrorExtensions;
-use std::panic::Location;
+use std::{panic::Location, sync::Arc};
+
+use crate::{api::middleware::auth::AuthError, database::TotpError};
 
 pub type Result<T, E = GqlErrorInterface> = std::result::Result<T, E>;
 
@@ -16,44 +18,58 @@ impl GqlErrorInterface {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum GqlError {
     /// An internal server error occurred.
     #[error("internal server error: {0}")]
     InternalServerError(&'static str),
+    /// A database error occurred.
+    #[error("database error: {0}")]
+    Sqlx(Arc<sqlx::Error>),
     /// The input was invalid.
     #[error("invalid input for {fields:?}: {message}")]
     InvalidInput {
         fields: Vec<&'static str>,
         message: &'static str,
     },
-    /// The session is no longer valid.
-    #[error("invalid session")]
-    InvalidSession,
+    /// Auth error
+    #[error("auth error: {0}")]
+    Auth(#[from] AuthError),
     /// Not Implemented
     #[error("not implemented")]
     NotImplemented,
     /// Unauthorized
     #[error("unauthorized to see this field: {field}")]
     Unauthorized { field: &'static str },
-    /// Not Logged In
-    #[error("not logged in")]
-    NotLoggedIn,
     /// Not Found
     #[error("{0} not found")]
     NotFound(&'static str),
+    /// TOTP Error
+    #[error("totp error: {0}")]
+    Totp(#[from] TotpError),
+}
+
+impl From<sqlx::Error> for GqlError {
+    fn from(err: sqlx::Error) -> Self {
+        Self::Sqlx(Arc::new(err))
+    }
 }
 
 impl GqlError {
     pub fn kind(&self) -> &'static str {
         match self {
             GqlError::InternalServerError(_) => "InternalServerError",
+            GqlError::Sqlx(_) => "Sqlx",
             GqlError::InvalidInput { .. } => "InvalidInput",
-            GqlError::InvalidSession => "InvalidSession",
+            GqlError::Auth(AuthError::HeaderToStr) => "Auth(HeaderToStr)",
+            GqlError::Auth(AuthError::NotBearerToken) => "Auth(NotBearerToken)",
+            GqlError::Auth(AuthError::NotLoggedIn) => "Auth(NotLoggedIn)",
+            GqlError::Auth(AuthError::InvalidToken) => "Auth(InvalidToken)",
+            GqlError::Auth(AuthError::UnsolvedTwoFaChallenge) => "Auth(UnsolvedTwoFaChallenge)",
             GqlError::NotImplemented => "NotImplemented",
             GqlError::Unauthorized { .. } => "Unauthorized",
-            GqlError::NotLoggedIn => "NotLoggedIn",
             GqlError::NotFound(_) => "NotFound",
+            GqlError::Totp(_) => "Totp",
         }
     }
 
@@ -82,7 +98,7 @@ impl ErrorExtensions for GqlErrorInterface {
         });
 
         match self.error {
-            GqlError::InternalServerError(_) => {
+            GqlError::InternalServerError(_) | GqlError::Sqlx(_) => {
                 self.span.in_scope(|| {
                     tracing::error!(
                         error = self.error.to_string(),
@@ -108,11 +124,14 @@ impl ErrorExtensions for GqlErrorInterface {
     }
 }
 
-impl From<GqlError> for GqlErrorInterface {
+impl<T> From<T> for GqlErrorInterface
+where
+    GqlError: From<T>,
+{
     #[track_caller]
-    fn from(error: GqlError) -> Self {
+    fn from(value: T) -> Self {
         Self {
-            error,
+            error: GqlError::from(value),
             span: tracing::Span::current(),
             location: Location::caller(),
         }

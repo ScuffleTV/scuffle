@@ -28,17 +28,19 @@ button {
 	border-radius: 0.4rem;
 	text-decoration: none;
 
+	&:disabled {
+		cursor: not-allowed;
+	}
+
 	&.primary {
 		background-color: white;
 		color: black;
 
-		&:hover:not(:disabled),
-		&:focus-visible:not(:disabled) {
-			filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
-		}
-
-		&:disabled {
-			cursor: not-allowed;
+		&:not(:disabled) {
+			&:hover,
+			&:focus-visible {
+				filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+			}
 		}
 	}
 
@@ -46,10 +48,46 @@ button {
 		color: $textColorLight;
 		background-color: $bgColor2;
 
-		&:hover,
-		&:focus-visible {
-			color: $textColor;
-			border-color: white;
+		&:not(:disabled) {
+			&:hover,
+			&:focus-visible {
+				color: $textColor;
+				border-color: white;
+			}
+		}
+	}
+}
+
+input {
+	font-family: inherit;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+	background-color: $bgColor2;
+	border: $borderColor solid 1px;
+	border-radius: 0.5rem;
+	padding: 0.5rem 0.75rem;
+	font-size: 1rem;
+	font-weight: 500;
+	color: $textColor;
+
+	transition: border-color 0.2s;
+
+	&::placeholder {
+		font-weight: 400;
+	}
+
+	&:focus {
+		outline: none;
+		border-color: $primaryColor;
+	}
+
+	&:not(:focus) {
+		&.invalid,
+		&:invalid {
+			border-color: $errorColor;
 		}
 	}
 }

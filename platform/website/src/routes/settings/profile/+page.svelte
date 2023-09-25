@@ -160,6 +160,7 @@
 				class:invalid={!displayNameValid}
 				type="text"
 				placeholder="Display Name"
+				autocomplete="username"
 				bind:value={displayName}
 			/>
 			{#if !displayNameValid}

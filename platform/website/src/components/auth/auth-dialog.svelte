@@ -1,16 +1,14 @@
 <script lang="ts">
-	import { onDestroy, onMount } from "svelte";
+	import { onDestroy } from "svelte";
 	import { Turnstile } from "svelte-turnstile";
-	import { AuthDialog, authDialog, sessionToken } from "$/store/auth";
+	import { AuthDialog, authDialog, session } from "$/store/auth";
 	import LoginField, { newField } from "$/components/auth/field.svelte";
 	import { z } from "zod";
 	import { getContextClient } from "@urql/svelte";
 	import { graphql } from "$gql";
-	import MouseTrap from "$components/mouse-trap.svelte";
 	import { PUBLIC_CF_TURNSTILE_KEY } from "$env/static/public";
-	import { user } from "$/store/auth";
-	import { fade } from "svelte/transition";
-	import type { User } from "$/gql/graphql";
+	import Dialog from "../dialog.svelte";
+	import SolveTwoFaDialog from "./solve-two-fa-dialog.svelte";
 
 	const client = getContextClient();
 
@@ -19,23 +17,7 @@
 			auth {
 				resp: login(username: $username, password: $password, captchaToken: $captchaToken) {
 					token
-					user {
-						id
-						displayName
-						displayColor {
-							color
-							hue
-							isGray
-						}
-						username
-						email
-						emailVerified
-						lastLoginAt
-						channel {
-							id
-							liveViewerCount
-						}
-					}
+					twoFaSolved
 				}
 			}
 		}
@@ -55,23 +37,7 @@
 					captchaToken: $captchaToken
 				) {
 					token
-					user {
-						id
-						displayName
-						displayColor {
-							color
-							hue
-							isGray
-						}
-						username
-						email
-						emailVerified
-						lastLoginAt
-						channel {
-							id
-							liveViewerCount
-						}
-					}
+					twoFaSolved
 				}
 			}
 		}
@@ -250,12 +216,12 @@
 
 			const valid = z
 				.string()
-				.min(8, "Minimum of 8 characters")
-				.max(32, "Maximum of 32 chracters")
-				.regex(/.*[A-Z].*/, "Atleast One uppercase character")
-				.regex(/.*[a-z].*/, "Atleast One lowercase character")
-				.regex(/.*\d.*/, "Atleast One number")
-				.regex(/.*[`~<>?,./!@#$%^&*()\-_+="'|{}[\];:].*/, "One special character")
+				.min(8, "At least 8 characters")
+				.max(100, "Maximum of 100 characters")
+				.regex(/.*[A-Z].*/, "At least one uppercase character")
+				.regex(/.*[a-z].*/, "At least one lowercase character")
+				.regex(/.*\d.*/, "At least one number")
+				.regex(/.*[`~<>?,./!@#$%^&*()\-_+="'|{}[\];:].*/, "At least one special character")
 				.safeParse(value);
 
 			if (!valid.success) {
@@ -343,12 +309,6 @@
 		$authDialog = AuthDialog.Closed;
 	}
 
-	function handleKeyDown(event: KeyboardEvent) {
-		if (event.key === "Escape") {
-			closeDialog();
-		}
-	}
-
 	function toggleMode() {
 		if ($authDialog === AuthDialog.Login) {
 			$authDialog = AuthDialog.Register;
@@ -428,9 +388,7 @@
 			return;
 		}
 
-		const token = response.data?.auth.resp.token;
-		const userData = response.data?.auth.resp.user;
-		if (!token || !userData) {
+		if (!response.data?.auth.resp.token) {
 			globalIsError = true;
 			globalMessage = "An unknown error occured, if the problem persists please contact support";
 			console.error("Bad GQL response", response);
@@ -439,9 +397,8 @@
 
 		globalIsError = false;
 		globalMessage = "Success!";
-		$sessionToken = token;
-		$user = userData as User;
 		closeDialog();
+		$session = response.data?.auth.resp || null;
 	}
 
 	// This is the function that is called when the form is submitted.
@@ -469,23 +426,12 @@
 
 		loggingIn = false;
 	}
-
-	let dialog: HTMLDialogElement;
-
-	onMount(() => dialog.showModal());
 </script>
 
-<svelte:window on:keydown={handleKeyDown} />
-
-<dialog
-	bind:this={dialog}
-	class="popup"
-	aria-label={$authDialog === AuthDialog.Login ? "Login popup" : "Sign up popup"}
-	aria-modal="true"
-	in:fade={{ duration: 100 }}
-	out:fade={{ duration: 300 }}
->
-	<MouseTrap on:close={closeDialog}>
+<Dialog on:close={closeDialog}>
+	{#if $authDialog === AuthDialog.SolveTwoFa}
+		<SolveTwoFaDialog />
+	{:else}
 		<div class="login-title">
 			<h2 class="text-left signup-title">
 				{$authDialog === AuthDialog.Login ? "Login" : "Sign up"}
@@ -532,30 +478,14 @@
 				/>
 			</div>
 		</form>
-	</MouseTrap>
-</dialog>
+	{/if}
+</Dialog>
 
 <style lang="scss">
 	@import "../../assets/styles/variables.scss";
 
-	.popup {
-		width: min(30rem, 90vw);
-		background: linear-gradient(to bottom, #18191a, #101415);
-
-		border-radius: 0.25rem;
-		padding: 2.5rem;
-		box-shadow: 0 0 0.5rem 0.5rem rgba(0, 0, 0, 0.3);
-		border: none;
-
-		color: $textColor;
+	form {
 		text-align: center;
-
-		display: flex;
-		flex-direction: column;
-
-		&::backdrop {
-			background-color: rgba(0, 0, 0, 0.5);
-		}
 	}
 
 	.link-button {

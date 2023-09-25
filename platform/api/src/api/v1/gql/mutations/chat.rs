@@ -4,6 +4,7 @@ use tracing::error;
 use ulid::Ulid;
 use uuid::Uuid;
 
+use crate::api::middleware::auth::AuthError;
 use crate::{
     api::v1::gql::{
         error::{GqlError, Result, ResultExt},
@@ -42,8 +43,8 @@ impl ChatMutation {
         // TODO: check if user is banned from chat
         let auth = request_context
             .auth()
-            .await
-            .map_err_gql(GqlError::NotLoggedIn)?;
+            .await?
+            .map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
         // TODO: Check if the user is allowed to send messages in this chat
         let message_id = Ulid::new();
@@ -55,8 +56,7 @@ impl ChatMutation {
         .bind(channel_id.to_uuid())
         .bind(content.clone())
         .fetch_one(global.db.as_ref())
-        .await
-        .map_err_gql("failed to insert chat message")?;
+        .await?;
 
         match global
             .nats

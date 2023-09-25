@@ -53,24 +53,6 @@
 	}
 }
 
-input.input {
-	padding: 0.5rem 0.75rem;
-	font-size: 1rem;
-	font-weight: 500;
-	color: $textColor;
-
-	transition: border-color 0.2s;
-
-	&::placeholder {
-		font-weight: 400;
-	}
-
-	&:focus {
-		outline: none;
-		border-color: $primaryColor;
-	}
-
-	&.invalid:not(:focus) {
-		border-color: $errorColor;
-	}
+input.input.invalid:not(:focus) {
+	border-color: $errorColor;
 }

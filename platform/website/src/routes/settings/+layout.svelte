@@ -1,9 +1,8 @@
 <script lang="ts">
 	import UserBanner from "$/components/settings/user-banner.svelte";
 	import TabSelector from "$/components/tab-selector.svelte";
-	import { authDialog, AuthDialog, user } from "$/store/auth";
+	import { authDialog, AuthDialog, user, session } from "$/store/auth";
 	import { faArrowUpRightFromSquare, faRoadBarrier } from "@fortawesome/free-solid-svg-icons";
-	import { onMount } from "svelte";
 	import Fa from "svelte-fa";
 
 	$: isLive = typeof $user?.channel.liveViewerCount === "number";
@@ -15,11 +14,9 @@
 		{ name: "Billing", pathname: "/settings/billing", showWarning: isLive },
 	];
 
-	onMount(() => {
-		if (!$user) {
-			$authDialog = AuthDialog.Login;
-		}
-	});
+	$: if ($session === null) {
+		$authDialog = AuthDialog.Login;
+	}
 </script>
 
 <svelte:head>

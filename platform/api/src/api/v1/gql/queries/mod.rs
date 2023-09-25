@@ -10,8 +10,8 @@ mod user;
 #[graphql(complex)]
 /// The root query type which contains root level fields.
 pub struct Query {
-    user: user::UserQuery,
     category: category::CategoryQuery,
+    user: user::UserQuery,
 }
 
 #[derive(Clone, SimpleObject)]

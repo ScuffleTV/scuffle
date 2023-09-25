@@ -1,7 +1,8 @@
-use async_graphql::{Context, Object};
+use async_graphql::{ComplexObject, Context, SimpleObject};
 use bytes::Bytes;
 use prost::Message;
 
+use crate::api::middleware::auth::AuthError;
 use crate::{
     api::v1::gql::{
         error::{GqlError, Result, ResultExt},
@@ -12,10 +13,15 @@ use crate::{
     database,
 };
 
-#[derive(Default)]
-pub struct UserMutation;
+mod two_fa;
 
-#[Object]
+#[derive(Default, SimpleObject)]
+#[graphql(complex)]
+pub struct UserMutation {
+    two_fa: two_fa::TwoFaMutation,
+}
+
+#[ComplexObject]
 impl UserMutation {
     /// Change the email address of the currently logged in user.
     async fn email<'ctx>(
@@ -28,8 +34,8 @@ impl UserMutation {
 
         let auth = request_context
             .auth()
-            .await
-            .map_err_gql(GqlError::NotLoggedIn)?;
+            .await?
+            .map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
         database::User::validate_email(&email).map_err(|e| GqlError::InvalidInput {
             fields: vec!["email"],
@@ -37,13 +43,12 @@ impl UserMutation {
         })?;
 
         let user: database::User = sqlx::query_as(
-            "UPDATE users SET email = $1, email_verified = false WHERE id = $2 RETURNING *",
+            "UPDATE users SET email = $1, email_verified = false, updated_at = NOW() WHERE id = $2 RETURNING *",
         )
         .bind(email)
         .bind(auth.session.user_id)
         .fetch_one(global.db.as_ref())
-        .await
-        .map_err_gql("failed to update user")?;
+        .await?;
 
         Ok(user.into())
     }
@@ -59,8 +64,8 @@ impl UserMutation {
 
         let auth = request_context
             .auth()
-            .await
-            .map_err_gql(GqlError::NotLoggedIn)?;
+            .await?
+            .map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
         // TDOD: Can we combine the two queries into one?
         let user: database::User = global
@@ -73,21 +78,20 @@ impl UserMutation {
         // Check case
         if user.username.to_lowercase() != display_name.to_lowercase() {
             return Err(GqlError::InvalidInput {
-                fields: vec!["display_name"],
+                fields: vec!["displayName"],
                 message: "Display name must match username case",
             }
             .into());
         }
 
         let user: database::User = sqlx::query_as(
-            "UPDATE users SET display_name = $1 WHERE id = $2 AND username = $3 RETURNING *",
+            "UPDATE users SET display_name = $1, updated_at = NOW() WHERE id = $2 AND username = $3 RETURNING *",
         )
         .bind(display_name.clone())
         .bind(auth.session.user_id)
         .bind(user.username)
         .fetch_one(global.db.as_ref())
-        .await
-        .map_err_gql("failed to update user")?;
+        .await?;
 
         let user_id = user.id.0.to_string();
 
@@ -117,15 +121,18 @@ impl UserMutation {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
+        let auth = request_context
+            .auth()
+            .await?
+            .ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
-        let user: database::User =
-            sqlx::query_as("UPDATE users SET display_color = $1 WHERE id = $2 RETURNING *")
-                .bind(*color)
-                .bind(auth.session.user_id)
-                .fetch_one(global.db.as_ref())
-                .await
-                .map_err_gql("failed to update user")?;
+        let user: database::User = sqlx::query_as(
+            "UPDATE users SET display_color = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
+        )
+        .bind(*color)
+        .bind(auth.session.user_id)
+        .fetch_one(global.db.as_ref())
+        .await?;
 
         let user_id = user.id.0.to_string();
 
@@ -156,11 +163,14 @@ impl UserMutation {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let auth = request_context.auth().await.ok_or(GqlError::NotLoggedIn)?;
+        let auth = request_context
+            .auth()
+            .await?
+            .ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
         if auth.session.user_id.0 == channel_id.to_ulid() {
             return Err(GqlError::InvalidInput {
-                fields: vec!["channel_id"],
+                fields: vec!["channelId"],
                 message: "Cannot follow yourself",
             }
             .into());
@@ -171,8 +181,7 @@ impl UserMutation {
             .bind(channel_id.to_uuid())
             .bind(follow)
             .execute(global.db.as_ref())
-            .await
-            .map_err_gql("failed to update follow")?;
+            .await?;
 
         let user_id = auth.session.user_id.0.to_string();
         let channel_id = channel_id.to_string();

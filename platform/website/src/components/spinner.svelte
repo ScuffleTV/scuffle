@@ -3,7 +3,7 @@
 		cx="8"
 		cy="8"
 		r="7"
-		stroke="white"
+		stroke="currentColor"
 		stroke-width="2"
 		stroke-dasharray="44"
 		stroke-linecap="round"

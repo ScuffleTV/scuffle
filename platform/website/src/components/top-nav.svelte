@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AuthDialog, authDialog, sessionToken, user } from "$/store/auth";
+	import { AuthDialog, authDialog, session, user } from "$/store/auth";
 	import { sideNavCollapsed, topNavHidden } from "$store/layout";
 	import LogoText from "./icons/logo-text.svelte";
 	import Fa from "svelte-fa";
@@ -28,8 +28,7 @@
 
 	function onLogoutClick() {
 		logout(client);
-		$sessionToken = null;
-		$user = null;
+		$session = null;
 	}
 
 	function toggleSideNav() {

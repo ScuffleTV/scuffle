@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from "svelte";
-	import init, { Player, EventError } from "@scuffle/player";
-	import type { EventManifestLoaded, EventVariantChange } from "@scuffle/player";
+	import init, { Player } from "@scuffle/player";
+	import type { EventError, Variant } from "@scuffle/player";
 	import Play from "$/components/icons/player/play.svelte";
 	import Pause from "$/components/icons/player/pause.svelte";
 	import Volume from "$/components/icons/player/volume.svelte";
@@ -23,7 +23,7 @@
 	export let showTheater = true;
 	export let muted = false;
 
-	const streamUrl = `https://troy-edge.scuffle.tv/${streamId}/master.m3u8`;
+	const _streamUrl = `https://troy-edge.scuffle.tv/${streamId}/master.m3u8`;
 
 	let playerEl: HTMLDivElement;
 	let videoEl: HTMLVideoElement;
@@ -37,7 +37,7 @@
 
 	let player: Player;
 	let state = PlayerState.Loading;
-	let manifest: EventManifestLoaded;
+	let manifest: Variant[];
 	let currentVariantId: number;
 
 	// This is only used for hiding the controls when the mouse is not moving anymore
@@ -66,16 +66,16 @@
 		}
 	}
 
-	function onManifestLoaded(evt: EventManifestLoaded) {
-		console.log(evt);
-		manifest = evt;
+	function onManifestLoaded() {
+		console.log(player.variants);
+		manifest = player.variants;
 	}
 
-	function onVariantChange(evt: EventVariantChange) {
-		let variant = manifest.variants?.find((v) => v.id === evt.variant_id);
+	function onVariantChange() {
+		let variant = manifest.at(player.variantId);
 		if (variant) {
-			currentVariantId = variant.id;
-			console.log(`Switched to ${variant.name}`);
+			currentVariantId = player.variantId;
+			console.log(`Switched to ${variant.video_track?.name ?? "audio only"}`);
 			audioOnly = !variant.video_track;
 		} else {
 			console.error("switched to unkonwn variant");
@@ -95,7 +95,7 @@
 ⣦⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⣿⣶⣾⣿⣿⣿
 ⣿⣿⣿⣷⣶⣤⣄⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣝⡻⣿⣿⣿⣿⣿⣿⣿⣿
 ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡹⣿⣿⣿⣿⣿⣿ Player Error`);
-		console.error(evt.error);
+		console.error(evt);
 	}
 
 	function onShutdown() {
@@ -105,15 +105,14 @@
 
 	onMount(() => {
 		init().then(() => {
-			player = new Player();
-
-			player.load(streamUrl);
-			player.attach(videoEl);
+			player = new Player(videoEl, {
+				organization_id: "...",
+			});
 
 			player.on("manifestloaded", onManifestLoaded);
-			player.on("variantchange", onVariantChange);
+			player.on("variant", onVariantChange);
 			player.on("error", onError);
-			player.on("shutdown", onShutdown);
+			player.on("destroyed", onShutdown);
 
 			videoEl.play();
 		});
@@ -121,11 +120,7 @@
 
 	onDestroy(() => {
 		if (player) {
-			player.shutdown();
-			player.removeListener("manifestloaded", onManifestLoaded);
-			player.removeListener("variantchange", onVariantChange);
-			player.removeListener("error", onError);
-			player.removeListener("shutdown", onShutdown);
+			player.destroy();
 		}
 	});
 
@@ -298,12 +293,12 @@
 						<option value={-1}>
 							auto
 							{selectedVariant === -1
-								? ` (${manifest.variants.find((v) => v.id === currentVariantId)?.name})`
+								? ` (${manifest.at(currentVariantId)?.video_track?.name ?? "audio-only"})`
 								: ""}
 						</option>
-						{#each manifest.variants as variant}
-							<option value={variant.id} selected={variant.id === selectedVariant}
-								>{variant.name}</option
+						{#each manifest as variant, index}
+							<option value={index} selected={index === selectedVariant}
+								>{variant.video_track?.name ?? "audio-only"}</option
 							>
 						{/each}
 					</select>

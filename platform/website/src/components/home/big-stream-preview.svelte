@@ -17,7 +17,7 @@
 	let chatStatus = writable(ChatStatus.Connecting);
 	let playing = false;
 
-	function onPlayClick(_e: MouseEvent) {
+	function onPlayClick() {
 		playing = true;
 	}
 </script>

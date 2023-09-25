@@ -6,12 +6,9 @@
 	import { graphql } from "$gql";
 	import Fa from "svelte-fa";
 	import { getContextClient } from "@urql/svelte";
-	import DisplayName from "$/components/user/display-name.svelte";
 	import Section from "$/components/settings/section.svelte";
 	import StatusBar, { Status } from "$/components/settings/status-bar.svelte";
-	import { beforeNavigate } from "$app/navigation";
 	import SectionContainer from "$/components/settings/section-container.svelte";
-	import UserBanner from "$/components/settings/user-banner.svelte";
 
 	// TODO: Add invisible turnstile captcha
 	// TODO: Improve details text

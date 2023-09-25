@@ -4,7 +4,6 @@ import {
 	cacheExchange,
 	subscriptionExchange,
 	type Exchange,
-	mapExchange,
 	Client,
 } from "@urql/svelte";
 import { get } from "svelte/store";

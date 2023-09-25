@@ -28,7 +28,7 @@
 
 	let timeLive =
 		data.user.channel.lastLiveAt && formatDuration(new Date(data.user.channel.lastLiveAt));
-	let timeInterval: NodeJS.Timer | number;
+	let timeInterval: NodeJS.Timeout | number;
 
 	function setTimeLiveInterval() {
 		clearInterval(timeInterval);

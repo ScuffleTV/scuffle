@@ -59,8 +59,9 @@ async fn authenticate(req: Request<Body>) -> Result<Request<Body>, GqlErrorInter
 
     let Some(session) = global
         .session_by_id_loader
-        .load_one(jwt.session_id)
+        .load(jwt.session_id)
         .await
+        .ok()
         .map_err_gql("failed to fetch session")?
     else {
         return Err(GqlError::InvalidSession.with_message("invalid token"));
@@ -70,7 +71,7 @@ async fn authenticate(req: Request<Body>) -> Result<Request<Body>, GqlErrorInter
         return Err(GqlError::InvalidSession.with_message("invalid session"));
     }
 
-    let data = AuthData::from_session_id(&global, session.id)
+    let data = AuthData::from_session_id(&global, session.id.0)
         .await
         .map_err(|e| GqlError::InvalidSession.with_message(e))?;
 

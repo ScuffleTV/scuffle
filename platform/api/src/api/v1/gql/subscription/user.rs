@@ -2,7 +2,6 @@ use async_graphql::{Context, SimpleObject, Subscription};
 use futures_util::Stream;
 use prost::Message;
 use ulid::Ulid;
-use uuid::Uuid;
 
 use crate::api::v1::gql::{
     error::{GqlError, Result, ResultExt},
@@ -38,8 +37,9 @@ impl UserSubscription {
 
         let Some(display_name) = global
             .user_by_id_loader
-            .load_one(user_id.into())
+            .load(user_id.to_ulid())
             .await
+            .ok()
             .map_err_gql("Failed to fetch user")?
             .map(|u| u.display_name)
         else {
@@ -50,7 +50,7 @@ impl UserSubscription {
 
         let mut subscription = global
             .subscription_manager
-            .subscribe(format!("user.{}.display_name", *user_id))
+            .subscribe(format!("user.{}.display_name", user_id.to_ulid()))
             .await
             .map_err_gql("Failed to subscribe to user display name")?;
 
@@ -87,8 +87,9 @@ impl UserSubscription {
 
         let Some(display_color) = global
             .user_by_id_loader
-            .load_one(user_id.into())
+            .load(user_id.to_ulid())
             .await
+            .ok()
             .map_err_gql("Failed to fetch user")?
             .map(|u| u.display_color)
         else {
@@ -99,7 +100,7 @@ impl UserSubscription {
 
         let mut subscription = global
             .subscription_manager
-            .subscribe(format!("user.{}.display_color", *user_id))
+            .subscribe(format!("user.{}.display_color", user_id.to_ulid()))
             .await
             .map_err_gql("Failed to subscribe to user display name")?;
 
@@ -155,8 +156,8 @@ impl UserSubscription {
                     "SELECT following FROM channel_user WHERE user_id = $1 AND channel_id = $2",
                 )
                 .bind(auth.session.user_id)
-                .bind(Uuid::from(channel_id))
-                .fetch_optional(&*global.db)
+                .bind(channel_id.to_uuid())
+                .fetch_optional(global.db.as_ref())
                 .await
                 .map_err_gql("Failed to fetch channel_user")?
                 .unwrap_or((false,));

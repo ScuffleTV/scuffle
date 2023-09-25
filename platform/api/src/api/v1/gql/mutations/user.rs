@@ -1,15 +1,16 @@
 use async_graphql::{Context, Object};
+use bytes::Bytes;
 use prost::Message;
-use ulid::Ulid;
-use uuid::Uuid;
 
-use crate::api::v1::gql::{
-    error::{GqlError, Result, ResultExt},
-    ext::ContextExt,
-    models::user::User,
-    models::{color::Color, ulid::GqlUlid},
+use crate::{
+    api::v1::gql::{
+        error::{GqlError, Result, ResultExt},
+        ext::ContextExt,
+        models::user::User,
+        models::{color::Color, ulid::GqlUlid},
+    },
+    database,
 };
-use crate::database::user;
 
 #[derive(Default)]
 pub struct UserMutation;
@@ -30,18 +31,18 @@ impl UserMutation {
             .await
             .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
 
-        user::validate_email(&email).map_err(|e| {
+        database::User::validate_email(&email).map_err(|e| {
             GqlError::InvalidInput
                 .with_message(e)
                 .with_field(vec!["email"])
         })?;
 
-        let user: user::Model = sqlx::query_as(
+        let user: database::User = sqlx::query_as(
             "UPDATE users SET email = $1, email_verified = false WHERE id = $2 RETURNING *",
         )
         .bind(email)
         .bind(auth.session.user_id)
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .map_err_gql("failed to update user")?;
 
@@ -63,26 +64,30 @@ impl UserMutation {
             .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
 
         // TDOD: Can we combine the two queries into one?
-        let user: user::Model = sqlx::query_as("SELECT * FROM users WHERE id = $1")
-            .bind(auth.session.user_id)
-            .fetch_one(&*global.db)
+        let user: database::User = global
+            .user_by_id_loader
+            .load(auth.session.user_id.0)
             .await
-            .map_err_gql("Failed to fetch user")?;
+            .ok()
+            .map_err_gql("failed to fetch user")?
+            .ok_or(GqlError::NotFound.with_message("user not found"))?;
 
         // Check case
         if user.username.to_lowercase() != display_name.to_lowercase() {
             return Err(GqlError::InvalidInput.with_message("Display name must match username"));
         }
 
-        let user: user::Model =
-            sqlx::query_as("UPDATE users SET display_name = $1 WHERE id = $2 RETURNING *")
-                .bind(display_name.clone())
-                .bind(auth.session.user_id)
-                .fetch_one(&*global.db)
-                .await
-                .map_err_gql("Failed to update user")?;
+        let user: database::User = sqlx::query_as(
+            "UPDATE users SET display_name = $1 WHERE id = $2 AND username = $3 RETURNING *",
+        )
+        .bind(display_name.clone())
+        .bind(auth.session.user_id)
+        .bind(user.username)
+        .fetch_one(global.db.as_ref())
+        .await
+        .map_err_gql("Failed to update user")?;
 
-        let user_id = Ulid::from(user.id).to_string();
+        let user_id = user.id.0.to_string();
 
         global
             .nats
@@ -115,15 +120,15 @@ impl UserMutation {
             .await
             .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
 
-        let user: user::Model =
+        let user: database::User =
             sqlx::query_as("UPDATE users SET display_color = $1 WHERE id = $2 RETURNING *")
                 .bind(*color)
                 .bind(auth.session.user_id)
-                .fetch_one(&*global.db)
+                .fetch_one(global.db.as_ref())
                 .await
                 .map_err_gql("Failed to update user")?;
 
-        let user_id = Ulid::from(user.id).to_string();
+        let user_id = user.id.0.to_string();
 
         global
             .nats
@@ -157,42 +162,42 @@ impl UserMutation {
             .await
             .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
 
-        let channel_uuid: Uuid = channel_id.into();
-
-        if auth.session.user_id == channel_uuid {
+        if auth.session.user_id.0 == channel_id.to_ulid() {
             return Err(GqlError::InvalidInput.with_message("You cannot follow yourself"));
         }
 
         sqlx::query("UPSERT INTO channel_user(user_id, channel_id, following) VALUES ($1, $2, $3)")
             .bind(auth.session.user_id)
-            .bind(channel_uuid)
+            .bind(channel_id.to_uuid())
             .bind(follow)
-            .execute(&*global.db)
+            .execute(global.db.as_ref())
             .await
             .map_err_gql("Failed to update follow")?;
 
-        let user_id = Ulid::from(auth.session.user_id).to_string();
+        let user_id = auth.session.user_id.0.to_string();
         let channel_id = channel_id.to_string();
 
         let user_subject = format!("user.{}.follows", user_id);
         let channel_subject = format!("channel.{}.follows", channel_id);
 
-        let msg = pb::scuffle::platform::internal::events::UserFollowChannel {
-            user_id,
-            channel_id,
-            following: follow,
-        }
-        .encode_to_vec();
+        let msg = Bytes::from(
+            pb::scuffle::platform::internal::events::UserFollowChannel {
+                user_id,
+                channel_id,
+                following: follow,
+            }
+            .encode_to_vec(),
+        );
 
         global
             .nats
-            .publish(user_subject, msg.clone().into())
+            .publish(user_subject, msg.clone())
             .await
             .map_err(|_| GqlError::InternalServerError.with_message("Failed to publish message"))?;
 
         global
             .nats
-            .publish(channel_subject, msg.into())
+            .publish(channel_subject, msg)
             .await
             .map_err(|_| GqlError::InternalServerError.with_message("Failed to publish message"))?;
 

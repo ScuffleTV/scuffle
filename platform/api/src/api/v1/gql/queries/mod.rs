@@ -29,9 +29,10 @@ impl Query {
     ) -> Result<SearchResults> {
         let global = ctx.get_global();
 
+        // TODO: perhaps this can be a single query, where we rank them together.
         let users = global
             .user_search_loader
-            .load_one(query.clone())
+            .load(query.clone())
             .await
             .ok()
             .flatten()
@@ -42,7 +43,7 @@ impl Query {
 
         let categories = global
             .category_search_loader
-            .load_one(query)
+            .load(query)
             .await
             .ok()
             .flatten()

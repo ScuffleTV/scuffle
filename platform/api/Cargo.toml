@@ -13,11 +13,12 @@ serde = { version = "1.0.188", features = ["derive"] }
 hyper = { version = "0.14.27", features = ["full"] }
 common = { workspace = true }
 sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono", "uuid"] }
+sqlx-postgres = "0.7.1"
 routerify = "3.0.0"
 serde_json = "1.0.107"
 reqwest = { version = "0.11.20", features = ["json"] }
 chrono = { version = "0.4.31", default-features = false, features = ["serde", "clock"] }
-async-graphql = { version = "6.0.7", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "opentelemetry", "dataloader", "string_number", "uuid"] }
+async-graphql = { version = "6.0.7", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "opentelemetry", "string_number", "uuid"] }
 hyper-tungstenite = "0.11.1"
 async-stream = "0.3.5"
 futures = "0.3.28"
@@ -38,6 +39,8 @@ rand = "0.8.5"
 lapin = { version = "2.3.1", features = ["native-tls"] }
 tokio-stream = { version = "0.1.14", features = ["sync"] }
 async-nats = "0.32.0"
+async-trait = "0.1.73"
+bytes = "1.5.0"
 
 config = { workspace = true }
 pb = { workspace = true }

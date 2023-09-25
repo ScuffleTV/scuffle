@@ -13,17 +13,17 @@ async fn test_serial_user_by_name() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
     sqlx::query!("DELETE FROM global_roles")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
     sqlx::query!("DELETE FROM global_role_grants")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
@@ -35,7 +35,7 @@ async fn test_serial_user_by_name() {
         user::generate_stream_key(),
     )
         .map(|row| row.id)
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .unwrap();
 
@@ -49,7 +49,7 @@ async fn test_serial_user_by_name() {
         chrono::Utc::now()
     )
         .map(|row| row.id)
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .unwrap();
 
@@ -63,7 +63,7 @@ async fn test_serial_user_by_name() {
         chrono::Utc::now()
     )
         .map(|row| row.id)
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .unwrap();
 
@@ -73,7 +73,7 @@ async fn test_serial_user_by_name() {
         admin_role_id,
         chrono::Utc::now()
     )
-    .execute(&*global.db)
+    .execute(global.db.as_ref())
     .await
     .unwrap();
 
@@ -83,7 +83,7 @@ async fn test_serial_user_by_name() {
         go_live_role_id,
         chrono::Utc::now()
     )
-    .execute(&*global.db)
+    .execute(global.db.as_ref())
     .await
     .unwrap();
 

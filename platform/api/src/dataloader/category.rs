@@ -1,12 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
-use async_graphql::{
-    async_trait::async_trait,
-    dataloader::{DataLoader, Loader},
-};
+use common::dataloader::{DataLoader, Loader, LoaderOutput};
+use ulid::Ulid;
 use uuid::Uuid;
 
-use crate::database::category;
+use crate::database::{Category, SearchResult};
 
 pub struct CategoryByIdLoader {
     db: Arc<sqlx::PgPool>,
@@ -14,30 +12,30 @@ pub struct CategoryByIdLoader {
 
 impl CategoryByIdLoader {
     pub fn new(db: Arc<sqlx::PgPool>) -> DataLoader<Self> {
-        DataLoader::new(Self { db }, tokio::spawn)
+        DataLoader::new(Self { db })
     }
 }
 
-#[async_trait]
-impl Loader<Uuid> for CategoryByIdLoader {
-    type Value = category::Model;
-    type Error = Arc<sqlx::Error>;
+#[async_trait::async_trait]
+impl Loader for CategoryByIdLoader {
+    type Key = Ulid;
+    type Value = Category;
+    type Error = ();
 
-    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
-        let results: Vec<category::Model> =
+    async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
+        let results: Vec<Self::Value> =
             sqlx::query_as("SELECT * FROM categories WHERE id = ANY($1)")
-                .bind(keys)
-                .fetch_all(&*self.db)
+                .bind(keys.iter().copied().map(Uuid::from).collect::<Vec<_>>())
+                .fetch_all(self.db.as_ref())
                 .await
                 .map_err(|e| {
-                    tracing::error!("Failed to fetch categories: {}", e);
-                    Arc::new(e)
+                    tracing::error!(err = %e, "failed to fetch categories by id");
                 })?;
 
         let mut map = HashMap::new();
 
         for result in results {
-            map.insert(result.id, result);
+            map.insert(result.id.0, result);
         }
 
         Ok(map)
@@ -50,27 +48,27 @@ pub struct CategorySearchLoader {
 
 impl CategorySearchLoader {
     pub fn new(db: Arc<sqlx::PgPool>) -> DataLoader<Self> {
-        DataLoader::new(Self { db }, tokio::spawn)
+        DataLoader::new(Self { db })
     }
 }
 
-#[async_trait]
-impl Loader<String> for CategorySearchLoader {
-    type Value = Vec<category::SearchResult>;
-    type Error = Arc<sqlx::Error>;
+#[async_trait::async_trait]
+impl Loader for CategorySearchLoader {
+    type Key = String;
+    type Value = Vec<SearchResult<Category>>;
+    type Error = ();
 
-    async fn load(&self, keys: &[String]) -> Result<HashMap<String, Self::Value>, Self::Error> {
+    async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
         let mut map = HashMap::new();
 
         for key in keys {
-            let results: Vec<category::SearchResult> =
+            let results: Self::Value =
                 sqlx::query_as("SELECT categories.*, similarity(name, $1) FROM categories WHERE name % $1 ORDER BY similarity DESC LIMIT 5")
                     .bind(key)
-                    .fetch_all(&*self.db)
+                    .fetch_all(self.db.as_ref())
                     .await
                     .map_err(|e| {
-                        tracing::error!("failed to search categories: {}", e);
-                        Arc::new(e)
+                        tracing::error!(err = %e, "failed to search categories by search");
                     })?;
 
             map.insert(key.clone(), results);

@@ -1,35 +1,38 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::database::{role, session, user};
 use tokio::sync::RwLock;
-use uuid::Uuid;
+use ulid::Ulid;
 
-use crate::{api::v1::gql::error::Result, global::GlobalState};
+use crate::{
+    api::v1::gql::error::Result,
+    database::{Role, RolePermission, Session, User},
+    global::GlobalState,
+};
 
 #[derive(Clone)]
 pub struct AuthData {
-    pub session: session::Model,
-    pub user_roles: Vec<role::Model>,
-    pub user_permissions: role::Permission,
+    pub session: Session,
+    pub user_roles: Vec<Role>,
+    pub user_permissions: RolePermission,
 }
 
 impl AuthData {
     pub async fn from_session_and_user(
         global: &Arc<GlobalState>,
-        session: session::Model,
-        user: user::Model,
+        session: Session,
+        user: &User,
     ) -> Result<Self, &'static str> {
         let global_state = global
             .global_state_loader
-            .load_one(())
+            .load(())
             .await
             .ok()
             .flatten()
             .ok_or("failed to fetch global state")?;
 
-        let mut user_roles: Vec<role::Model> = global
+        let mut user_roles: Vec<Role> = global
             .role_by_id_loader
-            .load_many(user.roles)
+            .load_many(user.roles.iter().map(|i| i.0))
             .await
             .map_err(|_| "failed to fetch roles")?
             .into_values()
@@ -61,25 +64,25 @@ impl AuthData {
 
     pub async fn from_session(
         global: &Arc<GlobalState>,
-        session: session::Model,
+        session: Session,
     ) -> Result<Self, &'static str> {
         let user = global
             .user_by_id_loader
-            .load_one(session.user_id)
+            .load(session.user_id.0)
             .await
             .map_err(|_| "failed to fetch user")?
             .ok_or("user not found")?;
 
-        Self::from_session_and_user(global, session, user).await
+        Self::from_session_and_user(global, session, &user).await
     }
 
     pub async fn from_session_id(
         global: &Arc<GlobalState>,
-        session_id: Uuid,
+        session_id: Ulid,
     ) -> Result<Self, &'static str> {
         let session = global
             .session_by_id_loader
-            .load_one(session_id)
+            .load(session_id)
             .await
             .map_err(|_| "failed to fetch session")?
             .and_then(|s| s.is_valid().then_some(s))

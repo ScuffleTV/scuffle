@@ -1,5 +1,4 @@
 use async_graphql::{Context, Object};
-use uuid::Uuid;
 
 use crate::{
     api::v1::gql::{
@@ -7,7 +6,7 @@ use crate::{
         ext::ContextExt,
         models::{self, ulid::GqlUlid},
     },
-    database::user,
+    database,
 };
 
 #[derive(Default)]
@@ -26,8 +25,9 @@ impl UserQuery {
 
         let user = global
             .user_by_username_loader
-            .load_one(username.to_lowercase())
+            .load(username.to_lowercase())
             .await
+            .ok()
             .map_err_gql("failed to fetch user")?;
 
         Ok(user.map(Into::into))
@@ -41,12 +41,11 @@ impl UserQuery {
     ) -> Result<Option<models::user::User>> {
         let global = ctx.get_global();
 
-        let id: Uuid = id.into();
-
         let user = global
             .user_by_id_loader
-            .load_one(id)
+            .load(id.to_ulid())
             .await
+            .ok()
             .map_err_gql("failed to fetch user")?;
 
         Ok(user.map(models::user::User::from))
@@ -61,7 +60,7 @@ impl UserQuery {
 
         let users = global
             .user_search_loader
-            .load_one(query.clone())
+            .load(query)
             .await
             .ok()
             .flatten()
@@ -80,14 +79,12 @@ impl UserQuery {
             .await
             .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
 
-        let channel_id: Uuid = channel_id.into();
-
         let (is_following,): (bool,) = sqlx::query_as(
             "SELECT following FROM channel_user WHERE user_id = $1 AND channel_id = $2",
         )
         .bind(auth.session.user_id)
-        .bind(channel_id)
-        .fetch_optional(&*global.db)
+        .bind(channel_id.to_uuid())
+        .fetch_optional(global.db.as_ref())
         .await
         .map_err_gql("Failed to fetch channel_user")?
         .unwrap_or((false,));
@@ -110,19 +107,18 @@ impl UserQuery {
             .await
             .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
 
-        let user_id: Uuid = id.into();
-
         // TODO: Also allow users with permission
-        if user_id != auth.session.user_id {
+        if id.to_ulid() != auth.session.user_id.0 {
             return Err(GqlError::Unauthorized.with_message("You can only fetch your own follows"));
         }
 
-        let channels: Vec<user::Model> = sqlx::query_as(
+        // This query is not very good, we should have some paging mechinsm with ids.
+        let channels: Vec<database::User> = sqlx::query_as(
             "SELECT users.* FROM channel_user INNER JOIN users ON users.id = channel_user.channel_id WHERE channel_user.user_id = $1 AND channel_user.following = true ORDER BY users.channel_live_viewer_count DESC, users.channel_last_live_at DESC LIMIT $2",
         )
-        .bind(user_id)
+        .bind(id.to_uuid())
         .bind(limit.map(|l| l as i64))
-        .fetch_all(&*global.db)
+        .fetch_all(global.db.as_ref())
         .await
         .map_err_gql("Failed to fetch channels")?;
 

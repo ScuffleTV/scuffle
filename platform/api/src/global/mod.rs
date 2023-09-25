@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_graphql::dataloader::DataLoader;
 use common::context::Context;
+use common::dataloader::DataLoader;
 
 use crate::config::AppConfig;
 use crate::dataloader::category::CategorySearchLoader;

@@ -10,11 +10,11 @@ async fn test_serial_stream_by_id_loader() {
     let (global, _) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
     sqlx::query!("DELETE FROM streams")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
     let user =
@@ -25,7 +25,7 @@ async fn test_serial_stream_by_id_loader() {
         user::hash_password("admin"),
         user::generate_stream_key(),
     )
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .unwrap();
 
@@ -39,7 +39,7 @@ async fn test_serial_stream_by_id_loader() {
         false,
         "some address",
         conn_id,
-    ).fetch_one(&*global.db).await.unwrap();
+    ).fetch_one(global.db.as_ref()).await.unwrap();
 
     let loaded = global.stream_by_id_loader.load_one(s.id).await.unwrap();
 

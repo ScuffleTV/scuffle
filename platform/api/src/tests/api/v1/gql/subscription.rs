@@ -19,7 +19,7 @@ async fn test_serial_user_display_name_subscription() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
     let user =
@@ -30,7 +30,7 @@ async fn test_serial_user_display_name_subscription() {
         user::hash_password("admin"),
         user::generate_stream_key(),
     )
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .unwrap();
 
@@ -147,7 +147,7 @@ async fn test_serial_chat_subscribe() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
     let user = sqlx::query_as!(user::Model,
@@ -157,7 +157,7 @@ async fn test_serial_chat_subscribe() {
         user::hash_password("admin"),
         user::generate_stream_key(),
     )
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .unwrap();
 
@@ -167,7 +167,7 @@ async fn test_serial_chat_subscribe() {
         user.id,
         chrono::Utc::now() + chrono::Duration::days(1),
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 

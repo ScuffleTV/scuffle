@@ -2,7 +2,6 @@ use async_graphql::{Context, Subscription};
 use futures_util::Stream;
 use prost::Message;
 use ulid::Ulid;
-use uuid::Uuid;
 
 use crate::api::v1::gql::{
     error::{GqlError, Result, ResultExt},
@@ -31,13 +30,16 @@ impl ChannelSubscription {
             .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
 
         // TODO: allow other users with permissions
-        if auth.session.user_id != channel_id.into() {
+        if auth.session.user_id.0 != channel_id.to_ulid() {
             return Err(GqlError::Unauthorized.with_message("You are not the channel owner"));
         }
 
         let mut subscription = global
             .subscription_manager
-            .subscribe(format!("channel.{}.follows", channel_id.to_string()))
+            .subscribe(format!(
+                "channel.{}.follows",
+                channel_id.to_ulid().to_string()
+            ))
             .await
             .map_err_gql("Failed to subscribe to channel follows")?;
 
@@ -72,29 +74,30 @@ impl ChannelSubscription {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        let channel_uuid: Uuid = channel_id.into();
-
         let auth = request_context
             .auth()
             .await
             .ok_or(GqlError::Unauthorized.with_message("You need to be logged in"))?;
 
         // TODO: allow other users with permissions
-        if auth.session.user_id != channel_uuid {
+        if auth.session.user_id.0 != channel_id.to_ulid() {
             return Err(GqlError::Unauthorized.with_message("You are not the channel owner"));
         }
 
         let (mut followers,) = sqlx::query_as(
             "SELECT COUNT(*) FROM channel_user WHERE channel_id = $1 AND following = true",
         )
-        .bind(channel_uuid)
-        .fetch_one(&*global.db)
+        .bind(channel_id.to_uuid())
+        .fetch_one(global.db.as_ref())
         .await
         .map_err_gql("Failed to fetch followers")?;
 
         let mut subscription = global
             .subscription_manager
-            .subscribe(format!("channel.{}.follows", channel_id.to_string()))
+            .subscribe(format!(
+                "channel.{}.follows",
+                channel_id.to_ulid().to_string()
+            ))
             .await
             .map_err_gql("Failed to subscribe to channel follows")?;
 

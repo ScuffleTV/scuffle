@@ -6,7 +6,7 @@ use crate::{
         error::{GqlError, Result, ResultExt},
         ext::ContextExt,
     },
-    database::chat_message,
+    database,
 };
 
 #[derive(Enum, Copy, Clone, Eq, PartialEq, Debug)]
@@ -37,8 +37,9 @@ impl ChatMessage {
 
         let user = global
             .user_by_id_loader
-            .load_one(self.user_id.into())
+            .load(self.user_id.into())
             .await
+            .ok()
             .map_err_gql("failed to fetch user")?
             .ok_or(GqlError::NotFound.with_message("user not found"))?;
 
@@ -50,8 +51,9 @@ impl ChatMessage {
 
         let user = global
             .user_by_id_loader
-            .load_one(self.channel_id.into())
+            .load(self.channel_id.into())
             .await
+            .ok()
             .map_err_gql("failed to fetch user")?
             .ok_or(GqlError::NotFound.with_message("user not found"))?;
 
@@ -59,12 +61,12 @@ impl ChatMessage {
     }
 }
 
-impl From<chat_message::Model> for ChatMessage {
-    fn from(model: chat_message::Model) -> Self {
+impl From<database::ChatMessage> for ChatMessage {
+    fn from(model: database::ChatMessage) -> Self {
         Self {
-            id: model.id.into(),
-            channel_id: model.channel_id.into(),
-            user_id: model.user_id.into(),
+            id: model.id.0.into(),
+            channel_id: model.channel_id.0.into(),
+            user_id: model.user_id.0.into(),
             content: model.content,
             r#type: MessageType::User,
         }

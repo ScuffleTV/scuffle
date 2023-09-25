@@ -2,14 +2,17 @@ use async_graphql::{Context, Object};
 use prost::Message;
 use tracing::error;
 use ulid::Ulid;
+use uuid::Uuid;
 
-use crate::api::v1::gql::{
-    error::{GqlError, Result, ResultExt},
-    ext::ContextExt,
-    models::chat_message::ChatMessage,
-    models::ulid::GqlUlid,
+use crate::{
+    api::v1::gql::{
+        error::{GqlError, Result, ResultExt},
+        ext::ContextExt,
+        models::chat_message::ChatMessage,
+        models::ulid::GqlUlid,
+    },
+    database,
 };
-use crate::database::chat_message;
 
 const MAX_MESSAGE_LENGTH: usize = 500;
 
@@ -40,21 +43,21 @@ impl ChatMutation {
 
         // TODO: Check if the user is allowed to send messages in this chat
         let message_id = Ulid::new();
-        let chat_message: chat_message::Model = sqlx::query_as(
-            "INSERT INTO chat_messages (id, user_id, channel_id, content) VALUES (ulid_to_uuid($1), $2, ulid_to_uuid($3), $4) RETURNING *"
+        let chat_message: database::ChatMessage = sqlx::query_as(
+            "INSERT INTO chat_messages (id, user_id, channel_id, content) VALUES ($1, $2, $3, $4) RETURNING *"
         )
-        .bind(message_id.to_string())
+        .bind(Uuid::from(message_id))
         .bind(auth.session.user_id)
-        .bind(channel_id.to_string())
+        .bind(channel_id.to_uuid())
         .bind(content.clone())
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .map_err_gql("Failed to insert chat message")?;
 
         match global
             .nats
             .publish(
-                format!("channel.{}.chat.messages", *channel_id),
+                format!("channel.{}.chat.messages", channel_id.to_ulid()),
                 chat_message.to_protobuf().encode_to_vec().into(),
             )
             .await

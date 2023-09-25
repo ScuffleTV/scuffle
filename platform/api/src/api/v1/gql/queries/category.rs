@@ -1,5 +1,4 @@
 use async_graphql::{Context, Object};
-use uuid::Uuid;
 
 use crate::api::v1::gql::{
     error::{Result, ResultExt},
@@ -21,8 +20,9 @@ impl CategoryQuery {
 
         let user = global
             .category_by_id_loader
-            .load_one(Into::<Uuid>::into(id))
+            .load(id.to_ulid())
             .await
+            .ok()
             .map_err_gql("failed to fetch category")?;
 
         Ok(user.map(Into::into))
@@ -37,7 +37,7 @@ impl CategoryQuery {
 
         let categories = global
             .category_search_loader
-            .load_one(query)
+            .load(query)
             .await
             .ok()
             .flatten()

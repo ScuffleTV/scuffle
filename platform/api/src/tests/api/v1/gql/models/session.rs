@@ -14,7 +14,7 @@ async fn test_serial_session_user() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
     let user =
@@ -25,7 +25,7 @@ async fn test_serial_session_user() {
         user::hash_password("admin"),
         user::generate_stream_key(),
     )
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .unwrap();
 
@@ -35,7 +35,7 @@ async fn test_serial_session_user() {
         user.id,
         chrono::Utc::now() + chrono::Duration::seconds(30)
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 

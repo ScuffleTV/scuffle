@@ -9,17 +9,17 @@ async fn test_serial_permissions_loader() {
     let (global, _) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
     sqlx::query!("DELETE FROM global_roles")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
     sqlx::query!("DELETE FROM global_role_grants")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
@@ -31,7 +31,7 @@ async fn test_serial_permissions_loader() {
         user::generate_stream_key(),
     )
     .map(|row| row.id)
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -45,7 +45,7 @@ async fn test_serial_permissions_loader() {
         chrono::Utc::now()
     )
         .map(|row| row.id)
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .unwrap();
 
@@ -59,7 +59,7 @@ async fn test_serial_permissions_loader() {
         chrono::Utc::now()
     )
         .map(|row| row.id)
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .unwrap();
 
@@ -73,7 +73,7 @@ async fn test_serial_permissions_loader() {
         chrono::Utc::now()
     )
         .map(|row| row.id)
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .unwrap();
 
@@ -87,7 +87,7 @@ async fn test_serial_permissions_loader() {
         chrono::Utc::now()
     )
         .map(|row| row.id)
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .unwrap();
 
@@ -97,7 +97,7 @@ async fn test_serial_permissions_loader() {
         admin_role_id,
         chrono::Utc::now()
     )
-    .execute(&*global.db)
+    .execute(global.db.as_ref())
     .await
     .unwrap();
 
@@ -107,7 +107,7 @@ async fn test_serial_permissions_loader() {
         go_live_role_id,
         chrono::Utc::now()
     )
-    .execute(&*global.db)
+    .execute(global.db.as_ref())
     .await
     .unwrap();
 
@@ -117,7 +117,7 @@ async fn test_serial_permissions_loader() {
         no_go_live_role_id,
         chrono::Utc::now()
     )
-    .execute(&*global.db)
+    .execute(global.db.as_ref())
     .await
     .unwrap();
 
@@ -127,7 +127,7 @@ async fn test_serial_permissions_loader() {
         no_admin_role_id,
         chrono::Utc::now()
     )
-    .execute(&*global.db)
+    .execute(global.db.as_ref())
     .await
     .unwrap();
 
@@ -177,17 +177,17 @@ async fn test_serial_permissions_loader_default_role() {
     let (global, _) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
     sqlx::query!("DELETE FROM global_roles")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
     sqlx::query!("DELETE FROM global_role_grants")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
@@ -199,7 +199,7 @@ async fn test_serial_permissions_loader_default_role() {
         user::generate_stream_key(),
     )
     .map(|row| row.id)
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -213,7 +213,7 @@ async fn test_serial_permissions_loader_default_role() {
         chrono::Utc::now()
     )
         .map(|row| row.id)
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .await
         .unwrap();
 

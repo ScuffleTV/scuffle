@@ -1,14 +1,17 @@
-use crate::api::v1::gql::{
-    error::{GqlError, Result, ResultExt},
-    ext::ContextExt,
-    models::session::Session,
-};
 use crate::api::v1::jwt::JwtState;
 use crate::api::v1::request_context::AuthData;
-use crate::database::{session, user};
+use crate::{
+    api::v1::gql::{
+        error::{GqlError, Result, ResultExt},
+        ext::ContextExt,
+        models::session::Session,
+    },
+    database,
+};
 use async_graphql::{Context, Object};
 use chrono::{Duration, Utc};
 use ulid::Ulid;
+use uuid::Uuid;
 
 #[derive(Default, Clone)]
 pub struct AuthMutation;
@@ -47,8 +50,9 @@ impl AuthMutation {
 
         let user = global
             .user_by_username_loader
-            .load_one(username.to_lowercase())
+            .load(username.to_lowercase())
             .await
+            .ok()
             .map_err_gql("Failed to fetch user")?
             .ok_or(
                 GqlError::InvalidInput
@@ -72,10 +76,10 @@ impl AuthMutation {
             .await
             .map_err_gql("Failed to start transaction")?;
 
-        let session: session::Model = sqlx::query_as(
-            "INSERT INTO user_sessions (id, user_id, expires_at) VALUES (ulid_to_uuid($1), $2, $3) RETURNING *",
+        let session: database::Session = sqlx::query_as(
+            "INSERT INTO user_sessions (id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
         )
-        .bind(Ulid::new().to_string())
+        .bind(Uuid::from(Ulid::new()))
         .bind(user.id)
         .bind(expires_at)
         .fetch_one(&mut *tx)
@@ -100,16 +104,16 @@ impl AuthMutation {
 
         // We need to update the request context with the new session
         if update_context.unwrap_or(true) {
-            let auth_data = AuthData::from_session_and_user(global, session.clone(), user.clone())
+            let auth_data = AuthData::from_session_and_user(global, session.clone(), &user)
                 .await
                 .map_err(|e| GqlError::InternalServerError.with_message(e))?;
             request_context.set_auth(auth_data).await;
         }
 
         Ok(Session {
-            id: session.id.into(),
+            id: session.id.0.into(),
             token,
-            user_id: session.user_id.into(),
+            user_id: session.user_id.0.into(),
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
             _user: Some(user.into()),
@@ -136,11 +140,11 @@ impl AuthMutation {
         )?;
 
         // TODO: maybe look to batch this
-        let session: session::Model = sqlx::query_as(
+        let session: database::Session = sqlx::query_as(
             "UPDATE user_sessions SET last_used_at = NOW() WHERE id = $1 RETURNING *",
         )
-        .bind(jwt.session_id)
-        .fetch_optional(&*global.db)
+        .bind(Uuid::from(jwt.session_id))
+        .fetch_optional(global.db.as_ref())
         .await
         .map_err_gql("failed to fetch session")?
         .ok_or(
@@ -162,9 +166,9 @@ impl AuthMutation {
         }
 
         Ok(Session {
-            id: session.id.into(),
+            id: session.id.0.into(),
             token: session_token,
-            user_id: session.user_id.into(),
+            user_id: session.user_id.0.into(),
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
             _user: None,
@@ -203,17 +207,17 @@ impl AuthMutation {
         let username = username.to_lowercase();
         let email = email.to_lowercase();
 
-        user::validate_username(&username).map_err(|e| {
+        database::User::validate_username(&username).map_err(|e| {
             GqlError::InvalidInput
                 .with_message(e)
                 .with_field(vec!["username"])
         })?;
-        user::validate_password(&password).map_err(|e| {
+        database::User::validate_password(&password).map_err(|e| {
             GqlError::InvalidInput
                 .with_message(e)
                 .with_field(vec!["password"])
         })?;
-        user::validate_email(&email).map_err(|e| {
+        database::User::validate_email(&email).map_err(|e| {
             GqlError::InvalidInput
                 .with_message(e)
                 .with_field(vec!["email"])
@@ -221,8 +225,9 @@ impl AuthMutation {
 
         if global
             .user_by_username_loader
-            .load_one(username.clone())
+            .load(username.clone())
             .await
+            .ok()
             .map_err_gql("failed to fetch user")?
             .is_some()
         {
@@ -238,12 +243,12 @@ impl AuthMutation {
             .map_err_gql("Failed to create user")?;
 
         // TODO: maybe look to batch this
-        let user: user::Model = sqlx::query_as("INSERT INTO users (id, username, display_name, display_color, password_hash, email) VALUES (ulid_to_uuid($1), $2, $3, $4, $5, $6) RETURNING *")
-            .bind(Ulid::new().to_string())
+        let user: database::User = sqlx::query_as("INSERT INTO users (id, username, display_name, display_color, password_hash, email) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *")
+            .bind(Uuid::from(Ulid::new()))
             .bind(username)
             .bind(display_name)
-            .bind(user::generate_display_color())
-            .bind(user::hash_password(&password))
+            .bind(database::User::generate_display_color())
+            .bind(database::User::hash_password(&password))
             .bind(email)
             .fetch_one(&mut *tx)
             .await
@@ -253,10 +258,10 @@ impl AuthMutation {
         let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
 
         // TODO: maybe look to batch this
-        let session: session::Model = sqlx::query_as(
-            "INSERT INTO user_sessions (id, user_id, expires_at) VALUES (ulid_to_uuid($1), $2, $3) RETURNING *",
+        let session: database::Session = sqlx::query_as(
+            "INSERT INTO user_sessions (id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
         )
-        .bind(Ulid::new().to_string())
+        .bind(Uuid::from(Ulid::new()))
         .bind(user.id)
         .bind(expires_at)
         .fetch_one(&mut *tx)
@@ -277,8 +282,9 @@ impl AuthMutation {
         if update_context.unwrap_or(true) {
             let global_state = global
                 .global_state_loader
-                .load_one(())
+                .load(())
                 .await
+                .ok()
                 .map_err_gql(
                     GqlError::InternalServerError.with_message("Failed to fetch global state"),
                 )?
@@ -295,9 +301,9 @@ impl AuthMutation {
         }
 
         Ok(Session {
-            id: session.id.into(),
+            id: session.id.0.into(),
             token,
-            user_id: session.user_id.into(),
+            user_id: session.user_id.0.into(),
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
             _user: Some(user.into()),
@@ -330,12 +336,13 @@ impl AuthMutation {
                 .ok_or(GqlError::InvalidInput.with_message("Not logged in"))?
                 .session
                 .id
+                .0
         };
 
         // TODO: maybe look to batch this
         sqlx::query("DELETE FROM user_sessions WHERE id = $1")
-            .bind(session_id)
-            .execute(&*global.db)
+            .bind(Uuid::from(session_id))
+            .execute(global.db.as_ref())
             .await
             .map_err_gql("Failed to update session")?;
 

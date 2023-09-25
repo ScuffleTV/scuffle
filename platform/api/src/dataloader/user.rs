@@ -1,10 +1,9 @@
-use crate::database::user;
-use async_graphql::{
-    async_trait::async_trait,
-    dataloader::{DataLoader, Loader},
-};
+use common::dataloader::{DataLoader, Loader, LoaderOutput};
 use std::{collections::HashMap, sync::Arc};
+use ulid::Ulid;
 use uuid::Uuid;
+
+use crate::database::{SearchResult, User};
 
 pub struct UserByUsernameLoader {
     db: Arc<sqlx::PgPool>,
@@ -12,21 +11,25 @@ pub struct UserByUsernameLoader {
 
 impl UserByUsernameLoader {
     pub fn new(db: Arc<sqlx::PgPool>) -> DataLoader<Self> {
-        DataLoader::new(Self { db }, tokio::spawn)
+        DataLoader::new(Self { db })
     }
 }
 
-#[async_trait]
-impl Loader<String> for UserByUsernameLoader {
-    type Value = user::Model;
-    type Error = Arc<sqlx::Error>;
+#[async_trait::async_trait]
+impl Loader for UserByUsernameLoader {
+    type Key = String;
+    type Value = User;
+    type Error = ();
 
-    async fn load(&self, keys: &[String]) -> Result<HashMap<String, Self::Value>, Self::Error> {
-        let results: Vec<user::Model> =
+    async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
+        let results: Vec<Self::Value> =
             sqlx::query_as("SELECT * FROM users WHERE username = ANY($1)")
                 .bind(keys)
-                .fetch_all(&*self.db)
-                .await?;
+                .fetch_all(self.db.as_ref())
+                .await
+                .map_err(|e| {
+                    tracing::error!(err = %e, "failed to fetch users by username");
+                })?;
 
         let mut map = HashMap::new();
 
@@ -44,29 +47,29 @@ pub struct UserByIdLoader {
 
 impl UserByIdLoader {
     pub fn new(db: Arc<sqlx::PgPool>) -> DataLoader<Self> {
-        DataLoader::new(Self { db }, tokio::spawn)
+        DataLoader::new(Self { db })
     }
 }
 
-#[async_trait]
-impl Loader<Uuid> for UserByIdLoader {
-    type Value = user::Model;
-    type Error = Arc<sqlx::Error>;
+#[async_trait::async_trait]
+impl Loader for UserByIdLoader {
+    type Key = Ulid;
+    type Value = User;
+    type Error = ();
 
-    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
-        let results: Vec<user::Model> = sqlx::query_as("SELECT * FROM users WHERE id = ANY($1)")
-            .bind(keys)
-            .fetch_all(&*self.db)
+    async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
+        let results: Vec<Self::Value> = sqlx::query_as("SELECT * FROM users WHERE id = ANY($1)")
+            .bind(keys.iter().copied().map(Uuid::from).collect::<Vec<_>>())
+            .fetch_all(self.db.as_ref())
             .await
             .map_err(|e| {
-                tracing::error!("Failed to fetch users: {}", e);
-                Arc::new(e)
+                tracing::error!(err = %e, "failed to fetch users by id");
             })?;
 
         let mut map = HashMap::new();
 
         for result in results {
-            map.insert(result.id, result);
+            map.insert(result.id.0, result);
         }
 
         Ok(map)
@@ -79,28 +82,28 @@ pub struct UserSearchLoader {
 
 impl UserSearchLoader {
     pub fn new(db: Arc<sqlx::PgPool>) -> DataLoader<Self> {
-        DataLoader::new(Self { db }, tokio::spawn)
+        DataLoader::new(Self { db })
     }
 }
 
-#[async_trait]
-impl Loader<String> for UserSearchLoader {
-    type Value = Vec<user::SearchResult>;
-    type Error = Arc<sqlx::Error>;
+#[async_trait::async_trait]
+impl Loader for UserSearchLoader {
+    type Key = String;
+    type Value = Vec<SearchResult<User>>;
+    type Error = ();
 
-    async fn load(&self, keys: &[String]) -> Result<HashMap<String, Self::Value>, Self::Error> {
+    async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
         let mut map = HashMap::new();
 
         for key in keys {
-            let results: Vec<user::SearchResult> = sqlx::query_as(
+            let results: Self::Value = sqlx::query_as(
                 "SELECT users.*, similarity(username, $1) FROM users WHERE username % $1 ORDER BY similarity DESC LIMIT 5"
             )
             .bind(key)
-            .fetch_all(&*self.db)
+            .fetch_all(self.db.as_ref())
             .await
             .map_err(|e| {
-                tracing::error!("Failed to fetch users: {}", e);
-                Arc::new(e)
+                tracing::error!(err = %e, "failed to fetch users by search");
             })?;
 
             map.insert(key.clone(), results);

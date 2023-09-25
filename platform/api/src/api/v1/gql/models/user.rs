@@ -1,11 +1,13 @@
 use async_graphql::{ComplexObject, Context, SimpleObject};
 use ulid::Ulid;
 
-use crate::api::v1::gql::{
-    error::{GqlError, Result},
-    ext::ContextExt,
+use crate::{
+    api::v1::gql::{
+        error::{GqlError, Result},
+        ext::ContextExt,
+    },
+    database::{self, RolePermission, SearchResult},
 };
-use crate::database::{role, user};
 
 use super::{channel::Channel, color::DisplayColor, date::DateRFC3339, ulid::GqlUlid};
 
@@ -15,10 +17,10 @@ pub struct UserSearchResult {
     similarity: f64,
 }
 
-impl From<user::SearchResult> for UserSearchResult {
-    fn from(value: user::SearchResult) -> Self {
+impl From<SearchResult<database::User>> for UserSearchResult {
+    fn from(value: SearchResult<database::User>) -> Self {
         Self {
-            user: value.user.into(),
+            user: value.object.into(),
             similarity: value.similarity,
         }
     }
@@ -53,9 +55,7 @@ impl User {
 
         if let Some(auth) = auth {
             if Ulid::from(auth.session.user_id) == *self.id
-                || auth
-                    .user_permissions
-                    .has_permission(role::Permission::Admin)
+                || auth.user_permissions.has_permission(RolePermission::Admin)
             {
                 return Ok(&self.email_);
             }
@@ -73,9 +73,7 @@ impl User {
 
         if let Some(auth) = auth {
             if Ulid::from(auth.session.user_id) == *self.id
-                || auth
-                    .user_permissions
-                    .has_permission(role::Permission::Admin)
+                || auth.user_permissions.has_permission(RolePermission::Admin)
             {
                 return Ok(self.email_verified_);
             }
@@ -93,9 +91,7 @@ impl User {
 
         if let Some(auth) = auth {
             if Ulid::from(auth.session.user_id) == *self.id
-                || auth
-                    .user_permissions
-                    .has_permission(role::Permission::Admin)
+                || auth.user_permissions.has_permission(RolePermission::Admin)
             {
                 return Ok(&self.last_login_at_);
             }
@@ -107,10 +103,10 @@ impl User {
     }
 }
 
-impl From<user::Model> for User {
-    fn from(value: user::Model) -> Self {
+impl From<database::User> for User {
+    fn from(value: database::User) -> Self {
         Self {
-            id: value.id.into(),
+            id: value.id.0.into(),
             username: value.username,
             display_name: value.display_name,
             display_color: value.display_color.into(),

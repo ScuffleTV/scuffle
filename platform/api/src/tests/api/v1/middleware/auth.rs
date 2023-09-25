@@ -27,7 +27,7 @@ async fn test_serial_auth_middleware() {
     .await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .expect("failed to clear users");
     let id = sqlx::query!(
@@ -38,7 +38,7 @@ async fn test_serial_auth_middleware() {
         user::generate_stream_key(),
     )
     .map(|row| row.id)
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .expect("failed to insert user");
 
@@ -48,7 +48,7 @@ async fn test_serial_auth_middleware() {
         id,
         Utc::now() + Duration::seconds(30)
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .expect("failed to insert session");
 
@@ -79,7 +79,7 @@ async fn test_serial_auth_middleware() {
         "UPDATE sessions SET invalidated_at = NOW() WHERE id = $1",
         session_id
     )
-    .execute(&*global.db)
+    .execute(global.db.as_ref())
     .await
     .expect("failed to update session");
 
@@ -132,7 +132,7 @@ async fn test_serial_auth_middleware_failed() {
     .await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .expect("failed to clear users");
     let id = sqlx::query!(
@@ -143,7 +143,7 @@ async fn test_serial_auth_middleware_failed() {
         user::generate_stream_key(),
     )
     .map(|row| row.id)
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .expect("failed to insert user");
 
@@ -153,7 +153,7 @@ async fn test_serial_auth_middleware_failed() {
         id,
         Utc::now() - Duration::seconds(30)
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .expect("failed to insert session");
 

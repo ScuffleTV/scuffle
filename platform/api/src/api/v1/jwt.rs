@@ -1,18 +1,16 @@
 use std::sync::Arc;
 
-use crate::database::session;
 use chrono::{DateTime, TimeZone, Utc};
 use hmac::{Hmac, Mac};
 use jwt::{Claims, Header, RegisteredClaims, SignWithKey, Token, VerifyWithKey};
 use sha2::Sha256;
 use ulid::Ulid;
-use uuid::Uuid;
 
-use crate::global::GlobalState;
+use crate::{database::Session, global::GlobalState};
 
 pub struct JwtState {
-    pub user_id: Uuid,
-    pub session_id: Uuid,
+    pub user_id: Ulid,
+    pub session_id: Ulid,
     pub expiration: Option<DateTime<Utc>>,
     pub issued_at: DateTime<Utc>,
     pub not_before: Option<DateTime<Utc>>,
@@ -72,13 +70,13 @@ impl JwtState {
             }
         }
 
-        let user_id = claims.registered.subject.clone()?.parse::<Uuid>().ok()?;
+        let user_id = claims.registered.subject.clone()?.parse::<Ulid>().ok()?;
 
         let session_id = claims
             .registered
             .json_web_token_id
             .clone()?
-            .parse::<Uuid>()
+            .parse::<Ulid>()
             .ok()?;
         let audience = claims.registered.audience.clone();
 
@@ -93,11 +91,11 @@ impl JwtState {
     }
 }
 
-impl From<session::Model> for JwtState {
-    fn from(session: session::Model) -> Self {
+impl From<Session> for JwtState {
+    fn from(session: Session) -> Self {
         JwtState {
-            user_id: session.user_id,
-            session_id: session.id,
+            user_id: session.user_id.0,
+            session_id: session.id.0,
             expiration: Some(session.expires_at),
             issued_at: Ulid::from(session.id).datetime().into(),
             not_before: None,

@@ -30,7 +30,7 @@ async fn test_serial_login() {
     .await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
     sqlx::query_as!(user::Model,
@@ -40,7 +40,7 @@ async fn test_serial_login() {
         user::hash_password("admin"),
         user::generate_stream_key(),
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -79,7 +79,7 @@ async fn test_serial_login() {
     assert!(json.is_ok());
 
     let session = sqlx::query_as!(session::Model, "SELECT * FROM sessions")
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .timeout(Duration::from_secs(5))
         .await
         .unwrap()
@@ -124,7 +124,7 @@ async fn test_serial_login_while_logged_in() {
     .await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
     sqlx::query!(
@@ -134,7 +134,7 @@ async fn test_serial_login_while_logged_in() {
         user::hash_password("admin"),
         user::generate_stream_key(),
     )
-    .execute(&*global.db)
+    .execute(global.db.as_ref())
     .await
     .unwrap();
 
@@ -175,7 +175,7 @@ async fn test_serial_login_while_logged_in() {
     assert!(json.is_ok());
 
     let session = sqlx::query_as!(session::Model, "SELECT * FROM sessions")
-        .fetch_one(&*global.db)
+        .fetch_one(global.db.as_ref())
         .timeout(Duration::from_secs(1))
         .await
         .unwrap()
@@ -213,7 +213,7 @@ async fn test_serial_login_with_token() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
     let user = sqlx::query!(
@@ -223,7 +223,7 @@ async fn test_serial_login_with_token() {
         user::hash_password("admin"),
         user::generate_stream_key()
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -233,7 +233,7 @@ async fn test_serial_login_with_token() {
         user.id,
         Utc::now() + chrono::Duration::seconds(60)
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
     let token = JwtState::from(session).serialize(&global).unwrap();
@@ -292,7 +292,7 @@ async fn test_serial_login_with_session_expired() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
     let user = sqlx::query!(
@@ -302,7 +302,7 @@ async fn test_serial_login_with_session_expired() {
         user::hash_password("admin"),
         user::generate_stream_key()
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
     let session = sqlx::query_as!(
@@ -311,7 +311,7 @@ async fn test_serial_login_with_session_expired() {
         user.id,
         Utc::now() - chrono::Duration::seconds(60)
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -383,7 +383,7 @@ async fn test_serial_login_while_logged_in_with_session_expired() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
     let user = sqlx::query_as!(user::Model,
@@ -393,7 +393,7 @@ async fn test_serial_login_while_logged_in_with_session_expired() {
         user::hash_password("admin"),
         user::generate_stream_key()
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
     let session = sqlx::query_as!(
@@ -402,7 +402,7 @@ async fn test_serial_login_while_logged_in_with_session_expired() {
         user.id,
         Utc::now() - chrono::Duration::seconds(60)
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -412,7 +412,7 @@ async fn test_serial_login_while_logged_in_with_session_expired() {
         user.id,
         Utc::now() + chrono::Duration::seconds(60)
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -483,7 +483,7 @@ async fn test_serial_register() {
     .await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
@@ -524,7 +524,7 @@ async fn test_serial_register() {
 
     let user = tokio::time::timeout(
         Duration::from_secs(1),
-        sqlx::query_as!(user::Model, "SELECT * FROM users").fetch_one(&*global.db),
+        sqlx::query_as!(user::Model, "SELECT * FROM users").fetch_one(global.db.as_ref()),
     )
     .await
     .unwrap()
@@ -536,7 +536,7 @@ async fn test_serial_register() {
 
     let session = tokio::time::timeout(
         Duration::from_secs(1),
-        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&*global.db),
+        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(global.db.as_ref()),
     )
     .await
     .unwrap()
@@ -567,7 +567,7 @@ async fn test_serial_logout() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
     let user = sqlx::query_as!(user::Model,
@@ -577,7 +577,7 @@ async fn test_serial_logout() {
         user::hash_password("admin"),
         user::generate_stream_key(),
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
     let session = sqlx::query_as!(
@@ -586,7 +586,7 @@ async fn test_serial_logout() {
         user.id,
         Utc::now() + chrono::Duration::seconds(60)
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -624,7 +624,7 @@ async fn test_serial_logout() {
 
     let session = tokio::time::timeout(
         Duration::from_secs(1),
-        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&*global.db),
+        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(global.db.as_ref()),
     )
     .await
     .unwrap()
@@ -646,7 +646,7 @@ async fn test_serial_logout_with_token() {
     let (global, handler) = mock_global_state(Default::default()).await;
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
     let user = sqlx::query_as!(user::Model,
@@ -656,7 +656,7 @@ async fn test_serial_logout_with_token() {
         user::hash_password("admin"),
         user::generate_stream_key()
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
     let session = sqlx::query_as!(
@@ -665,7 +665,7 @@ async fn test_serial_logout_with_token() {
         user.id,
         Utc::now() + chrono::Duration::seconds(60)
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
     let token = JwtState::from(session.clone()).serialize(&global).unwrap();
@@ -707,7 +707,7 @@ async fn test_serial_logout_with_token() {
 
     let session = tokio::time::timeout(
         Duration::from_secs(1),
-        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(&*global.db),
+        sqlx::query_as!(session::Model, "SELECT * FROM sessions").fetch_one(global.db.as_ref()),
     )
     .await
     .unwrap()

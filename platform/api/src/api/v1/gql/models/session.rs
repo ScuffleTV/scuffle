@@ -35,8 +35,9 @@ impl Session {
 
         let user = global
             .user_by_id_loader
-            .load_one(self.user_id.into())
+            .load(self.user_id.into())
             .await
+            .ok()
             .map_err_gql("failed to fetch user")?
             .ok_or(GqlError::NotFound.with_message("user not found"))?;
 

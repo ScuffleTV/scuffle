@@ -1,6 +1,6 @@
 use async_graphql::SimpleObject;
 
-use crate::database::category;
+use crate::database::{self, SearchResult};
 
 use super::date::DateRFC3339;
 use super::ulid::GqlUlid;
@@ -11,10 +11,10 @@ pub struct CategorySearchResult {
     similarity: f64,
 }
 
-impl From<category::SearchResult> for CategorySearchResult {
-    fn from(value: category::SearchResult) -> Self {
+impl From<SearchResult<database::Category>> for CategorySearchResult {
+    fn from(value: SearchResult<database::Category>) -> Self {
         Self {
-            category: value.category.into(),
+            category: value.object.into(),
             similarity: value.similarity,
         }
     }
@@ -28,10 +28,10 @@ pub struct Category {
     pub updated_at: DateRFC3339,
 }
 
-impl From<category::Model> for Category {
-    fn from(value: category::Model) -> Self {
+impl From<database::Category> for Category {
+    fn from(value: database::Category) -> Self {
         Self {
-            id: value.id.into(),
+            id: value.id.0.into(),
             name: value.name,
             revision: value.revision,
             updated_at: value.updated_at.into(),

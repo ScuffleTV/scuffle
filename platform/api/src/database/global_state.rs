@@ -1,9 +1,7 @@
-use uuid::Uuid;
-
-use super::role::Permission;
+use super::{RolePermission, Ulid};
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
-pub struct Model {
-    pub role_order: Vec<Uuid>,
-    pub default_permissions: Permission,
+pub struct GlobalState {
+    pub role_order: Vec<Ulid>,
+    pub default_permissions: RolePermission,
 }

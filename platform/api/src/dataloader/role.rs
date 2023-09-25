@@ -1,12 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
-use async_graphql::{
-    async_trait::async_trait,
-    dataloader::{DataLoader, Loader},
-};
+use common::dataloader::{DataLoader, Loader, LoaderOutput};
+use ulid::Ulid;
 use uuid::Uuid;
 
-use crate::database::role;
+use crate::database::Role;
 
 pub struct RoleByIdLoader {
     db: Arc<sqlx::PgPool>,
@@ -14,29 +12,29 @@ pub struct RoleByIdLoader {
 
 impl RoleByIdLoader {
     pub fn new(db: Arc<sqlx::PgPool>) -> DataLoader<Self> {
-        DataLoader::new(Self { db }, tokio::spawn)
+        DataLoader::new(Self { db })
     }
 }
 
-#[async_trait]
-impl Loader<Uuid> for RoleByIdLoader {
-    type Value = role::Model;
-    type Error = Arc<sqlx::Error>;
+#[async_trait::async_trait]
+impl Loader for RoleByIdLoader {
+    type Key = Ulid;
+    type Value = Role;
+    type Error = ();
 
-    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
-        let results: Vec<role::Model> = sqlx::query_as("SELECT * FROM roles WHERE id = ANY($1)")
-            .bind(keys)
-            .fetch_all(&*self.db)
+    async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
+        let results: Vec<Self::Value> = sqlx::query_as("SELECT * FROM roles WHERE id = ANY($1)")
+            .bind(keys.iter().copied().map(Uuid::from).collect::<Vec<_>>())
+            .fetch_all(self.db.as_ref())
             .await
             .map_err(|e| {
-                tracing::error!("Failed to fetch roles: {}", e);
-                Arc::new(e)
+                tracing::error!(err = %e, "failed to fetch roles");
             })?;
 
         let mut map = HashMap::new();
 
         for result in results {
-            map.insert(result.id, result);
+            map.insert(result.id.0, result);
         }
 
         Ok(map)

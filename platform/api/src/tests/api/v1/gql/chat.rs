@@ -81,12 +81,12 @@ async fn test_serial_send_message_chat_not_found() {
     "#;
 
     sqlx::query!("DELETE FROM sessions")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
@@ -97,7 +97,7 @@ async fn test_serial_send_message_chat_not_found() {
         user::hash_password("test"),
         user::generate_stream_key(),
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -107,7 +107,7 @@ async fn test_serial_send_message_chat_not_found() {
         user.id,
         Utc::now() + chrono::Duration::seconds(120)
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -162,17 +162,17 @@ async fn test_serial_send_message_success() {
     "#;
 
     sqlx::query!("DELETE FROM chat_messages")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
     sqlx::query!("DELETE FROM sessions")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
@@ -183,7 +183,7 @@ async fn test_serial_send_message_success() {
         user::hash_password("test"),
         user::generate_stream_key(),
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -194,7 +194,7 @@ async fn test_serial_send_message_success() {
         user::hash_password("based"),
         user::generate_stream_key(),
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -204,7 +204,7 @@ async fn test_serial_send_message_success() {
         user.id,
         Utc::now() + chrono::Duration::seconds(120)
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -274,7 +274,7 @@ async fn test_serial_send_message_success() {
         "SELECT * FROM chat_messages WHERE id = $1",
         Uuid::parse_str(json["chat"]["sendMessage"]["id"].as_str().unwrap()).unwrap()
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await;
 
     assert!(db_message.is_ok());
@@ -300,12 +300,12 @@ async fn test_serial_send_message_too_long() {
     "#;
 
     sqlx::query!("DELETE FROM sessions")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
     sqlx::query!("DELETE FROM users")
-        .execute(&*global.db)
+        .execute(global.db.as_ref())
         .await
         .unwrap();
 
@@ -316,7 +316,7 @@ async fn test_serial_send_message_too_long() {
         user::hash_password("test"),
         user::generate_stream_key(),
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 
@@ -326,7 +326,7 @@ async fn test_serial_send_message_too_long() {
         user.id,
         Utc::now() + chrono::Duration::seconds(120)
     )
-    .fetch_one(&*global.db)
+    .fetch_one(global.db.as_ref())
     .await
     .unwrap();
 

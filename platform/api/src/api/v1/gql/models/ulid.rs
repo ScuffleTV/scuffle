@@ -6,6 +6,16 @@ use async_graphql::{Description, InputValueError, InputValueResult, Scalar, Scal
 #[derive(Copy, Clone, Debug, Description)]
 pub struct GqlUlid(ulid::Ulid);
 
+impl GqlUlid {
+    pub fn to_ulid(self) -> ulid::Ulid {
+        self.0
+    }
+
+    pub fn to_uuid(self) -> uuid::Uuid {
+        self.0.into()
+    }
+}
+
 #[Scalar(
     name = "ULID",
     specified_by_url = "https://github.com/ulid/spec",
@@ -48,8 +58,8 @@ impl From<uuid::Uuid> for GqlUlid {
     }
 }
 
-impl From<GqlUlid> for uuid::Uuid {
+impl From<GqlUlid> for ulid::Ulid {
     fn from(value: GqlUlid) -> Self {
-        value.0.into()
+        value.0
     }
 }

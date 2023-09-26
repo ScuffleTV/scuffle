@@ -1,5 +1,5 @@
-video/player
-platform/website
+/video/
+/platform/
 **/target
 **/pkg
 terraform/.terraform

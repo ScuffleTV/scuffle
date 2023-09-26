@@ -41,8 +41,3 @@ services:
       /usr/bin/mc anonymous set download myminio/scuffle-video;
       exit 0;
       "
-
-networks:
-  default:
-    name: scuffle-dev
-    external: true

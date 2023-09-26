@@ -1,124 +1,5 @@
 # Scuffle Tasks
 
-## build
-
-> Build the project
-
-<!-- Default build all  -->
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-$MASK build rust
-$MASK build website
-```
-
-### rust
-
-> Build all rust code
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-target=$(rustup show active-toolchain | cut -d '-' -f2- | cut -d ' ' -f1)
-
-cargo build --release --target=$target --bins --workspace
-```
-
-### website
-
-> Build the frontend website
-
-**OPTIONS**
-
-- no_gql_prepare
-  - flags: --no-gql-prepare
-  - desc: Don't prepare the GraphQL schema
-- no_player
-  - flags: --no-player
-  - desc: Don't build the player
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-if [ "$no_gql_prepare" != "true" ]; then
-    $MASK gql prepare
-    export SCHEMA_URL=$(realpath platform/website/schema.graphql)
-fi
-
-if [ "$no_player" != "true" ]; then
-    $MASK build player
-fi
-
-pnpm --filter website build
-```
-
-### player
-
-> Build the player
-
-**OPTIONS**
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-pnpm --filter @scuffle/player build
-```
-
-## clean
-
-> Clean the project
-
-**OPTIONS**
-
-- all
-
-  - flags: --all
-  - desc: Removes everything that isn't tracked by git (use with caution, this is irreversible)
-
-- node_modules
-
-  - flags: --node-modules
-  - desc: Removes node_modules
-
-- env
-  - flags: --env
-  - desc: Removes .env
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-if [[ "$all" == "true" ]]; then
-    git clean -xfd
-fi
-
-cargo clean
-pnpm --recursive --parallel --stream run clean
-
-if [ "$node_modules" == "true" ]; then
-    rm -rf node_modules
-fi
-
-if [ "$env" == "true" ]; then
-    rm -rf .env
-fi
-```
-
 ## format
 
 > Format the project
@@ -282,7 +163,7 @@ if [ "$no_js" != "true" ]; then
 fi
 ```
 
-## db
+## dev
 
 > Database tasks
 
@@ -296,47 +177,16 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-sqlx database create
-sqlx migrate run --source ./platform/migrations
-```
+# We load the .env file
+export $(cat .env | xargs)
 
-#### create (name)
+echo "Migrating platform database"
+DATABASE_URL=$PLATFORM_DATABASE_URL sqlx database create
+DATABASE_URL=$PLATFORM_DATABASE_URL sqlx migrate run --source ./platform/migrations
 
-> Create a database migration
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-sqlx migrate add "$name" --source ./platform/migrations -r
-```
-
-### rollback
-
-> Rollback the database
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-sqlx migrate revert --source ./platform/migrations
-```
-
-### reset
-
-> Reset the database
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-sqlx database reset --source ./platform/migrations
+echo "Migrating video database"
+DATABASE_URL=$VIDEO_DATABASE_URL sqlx database create
+DATABASE_URL=$VIDEO_DATABASE_URL sqlx migrate run --source ./video/migrations
 ```
 
 ### up
@@ -349,7 +199,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-docker compose --file ./dev-stack/db.docker-compose.yml up -d
+docker compose --file ./dev/docker-compose.yml up -d
 ```
 
 ### down
@@ -362,7 +212,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-docker compose --file ./dev-stack/db.docker-compose.yml down
+docker compose --file ./dev/docker-compose.yml down
 ```
 
 ### status
@@ -375,7 +225,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-docker compose --file ./dev-stack/db.docker-compose.yml ps -a
+docker compose --file ./dev/docker-compose.yml ps -a
 ```
 
 ## env
@@ -393,39 +243,9 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 if [ ! -f .env ]; then
-    echo "DATABASE_URL=postgres://root@localhost:5432/scuffle_dev" > .env
-    echo "RMQ_URL=amqp://rabbitmq:rabbitmq@localhost:5672/scuffle" >> .env
-    echo "REDIS_URL=redis://localhost:6379/0" >> .env
-fi
-```
-
-### backup
-
-> Backup the environment files
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-if [ -f .env ]; then
-    mv .env .env.bak
-fi
-```
-
-### restore
-
-> Restore the environment files
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-if [ -f .env.bak ]; then
-    mv .env.bak .env
+    echo "PLATFORM_DATABASE_URL=postgres://root@localhost:5432/scuffle_platform" >> .env
+    echo "VIDEO_DATABASE_URL=postgres://root@localhost:5432/scuffle_video" >> .env
+    echo "NATS_ADDR=localhost:4222" >> .env
 fi
 ```
 
@@ -451,14 +271,10 @@ fi
   - flags: --no-env
   - type: bool
   - desc: Disables environment bootstrapping
-- no_docker
-  - flags: --no-docker
+- no_dev
+  - flags: --no-dev
   - type: bool
-  - desc: Disables docker bootstrapping
-- no_db
-  - flags: --no-db
-  - type: bool
-  - desc: Disables database bootstrapping
+  - desc: Disables dev docker bootstrapping
 
 ```bash
 set -e
@@ -473,10 +289,11 @@ if [ "$no_rust" != "true" ]; then
 
     cargo install cargo-binstall
     cargo binstall cargo-watch -y
-    cargo install sqlx-cli --features native-tls,postgres --no-default-features --git https://github.com/launchbadge/sqlx --branch main
+    cargo binstall sqlx-cli -y
     cargo binstall cargo-llvm-cov -y
     cargo binstall cargo-nextest -y
-    cargo install cargo-audit --features vendored-openssl
+    cargo binstall cargo-audit -y
+    cargo binstall wasm-bindgen-cli -y
 fi
 
 if [ "$no_js" != "true" ]; then
@@ -491,13 +308,9 @@ if [ "$no_env" != "true" ]; then
     $MASK env generate
 fi
 
-if [ "$no_docker" != "true" ]; then
-    docker network create scuffle-dev || true
-
-    if [ "$no_db" != "true" ]; then
-        $MASK db up
-        $MASK db migrate
-    fi
+if [ "$no_dev" != "true" ]; then
+    $MASK dev up
+    $MASK dev migrate
 fi
 ```
 

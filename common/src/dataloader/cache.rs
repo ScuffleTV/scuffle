@@ -18,20 +18,20 @@ pub trait Cache<L: Loader<S>, S = RandomState> {
 
 /// # Safety
 ///
-/// This trait is marked as unsafe because the implementor must ensure that the
-/// the functions on the cache all only ever require a reference to the cache, NOT a mutable reference.
-/// This is used to implement cache for &T where T is a Cache.
-/// Note: this is not safe unless T has some kind of internal locking mechanism.
+/// This trait is marked as unsafe because the implementor must ensure that the Cache is safe for concurrent access.
+/// This will almost always be with some kind of interior mutability. Such as a `RwLock` or `Mutex`. Or if the cache performs no-ops on mutation.
 /// Look at `SharedCache` for an example.
-pub unsafe trait AutoImplCacheRef<L: Loader<S>, S = RandomState>: Cache<L, S> {}
+pub unsafe trait AutoImplCacheRef<L: Loader<S>, S = RandomState>: AutoImplCacheMutRef<L, S> {}
 
 #[inline(always)]
 #[allow(clippy::mut_from_ref)]
-fn upcast<T: AutoImplCacheRef<L, S>, L: Loader<S>, S>(cache: &T) -> &mut T {
-    // Safety: this is safe because the trait AutoImplCacheRef is marked as unsafe and therefore the implementor must ensure that the
-    // the functions on the cache all only ever require a reference to the cache, NOT a mutable reference.
-    // So upcasting a &T to a &mut T is safe since we know that the implementor of AutoImplCacheRef has ensured that the functions on the cache
-    // do not require a mutable reference and can be called concurrently in a thread safe manner.
+#[allow(invalid_reference_casting)]
+fn upcast<T: AutoImplCacheRef<L, S>, L: Loader<S>, S>(cache: &T) -> impl Cache<L, S> {
+    // Safety:
+    // This is safe because the trait `AutoImplCacheRef` is marked as unsafe and therefore the implementor must ensure that the
+    // Cache is safe for concurrent access. This is used to implement cache for &T where T is a Cache.
+    // The issue is we need to upcast the reference to a mutable reference, even though the implementor only ever requires a reference.
+    // This is not safe unless T has some kind of interior mutability.
     unsafe { &mut *(cache as *const T as *mut T) }
 }
 
@@ -230,10 +230,9 @@ impl<C: Default> Default for SharedCache<C> {
     }
 }
 
-/// Safety: The shared cache is always for concurrent access because it contains a RwLock, which is a safe concurrent access primitive.
-unsafe impl<C: Cache<L, S>, L: Loader<S>, S> AutoImplCacheRef<L, S> for SharedCache<C> {}
-
 impl<C: Cache<L, S>, L: Loader<S>, S> AutoImplCacheMutRef<L, S> for SharedCache<C> {}
+/// Safety: The shared cache is always for concurrent access because it contains a RwLock, which is a safe concurrent access primitive.
+unsafe impl<'a, C: Cache<L, S> + 'a, L: Loader<S>, S> AutoImplCacheRef<L, S> for SharedCache<C> {}
 
 impl<C: Cache<L, S>, L: Loader<S>, S> Cache<L, S> for SharedCache<C> {
     #[inline(always)]

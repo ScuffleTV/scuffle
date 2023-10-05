@@ -11,11 +11,11 @@ tokio = { version = "1.32.0", features = ["full"] }
 serde = { version = "1.0.188", features = ["derive"] }
 hyper = { version = "0.14.27", features = ["full"] }
 common = { workspace = true }
-sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono", "uuid"] }
-sqlx-postgres = "0.7.1"
+sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono", "uuid"] }
+sqlx-postgres = "0.7.2"
 routerify = "3.0.0"
 serde_json = "1.0.107"
-reqwest = { version = "0.11.20", features = ["json"] }
+reqwest = { version = "0.11.22", features = ["json"] }
 chrono = { version = "0.4.31", default-features = false, features = ["serde", "clock"] }
 async-graphql = { version = "6.0.7", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "opentelemetry", "string_number", "uuid"] }
 hyper-tungstenite = "0.11.1"
@@ -25,9 +25,9 @@ futures-util = "0.3.28"
 arc-swap = "1.6.0"
 jwt = "0.16.0"
 hmac = "0.12.1"
-sha2 = "0.10.7"
+sha2 = "0.10.8"
 negative-impl  = "0.1.4"
-tonic = { version = "0.10.1", features = ["tls"] }
+tonic = { version = "0.10.2", features = ["tls"] }
 prost = "0.12.1"
 uuid = "1.4.1"
 bitmask-enum = "2.2.2"
@@ -37,14 +37,14 @@ email_address = "0.2.4"
 rand = "0.8.5"
 lapin = { version = "2.3.1", features = ["native-tls"] }
 tokio-stream = { version = "0.1.14", features = ["sync"] }
-async-nats = "0.32.0"
+async-nats = "0.32.1"
 async-trait = "0.1.73"
 bytes = "1.5.0"
 
 config = { workspace = true }
 pb = { workspace = true }
-totp-rs = { version = "5.3.0", features = ["gen_secret", "qr"] }
-thiserror = "1.0.48"
+totp-rs = { version = "5.4.0", features = ["gen_secret", "qr"] }
+thiserror = "1.0.49"
 
 [dev-dependencies]
 tempfile = "3.8.0"

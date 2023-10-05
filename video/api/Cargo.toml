@@ -9,9 +9,9 @@ edition = "2021"
 tokio = { version = "1.32.0", features = ["full"] }
 tracing = "0.1.37"
 anyhow = "1.0.75"
-sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono", "uuid"] }
-sqlx-postgres = "0.7.1"
-tonic = { version = "0.10.1", features = ["tls"] }
+sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono", "uuid"] }
+sqlx-postgres = "0.7.2"
+tonic = { version = "0.10.2", features = ["tls"] }
 prost = "0.12.1"
 uuid = { version = "1.4.1", features = ["v4"] }
 serde = { version = "1.0.188", features = ["derive"] }
@@ -25,9 +25,9 @@ async-graphql = { version = "6.0.7", default-features = false, features = ["data
 async-trait = "0.1.73"
 jwt = "0.16.0"
 hmac = "0.12.1"
-sha2 = "0.10.7"
+sha2 = "0.10.8"
 rand = "0.8.5"
-async-nats = "0.32.0"
+async-nats = "0.32.1"
 ulid = "1.1.0"
 hex = "0.4.3"
 base64 = "0.21.4"

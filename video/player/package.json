@@ -22,15 +22,15 @@
 		"pkg"
 	],
 	"devDependencies": {
-		"@typescript-eslint/eslint-plugin": "^6.7.2",
-		"@typescript-eslint/parser": "^6.7.2",
+		"@typescript-eslint/eslint-plugin": "^6.7.4",
+		"@typescript-eslint/parser": "^6.7.4",
 		"astring": "^1.8.6",
 		"eslint": "^8.50.0",
 		"eslint-config-prettier": "^8.10.0",
 		"prettier": "^3.0.3",
-		"rimraf": "^5.0.1",
+		"rimraf": "^5.0.5",
 		"typescript": "^5.2.2",
-		"vite": "^4.4.9",
-		"vite-plugin-dts": "^3.5.4"
+		"vite": "^4.4.10",
+		"vite-plugin-dts": "^3.6.0"
 	}
 }

@@ -6,8 +6,8 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1.32.0", features = ["full"] }
 tracing = "0.1.37"
-sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono", "uuid"] }
-sqlx-postgres = "0.7.1"
+sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono", "uuid"] }
+sqlx-postgres = "0.7.2"
 prost = "0.12.1"
 uuid = { version = "1.4.1", features = ["v4"] }
 ulid = { version = "1.1.0", features = ["uuid"] }
@@ -18,7 +18,7 @@ futures-util = "0.3.28"
 bytes = "1.5.0"
 async-graphql = { version = "6.0.7", default-features = false, features = ["dataloader"] }
 async-trait = "0.1.73"
-async-nats = "0.32.0"
+async-nats = "0.32.1"
 
 pb = { workspace = true }
 common = { workspace = true }

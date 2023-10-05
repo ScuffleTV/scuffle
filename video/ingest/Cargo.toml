@@ -14,7 +14,7 @@ async-trait = "0.1.73"
 tokio = { version = "1.32.0", features = ["full"] }
 serde = { version = "1.0.188", features = ["derive"] }
 hyper = { version = "0.14.27", features = ["full"] }
-tonic = { version = "0.10.1", features = ["tls"] }
+tonic = { version = "0.10.2", features = ["tls"] }
 prost = "0.12.1"
 bytes = "1.5.0"
 futures = "0.3.28"
@@ -25,11 +25,11 @@ uuid = "1.4.1"
 ulid = { version = "1.1.0", features = ["uuid"] }
 async-stream = "0.3.5"
 pnet = "0.34.0"
-async-nats = "0.32.0"
+async-nats = "0.32.1"
 tokio-executor-trait = "2.1.1"
 tokio-reactor-trait = "1.1.0"
-sqlx = { version = "0.7.1", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono", "uuid"] }
-sqlx-postgres = "0.7.1"
+sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono", "uuid"] }
+sqlx-postgres = "0.7.2"
 base64 = "0.21.4"
 tokio-stream = "0.1.14"
 

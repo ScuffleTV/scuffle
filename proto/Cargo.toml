@@ -6,13 +6,13 @@ authors = ["Scuffle <opensource@scuffle.tv>"]
 description = "Scuffle Protobuf definitions for scuffle"
 
 [dependencies]
-tonic = "0.10.1"
+tonic = "0.10.2"
 prost = "0.12.1"
 ulid = "1.1.0"
 uuid = "1.4.1"
 
 [build-dependencies]
-tonic-build = "0.10.1"
+tonic-build = "0.10.2"
 prost-build = "0.12.1"
 walkdir = "2.4.0"
 syn = { version = "2.0.37", features = ["full"] }

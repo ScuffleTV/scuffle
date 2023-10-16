@@ -8,11 +8,13 @@ use crate::{api::error::ApiErrorInterface, global::GlobalState};
 
 pub mod error;
 pub mod ext;
+pub mod guards;
 pub mod handlers;
 pub mod models;
 pub mod mutations;
 pub mod queries;
 pub mod subscription;
+pub mod validators;
 
 pub type MySchema = Schema<queries::Query, mutations::Mutation, subscription::Subscription>;
 

@@ -1,12 +1,8 @@
 use async_graphql::{ComplexObject, Context, SimpleObject};
-use ulid::Ulid;
 
 use crate::{
-    api::v1::gql::{
-        error::{GqlError, Result},
-        ext::ContextExt,
-    },
-    database::{self, RolePermission, SearchResult},
+    api::v1::gql::{error::Result, guards::auth_guard},
+    database::{self, SearchResult},
 };
 
 use super::{channel::Channel, color::DisplayColor, date::DateRFC3339, ulid::GqlUlid};
@@ -46,80 +42,22 @@ pub struct User {
     pub totp_enabled_: bool,
 }
 
-/// TODO: find a better way to check if a user is allowed to read a field.
-
 #[ComplexObject]
 impl User {
-    async fn email(&self, ctx: &Context<'_>) -> Result<&str> {
-        let request_context = ctx.get_req_context();
-
-        let auth = request_context.auth().await?;
-
-        if let Some(auth) = auth {
-            if Ulid::from(auth.session.user_id) == *self.id
-                || auth.user_permissions.has_permission(RolePermission::Admin)
-            {
-                return Ok(&self.email_);
-            }
-        }
-
-        Err(GqlError::Unauthorized { field: "email" }.into())
+    async fn email(&self, ctx: &Context<'_>) -> Result<&String> {
+        auth_guard(ctx, "email", &self.email_, self.id.into()).await
     }
 
     async fn email_verified(&self, ctx: &Context<'_>) -> Result<bool> {
-        let request_context = ctx.get_req_context();
-
-        let auth = request_context.auth().await?;
-
-        if let Some(auth) = auth {
-            if Ulid::from(auth.session.user_id) == *self.id
-                || auth.user_permissions.has_permission(RolePermission::Admin)
-            {
-                return Ok(self.email_verified_);
-            }
-        }
-
-        Err(GqlError::Unauthorized {
-            field: "emailVerified",
-        }
-        .into())
+        auth_guard(ctx, "emailVerified", self.email_verified_, self.id.into()).await
     }
 
     async fn last_login_at(&self, ctx: &Context<'_>) -> Result<&DateRFC3339> {
-        let request_context = ctx.get_req_context();
-
-        let auth = request_context.auth().await?;
-
-        if let Some(auth) = auth {
-            if Ulid::from(auth.session.user_id) == *self.id
-                || auth.user_permissions.has_permission(RolePermission::Admin)
-            {
-                return Ok(&self.last_login_at_);
-            }
-        }
-
-        Err(GqlError::Unauthorized {
-            field: "lastLoginAt",
-        }
-        .into())
+        auth_guard(ctx, "lastLoginAt", &self.last_login_at_, self.id.into()).await
     }
 
     async fn totp_enabled(&self, ctx: &Context<'_>) -> Result<bool> {
-        let request_context = ctx.get_req_context();
-        let auth = request_context.auth().await?;
-
-        if let Some(auth) = auth {
-            if Ulid::from(auth.session.user_id) == *self.id
-                || auth.user_permissions.has_permission(RolePermission::Admin)
-            {
-                return Ok(self.totp_enabled_);
-            }
-        }
-
-        Err(GqlError::Unauthorized {
-            field: "totpEnabled",
-        }
-        .into())
+        auth_guard(ctx, "totpEnabled", self.totp_enabled_, self.id.into()).await
     }
 }
 

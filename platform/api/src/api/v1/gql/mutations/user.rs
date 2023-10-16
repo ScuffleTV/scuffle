@@ -27,7 +27,7 @@ impl UserMutation {
     async fn email<'ctx>(
         &self,
         ctx: &Context<'_>,
-        #[graphql(desc = "New email address.")] email: String,
+        #[graphql(desc = "New email address.", validator(email))] email: String,
     ) -> Result<User> {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
@@ -36,11 +36,6 @@ impl UserMutation {
             .auth()
             .await?
             .map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
-
-        database::User::validate_email(&email).map_err(|e| GqlError::InvalidInput {
-            fields: vec!["email"],
-            message: e,
-        })?;
 
         let user: database::User = sqlx::query_as(
             "UPDATE users SET email = $1, email_verified = false, updated_at = NOW() WHERE id = $2 RETURNING *",

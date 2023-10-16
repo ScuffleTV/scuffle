@@ -15,8 +15,6 @@ use crate::{
     database,
 };
 
-const MAX_MESSAGE_LENGTH: usize = 500;
-
 #[derive(Default)]
 pub struct ChatMutation;
 
@@ -27,18 +25,14 @@ impl ChatMutation {
         &self,
         ctx: &Context<'_>,
         #[graphql(desc = "ID of chat room where the message will be send.")] channel_id: GqlUlid,
-        #[graphql(desc = "Message content that will be published.")] content: String,
+        #[graphql(
+            desc = "Message content that will be published.",
+            validator(max_length = 500)
+        )]
+        content: String,
     ) -> Result<ChatMessage> {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
-
-        if content.len() > MAX_MESSAGE_LENGTH {
-            return Err(GqlError::InvalidInput {
-                fields: vec!["content"],
-                message: "Message is too long",
-            }
-            .into());
-        }
 
         // TODO: check if user is banned from chat
         let auth = request_context

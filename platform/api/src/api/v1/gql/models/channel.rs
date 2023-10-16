@@ -1,12 +1,9 @@
 use async_graphql::{ComplexObject, Context, SimpleObject};
-use ulid::Ulid;
 
 use crate::api::v1::gql::error::ResultExt;
-use crate::api::v1::gql::{
-    error::{GqlError, Result},
-    ext::ContextExt,
-};
-use crate::database::{self, ChannelLink, RolePermission};
+use crate::api::v1::gql::guards::auth_guard;
+use crate::api::v1::gql::{error::Result, ext::ContextExt};
+use crate::database::{self, ChannelLink};
 
 use super::category::Category;
 use super::{date::DateRFC3339, ulid::GqlUlid};
@@ -49,22 +46,7 @@ impl Channel {
     }
 
     async fn stream_key(&self, ctx: &Context<'_>) -> Result<&Option<String>> {
-        let request_context = ctx.get_req_context();
-
-        let auth = request_context.auth().await?;
-
-        if let Some(auth) = auth {
-            if Ulid::from(auth.session.user_id) == *self.id
-                || auth.user_permissions.has_permission(RolePermission::Admin)
-            {
-                return Ok(&self.stream_key_);
-            }
-        }
-
-        Err(GqlError::Unauthorized {
-            field: "stream_key",
-        }
-        .into())
+        auth_guard(ctx, "streamKey", &self.stream_key_, self.id.into()).await
     }
 
     async fn followers_count(&self, ctx: &Context<'_>) -> Result<i64> {

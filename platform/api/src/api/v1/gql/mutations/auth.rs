@@ -1,4 +1,5 @@
 use crate::api::middleware::auth::AuthError;
+use crate::api::v1::gql::validators::{PasswordValidator, UsernameValidator};
 use crate::api::v1::jwt::JwtState;
 use crate::api::v1::request_context::AuthData;
 use crate::{
@@ -232,9 +233,17 @@ impl AuthMutation {
     async fn register<'ctx>(
         &self,
         ctx: &Context<'_>,
-        #[graphql(desc = "The username of the user.")] username: String,
-        #[graphql(desc = "The password of the user.")] password: String,
-        #[graphql(desc = "The email of the user.")] email: String,
+        #[graphql(
+            desc = "The username of the user.",
+            validator(custom = "UsernameValidator")
+        )]
+        username: String,
+        #[graphql(
+            desc = "The password of the user.",
+            validator(custom = "PasswordValidator")
+        )]
+        password: String,
+        #[graphql(desc = "The email of the user.", validator(email))] email: String,
         #[graphql(desc = "The captcha token from cloudflare turnstile.")] captcha_token: String,
         #[graphql(desc = "The validity of the session in seconds.")] validity: Option<u32>,
         #[graphql(
@@ -260,19 +269,6 @@ impl AuthMutation {
         let display_name = username.clone();
         let username = username.to_lowercase();
         let email = email.to_lowercase();
-
-        database::User::validate_username(&username).map_err(|e| GqlError::InvalidInput {
-            fields: vec!["username"],
-            message: e,
-        })?;
-        database::User::validate_password(&password).map_err(|e| GqlError::InvalidInput {
-            fields: vec!["password"],
-            message: e,
-        })?;
-        database::User::validate_email(&email).map_err(|e| GqlError::InvalidInput {
-            fields: vec!["email"],
-            message: e,
-        })?;
 
         if global
             .user_by_username_loader

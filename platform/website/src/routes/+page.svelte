@@ -421,12 +421,12 @@
 	}
 
 	.title {
-		font-size: 1.25rem;
+		font-size: 1.5rem;
 		font-weight: 500;
 		color: $textColor;
 		font-family: $sansFont;
 
-		margin-bottom: 0.5rem;
+		margin-bottom: 1rem;
 	}
 
 	.hbt {
@@ -441,7 +441,6 @@
 			align-items: center;
 			gap: 0.5rem;
 
-			border: 2px dashed $textColorLight;
 			border-radius: 0.5rem;
 
 			background: linear-gradient(
@@ -463,7 +462,8 @@
 
 		& > .title {
 			margin-left: 1rem;
-			margin-bottom: -1.5rem;
+			/* -2rem because categories has padding-top of 2rem */
+			margin-bottom: -1rem;
 		}
 
 		& > .categories {

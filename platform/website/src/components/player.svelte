@@ -103,26 +103,26 @@
 		videoEl.pause();
 	}
 
-	onMount(() => {
-		init().then(() => {
-			player = new Player(videoEl, {
-				organization_id: "...",
-			});
+	// onMount(() => {
+	// 	init().then(() => {
+	// 		player = new Player(videoEl, {
+	// 			organization_id: "...",
+	// 		});
 
-			player.on("manifestloaded", onManifestLoaded);
-			player.on("variant", onVariantChange);
-			player.on("error", onError);
-			player.on("destroyed", onShutdown);
+	// 		player.on("manifestloaded", onManifestLoaded);
+	// 		player.on("variant", onVariantChange);
+	// 		player.on("error", onError);
+	// 		player.on("destroyed", onShutdown);
 
-			videoEl.play();
-		});
-	});
+	// 		videoEl.play();
+	// 	});
+	// });
 
-	onDestroy(() => {
-		if (player) {
-			player.destroy();
-		}
-	});
+	// onDestroy(() => {
+	// 	if (player) {
+	// 		player.destroy();
+	// 	}
+	// });
 
 	function onPlayClick() {
 		switch (state) {

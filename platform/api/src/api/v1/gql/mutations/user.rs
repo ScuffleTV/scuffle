@@ -3,6 +3,7 @@ use bytes::Bytes;
 use prost::Message;
 
 use crate::api::middleware::auth::AuthError;
+use crate::api::v1::gql::validators::PasswordValidator;
 use crate::{
     api::v1::gql::{
         error::{GqlError, Result, ResultExt},
@@ -144,6 +145,59 @@ impl UserMutation {
             )
             .await
             .map_err_gql("failed to publish message")?;
+
+        Ok(user.into())
+    }
+
+    async fn password<'ctx>(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "Current password")] current_password: String,
+        #[graphql(desc = "New password", validator(custom = "PasswordValidator"))]
+        new_password: String,
+    ) -> Result<User> {
+        let global = ctx.get_global();
+        let request_context = ctx.get_req_context();
+
+        let auth = request_context
+            .auth()
+            .await?
+            .ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
+
+        let user = global
+            .user_by_id_loader
+            .load(auth.session.user_id.0)
+            .await
+            .map_err_gql("failed to fetch user")?
+            .map_err_gql(GqlError::NotFound("user"))?;
+
+        if !user.verify_password(&current_password) {
+            return Err(GqlError::InvalidInput {
+                fields: vec!["password"],
+                message: "wrong password",
+            }
+            .into());
+        }
+
+        let mut tx = global.db.begin().await?;
+
+        let user: database::User =
+            sqlx::query_as("UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING *")
+                .bind(database::User::hash_password(&new_password))
+                .bind(user.id)
+                .fetch_one(tx.as_mut())
+                .await?;
+
+        // Delete all sessions except current
+        sqlx::query("DELETE FROM user_sessions WHERE user_id = $1 AND id != $2")
+            .bind(user.id)
+            .bind(auth.session.id)
+            .execute(tx.as_mut())
+            .await?;
+
+        // TODO: Logout active connections
+
+        tx.commit().await?;
 
         Ok(user.into())
     }

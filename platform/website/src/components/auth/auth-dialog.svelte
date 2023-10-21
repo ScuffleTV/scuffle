@@ -1,14 +1,16 @@
 <script lang="ts">
-	import { onDestroy } from "svelte";
 	import { Turnstile } from "svelte-turnstile";
 	import { AuthDialog, authDialog, session } from "$/store/auth";
-	import LoginField, { newField } from "$/components/auth/field.svelte";
 	import { z } from "zod";
 	import { getContextClient } from "@urql/svelte";
 	import { graphql } from "$gql";
 	import { PUBLIC_CF_TURNSTILE_KEY } from "$env/static/public";
 	import Dialog from "../dialog.svelte";
 	import SolveTwoFaDialog from "./solve-two-fa-dialog.svelte";
+	import { FieldStatusType, type FieldStatus, resetAllFields } from "../form/field.svelte";
+	import Field from "$/components/form/field.svelte";
+	import PasswordField from "../form/password-field.svelte";
+	import { fieldsValid, passwordValidate } from "$/lib/utils";
 
 	const client = getContextClient();
 
@@ -48,262 +50,105 @@
 	let turnstileToken = "";
 	let loggingIn = false;
 
-	let username = newField({
-		id: "username",
-		type: "text",
-		label: "Username",
-		autoComplete: "username",
-		extra: {
-			timeout: undefined as NodeJS.Timeout | undefined,
-		},
-		reload() {
-			username.touched = username.value.length > 0;
+	$: $authDialog, resetAllFields();
 
-			if ($authDialog === AuthDialog.Login) {
-				username.message = "";
-				username.status = "";
-			}
-
-			if (username.touched) {
-				username.update(username.value);
-			}
-		},
-		update(value) {
-			username.value = value;
-
-			// We clear the timeout so that we dont send a request to the server on every character change.
-			clearTimeout(username.extra.timeout);
-
-			// When we are in login mode, we dont need to validate the username.
-			if ($authDialog !== AuthDialog.Register) {
-				return;
-			}
-
-			const valid = z
-				.string()
-				.min(3, "Minimum of 3 characters")
-				.max(20, "Maximum of 20 characters")
-				.regex(/^[a-zA-Z0-9_]*$/, "Username can only contain letters, numbers, and underscores")
-				.safeParse(username.value);
-			if (!valid.success) {
-				username.status = "error";
-				username.message = valid.error.issues[0].message;
-				return;
-			}
-
-			username.message = "Hold on while we check if this username is available...";
-			username.status = "loading";
-
-			// This is known as a debouncer.
-			// We dont want to send a request to the server on every character change.
-			// Instead we wait 200ms after the user stops typing before sending the request.
-			username.extra.timeout = setTimeout(async () => {
-				const result = await client
-					.query(
-						graphql(`
-							query CheckUsername($username: String!) {
-								user {
-									user: byUsername(username: $username) {
-										id
-									}
-								}
-							}
-						`),
-						{ username: username.value },
-						{
-							requestPolicy: "network-only",
-						},
-					)
-					.toPromise();
-
-				if (result.error) {
-					username.status = "error";
-					username.message = "Something went wrong.";
-					return;
-				}
-
-				if (result.data?.user.user?.id) {
-					username.status = "error";
-					username.message = "This username is already taken";
-					return;
-				}
-
-				username.status = "success";
-				username.message = "";
-			}, 200);
-		},
-		valid() {
-			// We cannot refer to the value stored at `username.value` directly here since we are using it to return a value.
-			// This causes typescript to complain that the value is referenced in the value definition.
-			// To get around this we need to unfortunately cast the value to a string so that typescript knows it is a string before the value `username` value is defined.
-			// This is safe since we know that the value is a string.
-			const value = username.value as string;
-			const status = username.status as string;
-
-			if ($authDialog === AuthDialog.Login) {
-				return value.length > 0;
-			}
-
-			return status === "success";
-		},
-		validate(value) {
-			// This is on character change validation (not on submit)
-			return z
-				.string()
-				.regex(/^[a-zA-Z0-9_]*$/, "Username can only contain letters, numbers, and underscores")
-				.safeParse(value).success;
-		},
-	});
-
-	let email = newField({
-		id: "email",
-		type: "email",
-		label: "Email",
-		autoComplete: "email",
-		reload() {
-			email.touched = email.value.length > 0;
-			if (email.touched) {
-				email.update(email.value);
-			}
-		},
-		update(value) {
-			email.value = value;
-
-			if ($authDialog !== AuthDialog.Register) {
-				return;
-			}
-
-			const valid = z.string().email("Please enter a valid email").safeParse(email.value);
-			if (!valid.success) {
-				email.status = "error";
-				email.message = valid.error.issues[0].message;
-				return;
-			}
-
-			email.status = "success";
-			email.message = "";
-		},
-		valid() {
-			const status = email.status as string;
-			return status === "success";
-		},
-	});
-
-	let password = newField({
-		id: "password",
-		type: "password",
-		label: "Password",
-		reload() {
-			password.touched = password.value.length > 0;
-			password.status = "";
-			password.message = "";
-
-			password.autoComplete =
-				$authDialog === AuthDialog.Login ? "current-password" : "new-password";
-
-			password.update(password.value);
-		},
-		update(value) {
-			password.value = value;
-
-			// When we are in login mode, we dont need to validate the password.
-			if ($authDialog !== AuthDialog.Register) {
-				return;
-			}
-
-			// Since the validity of confirm password depends on the password, we need to cause a re-render of the confirm password field.
-			confirmPassword.update(confirmPassword.value);
-
-			const valid = z
-				.string()
-				.min(8, "At least 8 characters")
-				.max(100, "Maximum of 100 characters")
-				.regex(/.*[A-Z].*/, "At least one uppercase character")
-				.regex(/.*[a-z].*/, "At least one lowercase character")
-				.regex(/.*\d.*/, "At least one number")
-				.regex(/.*[`~<>?,./!@#$%^&*()\-_+="'|{}[\];:].*/, "At least one special character")
-				.safeParse(value);
-
-			if (!valid.success) {
-				password.status = "error";
-				password.message = valid.error.issues[0].message;
-				return;
-			}
-
-			password.status = "success";
-			password.message = "";
-		},
-		valid() {
-			const value = password.value as string;
-			const status = password.status as string;
-
-			if ($authDialog === AuthDialog.Login) {
-				return value.length > 0;
-			}
-
-			return status === "success";
-		},
-	});
-
-	let confirmPassword = newField({
-		id: "confirmPassword",
-		type: "password",
-		label: "Confirm Password",
-		autoComplete: "new-password",
-		reload() {
-			confirmPassword.touched = confirmPassword.value.length > 0;
-			confirmPassword.status = "";
-			confirmPassword.message = "";
-		},
-		update(value) {
-			confirmPassword.value = value;
-
-			if ($authDialog !== AuthDialog.Register) {
-				return;
-			}
-
-			if (password.value !== confirmPassword.value) {
-				confirmPassword.status = "error";
-				confirmPassword.message = "Passwords do not match";
-				return;
-			}
-
-			if (confirmPassword.value.length === 0) {
-				confirmPassword.status = "";
-				confirmPassword.message = "";
-				return;
-			}
-
-			confirmPassword.status = "success";
-			confirmPassword.message = "";
-		},
-		valid() {
-			const status = confirmPassword.status as string;
-
-			return status === "success";
-		},
-	});
-
-	$: formValid =
-		($authDialog === AuthDialog.Login
-			? username.valid() && password.valid()
-			: username.valid() && email.valid() && password.valid() && confirmPassword.valid()) &&
-		turnstileToken.length > 0;
-
-	// When the login mode changes we need to reload the fields.
-	// This is because the fields have specific logic for each mode.
-	let unsubscribe = authDialog.subscribe((m) => {
-		if (m === AuthDialog.Closed) {
-			return;
+	let usernameValue: string;
+	let usernameStatus: FieldStatus;
+	let usernameValidationTimeout: number | NodeJS.Timeout;
+	let rejectValidation: () => void;
+	async function usernameValidate(v: string) {
+		globalMessage = "";
+		if ($authDialog === AuthDialog.Login) {
+			return { type: FieldStatusType.Success };
 		}
 
-		username.reload();
-		email.reload();
-		password.reload();
-		confirmPassword.reload();
-	});
+		clearTimeout(usernameValidationTimeout);
+		if (rejectValidation) {
+			rejectValidation();
+		}
 
-	onDestroy(unsubscribe);
+		const valid = z
+			.string()
+			.min(3, "Minimum of 3 characters")
+			.max(20, "Maximum of 20 characters")
+			.regex(/^[a-zA-Z0-9_]*$/, "Username can only contain letters, numbers, and underscores")
+			.safeParse(v);
+		if (!valid.success) {
+			return { type: FieldStatusType.Error, message: valid.error.issues[0].message };
+		}
+
+		usernameStatus = {
+			type: FieldStatusType.Loading,
+			message: "Hold on while we check if this username is available...",
+		};
+
+		// Wait 500 milliseconds before checking the username. This prevents spamming the server with requests.
+		await new Promise((resolve, reject) => {
+			rejectValidation = reject;
+			usernameValidationTimeout = setTimeout(resolve, 500);
+		});
+
+		const result = await client
+			.query(
+				graphql(`
+					query CheckUsername($username: String!) {
+						user {
+							user: byUsername(username: $username) {
+								id
+							}
+						}
+					}
+				`),
+				{ username: v },
+				{
+					requestPolicy: "network-only",
+				},
+			)
+			.toPromise();
+
+		if (result.error) {
+			return { type: FieldStatusType.Error, message: "Something went wrong." };
+		}
+
+		if (result.data?.user.user?.id) {
+			return { type: FieldStatusType.Error, message: "This username is already taken" };
+		}
+
+		return { type: FieldStatusType.Success };
+	}
+
+	let emailStatus: FieldStatus;
+	let emailValue: string;
+	async function emailValidate(v: string) {
+		globalMessage = "";
+		const valid = z.string().email("Please enter a valid email").safeParse(v);
+		return valid.success
+			? { type: FieldStatusType.Success }
+			: { type: FieldStatusType.Error, message: valid.error.issues[0].message };
+	}
+
+	let passwordStatus: FieldStatus;
+	let passwordValue: string;
+	async function authPasswordValidate(v: string) {
+		globalMessage = "";
+		return await passwordValidate(v);
+	}
+
+	let confirmPasswordStatus: FieldStatus;
+	async function confirmPasswordValidate(v: string) {
+		globalMessage = "";
+		if (passwordValue !== v) {
+			return { type: FieldStatusType.Error, message: "Passwords do not match" };
+		}
+
+		return { type: FieldStatusType.Success };
+	}
+
+	$: formValid =
+		turnstileToken.length > 0 &&
+		($authDialog === AuthDialog.Login
+			? fieldsValid([usernameStatus, passwordStatus])
+			: fieldsValid([usernameStatus, emailStatus, passwordStatus, confirmPasswordStatus]));
 
 	function closeDialog() {
 		$authDialog = AuthDialog.Closed;
@@ -332,17 +177,17 @@
 				? {
 						query: loginQuery,
 						variables: {
-							username: username.value,
-							password: password.value,
+							username: usernameValue,
+							password: passwordValue,
 							captchaToken: turnstileToken,
 						},
 				  }
 				: {
 						query: registerQuery,
 						variables: {
-							username: username.value,
-							password: password.value,
-							email: email.value,
+							username: usernameValue,
+							password: passwordValue,
+							email: emailValue,
 							captchaToken: turnstileToken,
 						},
 				  };
@@ -361,14 +206,11 @@
 				globalMessage = `${error.extensions.reason || error.message}`;
 				for (const field of fields) {
 					if (field === "username") {
-						username.status = "error";
-						username.message = "";
+						usernameStatus = { type: FieldStatusType.Error };
 					} else if (field === "password") {
-						password.status = "error";
-						password.message = "";
+						passwordStatus = { type: FieldStatusType.Error };
 					} else if (field === "email") {
-						email.status = "error";
-						email.message = "";
+						emailStatus = { type: FieldStatusType.Error };
 					} else if (field == "captchaToken") {
 						turnstileToken = "";
 					}
@@ -446,15 +288,44 @@
 			</h2>
 		</div>
 		<form on:submit|preventDefault={onSubmit}>
-			<LoginField field={username} />
+			<Field
+				type="text"
+				autocomplete="username"
+				required
+				label="Username"
+				bind:status={usernameStatus}
+				bind:value={usernameValue}
+				validate={usernameValidate}
+			/>
 			{#if $authDialog === AuthDialog.Register}
-				<LoginField field={email} />
+				<Field
+					type="email"
+					autocomplete="email"
+					required
+					label="Email"
+					bind:status={emailStatus}
+					bind:value={emailValue}
+					validate={emailValidate}
+				/>
 			{/if}
-			<LoginField field={password} />
+			<PasswordField
+				autocomplete={$authDialog === AuthDialog.Login ? "current-password" : "new-password"}
+				required
+				label="Password"
+				bind:status={passwordStatus}
+				bind:value={passwordValue}
+				validate={authPasswordValidate}
+			/>
 			{#if $authDialog === AuthDialog.Register}
-				<LoginField field={confirmPassword} />
+				<PasswordField
+					autocomplete="new-password"
+					required
+					label="Confirm Password"
+					bind:status={confirmPasswordStatus}
+					validate={confirmPasswordValidate}
+				/>
 			{/if}
-			{#if globalMessage !== ""}
+			{#if globalMessage}
 				<div class="message-holder" class:error={globalIsError}>
 					<span>{globalMessage}</span>
 				</div>
@@ -527,6 +398,7 @@
 	form {
 		display: flex;
 		flex-direction: column;
+		gap: 1rem;
 	}
 
 	.button-group {
@@ -534,7 +406,6 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		margin-top: 1rem;
 	}
 
 	.button-submit {

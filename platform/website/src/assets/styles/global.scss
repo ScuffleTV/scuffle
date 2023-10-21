@@ -84,11 +84,8 @@ input[type="password"] {
 		border-color: $primaryColor;
 	}
 
-	&:not(:focus) {
-		&.invalid,
-		&:invalid {
-			border-color: $errorColor;
-		}
+	&:not(:focus).invalid {
+		border-color: $errorColor;
 	}
 }
 

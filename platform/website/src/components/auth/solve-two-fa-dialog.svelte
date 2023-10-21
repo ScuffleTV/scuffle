@@ -1,46 +1,31 @@
 <script lang="ts">
 	import { getContextClient } from "@urql/svelte";
-	import Field, { newField } from "./field.svelte";
 	import { graphql } from "$/gql";
 	import { authDialog, session, AuthDialog } from "$/store/auth";
 	import { z } from "zod";
+	import Field, { FieldStatusType, type FieldStatus } from "../form/field.svelte";
 
 	const client = getContextClient();
 
-	const code = newField({
-		id: "code",
-		type: "text",
-		label: "Code",
-		autoComplete: "one-time-code",
-		update(value) {
-			code.value = value;
+	let codeStatus: FieldStatus;
+	let codeLabel = "Code";
+	let code: string;
+	async function codeValidate(v: string) {
+		const valid = z
+			.string()
+			.regex(/^(\d{6}|[0-9a-fA-F]{8})$/, "Invalid code")
+			.safeParse(v);
 
-			const valid = z
-				.string()
-				.regex(/^(\d{6}|[0-9a-fA-F]{8})$/, "Invalid code")
-				.safeParse(code.value);
-
-			code.label = "Code";
-			if (valid.success) {
-				code.status = "";
-				code.message = "";
-				// If it is a backup code
-				if (/^[0-9a-fA-F]{8}$/.test(code.value)) {
-					code.label = "Backup Code";
-				}
-			} else {
-				code.status = "error";
-				code.message = valid.error.issues[0].message;
-			}
-		},
-		valid() {
-			const status = code.status as string;
-			return status === "success";
-		},
-		validate(value) {
-			return /^[0-9a-fA-F]*$/.test(value);
-		},
-	});
+		codeLabel = "Code";
+		if (!valid.success) {
+			return { type: FieldStatusType.Error, message: valid.error.issues[0].message };
+		}
+		// If it is a backup code
+		if (/^[0-9a-fA-F]{8}$/.test(v)) {
+			codeLabel = "Backup Code";
+		}
+		return { type: FieldStatusType.None };
+	}
 
 	async function onSubmit() {
 		const res = await client
@@ -55,15 +40,14 @@
 						}
 					}
 				`),
-				{ code: code.value },
+				{ code: code },
 				{
 					requestPolicy: "network-only",
 				},
 			)
 			.toPromise();
 		if (res.data) {
-			code.status = "success";
-			code.message = "";
+			codeStatus = { type: FieldStatusType.Success };
 			$session = res.data.auth.resp;
 			$authDialog = AuthDialog.Closed;
 		} else if (res.error) {
@@ -72,8 +56,10 @@
 				res.error.graphQLErrors[0].extensions.fields.includes("code") &&
 				typeof res.error.graphQLErrors[0].extensions.reason === "string"
 			) {
-				code.status = "error";
-				code.message = res.error.graphQLErrors[0].extensions.reason;
+				codeStatus = {
+					type: FieldStatusType.Error,
+					message: res.error.graphQLErrors[0].extensions.reason,
+				};
 			}
 		}
 	}
@@ -85,7 +71,13 @@
 	anymore, please enter a backup code.
 </p>
 <form on:submit|preventDefault={onSubmit}>
-	<Field field={code} />
+	<Field
+		label={codeLabel}
+		autocomplete="one-time-code"
+		bind:value={code}
+		validate={codeValidate}
+		bind:status={codeStatus}
+	/>
 	<div class="button-group">
 		<input class="button-submit" type="submit" value="Submit" />
 	</div>

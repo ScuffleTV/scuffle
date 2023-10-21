@@ -1,18 +1,5 @@
 @import "./variables.scss";
 
-.message {
-	font-size: 0.9rem;
-	font-weight: 500;
-
-	&.error {
-		color: $errorColor;
-	}
-
-	&.success {
-		color: $successColor;
-	}
-}
-
 .input {
 	margin-top: 0.5rem;
 	background-color: $bgColor2;
@@ -51,8 +38,4 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
-}
-
-input.input.invalid:not(:focus) {
-	border-color: $errorColor;
 }

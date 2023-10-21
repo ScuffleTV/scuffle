@@ -9,6 +9,7 @@
 	import Section from "$/components/settings/section.svelte";
 	import StatusBar, { Status } from "$/components/settings/status-bar.svelte";
 	import SectionContainer from "$/components/settings/section-container.svelte";
+	import Field, { FieldStatusType, type FieldStatus } from "$/components/form/field.svelte";
 
 	// TODO: Add invisible turnstile captcha
 	// TODO: Improve details text
@@ -19,8 +20,14 @@
 
 	let status = Status.Unchanged;
 
+	let displayNameStatus: FieldStatus;
 	let displayName = $user?.displayName;
-	$: displayNameValid = displayName?.toLowerCase() === $user?.displayName.toLowerCase();
+	async function displayNameValidate(v: string) {
+		if (v.toLowerCase() !== $user?.displayName.toLowerCase()) {
+			return { type: FieldStatusType.Error, message: "You may only change capatilization" };
+		}
+		return { type: FieldStatusType.Success };
+	}
 
 	let displayColor = $user?.displayColor.color;
 	let displayColorInput: HTMLInputElement;
@@ -155,17 +162,14 @@
 			showReset={displayName !== $user.displayName}
 			on:reset={() => (displayName = $user?.displayName)}
 		>
-			<input
-				class="input display-name"
-				class:invalid={!displayNameValid}
+			<Field
 				type="text"
-				placeholder="Display Name"
 				autocomplete="username"
+				placeholder="Display Name"
 				bind:value={displayName}
+				validate={displayNameValidate}
+				bind:status={displayNameStatus}
 			/>
-			{#if !displayNameValid}
-				<span class="error message">You may only change capatilization</span>
-			{/if}
 		</Section>
 		<Section
 			title="Display Color"
@@ -190,7 +194,11 @@
 				</div>
 			</div>
 		</Section>
-		<StatusBar {status} on:save={saveChanges} saveDisabled={!displayNameValid} />
+		<StatusBar
+			{status}
+			on:save={saveChanges}
+			saveDisabled={displayNameStatus?.type !== FieldStatusType.Success}
+		/>
 	</SectionContainer>
 {/if}
 
@@ -217,12 +225,6 @@
 			gap: 0.5rem;
 
 			max-width: 20rem;
-		}
-	}
-
-	.input.display-name:focus {
-		& + .message {
-			display: none;
 		}
 	}
 </style>

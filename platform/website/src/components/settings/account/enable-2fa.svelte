@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Dialog from "$/components/dialog.svelte";
+	import Field, { FieldStatusType, type FieldStatus } from "$/components/form/field.svelte";
 	import ShieldCheck from "$/components/icons/settings/shield-check.svelte";
 	import Spinner from "$/components/spinner.svelte";
 	import { graphql } from "$/gql";
@@ -9,6 +10,7 @@
 	import { CombinedError, getContextClient } from "@urql/svelte";
 	import { createEventDispatcher } from "svelte";
 	import Fa from "svelte-fa";
+	import { z } from "zod";
 
 	const dispatch = createEventDispatcher();
 	const client = getContextClient();
@@ -75,8 +77,7 @@
 	}
 
 	async function enableTotp() {
-		if (!code) {
-			invalidCode = true;
+		if (codeStatus.type !== FieldStatusType.Success) {
 			return;
 		}
 		loading = true;
@@ -106,7 +107,7 @@
 			state = { step: 3 };
 			$user.totpEnabled = res.data.user.twoFa.resp.totpEnabled;
 		} else if (res.error && isWrongCode(res.error)) {
-			invalidCode = true;
+			codeStatus = { type: FieldStatusType.Error, message: "Invalid code" };
 		}
 	}
 
@@ -114,8 +115,22 @@
 
 	let loading = false;
 
+	let codeStatus: FieldStatus;
 	let code: string;
-	let invalidCode = false;
+
+	async function codeValidate(v: string) {
+		const valid = z
+			.string()
+			.length(6, "Code must be 6 digits")
+			.regex(/^\d{6}$/, "Invalid code")
+			.safeParse(v);
+
+		if (!valid.success) {
+			return { type: FieldStatusType.Error, message: valid.error.issues[0].message };
+		}
+
+		return { type: FieldStatusType.Success };
+	}
 </script>
 
 <Dialog on:close={clickClose} width={35}>
@@ -138,21 +153,15 @@
 				<span class="text">
 					Please scan the QR code with your authenticator app and submit the code.
 				</span>
-				<input
-					class="input"
+				<Field
 					type="text"
-					pattern="^\d&lbrace;6&rbrace;$"
-					class:invalid={invalidCode}
-					title="6 digits"
-					minlength="6"
-					maxlength="6"
-					placeholder="Code"
+					label="Code"
 					autocomplete="one-time-code"
+					required
 					bind:value={code}
+					validate={codeValidate}
+					bind:status={codeStatus}
 				/>
-				{#if invalidCode}
-					<span class="message error">Invalid code</span>
-				{/if}
 			</div>
 		</form>
 	{:else if state.step === 3}
@@ -210,27 +219,16 @@
 		color: $textColorLight;
 	}
 
-	.input {
-		width: 100%;
-	}
-
-	.message {
-		font-size: 0.9rem;
-		font-weight: 500;
-
-		&.error {
-			color: $errorColor;
-		}
-	}
-
 	.step-2 {
 		margin: 1rem 0;
 
 		display: flex;
 		gap: 2rem;
 
-		.input {
-			margin-top: 1rem;
+		& > div {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
 		}
 	}
 

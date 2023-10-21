@@ -351,6 +351,16 @@ type UserMutation {
 		"""
 		follow: Boolean!
 	): Boolean!
+	password(
+		"""
+		Current password
+		"""
+		currentPassword: String!
+		"""
+		New password
+		"""
+		newPassword: String!
+	): User!
 	twoFa: TwoFaMutation!
 }
 

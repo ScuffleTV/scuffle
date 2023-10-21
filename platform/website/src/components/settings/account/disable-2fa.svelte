@@ -6,12 +6,17 @@
 	import ShieldX from "$/components/icons/settings/shield-x.svelte";
 	import Dialog from "$/components/dialog.svelte";
 	import Spinner from "$/components/spinner.svelte";
+	import { FieldStatusType, type FieldStatus } from "$/components/form/field.svelte";
+	import PasswordField from "$/components/form/password-field.svelte";
+	import { fieldsValid } from "$/lib/utils";
 
 	const dispatch = createEventDispatcher();
 	const client = getContextClient();
 
+	let passwordStatus: FieldStatus;
 	let password: string;
-	let wrongPassword = false;
+
+	$: formValid = fieldsValid([passwordStatus]);
 
 	let loading = false;
 
@@ -23,7 +28,7 @@
 	}
 
 	async function disableTotp() {
-		if (password) {
+		if (formValid) {
 			loading = true;
 			const res = await client
 				.mutation(
@@ -51,7 +56,7 @@
 				$user.totpEnabled = res.data.user.twoFa.resp.totpEnabled;
 				close();
 			} else if (res.error && isWrongPassword(res.error)) {
-				wrongPassword = true;
+				passwordStatus = { type: FieldStatusType.Error, message: "Wrong password" };
 			}
 		}
 	}
@@ -70,19 +75,13 @@
 	</h1>
 	<p class="text">Please confirm your password before disabling 2-Factor-Authentication.</p>
 	<form id="disable-2fa-form" on:submit|preventDefault={disableTotp}>
-		<p>
-			<input
-				class="input"
-				class:invalid={wrongPassword}
-				type="password"
-				placeholder="Password"
-				autocomplete="current-password"
-				bind:value={password}
-			/>
-			{#if wrongPassword}
-				<span class="message error">Wrong password</span>
-			{/if}
-		</p>
+		<PasswordField
+			label="Password"
+			autocomplete="current-password"
+			required
+			bind:value={password}
+			bind:status={passwordStatus}
+		/>
 	</form>
 	<div class="buttons">
 		<button class="button secondary" on:click={close} disabled={loading}>Cancel</button>
@@ -90,7 +89,7 @@
 			class="button primary submit"
 			type="submit"
 			form="disable-2fa-form"
-			disabled={loading || !password}
+			disabled={loading || !formValid}
 		>
 			{#if loading}
 				<Spinner />
@@ -118,19 +117,6 @@
 	.text {
 		font-weight: 500;
 		color: $textColorLight;
-	}
-
-	.input {
-		width: 100%;
-	}
-
-	.message {
-		font-size: 0.9rem;
-		font-weight: 500;
-
-		&.error {
-			color: $errorColor;
-		}
 	}
 
 	.buttons {

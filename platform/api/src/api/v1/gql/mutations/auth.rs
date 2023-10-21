@@ -83,12 +83,12 @@ impl AuthMutation {
         .bind(user.id)
         .bind(!user.totp_enabled)
         .bind(expires_at)
-        .fetch_one(&mut *tx)
+        .fetch_one(tx.as_mut())
         .await?;
 
         sqlx::query("UPDATE users SET last_login_at = NOW() WHERE id = $1")
             .bind(user.id)
-            .execute(&mut *tx)
+            .execute(tx.as_mut())
             .await?;
 
         tx.commit().await?;

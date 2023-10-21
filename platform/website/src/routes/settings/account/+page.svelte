@@ -12,6 +12,8 @@
 	import { z } from "zod";
 	import Enable2fa from "$/components/settings/account/enable-2fa.svelte";
 	import Disable2fa from "$/components/settings/account/disable-2fa.svelte";
+	import ChangePassword from "$/components/settings/account/change-password.svelte";
+	import Field from "$/components/form/field.svelte";
 
 	//TODO: Improve detail texts
 
@@ -72,6 +74,7 @@
 
 	enum Dialog {
 		None,
+		ChangePassword,
 		Enable2Fa,
 		Disable2Fa,
 	}
@@ -91,20 +94,20 @@
 			on:reset={() => (email = $user?.email)}
 			showReset={emailChanged}
 		>
-			<div class="input-container">
-				<input
+			<div class="input-container" class:revealed={emailRevealed}>
+				<Field
 					type="email"
-					class="input email"
-					class:revealed={emailRevealed}
-					disabled={!emailRevealed}
 					autocomplete="email"
+					placeholder="Email"
+					disabled={!emailRevealed}
 					bind:value={email}
-				/>
-				{#if !emailRevealed}
-					<button class="reveal-button" on:click={() => (emailRevealed = true)}>
-						<Fa icon={faPen} />
-					</button>
-				{/if}
+				>
+					{#if !emailRevealed}
+						<button class="reveal-button" on:click={() => (emailRevealed = true)}>
+							<Fa icon={faPen} />
+						</button>
+					{/if}
+				</Field>
 			</div>
 			{#if !emailValid}
 				<span class="error message">Invalid email address</span>
@@ -115,7 +118,10 @@
 			{/if}
 		</Section>
 		<Section title="Password" details="Your password is used to log in to your account.">
-			<button class="button primary change-password">
+			<button
+				class="button primary change-password"
+				on:click={() => (showDialog = Dialog.ChangePassword)}
+			>
 				<Fa icon={faPen} />
 				Change Password
 			</button>
@@ -148,7 +154,9 @@
 		</Section>
 		<StatusBar {status} on:save={saveChanges} saveDisabled={!emailValid} />
 	</SectionContainer>
-	{#if showDialog === Dialog.Enable2Fa}
+	{#if showDialog === Dialog.ChangePassword}
+		<ChangePassword on:close={closeDialog} />
+	{:else if showDialog === Dialog.Enable2Fa}
 		<Enable2fa on:close={closeDialog} />
 	{:else if showDialog === Dialog.Disable2Fa}
 		<Disable2fa on:close={closeDialog} />
@@ -158,20 +166,29 @@
 <style lang="scss">
 	@import "../../../assets/styles/settings.scss";
 
-	.input.email:not(.revealed) {
-		color: transparent;
-		pointer-events: none;
-		user-select: none;
-		text-shadow: 5px 0 10px $textColor;
+	.message {
+		font-size: 0.9rem;
+		font-weight: 500;
+
+		&.error {
+			color: $errorColor;
+		}
+
+		&.success {
+			color: $successColor;
+		}
 	}
 
 	.input-container {
 		margin-top: 0.5rem;
-		position: relative;
 
-		& > .input {
-			margin-top: 0;
-			width: 100%;
+		&:not(.revealed) {
+			:global(input) {
+				color: transparent;
+				pointer-events: none;
+				user-select: none;
+				text-shadow: 5px 0 10px $textColor;
+			}
 		}
 	}
 

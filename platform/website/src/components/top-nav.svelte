@@ -36,7 +36,7 @@
 	}
 </script>
 
-<nav class="top-nav" class:hidden={$topNavHidden} aria-label="Top navigation">
+<nav class:hidden={$topNavHidden} aria-label="Top navigation">
 	<div class="logo-container">
 		<button
 			class="toggle-side-nav"
@@ -116,10 +116,6 @@
 		&.hidden {
 			display: none;
 		}
-	}
-
-	.top-nav {
-		grid-area: top-nav;
 	}
 
 	.logo-container {

@@ -8,8 +8,10 @@
 	import SideNav from "$components/side-nav.svelte";
 	import { onMount } from "svelte";
 	import type { LayoutData } from "./$types";
-	import { building } from "$app/environment";
+	import { building, dev } from "$app/environment";
 	import Spinner from "$/components/spinner.svelte";
+	import Fa from "svelte-fa";
+	import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 
 	export let data: LayoutData;
 
@@ -32,7 +34,17 @@
 
 <header>
 	<a href="#main" class="skip-to-main">Skip to main content</a>
-	<TopNav />
+	<div class="top-nav">
+		{#if dev}
+			<span class="dev-banner">
+				<Fa icon={faCircleInfo} />
+				<span>
+					Attention! This is a development server! Go to <a href="https://scuffle.tv">scuffle.tv</a>
+				</span>
+			</span>
+		{/if}
+		<TopNav />
+	</div>
 	{#if !building}
 		<SideNav />
 	{/if}
@@ -67,11 +79,31 @@
 		color: $primaryColor;
 		text-decoration: none;
 		opacity: 0;
+		pointer-events: none;
 
 		&:focus-visible {
 			text-decoration: underline;
 			opacity: 1;
+			pointer-events: unset;
 		}
+	}
+
+	.dev-banner {
+		color: $textColor;
+		background-color: $primaryColor;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.25rem;
+
+		a {
+			color: $textColor;
+		}
+	}
+
+	.top-nav {
+		grid-area: top-nav;
 	}
 
 	.based {

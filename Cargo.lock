@@ -4649,7 +4649,7 @@ dependencies = [
 [[package]]
 name = "tracing"
 version = "0.2.0"
-source = "git+https://github.com/ScuffleTV/tracing#0c5fa878e8ac87dfaaae526687ded7bc3af1cca5"
+source = "git+https://github.com/ScuffleTV/tracing#fd3c636ebbb4635b579ac6cdf905cbb003c97b7f"
 dependencies = [
  "pin-project-lite",
  "tracing-attributes 0.2.0",
@@ -4670,7 +4670,7 @@ dependencies = [
 [[package]]
 name = "tracing-attributes"
 version = "0.2.0"
-source = "git+https://github.com/ScuffleTV/tracing#0c5fa878e8ac87dfaaae526687ded7bc3af1cca5"
+source = "git+https://github.com/ScuffleTV/tracing#fd3c636ebbb4635b579ac6cdf905cbb003c97b7f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4689,7 +4689,7 @@ dependencies = [
 [[package]]
 name = "tracing-core"
 version = "0.2.0"
-source = "git+https://github.com/ScuffleTV/tracing#0c5fa878e8ac87dfaaae526687ded7bc3af1cca5"
+source = "git+https://github.com/ScuffleTV/tracing#fd3c636ebbb4635b579ac6cdf905cbb003c97b7f"
 dependencies = [
  "once_cell",
 ]
@@ -4709,7 +4709,7 @@ dependencies = [
 [[package]]
 name = "tracing-log"
 version = "0.2.0"
-source = "git+https://github.com/ScuffleTV/tracing#0c5fa878e8ac87dfaaae526687ded7bc3af1cca5"
+source = "git+https://github.com/ScuffleTV/tracing#fd3c636ebbb4635b579ac6cdf905cbb003c97b7f"
 dependencies = [
  "env_logger",
  "log",
@@ -4720,7 +4720,7 @@ dependencies = [
 [[package]]
 name = "tracing-serde"
 version = "0.2.0"
-source = "git+https://github.com/ScuffleTV/tracing#0c5fa878e8ac87dfaaae526687ded7bc3af1cca5"
+source = "git+https://github.com/ScuffleTV/tracing#fd3c636ebbb4635b579ac6cdf905cbb003c97b7f"
 dependencies = [
  "serde",
  "tracing-core 0.2.0",
@@ -4729,7 +4729,7 @@ dependencies = [
 [[package]]
 name = "tracing-subscriber"
 version = "0.3.0"
-source = "git+https://github.com/ScuffleTV/tracing#0c5fa878e8ac87dfaaae526687ded7bc3af1cca5"
+source = "git+https://github.com/ScuffleTV/tracing#fd3c636ebbb4635b579ac6cdf905cbb003c97b7f"
 dependencies = [
  "matchers",
  "nu-ansi-term",
@@ -4830,7 +4830,7 @@ checksum = "3528ecfd12c466c6f163363caf2d02a71161dd5e1cc6ae7b34207ea2d42d81ed"
 [[package]]
 name = "tsify"
 version = "0.4.5"
-source = "git+https://github.com/sisou/tsify.git?branch=sisou/comments#e36e55bcf3c9ac7c1d8185e5ad994885f4a2eb46"
+source = "git+https://github.com/ScuffleTV/tsify.git?branch=sisou/comments#e36e55bcf3c9ac7c1d8185e5ad994885f4a2eb46"
 dependencies = [
  "gloo-utils",
  "serde",
@@ -4842,7 +4842,7 @@ dependencies = [
 [[package]]
 name = "tsify-macros"
 version = "0.4.5"
-source = "git+https://github.com/sisou/tsify.git?branch=sisou/comments#e36e55bcf3c9ac7c1d8185e5ad994885f4a2eb46"
+source = "git+https://github.com/ScuffleTV/tsify.git?branch=sisou/comments#e36e55bcf3c9ac7c1d8185e5ad994885f4a2eb46"
 dependencies = [
  "proc-macro2",
  "quote",

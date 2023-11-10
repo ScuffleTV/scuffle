@@ -35,9 +35,14 @@ CREATE TABLE users (
 CREATE TABLE user_sessions (
     id UUID NOT NULL PRIMARY KEY,
     user_id UUID NOT NULL,
-    two_fa_solved BOOLEAN NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE two_fa_requests (
+    id UUID NOT NULL PRIMARY KEY,
+    user_id UUID NOT NULL,
+    action BYTES NOT NULL
 );
 
 CREATE TABLE channel_tags (

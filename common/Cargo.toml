@@ -12,11 +12,12 @@ context = ["dep:tokio", "dep:tokio-util"]
 prelude = ["dep:tokio"]
 signal = ["tokio/signal", "tokio/process"]
 macros = []
+database = ["dep:sqlx", "dep:sqlx-postgres", "dep:prost", "dep:uuid", "dep:ulid"]
 dataloader = ["dep:fnv", "dep:futures-util", "dep:futures-channel", "dep:futures-timer"]
 config = ["dep:config", "dep:serde", "logging"]
 ratelimiter = ["dep:fred"]
 
-default = ["logging", "grpc", "context", "prelude", "signal", "macros", "config", "dataloader", "ratelimiter"]
+default = ["logging", "grpc", "context", "prelude", "signal", "macros", "config", "database", "dataloader", "ratelimiter"]
 
 [dependencies]
 log = { version = "0.4.20", optional = true }
@@ -44,6 +45,12 @@ futures-channel = { version = "0.3.29", optional = true }
 futures-timer = { version = "3.0.2", optional = true }
 
 const_format = { version = "0.2.32" }
+
+sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono", "uuid"], optional = true }
+sqlx-postgres = { version = "0.7.2", optional = true }
+prost = { version = "0.12.1", optional = true }
+uuid = { version = "1.4.1", features = ["v4"], optional = true }
+ulid = { version = "1.1.0", features = ["uuid"], optional = true}
 
 [dev-dependencies]
 ulid = "1.1.0"

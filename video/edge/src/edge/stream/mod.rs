@@ -14,8 +14,9 @@ use tokio::io::AsyncReadExt;
 use tokio::time::Instant;
 use ulid::Ulid;
 use uuid::Uuid;
+use common::database::{PgNonNullVec, Protobuf};
 use video_common::{
-    database::{PgNonNullVec, Protobuf, Rendition, Room, RoomStatus},
+    database::{Rendition, Room, RoomStatus},
     keys,
 };
 use video_player_types::SessionRefresh;

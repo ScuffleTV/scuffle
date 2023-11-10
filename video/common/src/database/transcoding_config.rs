@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use pb::scuffle::video::v1::types::Rendition as PbRendition;
 
-use super::{Rendition, Ulid};
+use super::Rendition;
+
+use common::database::Ulid;
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct TranscodingConfig {

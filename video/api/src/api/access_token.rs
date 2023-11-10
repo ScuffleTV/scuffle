@@ -98,8 +98,8 @@ impl AccessTokenServiceTrait for AccessTokenServer {
         validate_tags(request.get_ref().tags.as_ref())?;
 
         let access_token = AccessToken {
-            id: video_common::database::Ulid(Ulid::new()),
-            secret_key: video_common::database::Ulid(Ulid::new()),
+            id: common::database::Ulid(Ulid::new()),
+            secret_key: common::database::Ulid(Ulid::new()),
             organization_id: access_token.organization_id,
             tags: request
                 .get_ref()

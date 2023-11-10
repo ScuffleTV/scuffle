@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package scuffle.video.v1.types;
 
-import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/rendition.proto";
 import "scuffle/video/v1/types/recording_lifecycle_policy.proto";
 import "scuffle/video/v1/types/tags.proto";
@@ -15,7 +15,7 @@ import "scuffle/video/v1/types/tags.proto";
 // used to define the different renditions that should be saved.
 message RecordingConfig {
   // The id of the recording config.
-  Ulid id = 1;
+  scuffle.types.Ulid id = 1;
 
   // The renditions that should be saved.
   // If no renditions are provided, the recording
@@ -28,7 +28,7 @@ message RecordingConfig {
   repeated RecordingLifecyclePolicy lifecycle_policies = 3;
 
   // The S3 Bucket ID that the recording should be saved to.
-  Ulid s3_bucket_id = 4;
+  scuffle.types.Ulid s3_bucket_id = 4;
 
   // The time the recording config was created.
   // This is a unix timestamp in nanoseconds.

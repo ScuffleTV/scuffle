@@ -4,7 +4,7 @@ use chrono::Utc;
 
 use pb::scuffle::video::v1::types::AccessTokenScope;
 
-use super::{Protobuf, Ulid};
+use common::database::{Protobuf, Ulid};
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct AccessToken {

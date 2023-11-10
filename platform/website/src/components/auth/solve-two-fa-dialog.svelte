@@ -1,11 +1,14 @@
 <script lang="ts">
 	import { getContextClient } from "@urql/svelte";
 	import { graphql } from "$/gql";
-	import { authDialog, session, AuthDialog } from "$/store/auth";
+	import { sessionToken, currentTwoFaRequest } from "$/store/auth";
 	import { z } from "zod";
 	import Field, { FieldStatusType, type FieldStatus } from "../form/field.svelte";
+	import Dialog from "../dialog.svelte";
 
 	const client = getContextClient();
+
+	export let requestId: string;
 
 	let codeStatus: FieldStatus;
 	let codeLabel = "Code";
@@ -31,16 +34,18 @@
 		const res = await client
 			.mutation(
 				graphql(`
-					mutation SolveTwoFa($code: String!) {
+					mutation SolveTwoFa($id: ULID!, $code: String!) {
 						auth {
-							resp: verifyTotpCode(code: $code) {
-								token
-								twoFaSolved
+							resp: fulfillTwoFaRequest(id: $id, code: $code) {
+								__typename
+								... on Session {
+									token
+								}
 							}
 						}
 					}
 				`),
-				{ code: code },
+				{ id: requestId, code: code },
 				{
 					requestPolicy: "network-only",
 				},
@@ -48,8 +53,10 @@
 			.toPromise();
 		if (res.data) {
 			codeStatus = { type: FieldStatusType.Success };
-			$session = res.data.auth.resp;
-			$authDialog = AuthDialog.Closed;
+			if (res.data.auth.resp?.__typename === "Session") {
+				$sessionToken = res.data.auth.resp.token;
+			}
+			closeDialog();
 		} else if (res.error) {
 			if (
 				Array.isArray(res.error.graphQLErrors[0].extensions.fields) &&
@@ -63,25 +70,31 @@
 			}
 		}
 	}
+
+	function closeDialog() {
+		$currentTwoFaRequest = null;
+	}
 </script>
 
-<h2>2FA Challenge</h2>
-<p class="details-text">
-	Please enter the code from your authenticator app. In case you don't have access to your code
-	anymore, please enter a backup code.
-</p>
-<form on:submit|preventDefault={onSubmit}>
-	<Field
-		label={codeLabel}
-		autocomplete="one-time-code"
-		bind:value={code}
-		validate={codeValidate}
-		bind:status={codeStatus}
-	/>
-	<div class="button-group">
-		<input class="button-submit" type="submit" value="Submit" />
-	</div>
-</form>
+<Dialog on:close={closeDialog}>
+	<h2>2FA Challenge</h2>
+	<p class="details-text">
+		Please enter the code from your authenticator app. In case you don't have access to your code
+		anymore, please enter a backup code.
+	</p>
+	<form on:submit|preventDefault={onSubmit}>
+		<Field
+			label={codeLabel}
+			autocomplete="one-time-code"
+			bind:value={code}
+			validate={codeValidate}
+			bind:status={codeStatus}
+		/>
+		<div class="button-group">
+			<input class="button-submit" type="submit" value="Submit" />
+		</div>
+	</form>
+</Dialog>
 
 <style lang="scss">
 	@import "../../assets/styles/variables.scss";

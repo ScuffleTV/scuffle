@@ -2,13 +2,13 @@ syntax = "proto3";
 
 package scuffle.video.v1.types;
 
-import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/tags.proto";
 
 // An s3 bucket that can be used to store recordings
 message S3Bucket {
   // The unique ID of the bucket
-  Ulid id = 1;
+  scuffle.types.Ulid id = 1;
 
   // The name of the bucket
   string name = 2;

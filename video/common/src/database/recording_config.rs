@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use pb::scuffle::video::v1::types::{RecordingLifecyclePolicy, Rendition as PbRendition};
 
-use super::{Protobuf, Rendition, Ulid};
+use super::Rendition;
+
+use common::database::{Protobuf, Ulid};
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct RecordingConfig {

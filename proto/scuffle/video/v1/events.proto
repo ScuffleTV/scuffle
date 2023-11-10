@@ -3,7 +3,7 @@ syntax = "proto3";
 package scuffle.video.v1;
 
 import "scuffle/video/v1/types/event.proto";
-import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/types/ulid.proto";
 
 // This service allows you to subscribe to events from scuffle.
 service Events {
@@ -31,7 +31,7 @@ message EventsSubscribeRequest {
   // Otherwise, the event will be requeued and sent to another client.
   message AckEvent {
     // The ID of the event to acknowledge.
-    types.Ulid id = 1;
+    scuffle.types.Ulid id = 1;
 
     // If true, the event will be requeued and sent to another client.
     bool requeue = 2;

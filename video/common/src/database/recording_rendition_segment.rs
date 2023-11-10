@@ -1,4 +1,6 @@
-use super::{Rendition, Ulid};
+use common::database::Ulid;
+
+use super::Rendition;
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct RecordingRenditionSegment {

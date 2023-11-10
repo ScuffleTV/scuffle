@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package scuffle.video.internal;
 
-import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/types/ulid.proto";
 
 service Ingest {
   rpc Watch(stream IngestWatchRequest) returns (stream IngestWatchResponse) {}
@@ -10,7 +10,7 @@ service Ingest {
 
 message IngestWatchRequest {
   message Open {
-    scuffle.video.v1.types.Ulid request_id = 1;
+    scuffle.types.Ulid request_id = 1;
   }
 
   enum Shutdown {

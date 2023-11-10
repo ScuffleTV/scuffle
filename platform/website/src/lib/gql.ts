@@ -16,7 +16,7 @@ import { websocketOpen } from "$/store/websocket";
 import { env } from "$env/dynamic/public";
 import { PUBLIC_GQL_ENDPOINT, PUBLIC_GQL_WS_ENDPOINT } from "$env/static/public";
 import { browser } from "$app/environment";
-import { session } from "$/store/auth";
+import { sessionToken } from "$/store/auth";
 import { authExchange } from "@urql/exchange-auth";
 
 declare global {
@@ -32,7 +32,7 @@ export function createGqlClient(): Client {
 		authExchange(async (utils) => {
 			return {
 				addAuthToOperation(operation) {
-					const token = get(session)?.token;
+					const token = get(sessionToken);
 					if (!token) return operation;
 					return utils.appendHeaders(operation, {
 						Authorization: `Bearer ${token}`,
@@ -42,7 +42,7 @@ export function createGqlClient(): Client {
 					return error.graphQLErrors.some((e) => e.extensions?.kind === "Auth(InvalidToken)");
 				},
 				async refreshAuth() {
-					session.set(null);
+					sessionToken.set(null);
 				},
 			};
 		}),
@@ -52,7 +52,7 @@ export function createGqlClient(): Client {
 	if (browser) {
 		let wsClient: WsClient;
 
-		session.subscribe((data) => {
+		sessionToken.subscribe((token) => {
 			// We need to make sure that the old websocket is closed before we create a new one.
 			if (window.SCUFFLE_WS_CLIENT) {
 				window.SCUFFLE_WS_CLIENT.dispose();
@@ -64,7 +64,7 @@ export function createGqlClient(): Client {
 				connectionParams: () => {
 					return {
 						version: "1.0",
-						sessionToken: data?.token,
+						sessionToken: token,
 					};
 				},
 				shouldRetry: () => true,
@@ -79,7 +79,7 @@ export function createGqlClient(): Client {
 							e.reason.startsWith("InvalidSession")
 						) {
 							// Our token has expired, so we need to log out.
-							session.set(null);
+							sessionToken.set(null);
 						}
 					},
 				},

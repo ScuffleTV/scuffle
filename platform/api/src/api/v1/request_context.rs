@@ -111,19 +111,12 @@ impl RequestContext {
         guard.auth = None;
     }
 
-    pub async fn auth_unchecked(&self) -> Option<AuthData> {
-        let guard = self.0.read().await;
-        guard.auth.clone()
-    }
-
     pub async fn auth(&self) -> Result<Option<AuthData>, AuthError> {
-        match self.auth_unchecked().await {
+        match self.0.read().await.auth.clone() {
             Some(auth) => {
                 // TODO: Refetch session from db?
                 if !auth.session.is_valid() {
                     Err(AuthError::InvalidToken)
-                } else if !auth.session.is_two_fa_solved() {
-                    Err(AuthError::UnsolvedTwoFaChallenge)
                 } else {
                     Ok(Some(auth))
                 }

@@ -5,7 +5,9 @@ use argon2::{
 use chrono::{DateTime, Utc};
 use rand::Rng;
 
-use super::{Channel, Ulid};
+use common::database::Ulid;
+
+use super::Channel;
 
 #[derive(PartialEq, Eq, Clone, Debug, thiserror::Error)]
 pub enum TotpError {

@@ -3,6 +3,19 @@ The mutation object for authentication
 """
 type AuthMutation {
 	"""
+	Fulfill a two-factor authentication request.
+	"""
+	fulfillTwoFaRequest(
+		"""
+		The TOTP code.
+		"""
+		code: String!
+		"""
+		ID of the 2fa request to be fulfilled.
+		"""
+		id: ULID!
+	): TwoFaRequestFulfillResponse
+	"""
 	Login using a username and password. If via websocket this will authenticate the websocket connection.
 	"""
 	login(
@@ -26,7 +39,7 @@ type AuthMutation {
 		The duration of the session in seconds. If not specified it will be 7 days.
 		"""
 		validity: Int
-	): Session!
+	): LoginResponse!
 	"""
 	Login with a session token. If via websocket this will authenticate the websocket connection.
 	"""
@@ -78,15 +91,6 @@ type AuthMutation {
 		"""
 		validity: Int
 	): Session!
-	"""
-	Verify a TOTP code for the currently authenticated user.
-	"""
-	verifyTotpCode(
-		"""
-		The TOTP code to verify.
-		"""
-		code: String!
-	): Session!
 }
 
 type Category {
@@ -115,6 +119,8 @@ type CategorySearchResult {
 	category: Category!
 	similarity: Float!
 }
+
+union ChangePasswordResponse = TwoFaRequest | User
 
 type Channel {
 	category: Category
@@ -185,6 +191,8 @@ type FollowStream {
 	following: Boolean!
 	userId: ULID!
 }
+
+union LoginResponse = TwoFaRequest | Session
 
 enum MessageType {
 	SYSTEM
@@ -293,6 +301,12 @@ type TwoFaMutation {
 	generateTotp: TotpSecret!
 }
 
+type TwoFaRequest {
+	id: ULID!
+}
+
+union TwoFaRequestFulfillResponse = Session
+
 """
 A ULID (Universally Unique Lexicographically Sortable Identifier) scalar.
 """
@@ -360,7 +374,7 @@ type UserMutation {
 		New password
 		"""
 		newPassword: String!
-	): User!
+	): ChangePasswordResponse!
 	twoFa: TwoFaMutation!
 }
 

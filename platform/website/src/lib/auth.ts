@@ -9,7 +9,6 @@ export async function verifyToken(client: Client, token: string) {
 					auth {
 						loginWithToken(sessionToken: $token, updateContext: true) {
 							token
-							twoFaSolved
 						}
 					}
 				}

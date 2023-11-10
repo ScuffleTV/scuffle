@@ -4,8 +4,7 @@ package scuffle.video.v1;
 
 import "scuffle/video/v1/types/playback_session.proto";
 import "scuffle/video/v1/types/playback_session_target.proto";
-import "scuffle/video/v1/types/ulid.proto";
-import "scuffle/video/v1/types/tags.proto";
+import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/search_options.proto";
 
 // This service allows for the retrieval of playback sessions, as well as the
@@ -29,7 +28,7 @@ message PlaybackSessionGetRequest {
   // returned. If not empty, only the playback sessions with the specified ids
   // will be returned. This will be filtered by the other options. (max: 100,
   // min: 0)
-  repeated types.Ulid ids = 1;
+  repeated scuffle.types.Ulid ids = 1;
 
   // Filter by the user id of the playback session. (this is the value specified
   // when you create a playback session)
@@ -55,7 +54,7 @@ message PlaybackSessionGetResponse {
 message PlaybackSessionRevokeRequest {
   // A list of ids to revoke. If empty, one of the other options must be
   // specified.
-  repeated types.Ulid ids = 1;
+  repeated scuffle.types.Ulid ids = 1;
 
   // Revoke all playback sessions for the specified user id.
   // Cannot be used with ids.

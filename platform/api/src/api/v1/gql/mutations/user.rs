@@ -1,9 +1,15 @@
-use async_graphql::{ComplexObject, Context, SimpleObject};
+use async_graphql::{ComplexObject, Context, SimpleObject, Union};
 use bytes::Bytes;
+use common::database::Ulid;
+use pb::scuffle::platform::internal::two_fa::{
+    two_fa_request_action::{Action, ChangePassword},
+    TwoFaRequestAction,
+};
 use prost::Message;
 
-use crate::api::middleware::auth::AuthError;
+use crate::api::{middleware::auth::AuthError, v1::gql::models::two_fa::TwoFaRequest};
 use crate::api::v1::gql::validators::PasswordValidator;
+use crate::database::TwoFaRequestActionTrait;
 use crate::{
     api::v1::gql::{
         error::{GqlError, Result, ResultExt},
@@ -20,6 +26,12 @@ mod two_fa;
 #[graphql(complex)]
 pub struct UserMutation {
     two_fa: two_fa::TwoFaMutation,
+}
+
+#[derive(Clone, Union)]
+pub enum ChangePasswordResponse {
+    TwoFaRequest(TwoFaRequest),
+    Success(User),
 }
 
 #[ComplexObject]
@@ -155,7 +167,7 @@ impl UserMutation {
         #[graphql(desc = "Current password")] current_password: String,
         #[graphql(desc = "New password", validator(custom = "PasswordValidator"))]
         new_password: String,
-    ) -> Result<User> {
+    ) -> Result<ChangePasswordResponse> {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
@@ -179,27 +191,24 @@ impl UserMutation {
             .into());
         }
 
-        let mut tx = global.db.begin().await?;
+        let change_password = ChangePassword {
+            new_password_hash: database::User::hash_password(&new_password),
+            current_session_id: Some(auth.session.id.0.into()),
+        };
 
-        let user: database::User =
-            sqlx::query_as("UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING *")
-                .bind(database::User::hash_password(&new_password))
+        if user.totp_enabled {
+            let request_id = ulid::Ulid::new();
+            sqlx::query("INSERT INTO two_fa_requests (id, user_id, action) VALUES ($1, $2, $3)")
+                .bind(Ulid::from(request_id))
                 .bind(user.id)
-                .fetch_one(tx.as_mut())
+                .bind(TwoFaRequestAction { action: Some(Action::ChangePassword(change_password)) }.encode_to_vec())
+                .execute(global.db.as_ref())
                 .await?;
-
-        // Delete all sessions except current
-        sqlx::query("DELETE FROM user_sessions WHERE user_id = $1 AND id != $2")
-            .bind(user.id)
-            .bind(auth.session.id)
-            .execute(tx.as_mut())
-            .await?;
-
-        // TODO: Logout active connections
-
-        tx.commit().await?;
-
-        Ok(user.into())
+            Ok(ChangePasswordResponse::TwoFaRequest(TwoFaRequest { id: request_id.into() }))
+        } else {
+            change_password.execute(global, user.id).await?;
+            Ok(ChangePasswordResponse::Success(user.into()))
+        }
     }
 
     /// Follow or unfollow a user.

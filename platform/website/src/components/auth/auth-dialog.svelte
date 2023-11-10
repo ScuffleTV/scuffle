@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { Turnstile } from "svelte-turnstile";
-	import { AuthDialog, authDialog, session } from "$/store/auth";
+	import { AuthDialog, authDialog, currentTwoFaRequest, sessionToken } from "$/store/auth";
 	import { z } from "zod";
 	import { getContextClient } from "@urql/svelte";
 	import { graphql } from "$gql";
 	import { PUBLIC_CF_TURNSTILE_KEY } from "$env/static/public";
 	import Dialog from "../dialog.svelte";
-	import SolveTwoFaDialog from "./solve-two-fa-dialog.svelte";
 	import { FieldStatusType, type FieldStatus, resetAllFields } from "../form/field.svelte";
 	import Field from "$/components/form/field.svelte";
 	import PasswordField from "../form/password-field.svelte";
@@ -18,8 +17,13 @@
 		mutation Login($username: String!, $password: String!, $captchaToken: String!) {
 			auth {
 				resp: login(username: $username, password: $password, captchaToken: $captchaToken) {
-					token
-					twoFaSolved
+					__typename
+					... on Session {
+						token
+					}
+					... on TwoFaRequest {
+						id
+					}
 				}
 			}
 		}
@@ -39,7 +43,6 @@
 					captchaToken: $captchaToken
 				) {
 					token
-					twoFaSolved
 				}
 			}
 		}
@@ -230,17 +233,22 @@
 			return;
 		}
 
-		if (!response.data?.auth.resp.token) {
+		if (response.data?.auth.resp.__typename === "TwoFaRequest") {
+			$currentTwoFaRequest = response.data?.auth.resp.id;
+			closeDialog();
+		} else if (
+			response.data?.auth.resp.__typename === "Session" &&
+			response.data?.auth.resp.token
+		) {
+			globalIsError = false;
+			globalMessage = "Success!";
+			$sessionToken = response.data?.auth.resp.token;
+			closeDialog();
+		} else {
 			globalIsError = true;
 			globalMessage = "An unknown error occured, if the problem persists please contact support";
 			console.error("Bad GQL response", response);
-			return;
 		}
-
-		globalIsError = false;
-		globalMessage = "Success!";
-		closeDialog();
-		$session = response.data?.auth.resp || null;
 	}
 
 	// This is the function that is called when the form is submitted.
@@ -271,85 +279,81 @@
 </script>
 
 <Dialog on:close={closeDialog}>
-	{#if $authDialog === AuthDialog.SolveTwoFa}
-		<SolveTwoFaDialog />
-	{:else}
-		<div class="login-title">
-			<h2 class="text-left signup-title">
-				{$authDialog === AuthDialog.Login ? "Login" : "Sign up"}
-			</h2>
-			<h2 class="text-left signup-subtitle">
-				{$authDialog === AuthDialog.Login ? "Don't have an account?" : "Already have an account?"}
-				<span>
-					<button class="link-button" on:click={toggleMode} role="link">
-						{$authDialog === AuthDialog.Login ? "Sign up" : "Sign in"}
-					</button>
-				</span>
-			</h2>
-		</div>
-		<form on:submit|preventDefault={onSubmit}>
+	<div class="login-title">
+		<h2 class="text-left signup-title">
+			{$authDialog === AuthDialog.Login ? "Login" : "Sign up"}
+		</h2>
+		<h2 class="text-left signup-subtitle">
+			{$authDialog === AuthDialog.Login ? "Don't have an account?" : "Already have an account?"}
+			<span>
+				<button class="link-button" on:click={toggleMode} role="link">
+					{$authDialog === AuthDialog.Login ? "Sign up" : "Sign in"}
+				</button>
+			</span>
+		</h2>
+	</div>
+	<form on:submit|preventDefault={onSubmit}>
+		<Field
+			type="text"
+			autocomplete="username"
+			required
+			label="Username"
+			bind:status={usernameStatus}
+			bind:value={usernameValue}
+			validate={usernameValidate}
+		/>
+		{#if $authDialog === AuthDialog.Register}
 			<Field
-				type="text"
-				autocomplete="username"
+				type="email"
+				autocomplete="email"
 				required
-				label="Username"
-				bind:status={usernameStatus}
-				bind:value={usernameValue}
-				validate={usernameValidate}
+				label="Email"
+				bind:status={emailStatus}
+				bind:value={emailValue}
+				validate={emailValidate}
 			/>
-			{#if $authDialog === AuthDialog.Register}
-				<Field
-					type="email"
-					autocomplete="email"
-					required
-					label="Email"
-					bind:status={emailStatus}
-					bind:value={emailValue}
-					validate={emailValidate}
-				/>
-			{/if}
+		{/if}
+		<PasswordField
+			autocomplete={$authDialog === AuthDialog.Login ? "current-password" : "new-password"}
+			required
+			label="Password"
+			bind:status={passwordStatus}
+			bind:value={passwordValue}
+			validate={authPasswordValidate}
+		/>
+		{#if $authDialog === AuthDialog.Register}
 			<PasswordField
-				autocomplete={$authDialog === AuthDialog.Login ? "current-password" : "new-password"}
+				autocomplete="new-password"
 				required
-				label="Password"
-				bind:status={passwordStatus}
-				bind:value={passwordValue}
-				validate={authPasswordValidate}
+				label="Confirm Password"
+				bind:status={confirmPasswordStatus}
+				validate={confirmPasswordValidate}
 			/>
-			{#if $authDialog === AuthDialog.Register}
-				<PasswordField
-					autocomplete="new-password"
-					required
-					label="Confirm Password"
-					bind:status={confirmPasswordStatus}
-					validate={confirmPasswordValidate}
-				/>
-			{/if}
-			{#if globalMessage}
-				<div class="message-holder" class:error={globalIsError}>
-					<span>{globalMessage}</span>
-				</div>
-			{/if}
-			<div id="login-turnstile-container">
-				<Turnstile
-					siteKey={PUBLIC_CF_TURNSTILE_KEY}
-					on:turnstile-callback={onTurnstileCallback}
-					on:turnstile-error={clearTurnstileToken}
-					on:turnstile-expired={clearTurnstileToken}
-					on:turnstile-timeout={clearTurnstileToken}
-				/>
+		{/if}
+		{#if globalMessage}
+			<div class="message-holder" class:error={globalIsError}>
+				<span>{globalMessage}</span>
 			</div>
-			<div class="button-group">
-				<input
-					class="button-submit"
-					type="submit"
-					value={loggingIn ? "Loading..." : $authDialog === AuthDialog.Login ? "Login" : "Sign up"}
-					disabled={!formValid || loggingIn}
-					aria-disabled={!formValid || loggingIn}
-				/>
-			</div>
-		</form>
-	{/if}
+		{/if}
+		<div id="login-turnstile-container">
+			<Turnstile
+				siteKey={PUBLIC_CF_TURNSTILE_KEY}
+				on:turnstile-callback={onTurnstileCallback}
+				on:turnstile-error={clearTurnstileToken}
+				on:turnstile-expired={clearTurnstileToken}
+				on:turnstile-timeout={clearTurnstileToken}
+			/>
+		</div>
+		<div class="button-group">
+			<input
+				class="button-submit"
+				type="submit"
+				value={loggingIn ? "Loading..." : $authDialog === AuthDialog.Login ? "Login" : "Sign up"}
+				disabled={!formValid || loggingIn}
+				aria-disabled={!formValid || loggingIn}
+			/>
+		</div>
+	</form>
 </Dialog>
 
 <style lang="scss">

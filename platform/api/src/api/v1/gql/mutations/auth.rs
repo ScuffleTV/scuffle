@@ -1,7 +1,10 @@
 use crate::api::middleware::auth::AuthError;
+use crate::api::v1::gql::models::two_fa::TwoFaRequest;
+use crate::api::v1::gql::models::ulid::GqlUlid;
 use crate::api::v1::gql::validators::{PasswordValidator, UsernameValidator};
 use crate::api::v1::jwt::JwtState;
 use crate::api::v1::request_context::AuthData;
+use crate::database::TwoFaRequestActionTrait;
 use crate::{
     api::v1::gql::{
         error::{GqlError, Result, ResultExt},
@@ -10,13 +13,28 @@ use crate::{
     },
     database,
 };
-use async_graphql::{Context, Object};
+use async_graphql::{Context, Object, Union};
 use chrono::{Duration, Utc};
-use ulid::Ulid;
-use uuid::Uuid;
+use common::database::{TraitProtobuf, Ulid};
+use pb::scuffle::platform::internal::two_fa::{
+    two_fa_request_action::{Action, Login},
+    TwoFaRequestAction,
+};
+use prost::Message;
 
 #[derive(Default, Clone)]
 pub struct AuthMutation;
+
+#[derive(Union)]
+pub enum LoginResponse {
+    TwoFaRequest(TwoFaRequest),
+    Success(Session),
+}
+
+#[derive(Union)]
+pub enum TwoFaRequestFulfillResponse {
+    Login(Session),
+}
 
 #[Object]
 /// The mutation object for authentication
@@ -36,7 +54,7 @@ impl AuthMutation {
             desc = "Setting this to false will make it so logging in does not authenticate the connection."
         )]
         update_context: Option<bool>,
-    ) -> Result<Session> {
+    ) -> Result<LoginResponse> {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
@@ -70,75 +88,71 @@ impl AuthMutation {
             .into());
         }
 
-        let login_duration = validity.unwrap_or(60 * 60 * 24 * 7); // 7 days
-        let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
+        let login = Login {
+            login_duration: validity.unwrap_or(60 * 60 * 24 * 7), // 7 days
+            update_context: update_context.unwrap_or(true),
+        };
 
-        // TODO: maybe look to batch this
-        let mut tx = global.db.begin().await?;
+        if user.totp_enabled {
+            let request_id = ulid::Ulid::new();
+            sqlx::query("INSERT INTO two_fa_requests (id, user_id, action) VALUES ($1, $2, $3)")
+                .bind(Ulid::from(request_id))
+                .bind(user.id)
+                .bind(
+                    TwoFaRequestAction {
+                        action: Some(Action::Login(login)),
+                    }
+                    .encode_to_vec(),
+                )
+                .execute(global.db.as_ref())
+                .await?;
+            Ok(LoginResponse::TwoFaRequest(TwoFaRequest { id: request_id.into() }))
+        } else {
+            let session = login.execute(global, user.id).await?;
 
-        let session: database::Session = sqlx::query_as(
-            "INSERT INTO user_sessions (id, user_id, two_fa_solved, expires_at) VALUES ($1, $2, $3, $4) RETURNING *",
-        )
-        .bind(Uuid::from(Ulid::new()))
-        .bind(user.id)
-        .bind(!user.totp_enabled)
-        .bind(expires_at)
-        .fetch_one(tx.as_mut())
-        .await?;
+            let jwt = JwtState::from(session.clone());
+            let token = jwt
+                .serialize(global)
+                .ok_or(GqlError::InternalServerError("failed to serialize JWT"))?;
 
-        sqlx::query("UPDATE users SET last_login_at = NOW() WHERE id = $1")
-            .bind(user.id)
-            .execute(tx.as_mut())
-            .await?;
+            // We need to update the request context with the new session
+            if update_context.unwrap_or(true) {
+                let auth_data = AuthData::from_session_and_user(global, session.clone(), &user)
+                    .await
+                    .map_err(GqlError::InternalServerError)?;
+                request_context.set_auth(auth_data).await;
+            }
 
-        tx.commit().await?;
-
-        let jwt = JwtState::from(session.clone());
-
-        let token = jwt
-            .serialize(global)
-            .ok_or(GqlError::InternalServerError("failed to serialize JWT"))?;
-
-        // We need to update the request context with the new session
-        if update_context.unwrap_or(true) {
-            let auth_data = AuthData::from_session_and_user(global, session.clone(), &user)
-                .await
-                .map_err(GqlError::InternalServerError)?;
-            request_context.set_auth(auth_data).await;
+            Ok(LoginResponse::Success(Session {
+                id: session.id.0.into(),
+                token,
+                user_id: session.user_id.0.into(),
+                expires_at: session.expires_at.into(),
+                last_used_at: session.last_used_at.into(),
+            }))
         }
-
-        Ok(Session {
-            id: session.id.0.into(),
-            token,
-            user_id: session.user_id.0.into(),
-            two_fa_solved: session.two_fa_solved,
-            expires_at: session.expires_at.into(),
-            last_used_at: session.last_used_at.into(),
-        })
     }
 
-    /// Verify a TOTP code for the currently authenticated user.
-    async fn verify_totp_code(
+    /// Fulfill a two-factor authentication request.
+    async fn fulfill_two_fa_request<'ctx>(
         &self,
         ctx: &Context<'_>,
-        #[graphql(desc = "The TOTP code to verify.")] code: String,
-    ) -> Result<Session> {
+        #[graphql(desc = "ID of the 2fa request to be fulfilled.")] id: GqlUlid,
+        #[graphql(desc = "The TOTP code.")] code: String,
+    ) -> Result<Option<TwoFaRequestFulfillResponse>> {
         let global = ctx.get_global();
         let request_context = ctx.get_req_context();
 
-        // Notice that we're using `auth_unchecked` here, because the 2fa challenge isn't solved yet
-        let mut auth = request_context
-            .auth_unchecked()
-            .await
-            .ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
-        // Still need to check if the session is valid
-        if !auth.session.is_valid() {
-            return Err(GqlError::Auth(AuthError::InvalidToken).into());
-        }
+        // TODO: Make this a dataloader
+        let request: database::TwoFaRequest = sqlx::query_as("SELECT * FROM two_fa_requests WHERE id = $1")
+            .bind(Ulid::from(id.to_ulid()))
+            .fetch_optional(global.db.as_ref())
+            .await?
+            .ok_or(GqlError::NotFound("2fa request"))?;
 
         let user = global
             .user_by_id_loader
-            .load(auth.session.user_id.into())
+            .load(request.user_id.into())
             .await
             .ok()
             .map_err_gql("failed to fetch user")?
@@ -152,28 +166,44 @@ impl AuthMutation {
             .into());
         }
 
-        let session: database::Session = sqlx::query_as(
-            "UPDATE user_sessions SET two_fa_solved = true WHERE id = $1 RETURNING *",
-        )
-        .bind(auth.session.id)
-        .fetch_one(global.db.as_ref())
-        .await?;
-        auth.session = session.clone();
-        request_context.set_auth(auth).await;
+        sqlx::query("DELETE FROM two_fa_requests WHERE id = $1")
+            .bind(request.id)
+            .execute(global.db.as_ref())
+            .await?;
 
-        let jwt = JwtState::from(session.clone());
-        let token = jwt
-            .serialize(global)
-            .ok_or(GqlError::InternalServerError("failed to serialize JWT"))?;
+        match request.action.into_inner().action {
+            Some(Action::Login(action)) => {
+                let update_context = action.update_context;
+                let session = action.execute(global, user.id).await?;
+                let jwt = JwtState::from(session.clone());
+                let token = jwt
+                    .serialize(global)
+                    .ok_or(GqlError::InternalServerError("failed to serialize JWT"))?;
 
-        Ok(Session {
-            id: session.id.0.into(),
-            token,
-            user_id: session.user_id.0.into(),
-            two_fa_solved: session.two_fa_solved,
-            expires_at: session.expires_at.into(),
-            last_used_at: session.last_used_at.into(),
-        })
+                // We need to update the request context with the new session
+                if update_context {
+                    let auth_data = AuthData::from_session_and_user(global, session.clone(), &user)
+                        .await
+                        .map_err(GqlError::InternalServerError)?;
+                    request_context.set_auth(auth_data).await;
+                }
+
+                Ok(Some(TwoFaRequestFulfillResponse::Login(Session {
+                    id: session.id.0.into(),
+                    token,
+                    user_id: session.user_id.0.into(),
+                    expires_at: session.expires_at.into(),
+                    last_used_at: session.last_used_at.into(),
+                })))
+            }
+            Some(Action::ChangePassword(action)) => {
+                action.execute(global, user.id).await?;
+                Ok(None)
+            }
+            None => Err(
+                GqlError::InternalServerError("invalid two-factor authentication request").into(),
+            ),
+        }
     }
 
     /// Login with a session token. If via websocket this will authenticate the websocket connection.
@@ -198,7 +228,7 @@ impl AuthMutation {
         let session: database::Session = sqlx::query_as(
             "UPDATE user_sessions SET last_used_at = NOW() WHERE id = $1 RETURNING *",
         )
-        .bind(Uuid::from(jwt.session_id))
+        .bind(Ulid::from(jwt.session_id))
         .fetch_optional(global.db.as_ref())
         .await?
         .map_err_gql(GqlError::InvalidInput {
@@ -222,7 +252,6 @@ impl AuthMutation {
             id: session.id.0.into(),
             token: session_token,
             user_id: session.user_id.0.into(),
-            two_fa_solved: session.two_fa_solved,
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
         })
@@ -288,7 +317,7 @@ impl AuthMutation {
 
         // TODO: maybe look to batch this
         let user: database::User = sqlx::query_as("INSERT INTO users (id, username, display_name, display_color, password_hash, email) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *")
-            .bind(Uuid::from(Ulid::new()))
+            .bind(Ulid::from(ulid::Ulid::new()))
             .bind(username)
             .bind(display_name)
             .bind(database::User::generate_display_color())
@@ -302,11 +331,10 @@ impl AuthMutation {
 
         // TODO: maybe look to batch this
         let session: database::Session = sqlx::query_as(
-            "INSERT INTO user_sessions (id, user_id, two_fa_solved, expires_at) VALUES ($1, $2, $3, $4) RETURNING *",
+            "INSERT INTO user_sessions (id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
         )
-        .bind(Uuid::from(Ulid::new()))
+        .bind(Ulid::from(ulid::Ulid::new()))
         .bind(user.id)
-        .bind(!user.totp_enabled)
         .bind(expires_at)
         .fetch_one(&mut *tx)
         .await?;
@@ -340,7 +368,6 @@ impl AuthMutation {
             id: session.id.0.into(),
             token,
             user_id: session.user_id.0.into(),
-            two_fa_solved: session.two_fa_solved,
             expires_at: session.expires_at.into(),
             last_used_at: session.last_used_at.into(),
         })
@@ -376,7 +403,7 @@ impl AuthMutation {
 
         // TODO: maybe look to batch this
         sqlx::query("DELETE FROM user_sessions WHERE id = $1")
-            .bind(Uuid::from(session_id))
+            .bind(Ulid::from(session_id))
             .execute(global.db.as_ref())
             .await?;
 

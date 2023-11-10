@@ -1,4 +1,4 @@
-use super::Ulid;
+use common::database::Ulid;
 use bitmask_enum::bitmask;
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]

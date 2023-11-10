@@ -10,7 +10,8 @@ use pb::{
 };
 use ulid::Ulid;
 use uuid::Uuid;
-use video_common::database::{PgNonNullVec, Recording, RecordingThumbnail, Rendition};
+use common::database::PgNonNullVec;
+use video_common::database::{Recording, RecordingThumbnail, Rendition};
 use video_player_types::{
     RenditionPlaylist, RenditionPlaylistRendition, RenditionPlaylistSegment,
     RenditionPlaylistSegmentPart, RoomPlaylistTrack, RoomPlaylistTrackAudio,

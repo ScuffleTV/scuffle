@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package scuffle.video.v1.types;
 
-import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/rendition.proto";
 import "scuffle/video/v1/types/tags.proto";
 
@@ -10,7 +10,7 @@ import "scuffle/video/v1/types/tags.proto";
 // By providing a rendition list you can define the output renditions.
 message TranscodingConfig {
   // The name of the transcoding config.
-  Ulid id = 1;
+  scuffle.types.Ulid id = 1;
 
   // The renditions to be transcoded.
   repeated Rendition renditions = 2;

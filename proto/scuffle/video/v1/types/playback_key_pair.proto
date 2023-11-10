@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package scuffle.video.v1.types;
 
-import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/tags.proto";
 
 // A key pair is used to allow for private playback of a recording or live
@@ -17,7 +17,7 @@ import "scuffle/video/v1/types/tags.proto";
 // pair.
 message PlaybackKeyPair {
   // The id of the key pair.
-  Ulid id = 1;
+  scuffle.types.Ulid id = 1;
 
   // The fingerprint of the public key.
   string fingerprint = 2;

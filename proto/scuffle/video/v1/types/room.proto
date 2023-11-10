@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package scuffle.video.v1.types;
 
-import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/room_status.proto";
 import "scuffle/video/v1/types/video_config.proto";
 import "scuffle/video/v1/types/audio_config.proto";
@@ -13,13 +13,13 @@ import "scuffle/video/v1/types/tags.proto";
 // to use, and when the stream was last live or ended.
 message Room {
   // The name of the room.
-  Ulid id = 1;
+  scuffle.types.Ulid id = 1;
 
   // The name of the transcoding configuration to use for the room.
-  optional Ulid transcoding_config_id = 2;
+  optional scuffle.types.Ulid transcoding_config_id = 2;
 
   // The name of the recording configuration to use for the room.
-  optional Ulid recording_config_id = 3;
+  optional scuffle.types.Ulid recording_config_id = 3;
 
   // The room status
   RoomStatus status = 4;
@@ -47,10 +47,10 @@ message Room {
   repeated AudioConfig audio_output = 10;
 
   // The current connection id of the room session.
-  optional Ulid active_connection_id = 11;
+  optional scuffle.types.Ulid active_connection_id = 11;
 
   // The current recording id of the room session.
-  optional Ulid active_recording_id = 12;
+  optional scuffle.types.Ulid active_recording_id = 12;
 
   // The time the room was created.
   // This is a Unix timestamp in nanoseconds.

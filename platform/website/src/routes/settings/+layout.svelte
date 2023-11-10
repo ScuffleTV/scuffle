@@ -1,7 +1,7 @@
 <script lang="ts">
 	import UserBanner from "$/components/settings/user-banner.svelte";
 	import TabSelector from "$/components/tab-selector.svelte";
-	import { authDialog, AuthDialog, user, session } from "$/store/auth";
+	import { authDialog, AuthDialog, user, sessionToken } from "$/store/auth";
 	import { faArrowUpRightFromSquare, faRoadBarrier } from "@fortawesome/free-solid-svg-icons";
 	import Fa from "svelte-fa";
 
@@ -14,7 +14,7 @@
 		{ name: "Billing", pathname: "/settings/billing", showWarning: isLive },
 	];
 
-	$: if ($session === null) {
+	$: if ($sessionToken === null) {
 		$authDialog = AuthDialog.Login;
 	}
 </script>

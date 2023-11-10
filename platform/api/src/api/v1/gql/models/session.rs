@@ -10,8 +10,6 @@ pub struct Session {
     pub token: String,
     /// The user who owns this session
     pub user_id: GqlUlid,
-    /// Whether the user has solved the two-factor authentication challenge
-    pub two_fa_solved: bool,
     /// Expires at
     pub expires_at: date::DateRFC3339,
     /// Last used at

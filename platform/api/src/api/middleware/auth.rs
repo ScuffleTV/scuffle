@@ -20,8 +20,6 @@ pub enum AuthError {
     NotLoggedIn,
     #[error("invalid token")]
     InvalidToken,
-    #[error("unsolved two factor authentication challenge")]
-    UnsolvedTwoFaChallenge,
 }
 
 pub fn auth_middleware(_: &Arc<GlobalState>) -> Middleware<hyper::Body, ApiErrorInterface> {

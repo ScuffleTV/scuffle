@@ -5,7 +5,7 @@ mod global_state;
 mod role;
 mod search_result;
 mod session;
-mod ulid;
+mod two_fa_request;
 mod user;
 
 pub use category::*;
@@ -15,5 +15,5 @@ pub use global_state::*;
 pub use role::*;
 pub use search_result::*;
 pub use session::*;
-pub use ulid::*;
+pub use two_fa_request::*;
 pub use user::*;

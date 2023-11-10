@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::Ulid;
+use common::database::Ulid;
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct PlaybackKeyPair {

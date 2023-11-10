@@ -5,6 +5,7 @@
 	import Spinner from "$/components/spinner.svelte";
 	import { graphql } from "$/gql";
 	import { fieldsValid, passwordValidate } from "$/lib/utils";
+	import { currentTwoFaRequest } from "$/store/auth";
 	import { faEdit } from "@fortawesome/free-solid-svg-icons";
 	import { CombinedError, getContextClient } from "@urql/svelte";
 	import { createEventDispatcher } from "svelte";
@@ -22,8 +23,18 @@
 	let newPassword: string;
 
 	let confirmPasswordStatus: FieldStatus;
+	let confirmPassword: string;
 
 	$: formValid = fieldsValid([currentPasswordStatus, newPasswordStatus, confirmPasswordStatus]);
+
+	async function newPasswordValidate(v: string) {
+		if (confirmPassword === v) {
+			confirmPasswordStatus = { type: FieldStatusType.Success };
+		} else {
+			confirmPasswordStatus = { type: FieldStatusType.Error, message: "Passwords do not match" };
+		}
+		return await passwordValidate(v);
+	}
 
 	async function confirmPasswordValidate(v: string) {
 		if (v !== newPassword) {
@@ -47,8 +58,11 @@
 					graphql(`
 						mutation ChangePassword($currentPassword: String!, $newPassword: String!) {
 							user {
-								password(currentPassword: $currentPassword, newPassword: $newPassword) {
-									id
+								resp: password(currentPassword: $currentPassword, newPassword: $newPassword) {
+									__typename
+									... on TwoFaRequest {
+										id
+									}
 								}
 							}
 						}
@@ -64,6 +78,9 @@
 				.toPromise();
 			loading = false;
 			if (res.data) {
+				if (res.data.user.resp?.__typename === "TwoFaRequest") {
+					$currentTwoFaRequest = res.data.user.resp.id;
+				}
 				close();
 			} else if (res.error && isWrongPassword(res.error)) {
 				currentPasswordStatus = { type: FieldStatusType.Error, message: "Wrong password" };
@@ -100,13 +117,14 @@
 			autocomplete="new-password"
 			required
 			bind:value={newPassword}
-			validate={passwordValidate}
+			validate={newPasswordValidate}
 			bind:status={newPasswordStatus}
 		/>
 		<PasswordField
 			label="Confirm New Password"
 			autocomplete="new-password"
 			required
+			bind:value={confirmPassword}
 			validate={confirmPasswordValidate}
 			bind:status={confirmPasswordStatus}
 		/>

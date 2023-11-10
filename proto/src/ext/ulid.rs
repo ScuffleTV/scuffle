@@ -1,4 +1,4 @@
-use crate::scuffle::video::v1::types::Ulid;
+use crate::scuffle::types::Ulid;
 
 pub trait UlidExt {
     fn to_ulid(&self) -> ulid::Ulid;

@@ -2,13 +2,13 @@ syntax = "proto3";
 
 package scuffle.video.v1.types;
 
-import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/access_token_scope.proto";
 import "scuffle/video/v1/types/tags.proto";
 
 message AccessToken {
   // The id of the access token
-  Ulid id = 1;
+  scuffle.types.Ulid id = 1;
 
   // The scopes that this access token has
   repeated AccessTokenScope scopes = 2;

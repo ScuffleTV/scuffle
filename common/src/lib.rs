@@ -2,6 +2,8 @@
 pub mod config;
 #[cfg(feature = "context")]
 pub mod context;
+#[cfg(feature = "database")]
+pub mod database;
 #[cfg(feature = "dataloader")]
 pub mod dataloader;
 #[cfg(feature = "grpc")]

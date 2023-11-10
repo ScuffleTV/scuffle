@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use pb::scuffle::video::v1::types::{AudioConfig, RecordingConfig, TranscodingConfig, VideoConfig};
 
-use super::{Protobuf, RoomStatus, TraitProtobuf, TraitProtobufVec, Ulid};
+use super::RoomStatus;
+
+use common::database::{Protobuf, TraitProtobuf, TraitProtobufVec, Ulid};
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct Room {

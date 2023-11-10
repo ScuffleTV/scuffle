@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use super::Ulid;
+use common::database::Ulid;
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct Category {

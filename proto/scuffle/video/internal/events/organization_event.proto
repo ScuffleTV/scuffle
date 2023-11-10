@@ -2,25 +2,25 @@ syntax = "proto3";
 
 package scuffle.video.internal.events;
 
-import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/types/ulid.proto";
 
 message OrganizationEvent {
   int64 timestamp = 1;
-  scuffle.video.v1.types.Ulid id = 2;
+  scuffle.types.Ulid id = 2;
 
   message RoomLive {
-    scuffle.video.v1.types.Ulid connection_id = 1;
-    scuffle.video.v1.types.Ulid room_id = 2;
+    scuffle.types.Ulid connection_id = 1;
+    scuffle.types.Ulid room_id = 2;
   }
 
   message RoomReady {
-    scuffle.video.v1.types.Ulid connection_id = 1;
-    scuffle.video.v1.types.Ulid room_id = 2;
+    scuffle.types.Ulid connection_id = 1;
+    scuffle.types.Ulid room_id = 2;
   }
 
   message RoomDisconnect {
-    scuffle.video.v1.types.Ulid connection_id = 1;
-    scuffle.video.v1.types.Ulid room_id = 2;
+    scuffle.types.Ulid connection_id = 1;
+    scuffle.types.Ulid room_id = 2;
     bool clean = 3;
     optional string error = 4;
   }

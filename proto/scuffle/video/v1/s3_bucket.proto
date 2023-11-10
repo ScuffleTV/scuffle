@@ -3,7 +3,7 @@ syntax = "proto3";
 package scuffle.video.v1;
 
 import "scuffle/video/v1/types/s3_bucket.proto";
-import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/tags.proto";
 import "scuffle/video/v1/types/search_options.proto";
 
@@ -33,7 +33,7 @@ message S3BucketGetRequest {
   // A list of ids to retrieve. If empty, all s3 buckets will be returned.
   // If not empty, only the s3 buckets with the specified ids will be returned.
   // This will be filtered by the search_options. (max: 100, min: 0)
-  repeated types.Ulid ids = 1;
+  repeated scuffle.types.Ulid ids = 1;
 
   // An optional set of search options to filter the results by.
   optional types.SearchOptions search_options = 2;
@@ -82,7 +82,7 @@ message S3BucketCreateResponse {
 // create a new one.
 message S3BucketModifyRequest {
   // The id of the s3 bucket to modify.
-  types.Ulid id = 1;
+  scuffle.types.Ulid id = 1;
 
   // The access token for the s3 bucket.
   optional string access_token = 2;
@@ -109,19 +109,19 @@ message S3BucketModifyResponse {
 // Note: deleting an s3 bucket will NOT delete recordings in the s3 bucket.
 message S3BucketDeleteRequest {
   // The ids of the s3 buckets to delete.
-  repeated types.Ulid ids = 1;
+  repeated scuffle.types.Ulid ids = 1;
 }
 
 // The response payload for S3Bucket.Delete.
 message S3BucketDeleteResponse {
   // The ids of the s3 buckets that were deleted.
-  repeated types.Ulid ids = 1;
+  repeated scuffle.types.Ulid ids = 1;
 }
 
 // The request payload for S3Bucket.Tag.
 message S3BucketTagRequest {
   // The id of the s3 bucket to tag.
-  types.Ulid id = 1;
+  scuffle.types.Ulid id = 1;
 
   // The tags to apply to the s3 bucket.
   types.Tags tags = 2;
@@ -136,7 +136,7 @@ message S3BucketTagResponse {
 // The request payload for S3Bucket.Untag.
 message S3BucketUntagRequest {
   // The id of the s3 bucket to untag.
-  types.Ulid id = 1;
+  scuffle.types.Ulid id = 1;
 
   // The tags to remove from the s3 bucket.
   repeated string tags = 2;

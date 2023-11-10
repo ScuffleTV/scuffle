@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package scuffle.video.v1.types;
+package scuffle.types;
 
 // A ULID is a 128-bit universally unique identifier.
 // Similar to UUIDs, but time sortable.

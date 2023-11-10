@@ -1,4 +1,6 @@
-use super::{RolePermission, Ulid};
+use common::database::Ulid;
+
+use super::RolePermission;
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct GlobalState {

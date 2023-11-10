@@ -1,7 +1,7 @@
 <script lang="ts">
 	import "$assets/styles/global.scss";
 	import TopNav from "$components/top-nav.svelte";
-	import { authDialog } from "$/store/auth";
+	import { authDialog, currentTwoFaRequest } from "$/store/auth";
 	import AuthDialog from "$/components/auth/auth-dialog.svelte";
 	import { setContextClient } from "@urql/svelte";
 	import "$/lib/auth";
@@ -11,6 +11,7 @@
 	import { building, dev } from "$app/environment";
 	import Spinner from "$/components/spinner.svelte";
 	import DevBanner from "$/components/dev-banner.svelte";
+	import SolveTwoFaDialog from "$/components/auth/solve-two-fa-dialog.svelte";
 
 	export let data: LayoutData;
 
@@ -50,6 +51,10 @@
 
 		{#if $authDialog}
 			<AuthDialog />
+		{/if}
+
+		{#if $currentTwoFaRequest}
+			<SolveTwoFaDialog requestId={$currentTwoFaRequest} />
 		{/if}
 
 		<img class="based" src="/BASED.webp" alt="BASED" class:animate={based} />

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package scuffle.video.internal;
 
-import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/types/ulid.proto";
 
 message LiveRenditionManifest {
   message Part {
@@ -14,7 +14,7 @@ message LiveRenditionManifest {
   message Segment {
     uint32 idx = 1;
     repeated Part parts = 2;
-    scuffle.video.v1.types.Ulid id = 3;
+    scuffle.types.Ulid id = 3;
   }
 
   message RenditionInfo {
@@ -33,10 +33,10 @@ message LiveRenditionManifest {
   map<string, RenditionInfo> other_info = 6;
 
   message RecordingData {
-    scuffle.video.v1.types.Ulid recording_ulid = 1;
+    scuffle.types.Ulid recording_ulid = 1;
 
     message RecordingThumbnail {
-      scuffle.video.v1.types.Ulid ulid = 1;
+      scuffle.types.Ulid ulid = 1;
       uint32 idx = 2;
       float timestamp = 3;
     }

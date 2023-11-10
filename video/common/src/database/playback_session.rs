@@ -5,8 +5,9 @@ use pb::scuffle::video::v1::types::{
 use super::{
     playback_session_browser::PlaybackSessionBrowser,
     playback_session_device::PlaybackSessionDevice,
-    playback_session_platform::PlaybackSessionPlatform, Ulid,
+    playback_session_platform::PlaybackSessionPlatform,
 };
+use common::database::Ulid;
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct PlaybackSession {

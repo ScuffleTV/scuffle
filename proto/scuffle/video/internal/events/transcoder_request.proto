@@ -2,12 +2,12 @@ syntax = "proto3";
 
 package scuffle.video.internal.events;
 
-import "scuffle/video/v1/types/ulid.proto";
+import "scuffle/types/ulid.proto";
 
 message TranscoderRequest {
-  scuffle.video.v1.types.Ulid organization_id = 1;
-  scuffle.video.v1.types.Ulid room_id = 2;
-  scuffle.video.v1.types.Ulid connection_id = 3;
-  scuffle.video.v1.types.Ulid request_id = 4;
+  scuffle.types.Ulid organization_id = 1;
+  scuffle.types.Ulid room_id = 2;
+  scuffle.types.Ulid connection_id = 3;
+  scuffle.types.Ulid request_id = 4;
   string grpc_endpoint = 5;
 }

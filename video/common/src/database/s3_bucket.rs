@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::Ulid;
+use common::database::Ulid;
 
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct S3Bucket {

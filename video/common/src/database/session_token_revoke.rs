@@ -1,4 +1,4 @@
-use super::Ulid;
+use common::database::Ulid;
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct SessionTokenRerevoke {

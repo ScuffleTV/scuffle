@@ -31,8 +31,9 @@ use tonic::Response;
 use transmuxer::{TransmuxResult, Transmuxer};
 use ulid::Ulid;
 use uuid::Uuid;
+use common::database::TraitProtobufVec;
 use video_common::{
-    database::{Room, RoomStatus, TraitProtobufVec},
+    database::{Room, RoomStatus},
     ext::AsyncReadExt as _,
 };
 

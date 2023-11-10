@@ -70,7 +70,7 @@ mod test {
     #[test]
     fn test_query_build() {
         let access_token = AccessToken {
-            organization_id: video_common::database::Ulid(Ulid::new()),
+            organization_id: common::database::Ulid(Ulid::new()),
             ..Default::default()
         };
 
@@ -99,7 +99,7 @@ mod test {
     #[test]
     fn test_query_build_with_no_search_options() {
         let access_token = AccessToken {
-            organization_id: video_common::database::Ulid(Ulid::new()),
+            organization_id: common::database::Ulid(Ulid::new()),
             ..Default::default()
         };
 
@@ -119,7 +119,7 @@ mod test {
     #[test]
     fn test_query_build_with_invalid_limit() {
         let access_token = AccessToken {
-            organization_id: video_common::database::Ulid(Ulid::new()),
+            organization_id: common::database::Ulid(Ulid::new()),
             ..Default::default()
         };
 
@@ -143,7 +143,7 @@ mod test {
     #[test]
     fn test_query_build_with_zero_limit() {
         let access_token = AccessToken {
-            organization_id: video_common::database::Ulid(Ulid::new()),
+            organization_id: common::database::Ulid(Ulid::new()),
             ..Default::default()
         };
 
@@ -166,7 +166,7 @@ mod test {
     #[test]
     fn test_query_build_with_reverse_order() {
         let access_token = AccessToken {
-            organization_id: video_common::database::Ulid(Ulid::new()),
+            organization_id: common::database::Ulid(Ulid::new()),
             ..Default::default()
         };
 
@@ -189,7 +189,7 @@ mod test {
     #[test]
     fn test_query_build_with_empty_tags() {
         let access_token = AccessToken {
-            organization_id: video_common::database::Ulid(Ulid::new()),
+            organization_id: common::database::Ulid(Ulid::new()),
             ..Default::default()
         };
 
@@ -214,7 +214,7 @@ mod test {
     #[test]
     fn test_query_build_with_ids_and_reverse_order() {
         let access_token = AccessToken {
-            organization_id: video_common::database::Ulid(Ulid::new()),
+            organization_id: common::database::Ulid(Ulid::new()),
             ..Default::default()
         };
 
@@ -237,7 +237,7 @@ mod test {
     #[test]
     fn test_query_build_with_tags_and_after_id() {
         let access_token = AccessToken {
-            organization_id: video_common::database::Ulid(Ulid::new()),
+            organization_id: common::database::Ulid(Ulid::new()),
             ..Default::default()
         };
 
@@ -267,7 +267,7 @@ mod test {
     #[test]
     fn test_query_build_with_limit_and_ids() {
         let access_token = AccessToken {
-            organization_id: video_common::database::Ulid(Ulid::new()),
+            organization_id: common::database::Ulid(Ulid::new()),
             ..Default::default()
         };
 
@@ -290,7 +290,7 @@ mod test {
     #[test]
     fn test_query_build_with_all_combos() {
         let access_token = AccessToken {
-            organization_id: video_common::database::Ulid(Ulid::new()),
+            organization_id: common::database::Ulid(Ulid::new()),
             ..Default::default()
         };
 

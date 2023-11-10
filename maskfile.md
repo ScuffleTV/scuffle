@@ -246,6 +246,7 @@ if [ ! -f .env ]; then
     echo "PLATFORM_DATABASE_URL=postgres://root@localhost:5432/scuffle_platform" >> .env
     echo "VIDEO_DATABASE_URL=postgres://root@localhost:5432/scuffle_video" >> .env
     echo "NATS_ADDR=localhost:4222" >> .env
+    echo "REDIS_ADDR=localhost:6379" >> .env
 fi
 ```
 

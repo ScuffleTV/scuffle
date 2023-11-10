@@ -6,5 +6,7 @@ mod dataloader;
 mod grpc;
 #[cfg(feature = "logging")]
 mod logging;
+#[cfg(feature = "ratelimiter")]
+mod ratelimiter;
 #[cfg(feature = "signal")]
 mod signal;

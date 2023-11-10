@@ -14,8 +14,9 @@ signal = ["tokio/signal", "tokio/process"]
 macros = []
 dataloader = ["dep:fnv", "dep:futures-util", "dep:futures-channel", "dep:futures-timer"]
 config = ["dep:config", "dep:serde", "logging"]
+ratelimiter = ["dep:fred"]
 
-default = ["logging", "grpc", "context", "prelude", "signal", "macros", "config", "dataloader"]
+default = ["logging", "grpc", "context", "prelude", "signal", "macros", "config", "dataloader", "ratelimiter"]
 
 [dependencies]
 log = { version = "0.4.20", optional = true }
@@ -35,17 +36,22 @@ once_cell = { version = "1.18.0", optional = true }
 trust-dns-resolver = { version = "0.23.0", features = ["tokio-runtime"], optional = true }
 tracing-subscriber = { version = "0.3.0", features = ["fmt", "env-filter", "json"], optional = true, git = "https://github.com/tokio-rs/tracing.git" }
 thiserror = { version = "1.0.49", optional = true }
+fred = { version = "7.0.0", optional = true }
 
 fnv = { version = "1.0.7", optional = true }
 futures-util = { version = "0.3.28", optional = true }
 futures-channel = { version = "0.3.28", optional = true }
 futures-timer = { version = "3.0.2", optional = true }
 
+const_format = { version = "0.2.32" }
+
 [dev-dependencies]
+ulid = "1.1.0"
 prost = "0.12.1"
 tempfile = "3.8.0"
 portpicker = "0.1.1"
 serial_test = "2.0.0"
+dotenvy = "0.15.7"
 
 [build-dependencies]
 tonic-build = "0.10.2"

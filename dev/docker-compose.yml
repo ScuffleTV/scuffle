@@ -41,3 +41,8 @@ services:
       /usr/bin/mc anonymous set download myminio/scuffle-video;
       exit 0;
       "
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"

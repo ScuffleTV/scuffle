@@ -1,3 +1,4 @@
+use std::io;
 use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
@@ -105,9 +106,22 @@ pub async fn run(global: Arc<GlobalState>) -> Result<()> {
         let cert = std::fs::read(&tls.cert).expect("failed to read rtmp cert");
         let key = std::fs::read(&tls.key).expect("failed to read rtmp key");
 
-        Some(Arc::new(tokio_native_tls::TlsAcceptor::from(
-            native_tls::TlsAcceptor::new(native_tls::Identity::from_pkcs8(&cert, &key)?)?,
-        )))
+        let key = rustls::PrivateKey(
+            rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(io::Cursor::new(key)))?
+                .remove(0),
+        );
+
+        let certs = rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(cert)))?
+            .into_iter()
+            .map(rustls::Certificate)
+            .collect();
+
+        Some(Arc::new(tokio_rustls::TlsAcceptor::from(Arc::new(
+            rustls::ServerConfig::builder()
+                .with_safe_defaults()
+                .with_no_client_auth()
+                .with_single_cert(certs, key)?,
+        ))))
     } else {
         None
     };

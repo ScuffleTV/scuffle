@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 bytes = "1.5.0"
-byteorder = "1.4.3"
-num-traits = "0.2.16"
-num-derive = "0.4.0"
+byteorder = "1.5.0"
+num-traits = "0.2.17"
+num-derive = "0.4.1"
 bytesio = { workspace = true }

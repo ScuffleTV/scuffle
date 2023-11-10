@@ -15,7 +15,7 @@ pub async fn mock_global_state(mut config: AppConfig) -> (Arc<GlobalState>, Hand
     logging::init(&config.logging.level, config.logging.mode)
         .expect("failed to initialize logging");
 
-    config.database.uri = std::env::var("DATABASE_URI").expect("DATABASE_URL must be set");
+    config.database.uri = std::env::var("VIDEO_DATABASE_URL").expect("DATABASE_URL must be set");
     config.nats.servers = vec![std::env::var("NATS_ADDR").expect("NATS_URL must be set")];
 
     let global = Arc::new(GlobalState::new(ctx, config).await.unwrap());

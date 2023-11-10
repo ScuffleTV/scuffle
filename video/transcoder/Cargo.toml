@@ -7,32 +7,30 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.75"
-tracing = "0.1.37"
-native-tls = "0.2.11"
-tokio-native-tls = "0.3.1"
-tokio = { version = "1.32.0", features = ["full"] }
-serde = { version = "1.0.188", features = ["derive"] }
+tracing = "0.1.40"
+tokio = { version = "1.34.0", features = ["full"] }
+serde = { version = "1.0.192", features = ["derive"] }
 hyper = { version = "0.14.27", features = ["full"] }
 tonic = { version = "0.10.2", features = ["tls"] }
 chrono = { version = "0.4.31", default-features = false, features = ["clock"] }
 prost = "0.12.1"
 async-stream = "0.3.5"
-futures = "0.3.28"
-futures-util = "0.3.28"
+futures = "0.3.29"
+futures-util = "0.3.29"
 bytes = "1.5.0"
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 url-parse = "1.0.7"
 nix = { version = "0.27.1", features = ["fs", "user"] }
 sha2 = "0.10.8"
-tokio-util = { version = "0.7.9", features = ["compat"] }
+tokio-util = { version = "0.7.10", features = ["compat"] }
 tokio-stream = "0.1.14"
 ulid = { version = "1.1.0", features = ["uuid"] }
-uuid = { version = "1.4.1", features = ["serde", "v4"] }
-async-nats = "0.32.1"
-sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio-native-tls", "json", "chrono", "uuid"] }
+uuid = { version = "1.5.0", features = ["serde", "v4"] }
+async-nats = "0.33.0"
+sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
 sqlx-postgres = "0.7.2"
-thiserror = "1.0.49"
-rust-s3 = "0.33.0"
+thiserror = "1.0.50"
+rust-s3 = { version = "0.33.0", default-features = false, features = ["tags", "tokio-rustls-tls", "fail-on-err"] }
 
 aac = { workspace = true }
 mp4 = { workspace = true }
@@ -46,7 +44,7 @@ video-common = { workspace = true }
 dotenvy = "0.15.7"
 portpicker = "0.1.1"
 serial_test = "2.0.0"
-tempfile = "3.8.0"
-serde_json = "1.0.107"
+tempfile = "3.8.1"
+serde_json = "1.0.108"
 transmuxer = { workspace = true }
 flv = { workspace = true }

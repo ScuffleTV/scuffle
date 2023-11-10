@@ -19,6 +19,9 @@ members = [
 
 resolver = "2"
 
+[profile.release]
+lto = 'fat'
+
 [profile.wasm]
 lto = 'fat'
 panic = 'abort'
@@ -49,3 +52,6 @@ video-player-types = { path = "video/player_types" }
 tracing = { git = "https://github.com/ScuffleTV/tracing" }
 tracing-subscriber = { git = "https://github.com/ScuffleTV/tracing" }
 tracing-log = { git = "https://github.com/ScuffleTV/tracing" }
+
+[patch.crates-io]
+jwt = { git = "https://github.com/ScuffleTV/rust-jwt", branch = "troy/fixes" }

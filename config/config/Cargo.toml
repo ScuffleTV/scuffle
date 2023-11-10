@@ -11,23 +11,23 @@ keywords = ["config", "cli", "proc-macro"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0.49"
-serde = { version = "1.0.188", features = ["derive", "rc"] }
-tracing = { version = "0.1.37" }
+thiserror = "1.0.50"
+serde = { version = "1.0.192", features = ["derive", "rc"] }
+tracing = { version = "0.1.40" }
 serde_ignored = "0.1.9"
 serde-value = "0.7.0"
 serde_path_to_error = "0.1.14"
 humantime = "2.1.0"
 num-order = "1.2.0"
-uuid = { version = "1.4.1", features = ["serde"] }
+uuid = { version = "1.5.0", features = ["serde"] }
 
 # Parsing files
-serde_json = "1.0.107"
-serde_yaml = "0.9.25"
-toml = "0.8.2"
+serde_json = "1.0.108"
+serde_yaml = "0.9.27"
+toml = "0.8.8"
 
 # CLI
-clap = { version = "4.4.6", features = ["cargo", "string"] }
+clap = { version = "4.4.7", features = ["cargo", "string"] }
 convert_case = "0.6.0"
 
 # Derive macro

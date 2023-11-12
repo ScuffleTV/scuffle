@@ -7,7 +7,8 @@ use std::time::Duration;
 use async_stream::stream;
 use base64::Engine;
 use bytes::Bytes;
-use common::config::{LoggingConfig, TlsConfig};
+use common::config::TlsConfig;
+use common::global::*;
 use common::prelude::FutureTimeout;
 use futures::StreamExt;
 use pb::ext::UlidExt;
@@ -29,9 +30,10 @@ use ulid::Ulid;
 use uuid::Uuid;
 use video_common::database::Room;
 
-use crate::config::{AppConfig, GrpcConfig, IngestConfig, RtmpConfig};
-use crate::global;
+use crate::config::{IngestConfig, RtmpConfig};
 use crate::tests::global::mock_global_state;
+
+use super::global::GlobalState;
 
 fn generate_key(org_id: Ulid, room_id: Ulid) -> String {
     format!(
@@ -165,12 +167,12 @@ struct TestState {
     pub rtmp_port: u16,
     pub org_id: Ulid,
     pub room_id: Ulid,
-    pub global: Arc<global::GlobalState>,
+    pub global: Arc<GlobalState>,
     pub handler: common::context::Handler,
     pub transcoder_requests: Pin<Box<dyn futures::Stream<Item = TranscoderRequest>>>,
     pub organization_events: Pin<Box<dyn futures::Stream<Item = OrganizationEvent>>>,
     pub ingest_handle: JoinHandle<anyhow::Result<()>>,
-    pub grpc_handle: JoinHandle<anyhow::Result<()>>,
+    pub grpc_handle: JoinHandle<Result<(), tonic::transport::Error>>,
 }
 
 impl TestState {
@@ -192,37 +194,45 @@ impl TestState {
         let grpc_port = portpicker::pick_unused_port().unwrap();
         let rtmp_port = portpicker::pick_unused_port().unwrap();
 
-        let (global, handler) = mock_global_state(AppConfig {
-            logging: LoggingConfig {
-                level: "video_ingest=debug".to_string(),
-                ..Default::default()
-            },
-            grpc: GrpcConfig {
-                bind_address: format!("0.0.0.0:{}", grpc_port).parse().unwrap(),
-                ..Default::default()
-            },
+        let (global, handler) = mock_global_state(IngestConfig {
+            events_subject: Uuid::new_v4().to_string(),
+            transcoder_request_subject: Uuid::new_v4().to_string(),
+            bitrate_update_interval: Duration::from_secs(1),
+            grpc_advertise_address: format!("127.0.0.1:{grpc_port}"),
             rtmp: RtmpConfig {
-                bind_address: format!("0.0.0.0:{}", rtmp_port).parse().unwrap(),
+                bind_address: format!("127.0.0.1:{rtmp_port}").parse().unwrap(),
                 tls,
-            },
-            ingest: IngestConfig {
-                events_subject: Uuid::new_v4().to_string(),
-                transcoder_request_subject: Uuid::new_v4().to_string(),
-                bitrate_update_interval: Duration::from_secs(1),
-                ..Default::default()
             },
             ..Default::default()
         })
         .await;
 
+        let grpc = crate::grpc::add_routes(
+            &global,
+            tonic::transport::Server::builder().add_routes(Default::default()),
+        );
+
         let ingest_handle = tokio::spawn(crate::ingest::run(global.clone()));
-        let grpc_handle = tokio::spawn(crate::grpc::run(global.clone()));
+        let grpc_handle = {
+            let global = global.clone();
+            tokio::spawn(async move {
+                grpc.serve_with_shutdown(([127, 0, 0, 1], grpc_port).into(), async {
+                    global.ctx().done().await;
+                })
+                .await
+            })
+        };
 
         let transcoder_requests = {
             let global = global.clone();
             let mut stream = global
-                .nats
-                .subscribe(global.config.ingest.transcoder_request_subject.clone())
+                .nats()
+                .subscribe(
+                    global
+                        .config::<IngestConfig>()
+                        .transcoder_request_subject
+                        .clone(),
+                )
                 .await
                 .unwrap();
             stream!({
@@ -232,7 +242,7 @@ impl TestState {
                             let message = message.unwrap();
                             yield TranscoderRequest::decode(message.payload).unwrap();
                         }
-                        _ = global.ctx.done() => {
+                        _ = global.ctx().done() => {
                             break;
                         }
                     }
@@ -243,8 +253,11 @@ impl TestState {
         let organization_events = {
             let global = global.clone();
             let mut stream = global
-                .nats
-                .subscribe(format!("{}.*", global.config.ingest.events_subject))
+                .nats()
+                .subscribe(format!(
+                    "{}.*",
+                    global.config::<IngestConfig>().events_subject
+                ))
                 .await
                 .unwrap();
             stream!({
@@ -254,7 +267,7 @@ impl TestState {
                             let message = message.unwrap();
                             yield OrganizationEvent::decode(message.payload).unwrap();
                         }
-                        _ = global.ctx.done() => {
+                        _ = global.ctx().done() => {
                             break;
                         }
                     }
@@ -267,7 +280,7 @@ impl TestState {
         sqlx::query("INSERT INTO organizations (id, name) VALUES ($1, $2)")
             .bind(Uuid::from(org_id))
             .bind("test")
-            .execute(global.db.as_ref())
+            .execute(global.db().as_ref())
             .await
             .unwrap();
 
@@ -277,7 +290,7 @@ impl TestState {
             .bind(Uuid::from(org_id))
             .bind(Uuid::from(room_id))
             .bind(Uuid::from(room_id).simple().to_string())
-            .execute(global.db.as_ref())
+            .execute(global.db().as_ref())
             .await
             .unwrap();
 
@@ -344,7 +357,7 @@ async fn test_ingest_stream() {
         sqlx::query_as("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
             .bind(Uuid::from(state.org_id))
             .bind(Uuid::from(state.room_id))
-            .fetch_one(state.global.db.as_ref())
+            .fetch_one(state.global.db().as_ref())
             .await
             .unwrap();
 
@@ -481,7 +494,7 @@ async fn test_ingest_stream() {
 
     assert!(got_ready);
 
-    while let Ok(Some(msg)) = watcher.recv.message().await {
+    if let Ok(Some(msg)) = watcher.recv.message().await {
         panic!("unexpected message: {:?}", msg);
     }
 
@@ -509,7 +522,7 @@ async fn test_ingest_stream() {
     let room: Room = sqlx::query_as("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
         .bind(Uuid::from(state.org_id))
         .bind(Uuid::from(state.room_id))
-        .fetch_one(state.global.db.as_ref())
+        .fetch_one(state.global.db().as_ref())
         .await
         .unwrap();
 
@@ -646,7 +659,7 @@ async fn test_ingest_stream_shutdown() {
 
     state
         .global
-        .nats
+        .nats()
         .publish(format!("ingest.{}.disconnect", connection_id), Bytes::new())
         .await
         .unwrap();
@@ -676,7 +689,7 @@ async fn test_ingest_stream_shutdown() {
     let room: Room = sqlx::query_as("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
         .bind(Uuid::from(state.org_id))
         .bind(Uuid::from(state.room_id))
-        .fetch_one(state.global.db.as_ref())
+        .fetch_one(state.global.db().as_ref())
         .await
         .unwrap();
 
@@ -713,7 +726,7 @@ async fn test_ingest_stream_transcoder_full() {
     let room: Room = sqlx::query_as("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
         .bind(Uuid::from(state.org_id))
         .bind(Uuid::from(state.room_id))
-        .fetch_one(state.global.db.as_ref())
+        .fetch_one(state.global.db().as_ref())
         .await
         .unwrap();
 

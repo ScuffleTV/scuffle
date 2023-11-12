@@ -11,13 +11,16 @@ tokio = { version = "1.34.0", features = ["full"] }
 serde = { version = "1.0.192", features = ["derive"] }
 hyper = { version = "0.14.27", features = ["full"] }
 common = { workspace = true }
+rustls = "0.21.8"
+rustls-pemfile = "1.0.4"
+tokio-rustls = "0.24.1"
 sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
 sqlx-postgres = "0.7.2"
 routerify = "3.0.0"
 serde_json = "1.0.108"
 reqwest = { version = "0.11.22", features = ["json", "rustls-tls"], default-features = false}
 chrono = { version = "0.4.31", default-features = false, features = ["serde", "clock"] }
-async-graphql = { version = "6.0.10", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "string_number"] }
+async-graphql = { git = "https://github.com/ScuffleTV/async-graphql.git", branch = "troy/union-generics", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "string_number"] }
 hyper-tungstenite = "0.11.1"
 async-stream = "0.3.5"
 futures = "0.3.29"
@@ -39,11 +42,14 @@ tokio-stream = { version = "0.1.14", features = ["sync"] }
 async-nats = "0.33.0"
 async-trait = "0.1.74"
 bytes = "1.5.0"
+totp-rs = { version = "5.4.0", features = ["qr"] }
+thiserror = "1.0.50"
+
+anyhow = "1.0.42"
 
 config = { workspace = true }
 pb = { workspace = true }
-totp-rs = { version = "5.4.0", features = ["qr"] }
-thiserror = "1.0.50"
+binary-helper = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3.8.1"

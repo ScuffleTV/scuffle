@@ -7,6 +7,7 @@ use crate::{
         ext::ContextExt,
     },
     database,
+    global::ApiGlobal,
 };
 
 #[derive(Enum, Copy, Clone, Eq, PartialEq, Debug)]
@@ -18,25 +19,28 @@ pub enum MessageType {
 
 #[derive(SimpleObject)]
 #[graphql(complex)]
-pub struct ChatMessage {
+pub struct ChatMessage<G: ApiGlobal> {
     pub id: GqlUlid,
     pub channel_id: GqlUlid,
     pub user_id: GqlUlid,
     pub content: String,
     pub r#type: MessageType,
+
+    #[graphql(skip)]
+    pub _phantom: std::marker::PhantomData<G>,
 }
 
 #[ComplexObject]
-impl ChatMessage {
-    pub async fn user(&self, ctx: &Context<'_>) -> Result<Option<User>> {
-        let global = ctx.get_global();
+impl<G: ApiGlobal> ChatMessage<G> {
+    pub async fn user(&self, ctx: &Context<'_>) -> Result<Option<User<G>>> {
+        let global = ctx.get_global::<G>();
 
         if self.user_id.is_nil() {
             return Ok(None);
         }
 
         let user = global
-            .user_by_id_loader
+            .user_by_id_loader()
             .load(self.user_id.into())
             .await
             .map_err_gql("failed to fetch user")?
@@ -45,11 +49,11 @@ impl ChatMessage {
         Ok(Some(User::from(user)))
     }
 
-    pub async fn channel(&self, ctx: &Context<'_>) -> Result<User> {
-        let global = ctx.get_global();
+    pub async fn channel(&self, ctx: &Context<'_>) -> Result<User<G>> {
+        let global = ctx.get_global::<G>();
 
         let user = global
-            .user_by_id_loader
+            .user_by_id_loader()
             .load(self.channel_id.into())
             .await
             .map_err_gql("failed to fetch user")?
@@ -59,7 +63,7 @@ impl ChatMessage {
     }
 }
 
-impl From<database::ChatMessage> for ChatMessage {
+impl<G: ApiGlobal> From<database::ChatMessage> for ChatMessage<G> {
     fn from(model: database::ChatMessage) -> Self {
         Self {
             id: model.id.0.into(),
@@ -67,6 +71,7 @@ impl From<database::ChatMessage> for ChatMessage {
             user_id: model.user_id.0.into(),
             content: model.content,
             r#type: MessageType::User,
+            _phantom: std::marker::PhantomData,
         }
     }
 }

@@ -1,7 +1,8 @@
+use common::http::{ext::*, RouteError};
 use hyper::{Body, Request, StatusCode};
 use pb::scuffle::video::internal::live_rendition_manifest::RenditionInfo;
 
-use crate::edge::error::{Result, ResultExt, RouteError};
+use crate::edge::error::Result;
 
 use super::block_style::BlockStyle;
 
@@ -24,13 +25,13 @@ impl HlsConfig {
                         match key.as_ref() {
                             "_HLS_msn" => {
                                 if let Some(BlockStyle::Hls { msn, .. }) = acc.block_style.as_mut() {
-                                    *msn = value.parse().map_err_route((
+                                    *msn = value.parse().map_ignore_err_route((
                                             StatusCode::BAD_REQUEST,
                                             format!("Invalid _HLS_msn value: {}", value),
                                     ))?;
                                 } else if acc.block_style.is_none() {
                                     acc.block_style = Some(BlockStyle::Hls {
-                                        msn: value.parse().map_err_route((
+                                        msn: value.parse().map_ignore_err_route((
                                             StatusCode::BAD_REQUEST,
                                             format!("Invalid _HLS_msn value: {}", value),
                                         ))?,
@@ -40,14 +41,14 @@ impl HlsConfig {
                             }
                             "_HLS_part" => {
                                 if let Some(BlockStyle::Hls { part, .. }) = acc.block_style.as_mut() {
-                                    *part = value.parse().map_err_route((
+                                    *part = value.parse().map_ignore_err_route((
                                             StatusCode::BAD_REQUEST,
                                             format!("Invalid _HLS_part value: {}", value),
                                     ))?;
                                 } else if acc.block_style.is_none() {
                                     acc.block_style = Some(BlockStyle::Hls {
                                         msn: 0,
-                                        part: value.parse().map_err_route((
+                                        part: value.parse().map_ignore_err_route((
                                             StatusCode::BAD_REQUEST,
                                             format!("Invalid _HLS_part value: {}", value),
                                         ))?,
@@ -62,7 +63,7 @@ impl HlsConfig {
                                     )))
                                 }
 
-                                acc.block_style = Some(BlockStyle::ScufflePart(value.parse().map_err_route((
+                                acc.block_style = Some(BlockStyle::ScufflePart(value.parse().map_ignore_err_route((
                                     StatusCode::BAD_REQUEST,
                                     format!("Invalid _SCUFFLE_part value: {}", value),
                                 ))?));
@@ -75,7 +76,7 @@ impl HlsConfig {
                                     )))
                                 }
 
-                                acc.block_style = Some(BlockStyle::ScuffleIPart(value.parse().map_err_route((
+                                acc.block_style = Some(BlockStyle::ScuffleIPart(value.parse().map_ignore_err_route((
                                     StatusCode::BAD_REQUEST,
                                     format!("Invalid _SCUFFLE_ipart value: {}", value),
                                 ))?));

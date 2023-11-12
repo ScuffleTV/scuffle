@@ -1,30 +1,32 @@
 use std::sync::Arc;
 
 use async_graphql::{extensions, Schema};
+use common::http::RouteError;
 use hyper::{Body, Response};
 use routerify::Router;
 
-use crate::{api::error::ApiErrorInterface, global::GlobalState};
+use crate::{api::error::ApiError, global::ApiGlobal};
 
-pub mod error;
-pub mod ext;
-pub mod guards;
-pub mod handlers;
-pub mod models;
-pub mod mutations;
-pub mod queries;
-pub mod subscription;
-pub mod validators;
+mod error;
+mod ext;
+mod guards;
+mod handlers;
+mod models;
+mod mutations;
+mod queries;
+mod subscription;
+mod validators;
 
-pub type MySchema = Schema<queries::Query, mutations::Mutation, subscription::Subscription>;
+pub type MySchema<G> =
+    Schema<queries::Query<G>, mutations::Mutation<G>, subscription::Subscription<G>>;
 
 pub const PLAYGROUND_HTML: &str = include_str!("playground.html");
 
-pub fn schema() -> MySchema {
+pub fn schema<G: ApiGlobal>() -> MySchema<G> {
     Schema::build(
-        queries::Query::default(),
-        mutations::Mutation::default(),
-        subscription::Subscription::default(),
+        queries::Query::<G>::default(),
+        mutations::Mutation::<G>::default(),
+        subscription::Subscription::<G>::default(),
     )
     .enable_federation()
     .enable_subscription_in_federation()
@@ -34,10 +36,10 @@ pub fn schema() -> MySchema {
     .finish()
 }
 
-pub fn routes(_global: &Arc<GlobalState>) -> Router<Body, ApiErrorInterface> {
+pub fn routes<G: ApiGlobal>(_: &Arc<G>) -> Router<Body, RouteError<ApiError>> {
     Router::builder()
-        .data(schema())
-        .any_method("/", handlers::graphql_handler)
+        .data(schema::<G>())
+        .any_method("/", handlers::graphql_handler::<G>)
         .get("/playground", move |_| async move {
             Ok(Response::builder()
                 .status(200)

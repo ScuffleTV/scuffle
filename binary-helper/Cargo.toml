@@ -1,0 +1,23 @@
+[package]
+name = "binary-helper"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+tracing = "0.1.27"
+thiserror = "1.0.50"
+tokio = { version = "1.34.0", features = ["full"] }
+serde = { version = "1.0.192", features = ["derive"] }
+async-nats = "0.33.0"
+ulid = "1.1.0"
+sqlx = { version = "0.7.2", features = ["postgres"] }
+async-trait = "0.1.74"
+tonic = { version = "0.10.2", features = ["tls"] }
+anyhow = "1.0.75"
+tower-layer = "0.3.2"
+async-stream = "0.3.5"
+futures-util = "0.3.29"
+
+config = { workspace = true }
+common = { workspace = true }
+pb = { workspace = true }

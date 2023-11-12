@@ -246,10 +246,6 @@ type Session {
 	"""
 	token: String!
 	"""
-	Whether the user has solved the two-factor authentication challenge
-	"""
-	twoFaSolved: Boolean!
-	"""
 	The user who owns this session
 	"""
 	userId: ULID!

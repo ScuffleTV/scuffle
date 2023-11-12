@@ -5,9 +5,10 @@ use tracing_subscriber::{prelude::*, reload::Handle, EnvFilter};
 
 static RELOAD_HANDLE: OnceCell<Handle<EnvFilter>> = OnceCell::new();
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Mode {
+    #[default]
     Default,
     Json,
     Pretty,

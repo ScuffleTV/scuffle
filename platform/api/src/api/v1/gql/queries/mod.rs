@@ -1,37 +1,46 @@
-use crate::api::v1::gql::error::Result;
-use async_graphql::{Context, SimpleObject};
+use crate::{api::v1::gql::error::Result, global::ApiGlobal};
+use async_graphql::{ComplexObject, Context, SimpleObject};
 
 use super::{error::ResultExt, ext::ContextExt, models};
 
 mod category;
 mod user;
 
-#[derive(Default, SimpleObject)]
+#[derive(SimpleObject)]
 #[graphql(complex)]
 /// The root query type which contains root level fields.
-pub struct Query {
-    category: category::CategoryQuery,
-    user: user::UserQuery,
+pub struct Query<G: ApiGlobal> {
+    pub category: category::CategoryQuery<G>,
+    pub user: user::UserQuery<G>,
+}
+
+impl<G: ApiGlobal> Default for Query<G> {
+    fn default() -> Self {
+        Self {
+            category: Default::default(),
+            user: Default::default(),
+        }
+    }
 }
 
 #[derive(Clone, SimpleObject)]
-struct SearchResults {
-    users: Vec<models::user::UserSearchResult>,
+struct SearchResults<G: ApiGlobal> {
+    users: Vec<models::user::UserSearchResult<G>>,
     categories: Vec<models::category::CategorySearchResult>,
 }
 
-#[async_graphql::ComplexObject]
-impl Query {
+#[ComplexObject]
+impl<G: ApiGlobal> Query<G> {
     async fn search(
         &self,
         ctx: &Context<'_>,
         #[graphql(desc = "The search query.")] query: String,
-    ) -> Result<SearchResults> {
-        let global = ctx.get_global();
+    ) -> Result<SearchResults<G>> {
+        let global = ctx.get_global::<G>();
 
         // TODO: perhaps this can be a single query, where we rank them together.
         let users = global
-            .user_search_loader
+            .user_search_loader()
             .load(query.clone())
             .await
             .ok()
@@ -42,7 +51,7 @@ impl Query {
             .collect();
 
         let categories = global
-            .category_search_loader
+            .category_search_loader()
             .load(query)
             .await
             .ok()

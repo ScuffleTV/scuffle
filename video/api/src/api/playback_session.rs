@@ -1,4 +1,4 @@
-use crate::global::GlobalState;
+use crate::global::ApiGlobal;
 use std::sync::{Arc, Weak};
 
 use tonic::{async_trait, Request, Response, Status};
@@ -11,13 +11,12 @@ use pb::scuffle::video::v1::{
 
 type Result<T> = std::result::Result<T, Status>;
 
-pub struct PlaybackSessionServer {
-    #[allow(dead_code)]
-    global: Weak<GlobalState>,
+pub struct PlaybackSessionServer<G: ApiGlobal> {
+    global: Weak<G>,
 }
 
-impl PlaybackSessionServer {
-    pub fn new(global: &Arc<GlobalState>) -> PlaybackSessionService<Self> {
+impl<G: ApiGlobal> PlaybackSessionServer<G> {
+    pub fn new(global: &Arc<G>) -> PlaybackSessionService<Self> {
         PlaybackSessionService::new(Self {
             global: Arc::downgrade(global),
         })
@@ -25,7 +24,7 @@ impl PlaybackSessionServer {
 }
 
 #[async_trait]
-impl PlaybackSession for PlaybackSessionServer {
+impl<G: ApiGlobal> PlaybackSession for PlaybackSessionServer<G> {
     async fn get(
         &self,
         _request: Request<PlaybackSessionGetRequest>,

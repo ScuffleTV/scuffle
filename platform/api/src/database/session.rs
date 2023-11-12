@@ -1,5 +1,5 @@
-use common::database::Ulid;
 use chrono::{DateTime, Utc};
+use common::database::Ulid;
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct Session {

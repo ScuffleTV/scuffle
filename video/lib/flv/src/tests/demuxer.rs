@@ -736,7 +736,7 @@ fn test_demux_flv_hevc_aac() {
             .arrays
             .iter()
             .find(|a| a.nal_unit_type == h265::NaluType::Sps)
-            .and_then(|v| v.nalus.get(0))
+            .and_then(|v| v.nalus.first())
         else {
             panic!("expected sps");
         };
@@ -746,7 +746,7 @@ fn test_demux_flv_hevc_aac() {
             .arrays
             .iter()
             .find(|a| a.nal_unit_type == h265::NaluType::Pps)
-            .and_then(|v| v.nalus.get(0))
+            .and_then(|v| v.nalus.first())
         else {
             panic!("expected pps");
         };

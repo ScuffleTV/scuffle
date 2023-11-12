@@ -50,6 +50,8 @@ fn impl_config(ast: &syn::DeriveInput) -> syn::Result<TokenStream> {
             continue;
         }
 
+        let flatten = attributes.iter().any(|a| matches!(a, Attr::Flatten));
+
         let path = match &field.ty {
             Type::Path(path) => quote! { #path },
             Type::Array(array) => quote! { #array },
@@ -61,36 +63,6 @@ fn impl_config(ast: &syn::DeriveInput) -> syn::Result<TokenStream> {
                 ))
             }
         };
-
-        let comment = get_doc_comment(&field.attrs)
-            .map(|c| quote! { Some(#c) })
-            .unwrap_or_else(|| quote! { None });
-
-        let field_env_attr = attributes
-            .iter()
-            .find_map(|a| if let Attr::Env(e) = a { Some(e) } else { None })
-            .or(struct_env_attr);
-
-        let field_cli_attr = attributes
-            .iter()
-            .find_map(|a| if let Attr::Cli(e) = a { Some(e) } else { None })
-            .or(struct_cli_attr);
-
-        let transform_attr = attributes
-            .iter()
-            .find_map(|a| {
-                if let Attr::KeyType(e) = a {
-                    Some(e)
-                } else {
-                    None
-                }
-            })
-            .map(|e| {
-                quote! { |path: &::config::KeyPath, value: ::config::Value| {
-                    ::config::transform_from_graph(path, &#e, value)
-                }}
-            })
-            .unwrap_or_else(|| quote! { <#path as ::config::Config>::transform });
 
         let type_attr = attributes
             .iter()
@@ -104,38 +76,92 @@ fn impl_config(ast: &syn::DeriveInput) -> syn::Result<TokenStream> {
             .map(|t| quote! { #t })
             .unwrap_or_else(|| quote! { <#path as ::config::Config>::graph() });
 
-        let add_attrs = {
-            let env_attr = field_env_attr.and_then(|env_attr| {
-                env_attr
-                    .skip
-                    .then_some(quote! { let key = key.with_skip_env(); })
-            });
+        keys_init.push(if flatten {
+            quote! {
+                {
+                    let mut graph = #type_attr;
+                    while let ::config::KeyGraph::Option(g) = graph.as_ref() {
+                        graph = g.clone();
+                    }
 
-            let cli_attr = field_cli_attr.and_then(|cli_attr| {
-                cli_attr
-                    .skip
-                    .then_some(quote! { let key = key.with_skip_cli(); })
-            });
+                    match graph.as_ref() {
+                        ::config::KeyGraph::Struct(flat_keys) => {
+                            keys.extend(flat_keys.clone());
+                        }
+                        ::config::KeyGraph::Unit => {},
+                        _ => {
+                            panic!("Expected a struct type for field `{}`, found `{:?}`", stringify!(#ident), graph);
+                        }
+                    }
+                }
+            }
+        } else {
+            let comment = get_doc_comment(&field.attrs)
+                .map(|c| quote! { Some(#c) })
+                .unwrap_or_else(|| quote! { None });
+
+            let field_env_attr = attributes
+                .iter()
+                .find_map(|a| if let Attr::Env(e) = a { Some(e) } else { None })
+                .or(struct_env_attr);
+
+            let field_cli_attr = attributes
+                .iter()
+                .find_map(|a| if let Attr::Cli(e) = a { Some(e) } else { None })
+                .or(struct_cli_attr);
+
+            let transform_attr = attributes
+                .iter()
+                .find_map(|a| {
+                    if let Attr::KeyType(e) = a {
+                        Some(e)
+                    } else {
+                        None
+                    }
+                })
+                .map(|e| {
+                    quote! { |path: &::config::KeyPath, value: ::config::Value| {
+                        ::config::transform_from_graph(path, &#e, value)
+                    }}
+                })
+                .unwrap_or_else(|| quote! { <#path as ::config::Config>::transform });
+
+            let add_attrs = {
+                let env_attr = field_env_attr.and_then(|env_attr| {
+                    env_attr
+                        .skip
+                        .then_some(quote! { let key = key.with_skip_env(); })
+                });
+
+                let cli_attr = field_cli_attr.and_then(|cli_attr| {
+                    cli_attr
+                        .skip
+                        .then_some(quote! { let key = key.with_skip_cli(); })
+                });
+
+                quote! {
+                    let key = ::config::Key::new(#type_attr);
+                    #env_attr
+                    #cli_attr
+                    let key = key.with_transformer(#transform_attr);
+                    key.with_comment(#comment)
+                }
+            };
 
             quote! {
-                let key = ::config::Key::new(#type_attr);
-                #env_attr
-                #cli_attr
-                let key = key.with_transformer(#transform_attr);
-                key.with_comment(#comment)
+                keys.insert(stringify!(#ident).to_string(), {
+                    #add_attrs
+                });
             }
-        };
-
-        keys_init.push(quote! {
-            keys.insert(stringify!(#ident).to_string(), {
-                #add_attrs
-            });
         });
     }
 
+    // support generics
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+
     let name = &ast.ident;
     Ok(quote! {
-        impl ::config::Config for #name {
+        impl #impl_generics ::config::Config for #name #ty_generics #where_clause {
             const PKG_NAME: Option<&'static str> = option_env!("CARGO_PKG_NAME");
             const ABOUT: Option<&'static str> = option_env!("CARGO_PKG_DESCRIPTION");
             const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
@@ -170,6 +196,7 @@ struct CliAttr {
 
 enum Attr {
     Skip,
+    Flatten,
     KeyType(syn::Expr),
     Env(EnvAttr),
     Cli(CliAttr),
@@ -193,6 +220,8 @@ fn get_attributes(attrs: &[syn::Attribute]) -> syn::Result<Vec<Attr>> {
                 syn::Meta::Path(path) => {
                     if path.is_ident("skip") {
                         Ok(Attr::Skip)
+                    } else if path.is_ident("flatten") {
+                        Ok(Attr::Flatten)
                     } else {
                         Err(syn::Error::new_spanned(path, "Unknown attribute"))
                     }

@@ -1,4 +1,4 @@
-use crate::global::GlobalState;
+use crate::global::ApiGlobal;
 use std::sync::{Arc, Weak};
 
 use tonic::{async_trait, Request, Response, Status};
@@ -24,12 +24,12 @@ use super::utils::{
 
 type Result<T> = std::result::Result<T, Status>;
 
-pub struct S3BucketServer {
-    global: Weak<GlobalState>,
+pub struct S3BucketServer<G: ApiGlobal> {
+    global: Weak<G>,
 }
 
-impl S3BucketServer {
-    pub fn new(global: &Arc<GlobalState>) -> S3BucketService<Self> {
+impl<G: ApiGlobal> S3BucketServer<G> {
+    pub fn new(global: &Arc<G>) -> S3BucketService<Self> {
         S3BucketService::new(Self {
             global: Arc::downgrade(global),
         })
@@ -37,7 +37,7 @@ impl S3BucketServer {
 }
 
 #[async_trait]
-impl S3BucketServiceTrait for S3BucketServer {
+impl<G: ApiGlobal> S3BucketServiceTrait for S3BucketServer<G> {
     async fn get(
         &self,
         _request: Request<S3BucketGetRequest>,

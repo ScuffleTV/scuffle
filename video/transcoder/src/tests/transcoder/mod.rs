@@ -10,7 +10,8 @@ use std::{
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use common::{config::LoggingConfig, logging, prelude::FutureTimeout};
+use common::database::TraitProtobufVec;
+use common::{global::*, prelude::FutureTimeout};
 use futures_util::Stream;
 use pb::{
     ext::UlidExt,
@@ -31,17 +32,14 @@ use tonic::Response;
 use transmuxer::{TransmuxResult, Transmuxer};
 use ulid::Ulid;
 use uuid::Uuid;
-use common::database::TraitProtobufVec;
 use video_common::{
     database::{Room, RoomStatus},
     ext::AsyncReadExt as _,
 };
 
-use crate::{
-    config::{AppConfig, TranscoderConfig},
-    global::GlobalState,
-    transcoder,
-};
+use crate::{config::TranscoderConfig, global::TranscoderState, transcoder};
+
+use super::global::GlobalState;
 
 type IngestRequest = (
     mpsc::Sender<Result<IngestWatchResponse>>,
@@ -80,7 +78,7 @@ fn setup_ingest_server(
         tonic::transport::Server::builder()
             .add_service(IngestServer::new(server))
             .serve_with_shutdown(bind, async move {
-                global.ctx.done().await;
+                global.ctx().done().await;
             })
             .await
             .unwrap();
@@ -93,25 +91,18 @@ fn setup_ingest_server(
 async fn test_transcode() {
     let port = portpicker::pick_unused_port().unwrap();
 
-    let (global, handler) = crate::tests::global::mock_global_state(AppConfig {
-        transcoder: TranscoderConfig {
-            events_subject: Ulid::new().to_string(),
-            transcoder_request_subject: Ulid::new().to_string(),
-            metadata_kv_store: Ulid::new().to_string(),
-            media_ob_store: Ulid::new().to_string(),
-            ..Default::default()
-        },
-        logging: LoggingConfig {
-            level: "info,transcoder=debug".to_string(),
-            mode: logging::Mode::Default,
-        },
+    let (global, handler) = crate::tests::global::mock_global_state(TranscoderConfig {
+        events_subject: Ulid::new().to_string(),
+        transcoder_request_subject: Ulid::new().to_string(),
+        metadata_kv_store: Ulid::new().to_string(),
+        media_ob_store: Ulid::new().to_string(),
         ..Default::default()
     })
     .await;
 
     let mut event_stream = global
-        .nats
-        .subscribe(global.config.transcoder.events_subject.clone())
+        .nats()
+        .subscribe(global.config::<TranscoderConfig>().events_subject.clone())
         .await
         .unwrap();
 
@@ -139,7 +130,7 @@ async fn test_transcode() {
     )
     .bind(Uuid::from(org_id))
     .bind(Uuid::from(room_id).simple().to_string())
-    .execute(global.db.as_ref())
+    .execute(global.db().as_ref())
     .await
     .unwrap();
 
@@ -186,14 +177,16 @@ async fn test_transcode() {
         }
         .encode_to_vec(),
     )
-    .execute(global.db.as_ref())
+    .execute(global.db().as_ref())
     .await
     .unwrap();
 
+    let config = global.config::<TranscoderConfig>();
+
     global
-        .nats
+        .nats()
         .publish(
-            global.config.transcoder.transcoder_request_subject.clone(),
+            config.transcoder_request_subject.clone(),
             TranscoderRequest {
                 room_id: Some(room_id.into()),
                 organization_id: Some(org_id.into()),
@@ -317,7 +310,7 @@ async fn test_transcode() {
 
     let video_manifest = LiveRenditionManifest::decode(
         global
-            .metadata_store
+            .metadata_store()
             .get(video_common::keys::rendition_manifest(
                 org_id,
                 room_id,
@@ -331,7 +324,7 @@ async fn test_transcode() {
     .unwrap();
     let audio_manifest = LiveRenditionManifest::decode(
         global
-            .metadata_store
+            .metadata_store()
             .get(video_common::keys::rendition_manifest(
                 org_id,
                 room_id,
@@ -394,7 +387,7 @@ async fn test_transcode() {
 
     let video_manifest = LiveRenditionManifest::decode(
         global
-            .metadata_store
+            .metadata_store()
             .get(video_common::keys::rendition_manifest(
                 org_id,
                 room_id,
@@ -408,7 +401,7 @@ async fn test_transcode() {
     .unwrap();
     let audio_manifest = LiveRenditionManifest::decode(
         global
-            .metadata_store
+            .metadata_store()
             .get(video_common::keys::rendition_manifest(
                 org_id,
                 room_id,
@@ -456,7 +449,7 @@ async fn test_transcode() {
     assert_eq!(audio_manifest.total_duration, 48128); // verified with ffprobe
 
     let mut video_parts = vec![global
-        .media_store
+        .media_store()
         .get(video_common::keys::init(
             org_id,
             room_id,
@@ -469,7 +462,7 @@ async fn test_transcode() {
         .await
         .unwrap()];
     let mut audio_parts = vec![global
-        .media_store
+        .media_store()
         .get(video_common::keys::init(
             org_id,
             room_id,
@@ -485,7 +478,7 @@ async fn test_transcode() {
     for i in 1..=3 {
         video_parts.push(
             global
-                .media_store
+                .media_store()
                 .get(video_common::keys::part(
                     org_id,
                     room_id,
@@ -501,7 +494,7 @@ async fn test_transcode() {
         );
         audio_parts.push(
             global
-                .media_store
+                .media_store()
                 .get(video_common::keys::part(
                     org_id,
                     room_id,
@@ -600,7 +593,7 @@ async fn test_transcode() {
         .bind(Uuid::from(org_id))
         .bind(Uuid::from(room_id))
         .bind(Uuid::from(connection_id))
-        .fetch_one(global.db.as_ref())
+        .fetch_one(global.db().as_ref())
         .await
         .unwrap();
 
@@ -656,34 +649,29 @@ async fn test_transcode() {
 async fn test_transcode_reconnect() {
     let port = portpicker::pick_unused_port().unwrap();
 
-    let (global, handler) = crate::tests::global::mock_global_state(AppConfig {
-        transcoder: TranscoderConfig {
-            events_subject: Ulid::new().to_string(),
-            transcoder_request_subject: Ulid::new().to_string(),
-            metadata_kv_store: Ulid::new().to_string(),
-            media_ob_store: Ulid::new().to_string(),
-            ..Default::default()
-        },
-        logging: LoggingConfig {
-            level: "info,transcoder=debug".to_string(),
-            mode: logging::Mode::Default,
-        },
+    let (global, handler) = crate::tests::global::mock_global_state(TranscoderConfig {
+        events_subject: Ulid::new().to_string(),
+        transcoder_request_subject: Ulid::new().to_string(),
+        metadata_kv_store: Ulid::new().to_string(),
+        media_ob_store: Ulid::new().to_string(),
         ..Default::default()
     })
     .await;
 
+    let config = global.config::<TranscoderConfig>();
+
     global
-        .jetstream
+        .jetstream()
         .create_stream(async_nats::jetstream::stream::Config {
-            name: global.config.transcoder.transcoder_request_subject.clone(),
+            name: config.transcoder_request_subject.clone(),
             ..Default::default()
         })
         .await
         .unwrap();
 
     let mut event_stream = global
-        .nats
-        .subscribe(global.config.transcoder.events_subject.clone())
+        .nats()
+        .subscribe(config.events_subject.clone())
         .await
         .unwrap();
 
@@ -711,7 +699,7 @@ async fn test_transcode_reconnect() {
     )
     .bind(Uuid::from(org_id))
     .bind(Uuid::from(room_id).simple().to_string())
-    .execute(global.db.as_ref())
+    .execute(global.db().as_ref())
     .await
     .unwrap();
 
@@ -758,7 +746,7 @@ async fn test_transcode_reconnect() {
         }
         .encode_to_vec(),
     )
-    .execute(global.db.as_ref())
+    .execute(global.db().as_ref())
     .await
     .unwrap();
 
@@ -781,11 +769,13 @@ async fn test_transcode_reconnect() {
         packets.push(packet);
     }
 
+    let config = global.config::<TranscoderConfig>();
+
     {
         global
-            .nats
+            .nats()
             .publish(
-                global.config.transcoder.transcoder_request_subject.clone(),
+                config.transcoder_request_subject.clone(),
                 TranscoderRequest {
                     room_id: Some(room_id.into()),
                     organization_id: Some(org_id.into()),
@@ -915,7 +905,7 @@ async fn test_transcode_reconnect() {
 
         let video_manifest = LiveRenditionManifest::decode(
             global
-                .metadata_store
+                .metadata_store()
                 .get(video_common::keys::rendition_manifest(
                     org_id,
                     room_id,
@@ -929,7 +919,7 @@ async fn test_transcode_reconnect() {
         .unwrap();
         let audio_manifest = LiveRenditionManifest::decode(
             global
-                .metadata_store
+                .metadata_store()
                 .get(video_common::keys::rendition_manifest(
                     org_id,
                     room_id,
@@ -993,9 +983,9 @@ async fn test_transcode_reconnect() {
         let new_req_id = Ulid::new();
 
         global
-            .nats
+            .nats()
             .publish(
-                global.config.transcoder.transcoder_request_subject.clone(),
+                config.transcoder_request_subject.clone(),
                 TranscoderRequest {
                     room_id: Some(room_id.into()),
                     organization_id: Some(org_id.into()),
@@ -1125,7 +1115,7 @@ async fn test_transcode_reconnect() {
 
         let video_manifest = LiveRenditionManifest::decode(
             global
-                .metadata_store
+                .metadata_store()
                 .get(video_common::keys::rendition_manifest(
                     org_id,
                     room_id,
@@ -1139,7 +1129,7 @@ async fn test_transcode_reconnect() {
         .unwrap();
         let audio_manifest = LiveRenditionManifest::decode(
             global
-                .metadata_store
+                .metadata_store()
                 .get(video_common::keys::rendition_manifest(
                     org_id,
                     room_id,
@@ -1225,9 +1215,9 @@ async fn test_transcode_reconnect() {
         let new_req_id = Ulid::new();
 
         global
-            .nats
+            .nats()
             .publish(
-                global.config.transcoder.transcoder_request_subject.clone(),
+                config.transcoder_request_subject.clone(),
                 TranscoderRequest {
                     room_id: Some(room_id.into()),
                     organization_id: Some(org_id.into()),
@@ -1357,7 +1347,7 @@ async fn test_transcode_reconnect() {
 
         let video_manifest = LiveRenditionManifest::decode(
             global
-                .metadata_store
+                .metadata_store()
                 .get(video_common::keys::rendition_manifest(
                     org_id,
                     room_id,
@@ -1371,7 +1361,7 @@ async fn test_transcode_reconnect() {
         .unwrap();
         let audio_manifest = LiveRenditionManifest::decode(
             global
-                .metadata_store
+                .metadata_store()
                 .get(video_common::keys::rendition_manifest(
                     org_id,
                     room_id,
@@ -1472,9 +1462,9 @@ async fn test_transcode_reconnect() {
         let new_req_id = Ulid::new();
 
         global
-            .nats
+            .nats()
             .publish(
-                global.config.transcoder.transcoder_request_subject.clone(),
+                config.transcoder_request_subject.clone(),
                 TranscoderRequest {
                     room_id: Some(room_id.into()),
                     organization_id: Some(org_id.into()),
@@ -1599,7 +1589,7 @@ async fn test_transcode_reconnect() {
 
         let video_manifest = LiveRenditionManifest::decode(
             global
-                .metadata_store
+                .metadata_store()
                 .get(video_common::keys::rendition_manifest(
                     org_id,
                     room_id,
@@ -1613,7 +1603,7 @@ async fn test_transcode_reconnect() {
         .unwrap();
         let audio_manifest = LiveRenditionManifest::decode(
             global
-                .metadata_store
+                .metadata_store()
                 .get(video_common::keys::rendition_manifest(
                     org_id,
                     room_id,

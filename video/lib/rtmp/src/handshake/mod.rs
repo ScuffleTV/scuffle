@@ -6,7 +6,7 @@ mod utils;
 
 pub use self::{
     define::{ServerHandshakeState, RTMP_HANDSHAKE_SIZE},
-    errors::{DigestError, HandshakeError},
+    errors::*,
     server::HandshakeServer,
 };
 

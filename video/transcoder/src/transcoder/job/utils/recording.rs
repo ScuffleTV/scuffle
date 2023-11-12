@@ -18,6 +18,8 @@ use ulid::Ulid;
 use uuid::Uuid;
 use video_common::database::{Rendition, S3Bucket};
 
+use crate::global::TranscoderGlobal;
+
 use super::{
     upload_segment_generator, upload_thumbnail_generator, RecordingState, Task, TaskDomain,
     ThumbnailUpload,
@@ -193,7 +195,7 @@ impl Recording {
 
     #[must_use]
     #[allow(clippy::too_many_arguments)]
-    pub fn upload_part(
+    pub fn upload_part<G: TranscoderGlobal>(
         &mut self,
         rendition: Rendition,
         id: Ulid,
@@ -202,7 +204,7 @@ impl Recording {
         start_time: f64,
         duration: f64,
         finished: bool,
-    ) -> Option<Task> {
+    ) -> Option<Task<G>> {
         let partial_upload =
             self.partial_uploads
                 .entry(rendition)
@@ -249,7 +251,11 @@ impl Recording {
         }
     }
 
-    pub fn upload_init(&mut self, rendition: Rendition, data: Bytes) -> Task {
+    pub fn upload_init<G: TranscoderGlobal>(
+        &mut self,
+        rendition: Rendition,
+        data: Bytes,
+    ) -> Task<G> {
         let state = RecordingState {
             recording_id: self.id,
             organization_id: self.organization_id,
@@ -281,7 +287,13 @@ impl Recording {
         )
     }
 
-    pub fn upload_thumbnail(&mut self, id: Ulid, idx: u32, start_time: f64, data: Bytes) -> Task {
+    pub fn upload_thumbnail<G: TranscoderGlobal>(
+        &mut self,
+        id: Ulid,
+        idx: u32,
+        start_time: f64,
+        data: Bytes,
+    ) -> Task<G> {
         let state = RecordingState {
             recording_id: self.id,
             organization_id: self.organization_id,

@@ -1,4 +1,4 @@
-use async_graphql::{ComplexObject, Context, SimpleObject, Union};
+use async_graphql::{Context, Object};
 use bytes::Bytes;
 use common::database::Ulid;
 use pb::scuffle::platform::internal::two_fa::{
@@ -7,8 +7,7 @@ use pb::scuffle::platform::internal::two_fa::{
 };
 use prost::Message;
 
-use crate::api::{middleware::auth::AuthError, v1::gql::models::two_fa::TwoFaRequest};
-use crate::api::v1::gql::validators::PasswordValidator;
+use crate::api::v1::gql::{models::two_fa::TwoFaResponse, validators::PasswordValidator};
 use crate::database::TwoFaRequestActionTrait;
 use crate::{
     api::v1::gql::{
@@ -19,30 +18,34 @@ use crate::{
     },
     database,
 };
+use crate::{
+    api::{middleware::auth::AuthError, v1::gql::models::two_fa::TwoFaRequest},
+    global::ApiGlobal,
+};
 
 mod two_fa;
 
-#[derive(Default, SimpleObject)]
-#[graphql(complex)]
-pub struct UserMutation {
-    two_fa: two_fa::TwoFaMutation,
+pub struct UserMutation<G: ApiGlobal> {
+    two_fa: two_fa::TwoFaMutation<G>,
 }
 
-#[derive(Clone, Union)]
-pub enum ChangePasswordResponse {
-    TwoFaRequest(TwoFaRequest),
-    Success(User),
+impl<G: ApiGlobal> Default for UserMutation<G> {
+    fn default() -> Self {
+        Self {
+            two_fa: Default::default(),
+        }
+    }
 }
 
-#[ComplexObject]
-impl UserMutation {
+#[Object]
+impl<G: ApiGlobal> UserMutation<G> {
     /// Change the email address of the currently logged in user.
     async fn email<'ctx>(
         &self,
         ctx: &Context<'_>,
         #[graphql(desc = "New email address.", validator(email))] email: String,
-    ) -> Result<User> {
-        let global = ctx.get_global();
+    ) -> Result<User<G>> {
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         let auth = request_context
@@ -55,7 +58,7 @@ impl UserMutation {
         )
         .bind(email)
         .bind(auth.session.user_id)
-        .fetch_one(global.db.as_ref())
+        .fetch_one(global.db().as_ref())
         .await?;
 
         Ok(user.into())
@@ -66,8 +69,8 @@ impl UserMutation {
         &self,
         ctx: &Context<'_>,
         #[graphql(desc = "New display name.")] display_name: String,
-    ) -> Result<User> {
-        let global = ctx.get_global();
+    ) -> Result<User<G>> {
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         let auth = request_context
@@ -77,7 +80,7 @@ impl UserMutation {
 
         // TDOD: Can we combine the two queries into one?
         let user: database::User = global
-            .user_by_id_loader
+            .user_by_id_loader()
             .load(auth.session.user_id.0)
             .await
             .map_err_gql("failed to fetch user")?
@@ -98,13 +101,13 @@ impl UserMutation {
         .bind(display_name.clone())
         .bind(auth.session.user_id)
         .bind(user.username)
-        .fetch_one(global.db.as_ref())
+        .fetch_one(global.db().as_ref())
         .await?;
 
         let user_id = user.id.0.to_string();
 
         global
-            .nats
+            .nats()
             .publish(
                 format!("user.{}.display_name", user_id),
                 pb::scuffle::platform::internal::events::UserDisplayName {
@@ -125,8 +128,8 @@ impl UserMutation {
         &self,
         ctx: &Context<'_>,
         #[graphql(desc = "New display color.")] color: Color,
-    ) -> Result<User> {
-        let global = ctx.get_global();
+    ) -> Result<User<G>> {
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         let auth = request_context
@@ -139,13 +142,13 @@ impl UserMutation {
         )
         .bind(*color)
         .bind(auth.session.user_id)
-        .fetch_one(global.db.as_ref())
+        .fetch_one(global.db().as_ref())
         .await?;
 
         let user_id = user.id.0.to_string();
 
         global
-            .nats
+            .nats()
             .publish(
                 format!("user.{}.display_color", user_id),
                 pb::scuffle::platform::internal::events::UserDisplayColor {
@@ -167,8 +170,8 @@ impl UserMutation {
         #[graphql(desc = "Current password")] current_password: String,
         #[graphql(desc = "New password", validator(custom = "PasswordValidator"))]
         new_password: String,
-    ) -> Result<ChangePasswordResponse> {
-        let global = ctx.get_global();
+    ) -> Result<TwoFaResponse<User<G>>> {
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         let auth = request_context
@@ -177,7 +180,7 @@ impl UserMutation {
             .ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
         let user = global
-            .user_by_id_loader
+            .user_by_id_loader()
             .load(auth.session.user_id.0)
             .await
             .map_err_gql("failed to fetch user")?
@@ -201,13 +204,20 @@ impl UserMutation {
             sqlx::query("INSERT INTO two_fa_requests (id, user_id, action) VALUES ($1, $2, $3)")
                 .bind(Ulid::from(request_id))
                 .bind(user.id)
-                .bind(TwoFaRequestAction { action: Some(Action::ChangePassword(change_password)) }.encode_to_vec())
-                .execute(global.db.as_ref())
+                .bind(
+                    TwoFaRequestAction {
+                        action: Some(Action::ChangePassword(change_password)),
+                    }
+                    .encode_to_vec(),
+                )
+                .execute(global.db().as_ref())
                 .await?;
-            Ok(ChangePasswordResponse::TwoFaRequest(TwoFaRequest { id: request_id.into() }))
+            Ok(TwoFaResponse::TwoFaRequest(TwoFaRequest {
+                id: request_id.into(),
+            }))
         } else {
             change_password.execute(global, user.id).await?;
-            Ok(ChangePasswordResponse::Success(user.into()))
+            Ok(TwoFaResponse::Success(user.into()))
         }
     }
 
@@ -218,7 +228,7 @@ impl UserMutation {
         #[graphql(desc = "The channel to (un)follow.")] channel_id: GqlUlid,
         #[graphql(desc = "Set to true for follow and false for unfollow")] follow: bool,
     ) -> Result<bool> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         let auth = request_context
@@ -238,7 +248,7 @@ impl UserMutation {
             .bind(auth.session.user_id)
             .bind(channel_id.to_uuid())
             .bind(follow)
-            .execute(global.db.as_ref())
+            .execute(global.db().as_ref())
             .await?;
 
         let user_id = auth.session.user_id.0.to_string();
@@ -257,17 +267,22 @@ impl UserMutation {
         );
 
         global
-            .nats
+            .nats()
             .publish(user_subject, msg.clone())
             .await
             .map_err_gql("failed to publish message")?;
 
         global
-            .nats
+            .nats()
             .publish(channel_subject, msg)
             .await
             .map_err_gql("failed to publish message")?;
 
         Ok(follow)
+    }
+
+    #[inline(always)]
+    async fn two_fa(&self) -> &two_fa::TwoFaMutation<G> {
+        &self.two_fa
     }
 }

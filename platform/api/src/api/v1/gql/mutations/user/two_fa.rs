@@ -8,18 +8,25 @@ use crate::{
         },
     },
     database,
+    global::ApiGlobal,
 };
 use async_graphql::{Context, Object};
 use rand::{rngs::OsRng, RngCore};
 
-#[derive(Default, Clone)]
-pub struct TwoFaMutation;
+#[derive(Clone, Copy)]
+pub struct TwoFaMutation<G>(std::marker::PhantomData<G>);
+
+impl<G> Default for TwoFaMutation<G> {
+    fn default() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
 
 #[Object]
-impl TwoFaMutation {
+impl<G: ApiGlobal> TwoFaMutation<G> {
     /// Generate a new TOTP secret for the currently authenticated user.
     async fn generate_totp<'ctx>(&self, ctx: &Context<'_>) -> Result<TotpSecret> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         let auth = request_context
@@ -28,7 +35,7 @@ impl TwoFaMutation {
             .map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
         let user: database::User = global
-            .user_by_id_loader
+            .user_by_id_loader()
             .load(auth.session.user_id.0)
             .await
             .map_err_gql("failed to fetch user")?
@@ -67,7 +74,7 @@ impl TwoFaMutation {
             .bind(secret)
             .bind(backup_codes)
             .bind(auth.session.user_id)
-            .execute(global.db.as_ref())
+            .execute(global.db().as_ref())
             .await?;
 
         let qr_code = totp
@@ -81,8 +88,8 @@ impl TwoFaMutation {
     }
 
     /// Enable TOTP for the currently authenticated user.
-    async fn enable_totp<'ctx>(&self, ctx: &Context<'_>, code: String) -> Result<User> {
-        let global = ctx.get_global();
+    async fn enable_totp<'ctx>(&self, ctx: &Context<'_>, code: String) -> Result<User<G>> {
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         let auth = request_context
@@ -91,7 +98,7 @@ impl TwoFaMutation {
             .map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
         let user: database::User = global
-            .user_by_id_loader
+            .user_by_id_loader()
             .load(auth.session.user_id.0)
             .await
             .map_err_gql("failed to fetch user")?
@@ -120,7 +127,7 @@ impl TwoFaMutation {
             "UPDATE users SET totp_enabled = true, updated_at = NOW() WHERE id = $1 RETURNING *",
         )
         .bind(auth.session.user_id)
-        .fetch_one(global.db.as_ref())
+        .fetch_one(global.db().as_ref())
         .await?;
 
         // TODO: Log out all other sessions?
@@ -129,8 +136,8 @@ impl TwoFaMutation {
     }
 
     /// Disable TOTP for the currently authenticated user.
-    async fn disable_totp<'ctx>(&self, ctx: &Context<'ctx>, password: String) -> Result<User> {
-        let global = ctx.get_global();
+    async fn disable_totp<'ctx>(&self, ctx: &Context<'ctx>, password: String) -> Result<User<G>> {
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         let auth = request_context
@@ -139,7 +146,7 @@ impl TwoFaMutation {
             .map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
         let user: database::User = global
-            .user_by_id_loader
+            .user_by_id_loader()
             .load(auth.session.user_id.0)
             .await
             .map_err_gql("failed to fetch user")?
@@ -157,7 +164,7 @@ impl TwoFaMutation {
         // Disable 2fa, remove secret and backup codes.
         let user: database::User = sqlx::query_as("UPDATE users SET totp_enabled = false, totp_secret = NULL, two_fa_backup_codes = NULL, updated_at = NOW() WHERE id = $1 RETURNING *")
             .bind(auth.session.user_id)
-            .fetch_one(global.db.as_ref())
+            .fetch_one(global.db().as_ref())
             .await?;
 
         Ok(user.into())

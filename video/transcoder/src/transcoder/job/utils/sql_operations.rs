@@ -9,7 +9,7 @@ use ulid::Ulid;
 use uuid::Uuid;
 use video_common::database::{Room, S3Bucket};
 
-use crate::{global::GlobalState, transcoder::job::renditions::determine_output_renditions};
+use crate::{global::TranscoderGlobal, transcoder::job::renditions::determine_output_renditions};
 
 use super::Recording;
 
@@ -22,8 +22,8 @@ pub struct SqlOperations {
     pub audio_output: Vec<AudioConfig>,
 }
 
-pub async fn perform_sql_operations(
-    global: &Arc<GlobalState>,
+pub async fn perform_sql_operations<G: TranscoderGlobal>(
+    global: &Arc<G>,
     organization_id: Ulid,
     room_id: Ulid,
     connection_id: Ulid,
@@ -42,7 +42,7 @@ pub async fn perform_sql_operations(
     .bind(Uuid::from(organization_id))
     .bind(Uuid::from(room_id))
     .bind(Uuid::from(connection_id))
-    .fetch_optional(global.db.as_ref())
+    .fetch_optional(global.db().as_ref())
     .await
     {
         Ok(r) => r,
@@ -74,7 +74,7 @@ pub async fn perform_sql_operations(
             )
             .bind(Uuid::from(organization_id))
             .bind(recording_config_id)
-            .fetch_one(global.db.as_ref())
+            .fetch_one(global.db().as_ref())
             .await
             {
                 Ok(r) => r.into_proto(),
@@ -97,7 +97,7 @@ pub async fn perform_sql_operations(
             )
             .bind(Uuid::from(organization_id))
             .bind(Uuid::from(s3_bucket_id))
-            .fetch_one(global.db.as_ref())
+            .fetch_one(global.db().as_ref())
             .await
             {
                 Ok(r) => r,
@@ -118,7 +118,7 @@ pub async fn perform_sql_operations(
         )
         .bind(Uuid::from(organization_id))
         .bind(*transcoding_config_id)
-        .fetch_one(global.db.as_ref())
+        .fetch_one(global.db().as_ref())
         .await
         {
             Ok(r) => r.into_proto(),
@@ -136,7 +136,7 @@ pub async fn perform_sql_operations(
     let (video_output, audio_output) =
         determine_output_renditions(&video_input, &audio_input, &transcoding_config);
 
-    let mut tx = match global.db.begin().await {
+    let mut tx = match global.db().begin().await {
         Ok(tx) => tx,
         Err(err) => {
             anyhow::bail!("failed to begin transaction: {}", err);

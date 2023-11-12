@@ -4,13 +4,14 @@ use crate::api::v1::gql::error::ResultExt;
 use crate::api::v1::gql::guards::auth_guard;
 use crate::api::v1::gql::{error::Result, ext::ContextExt};
 use crate::database::{self, ChannelLink};
+use crate::global::ApiGlobal;
 
 use super::category::Category;
 use super::{date::DateRFC3339, ulid::GqlUlid};
 
 #[derive(SimpleObject, Clone)]
 #[graphql(complex)]
-pub struct Channel {
+pub struct Channel<G: ApiGlobal> {
     pub id: GqlUlid,
     pub title: Option<String>,
     pub live_viewer_count: Option<i32>,
@@ -24,20 +25,23 @@ pub struct Channel {
 
     // Private fields
     #[graphql(skip)]
-    pub stream_key_: Option<String>,
+    stream_key_: Option<String>,
+
+    #[graphql(skip)]
+    _phantom: std::marker::PhantomData<G>,
 }
 
 #[ComplexObject]
-impl Channel {
+impl<G: ApiGlobal> Channel<G> {
     async fn category(&self, ctx: &Context<'_>) -> Result<Option<Category>> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
 
         let Some(category_id) = self.category_id else {
             return Ok(None);
         };
 
         let category = global
-            .category_by_id_loader
+            .category_by_id_loader()
             .load(category_id.into())
             .await
             .map_err_gql("failed to fetch category")?;
@@ -50,13 +54,13 @@ impl Channel {
     }
 
     async fn followers_count(&self, ctx: &Context<'_>) -> Result<i64> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
 
         let (followers,) = sqlx::query_as(
             "SELECT COUNT(*) FROM channel_user WHERE channel_id = $1 AND following = true",
         )
         .bind(self.id.to_uuid())
-        .fetch_one(global.db.as_ref())
+        .fetch_one(global.db().as_ref())
         .await
         .map_err_gql("failed to fetch followers")?;
 
@@ -64,7 +68,7 @@ impl Channel {
     }
 }
 
-impl From<database::Channel> for Channel {
+impl<G: ApiGlobal> From<database::Channel> for Channel<G> {
     fn from(value: database::Channel) -> Self {
         let stream_key_ = value.get_stream_key();
         Self {
@@ -79,6 +83,7 @@ impl From<database::Channel> for Channel {
             category_id: value.category_id.map(|v| Into::into(v.0)),
             last_live_at: value.last_live_at.map(DateRFC3339),
             stream_key_,
+            _phantom: std::marker::PhantomData,
         }
     }
 }

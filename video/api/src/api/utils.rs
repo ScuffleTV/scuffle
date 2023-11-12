@@ -14,7 +14,7 @@ use ulid::Ulid;
 use uuid::Uuid;
 use video_common::database::AccessToken;
 
-use crate::global::GlobalState;
+use crate::global::ApiGlobal;
 
 const MAX_TAG_COUNT: usize = 10;
 const MAX_TAG_KEY_LENGTH: usize = 16;
@@ -63,8 +63,8 @@ pub fn validate_tags(tags: Option<&Tags>) -> Result<(), Status> {
     Ok(())
 }
 
-pub async fn validate_auth_request<T>(
-    global: &Arc<GlobalState>,
+pub async fn validate_auth_request<T, G: ApiGlobal>(
+    global: &Arc<G>,
     request: &Request<T>,
     permissions: impl Into<RequiredScope>,
 ) -> Result<AccessToken, Status> {
@@ -105,7 +105,7 @@ pub async fn validate_auth_request<T>(
         .map_err(|_| Status::unauthenticated("invalid authorization header"))?;
 
     let access_token = global
-        .access_token_loader
+        .access_token_loader()
         .load(access_token_id)
         .await
         .map_err(|_| Status::internal("failed to load access token"))?
@@ -120,7 +120,7 @@ pub async fn validate_auth_request<T>(
     Ok(access_token)
 }
 
-pub fn get_global(weak: &Weak<GlobalState>) -> Result<Arc<GlobalState>, Status> {
+pub fn get_global<G: ApiGlobal>(weak: &Weak<G>) -> Result<Arc<G>, Status> {
     weak.upgrade()
         .ok_or_else(|| Status::internal("global state was dropped"))
 }
@@ -131,8 +131,8 @@ struct TagExt {
     pub status: i32,
 }
 
-pub async fn add_tag_query(
-    global: &Arc<GlobalState>,
+pub async fn add_tag_query<G: ApiGlobal>(
+    global: &Arc<G>,
     table: &str,
     tags: &HashMap<String, String>,
     id: Ulid,
@@ -181,7 +181,7 @@ pub async fn add_tag_query(
 
     let row: Option<TagExt> = qb
         .build_query_as()
-        .fetch_optional(global.db.as_ref())
+        .fetch_optional(global.db().as_ref())
         .await
         .map_err(|err| {
             tracing::error!("failed to tag {}: {}", table, err);
@@ -198,8 +198,8 @@ pub async fn add_tag_query(
     .transpose()
 }
 
-pub async fn remove_tag_query(
-    global: &Arc<GlobalState>,
+pub async fn remove_tag_query<G: ApiGlobal>(
+    global: &Arc<G>,
     table: &str,
     tags: &[String],
     id: Ulid,
@@ -247,7 +247,7 @@ pub async fn remove_tag_query(
 
     let row: Option<TagExt> = qb
         .build_query_as()
-        .fetch_optional(global.db.as_ref())
+        .fetch_optional(global.db().as_ref())
         .await
         .map_err(|err| {
             tracing::error!("failed to tag {}: {}", table, err);

@@ -9,11 +9,10 @@ use uuid::Uuid;
 use video_common::database::Rendition;
 
 pub type TaskFuture = video_common::tasker::TaskFuture<(), TaskError>;
-pub type Task = video_common::tasker::Task<Arc<GlobalState>, TaskDomain, (), TaskError>;
-pub type MultiTasker =
-    video_common::tasker::MultiTasker<Arc<GlobalState>, TaskDomain, (), TaskError>;
+pub type Task<G> = video_common::tasker::Task<Arc<G>, TaskDomain, (), TaskError>;
+pub type MultiTasker<G> = video_common::tasker::MultiTasker<Arc<G>, TaskDomain, (), TaskError>;
 
-use crate::global::GlobalState;
+use crate::global::TranscoderGlobal;
 
 use super::SegmentUpload;
 
@@ -33,47 +32,47 @@ pub enum TaskError {
     Custom(#[from] anyhow::Error),
 }
 
-pub fn upload_metadata_generator(
+pub fn upload_metadata_generator<G: TranscoderGlobal>(
     key: String,
     data: Bytes,
-) -> impl Fn(Arc<GlobalState>) -> TaskFuture + Send + Sync + 'static {
-    move |global: Arc<GlobalState>| {
+) -> impl Fn(Arc<G>) -> TaskFuture + Send + Sync + 'static {
+    move |global: Arc<G>| {
         let global = global.clone();
         let data = data.clone();
         let key = key.clone();
         async move {
-            global.metadata_store.put(key, data).await?;
+            global.metadata_store().put(key, data).await?;
             Ok(())
         }
         .boxed()
     }
 }
 
-pub fn upload_media_generator(
+pub fn upload_media_generator<G: TranscoderGlobal>(
     key: String,
     data: Bytes,
-) -> impl Fn(Arc<GlobalState>) -> TaskFuture + Send + Sync + 'static {
-    move |global: Arc<GlobalState>| {
+) -> impl Fn(Arc<G>) -> TaskFuture + Send + Sync + 'static {
+    move |global: Arc<G>| {
         let global = global.clone();
         let data = data.clone();
         let key = ObjectMetadata::from(key.as_str());
         async move {
             let mut cursor = std::io::Cursor::new(data);
-            global.media_store.put(key, &mut cursor).await?;
+            global.media_store().put(key, &mut cursor).await?;
             Ok(())
         }
         .boxed()
     }
 }
 
-pub fn delete_media_generator(
+pub fn delete_media_generator<G: TranscoderGlobal>(
     key: String,
-) -> impl Fn(Arc<GlobalState>) -> TaskFuture + Send + Sync + 'static {
-    move |global: Arc<GlobalState>| {
+) -> impl Fn(Arc<G>) -> TaskFuture + Send + Sync + 'static {
+    move |global: Arc<G>| {
         let global = global.clone();
         let key = key.clone();
         async move {
-            global.media_store.delete(key).await?;
+            global.media_store().delete(key).await?;
             Ok(())
         }
         .boxed()
@@ -100,10 +99,10 @@ fn normalize_float(f: f64) -> f64 {
     (f * 1000.0).round() / 1000.0
 }
 
-pub fn upload_segment_generator(
+pub fn upload_segment_generator<G: TranscoderGlobal>(
     state: RecordingState,
     upload: SegmentUpload,
-) -> impl Fn(Arc<GlobalState>) -> TaskFuture + Send + Sync + 'static {
+) -> impl Fn(Arc<G>) -> TaskFuture + Send + Sync + 'static {
     move |global| {
         let state = state.clone();
         let upload = upload.clone();
@@ -157,7 +156,7 @@ pub fn upload_segment_generator(
             .bind(normalize_float(upload.start_time))
             .bind(normalize_float(upload.start_time + upload.duration))
             .bind(size as i64)
-            .execute(global.db.as_ref())
+            .execute(global.db().as_ref())
             .await
             .map_err(|e| TaskError::Custom(e.into()))?
             .rows_affected()
@@ -181,10 +180,10 @@ pub struct ThumbnailUpload {
     pub data: Bytes,
 }
 
-pub fn upload_thumbnail_generator(
+pub fn upload_thumbnail_generator<G: TranscoderGlobal>(
     state: RecordingState,
     upload: ThumbnailUpload,
-) -> impl Fn(Arc<GlobalState>) -> TaskFuture + Send + Sync + 'static {
+) -> impl Fn(Arc<G>) -> TaskFuture + Send + Sync + 'static {
     move |global| {
         let state = state.clone();
         let partial = upload.clone();
@@ -227,7 +226,7 @@ pub fn upload_thumbnail_generator(
             .bind(Uuid::from(partial.id))
             .bind(normalize_float(partial.start_time))
             .bind(size as i64)
-            .execute(global.db.as_ref())
+            .execute(global.db().as_ref())
             .await
             .map_err(|e| TaskError::Custom(e.into()))?
             .rows_affected()

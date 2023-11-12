@@ -1,4 +1,4 @@
-use crate::global::GlobalState;
+use crate::global::ApiGlobal;
 use std::{
     pin::Pin,
     sync::{Arc, Weak},
@@ -14,13 +14,13 @@ use pb::scuffle::video::v1::{
 
 type Result<T> = std::result::Result<T, Status>;
 
-pub struct EventsServer {
+pub struct EventsServer<G: ApiGlobal> {
     #[allow(dead_code)]
-    global: Weak<GlobalState>,
+    global: Weak<G>,
 }
 
-impl EventsServer {
-    pub fn new(global: &Arc<GlobalState>) -> EventsService<Self> {
+impl<G: ApiGlobal> EventsServer<G> {
+    pub fn new(global: &Arc<G>) -> EventsService<Self> {
         EventsService::new(Self {
             global: Arc::downgrade(global),
         })
@@ -28,7 +28,7 @@ impl EventsServer {
 }
 
 #[async_trait]
-impl Events for EventsServer {
+impl<G: ApiGlobal> Events for EventsServer<G> {
     type SubscribeStream = Pin<Box<dyn Stream<Item = Result<EventsSubscribeResponse>> + Send>>;
 
     async fn subscribe(

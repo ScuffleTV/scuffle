@@ -59,7 +59,7 @@ pub fn parse_key<'de, D: serde::de::Deserialize<'de>>(value: Value) -> Result<D>
 ///
 /// Every type that implements this trait can be parsed as a config and any type that is part of a config needs to implement this trait.
 /// Typically you want use the derive macro to implement it.
-pub trait Config: serde::de::DeserializeOwned + 'static {
+pub trait Config: 'static {
     const PKG_NAME: Option<&'static str> = None;
     const ABOUT: Option<&'static str> = None;
     const VERSION: Option<&'static str> = None;
@@ -341,7 +341,10 @@ impl<C: Config> ConfigBuilder<C> {
     /// This function iterates all added sources and gets each key that is required to build `C`.
     ///
     /// After that it will deserialize the values into `C` using serde.
-    pub fn build(&self) -> Result<C> {
+    pub fn build<'de>(&self) -> Result<C>
+    where
+        C: serde::de::Deserialize<'de>,
+    {
         self.parse_key::<C>(KeyPath::root())
     }
 }

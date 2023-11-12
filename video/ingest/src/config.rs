@@ -1,7 +1,6 @@
 use std::{net::SocketAddr, time::Duration};
 
-use anyhow::Result;
-use common::config::{LoggingConfig, NatsConfig, TlsConfig};
+use common::config::TlsConfig;
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
@@ -24,31 +23,8 @@ impl Default for RtmpConfig {
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
-pub struct GrpcConfig {
-    /// The bind address for the gRPC server
-    pub bind_address: SocketAddr,
-
-    /// Advertising address for the gRPC server
-    pub advertise_address: String,
-
-    /// If we should use TLS for the gRPC server
-    pub tls: Option<TlsConfig>,
-}
-
-impl Default for GrpcConfig {
-    fn default() -> Self {
-        Self {
-            bind_address: "[::]:50052".to_string().parse().unwrap(),
-            advertise_address: "".to_string(),
-            tls: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
-#[serde(default)]
 pub struct IngestConfig {
-    // NATS subject to send transcoder requests to
+    /// NATS subject to send transcoder requests to
     pub transcoder_request_subject: String,
 
     /// NATS subject for events
@@ -68,6 +44,12 @@ pub struct IngestConfig {
 
     /// Max time between keyframes
     pub max_time_between_keyframes: Duration,
+
+    /// The config for the RTMP server
+    pub rtmp: RtmpConfig,
+
+    /// The address to advertise for the gRPC server which is used by transcoders to connect to
+    pub grpc_advertise_address: String,
 }
 
 impl Default for IngestConfig {
@@ -80,75 +62,8 @@ impl Default for IngestConfig {
             max_bytes_between_keyframes: 12000 * 1024 * 5 / 8,
             max_time_between_keyframes: Duration::from_secs(10),
             transcoder_timeout: Duration::from_secs(60),
+            rtmp: Default::default(),
+            grpc_advertise_address: "".to_string(),
         }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
-#[serde(default)]
-pub struct DatabaseConfig {
-    /// The database URL to use
-    pub uri: String,
-}
-
-impl Default for DatabaseConfig {
-    fn default() -> Self {
-        Self {
-            uri: "postgres://root@localhost:5432/scuffle_video".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
-#[serde(default)]
-pub struct AppConfig {
-    /// Name of this instance
-    pub name: String,
-
-    /// The path to the config file.
-    pub config_file: Option<String>,
-
-    /// The log level to use, this is a tracing env filter
-    pub logging: LoggingConfig,
-
-    /// RTMP server configuration
-    pub rtmp: RtmpConfig,
-
-    /// GRPC server configuration
-    pub grpc: GrpcConfig,
-
-    /// Database configuration
-    pub database: DatabaseConfig,
-
-    /// NATS configuration
-    pub nats: NatsConfig,
-
-    /// Ingest configuration
-    pub ingest: IngestConfig,
-}
-
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            name: "scuffle-ingest".to_string(),
-            config_file: Some("config".to_string()),
-            logging: LoggingConfig::default(),
-            rtmp: RtmpConfig::default(),
-            grpc: GrpcConfig::default(),
-            database: DatabaseConfig::default(),
-            nats: NatsConfig::default(),
-            ingest: IngestConfig::default(),
-        }
-    }
-}
-
-impl AppConfig {
-    pub fn parse() -> Result<Self> {
-        let (mut config, config_file) =
-            common::config::parse::<Self>(!cfg!(test), Self::default().config_file)?;
-
-        config.config_file = config_file;
-
-        Ok(config)
     }
 }

@@ -65,6 +65,7 @@ impl GqlError {
             GqlError::Auth(AuthError::NotBearerToken) => "Auth(NotBearerToken)",
             GqlError::Auth(AuthError::NotLoggedIn) => "Auth(NotLoggedIn)",
             GqlError::Auth(AuthError::InvalidToken) => "Auth(InvalidToken)",
+            GqlError::Auth(AuthError::SessionExpired) => "Auth(SessionExpired)",
             GqlError::NotImplemented => "NotImplemented",
             GqlError::Unauthorized { .. } => "Unauthorized",
             GqlError::NotFound(_) => "NotFound",

@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::Result;
 use async_nats::jetstream::kv::Entry;
 use common::context::Context;
 use tokio::{
@@ -18,7 +17,7 @@ mod topics;
 pub type SubscriptionResponse = Entry;
 
 #[derive(Debug)]
-enum Event {
+pub enum Event {
     Subscribe {
         key: TopicKey,
         tx: oneshot::Sender<(
@@ -51,12 +50,26 @@ impl Default for SubscriptionManager {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum SubscriptionError {
+    #[error("failed to send event: {0}")]
+    SendEvent(#[from] mpsc::error::SendError<Event>),
+    #[error("failed to receive event: {0}")]
+    RecvEvent(#[from] oneshot::error::RecvError),
+    #[error("failed to subscribe to topic: {0}")]
+    SubscribeKv(#[from] async_nats::jetstream::kv::WatchError),
+    #[error("failed to subscribe to topic: {0}")]
+    SubscribeStream(#[from] async_nats::jetstream::kv::WatcherError),
+    #[error("failed to subscribe to topic: {0}")]
+    SubscribeOb(#[from] async_nats::jetstream::object_store::WatchError),
+}
+
 impl SubscriptionManager {
     pub async fn run(
         &self,
         ctx: &Context,
         metadata_store: &async_nats::jetstream::kv::Store,
-    ) -> Result<()> {
+    ) -> Result<(), SubscriptionError> {
         let mut topics = TopicMap::new();
         let mut subs = StreamMap::new();
 
@@ -128,7 +141,10 @@ impl SubscriptionManager {
         Ok(())
     }
 
-    pub async fn subscribe_kv(&self, topic: impl ToString) -> Result<SubscriberReceiver<'_>> {
+    pub async fn subscribe_kv(
+        &self,
+        topic: impl ToString,
+    ) -> Result<SubscriberReceiver<'_>, SubscriptionError> {
         let (tx, rx) = oneshot::channel();
 
         let key: TopicKey = topic.to_string().into();

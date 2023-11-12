@@ -1,110 +1,221 @@
-use std::{str::FromStr, sync::Arc, time::Duration};
+use std::sync::Arc;
 
-use crate::api::v1::gql::schema;
+use anyhow::Context as _;
 use async_graphql::SDLExportOptions;
-use common::{context::Context, logging, signal};
-use sqlx::{postgres::PgConnectOptions, ConnectOptions};
-use tokio::{select, signal::unix::SignalKind, time};
+use binary_helper::{
+    bootstrap,
+    global::{setup_database, setup_nats},
+    grpc_health, grpc_server, impl_global_traits,
+};
+use common::{context::Context, dataloader::DataLoader, global::*};
+use platform_api::{
+    config::{ApiConfig, JwtConfig, TurnstileConfig},
+    dataloader::{
+        category::{CategoryByIdLoader, CategorySearchLoader},
+        global_state::GlobalStateLoader,
+        role::RoleByIdLoader,
+        session::SessionByIdLoader,
+        user::{UserByIdLoader, UserByUsernameLoader, UserSearchLoader},
+    },
+    subscription::SubscriptionManager,
+};
+use tokio::select;
 
-mod api;
-mod config;
-mod database;
-mod dataloader;
-mod global;
-mod subscription;
+#[derive(Debug, Clone, Default, config::Config, serde::Deserialize)]
+#[serde(default)]
+/// The API is the backend for the Scuffle service
+struct ExtConfig {
+    /// If we should export the GraphQL schema, if set to true, the schema will be exported to the stdout, and the program will exit.
+    export_gql: bool,
 
-// #[cfg(test)]
-// mod tests;
+    /// API Config
+    api: ApiConfig,
 
-/// The root of all evil
-#[derive(Debug, thiserror::Error)]
-enum RootError {
-    #[error("config error: {0}")]
-    Config(#[from] ::config::ConfigError),
-    #[error("logging error: {0}")]
-    Logging(#[from] logging::LoggingError),
-    #[error("database error: {0}")]
-    Sqlx(#[from] sqlx::Error),
-    #[error("failed to setup nats: {0}")]
-    SetupNatsError(#[from] global::SetupNatsError),
+    /// Turnstile Config
+    turnstile: TurnstileConfig,
+
+    /// JWT Config
+    jwt: JwtConfig,
+}
+
+impl binary_helper::config::ConfigExtention for ExtConfig {
+    const APP_NAME: &'static str = "scuffle-api";
+
+    fn pre_hook(config: &mut AppConfig) -> anyhow::Result<()> {
+        if config.extra.export_gql {
+            let schema = platform_api::api::v1::gql::schema::<GlobalState>();
+
+            println!(
+                "{}",
+                schema.sdl_with_options(
+                    SDLExportOptions::default()
+                        .federation()
+                        .include_specified_by()
+                        .sorted_arguments()
+                        .sorted_enum_items()
+                        .sorted_fields()
+                )
+            );
+            std::process::exit(0);
+        }
+
+        Ok(())
+    }
+}
+
+type AppConfig = binary_helper::config::AppConfig<ExtConfig>;
+
+struct GlobalState {
+    ctx: Context,
+    config: AppConfig,
+    nats: async_nats::Client,
+    jetstream: async_nats::jetstream::Context,
+    db: Arc<sqlx::PgPool>,
+
+    category_by_id_loader: DataLoader<CategoryByIdLoader>,
+    category_search_loader: DataLoader<CategorySearchLoader>,
+    global_state_loader: DataLoader<GlobalStateLoader>,
+    role_by_id_loader: DataLoader<RoleByIdLoader>,
+    session_by_id_loader: DataLoader<SessionByIdLoader>,
+    user_by_id_loader: DataLoader<UserByIdLoader>,
+    user_by_username_loader: DataLoader<UserByUsernameLoader>,
+    user_search_loader: DataLoader<UserSearchLoader>,
+
+    subscription_manager: SubscriptionManager,
+}
+
+impl_global_traits!(GlobalState);
+
+impl common::global::GlobalConfigProvider<ApiConfig> for GlobalState {
+    #[inline(always)]
+    fn provide_config(&self) -> &ApiConfig {
+        &self.config.extra.api
+    }
+}
+
+impl common::global::GlobalConfigProvider<TurnstileConfig> for GlobalState {
+    #[inline(always)]
+    fn provide_config(&self) -> &TurnstileConfig {
+        &self.config.extra.turnstile
+    }
+}
+
+impl common::global::GlobalConfigProvider<JwtConfig> for GlobalState {
+    #[inline(always)]
+    fn provide_config(&self) -> &JwtConfig {
+        &self.config.extra.jwt
+    }
+}
+
+impl platform_api::global::ApiState for GlobalState {
+    fn category_by_id_loader(&self) -> &DataLoader<CategoryByIdLoader> {
+        &self.category_by_id_loader
+    }
+
+    fn category_search_loader(&self) -> &DataLoader<CategorySearchLoader> {
+        &self.category_search_loader
+    }
+
+    fn global_state_loader(&self) -> &DataLoader<GlobalStateLoader> {
+        &self.global_state_loader
+    }
+
+    fn role_by_id_loader(&self) -> &DataLoader<RoleByIdLoader> {
+        &self.role_by_id_loader
+    }
+
+    fn session_by_id_loader(&self) -> &DataLoader<SessionByIdLoader> {
+        &self.session_by_id_loader
+    }
+
+    fn user_by_id_loader(&self) -> &DataLoader<UserByIdLoader> {
+        &self.user_by_id_loader
+    }
+
+    fn user_by_username_loader(&self) -> &DataLoader<UserByUsernameLoader> {
+        &self.user_by_username_loader
+    }
+
+    fn user_search_loader(&self) -> &DataLoader<UserSearchLoader> {
+        &self.user_search_loader
+    }
+
+    fn subscription_manager(&self) -> &SubscriptionManager {
+        &self.subscription_manager
+    }
+}
+
+#[async_trait::async_trait]
+impl binary_helper::Global<AppConfig> for GlobalState {
+    async fn new(ctx: Context, config: AppConfig) -> anyhow::Result<Self> {
+        let (nats, jetstream) = setup_nats(&config.name, &config.nats).await?;
+        let db = setup_database(&config.database).await?;
+
+        let category_by_id_loader = CategoryByIdLoader::new(db.clone());
+        let category_search_loader = CategorySearchLoader::new(db.clone());
+        let global_state_loader = GlobalStateLoader::new(db.clone());
+        let role_by_id_loader = RoleByIdLoader::new(db.clone());
+        let session_by_id_loader = SessionByIdLoader::new(db.clone());
+        let user_by_id_loader = UserByIdLoader::new(db.clone());
+        let user_by_username_loader = UserByUsernameLoader::new(db.clone());
+        let user_search_loader = UserSearchLoader::new(db.clone());
+
+        let subscription_manager = SubscriptionManager::default();
+
+        Ok(Self {
+            ctx,
+            config,
+            nats,
+            jetstream,
+            db,
+            category_by_id_loader,
+            category_search_loader,
+            global_state_loader,
+            role_by_id_loader,
+            session_by_id_loader,
+            user_by_id_loader,
+            user_by_username_loader,
+            user_search_loader,
+            subscription_manager,
+        })
+    }
 }
 
 #[tokio::main]
-async fn main() -> Result<(), RootError> {
-    let config = config::AppConfig::parse()?;
+pub async fn main() {
+    if let Err(err) = bootstrap::<AppConfig, GlobalState, _>(|global| async move {
+        let grpc_future = {
+            let mut server = grpc_server(&global.config.grpc)
+                .await
+                .context("failed to create grpc server")?;
+            let router = server.add_service(grpc_health::HealthServer::new(
+                &global,
+                |global, _| async move {
+                    !global.db().is_closed()
+                        && global.nats().connection_state()
+                            == async_nats::connection::State::Connected
+                },
+            ));
 
-    if config.export_gql {
-        let schema = schema();
+            let router = platform_api::grpc::add_routes(&global, router);
 
-        println!(
-            "{}",
-            schema.sdl_with_options(
-                SDLExportOptions::default()
-                    .federation()
-                    .include_specified_by()
-                    .sorted_arguments()
-                    .sorted_enum_items()
-                    .sorted_fields()
-            )
-        );
+            router.serve_with_shutdown(global.config.grpc.bind_address, async {
+                global.ctx().done().await;
+            })
+        };
 
-        return Ok(());
+        let api_future = platform_api::api::run(global.clone());
+
+        select! {
+            r = grpc_future => r.context("grpc server stopped unexpectedly")?,
+            r = api_future => r.context("api server stopped unexpectedly")?,
+        }
+
+        Ok(())
+    })
+    .await
+    {
+        tracing::error!("{:#}", err);
+        std::process::exit(1);
     }
-
-    logging::init(&config.logging.level, config.logging.mode)?;
-
-    if let Some(file) = &config.config_file {
-        tracing::info!(file = file, "loaded config from file");
-    }
-
-    tracing::debug!("config: {:#?}", config);
-
-    let db = Arc::new(
-        sqlx::PgPool::connect_with(
-            PgConnectOptions::from_str(&config.database.uri)?
-                .disable_statement_logging()
-                .to_owned(),
-        )
-        .await?,
-    );
-
-    // Sets the similarity threshold for trigram matching to 0.1
-    // Default is 0.3
-    // https://www.cockroachlabs.com/docs/stable/trigram-indexes#comparisons
-    sqlx::query("SET pg_trgm.similarity_threshold = 0.1")
-        .execute(&*db)
-        .await?;
-
-    let (ctx, handler) = Context::new();
-
-    let nats = global::setup_nats(&config).await?;
-
-    let global = Arc::new(global::GlobalState::new(config, db, nats.clone(), ctx));
-
-    let api_future = tokio::spawn(api::run(global.clone()));
-
-    // Listen on both sigint and sigterm and cancel the context when either is received
-    let mut signal_handler = signal::SignalHandler::new()
-        .with_signal(SignalKind::interrupt())
-        .with_signal(SignalKind::terminate());
-
-    select! {
-        r = api_future => tracing::error!("api stopped unexpectedly: {:?}", r),
-        r = global.subscription_manager.run(global.ctx.clone(), nats) => tracing::error!("subscription manager stopped unexpectedly: {:?}", r),
-        _ = signal_handler.recv() => tracing::info!("shutting down"),
-    }
-
-    // We cannot have a context in scope when we cancel the handler, otherwise it will deadlock.
-    drop(global);
-
-    // Cancel the context
-    tracing::info!("waiting for tasks to finish");
-
-    select! {
-        _ = time::sleep(Duration::from_secs(60)) => tracing::warn!("force shutting down"),
-        _ = signal_handler.recv() => tracing::warn!("force shutting down"),
-        _ = handler.cancel() => tracing::info!("shutting down"),
-    }
-
-    Ok(())
 }

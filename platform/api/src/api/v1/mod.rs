@@ -1,20 +1,17 @@
 use std::sync::Arc;
 
+use common::http::RouteError;
 use hyper::Body;
 use routerify::Router;
 
-use crate::global::GlobalState;
+use crate::global::ApiGlobal;
 
-use super::error::ApiErrorInterface;
+use super::error::ApiError;
 
 pub mod gql;
-pub mod health;
-pub mod jwt;
-pub mod request_context;
 
-pub fn routes(global: &Arc<GlobalState>) -> Router<Body, ApiErrorInterface> {
+pub fn routes<G: ApiGlobal>(global: &Arc<G>) -> Router<Body, RouteError<ApiError>> {
     Router::builder()
-        .scope("/health", health::routes(global))
         .scope("/gql", gql::routes(global))
         .build()
         .expect("failed to build router")

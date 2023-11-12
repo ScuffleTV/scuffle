@@ -103,21 +103,21 @@ impl Traf {
             Trun::FLAG_FIRST_SAMPLE_FLAGS
         } else {
             0
-        } | if trun.samples.get(0).and_then(|s| s.duration).is_some() {
+        } | if trun.samples.first().and_then(|s| s.duration).is_some() {
             Trun::FLAG_SAMPLE_DURATION
         } else {
             0
-        } | if trun.samples.get(0).and_then(|s| s.size).is_some() {
+        } | if trun.samples.first().and_then(|s| s.size).is_some() {
             Trun::FLAG_SAMPLE_SIZE
         } else {
             0
-        } | if trun.samples.get(0).and_then(|s| s.flags).is_some() {
+        } | if trun.samples.first().and_then(|s| s.flags).is_some() {
             Trun::FLAG_SAMPLE_FLAGS
         } else {
             0
         } | if trun
             .samples
-            .get(0)
+            .first()
             .and_then(|s| s.composition_time_offset)
             .is_some()
         {

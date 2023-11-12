@@ -6,27 +6,35 @@ use futures_util::Stream;
 use prost::Message;
 use ulid::Ulid;
 
-use crate::api::v1::gql::{
-    error::{Result, ResultExt},
-    ext::ContextExt,
-    models::{
-        chat_message::{ChatMessage, MessageType},
-        ulid::GqlUlid,
+use crate::{
+    api::v1::gql::{
+        error::{Result, ResultExt},
+        ext::ContextExt,
+        models::{
+            chat_message::{ChatMessage, MessageType},
+            ulid::GqlUlid,
+        },
     },
+    global::ApiGlobal,
 };
 
-#[derive(Default)]
-pub struct ChatSubscription;
+pub struct ChatSubscription<G: ApiGlobal>(std::marker::PhantomData<G>);
+
+impl<G: ApiGlobal> Default for ChatSubscription<G> {
+    fn default() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
 
 #[Subscription]
-impl ChatSubscription {
+impl<G: ApiGlobal> ChatSubscription<G> {
     // Listen to new messages in chat.
     pub async fn chat_messages<'ctx>(
         &self,
         ctx: &'ctx Context<'_>,
         #[graphql(desc = "Chat to subscribe to.")] channel_id: GqlUlid,
-    ) -> Result<impl Stream<Item = Result<ChatMessage>> + 'ctx> {
-        let global = ctx.get_global();
+    ) -> Result<impl Stream<Item = Result<ChatMessage<G>>> + 'ctx> {
+        let global = ctx.get_global::<G>();
 
         let welcome_message = ChatMessage {
             id: Ulid::nil().into(),
@@ -34,6 +42,7 @@ impl ChatSubscription {
             channel_id,
             content: "Welcome to the chat!".to_string(),
             r#type: MessageType::Welcome,
+            _phantom: std::marker::PhantomData,
         };
 
         // TODO: check if user is allowed to read this chat
@@ -44,7 +53,7 @@ impl ChatSubscription {
         //     .map_err_gql("failed to fetch user")?
         //     .ok_or(GqlError::NotFound.with_message("user not found"))?;
         let mut message_stream = global
-            .subscription_manager
+            .subscription_manager()
             .subscribe(format!("channel.{}.chat.messages", *channel_id))
             .await
             .map_err_gql("failed to subscribe to chat messages")?;
@@ -68,6 +77,7 @@ impl ChatSubscription {
                         .into(),
                     content: event.content,
                     r#type: MessageType::User,
+                    _phantom: std::marker::PhantomData,
                 });
             }
         }))

@@ -1062,3 +1062,82 @@ fn get_sequence_key() {
         Value::U32(2)
     );
 }
+
+#[test]
+fn flattened_config() {
+    #[derive(Debug, Default, PartialEq, serde::Deserialize, config::Config)]
+    #[serde(default)]
+    struct AppConfig<F: config::Config> {
+        #[config(flatten)]
+        #[serde(flatten)]
+        flattened: F,
+    }
+
+    #[derive(Debug, Default, PartialEq, serde::Deserialize, config::Config)]
+    #[serde(default)]
+    struct FlattenedConfig {
+        value: String,
+        enabled: bool,
+        count: Vec<u32>,
+        map: HashMap<String, HashMap<String, Vec<u32>>>,
+        non_string_key: HashMap<u32, u32>,
+    }
+
+    let source = sources::FileSource::<AppConfig<FlattenedConfig>>::toml(
+        br#"
+    value = "test"
+    enabled = true
+    count = [1, 2, 3]
+    map = { test = { test2 = [1, 2, 3] } }
+    non_string_key = { 1 = 2 }
+    "#
+        .as_slice(),
+    )
+    .unwrap();
+
+    assert_eq!(
+        source.get_key(&"count".into()).unwrap().unwrap(),
+        Value::Seq(vec![Value::U32(1), Value::U32(2), Value::U32(3)])
+    );
+    assert_eq!(
+        source.get_key(&"count[0]".into()).unwrap().unwrap(),
+        Value::U32(1)
+    );
+    assert_eq!(
+        source.get_key(&"count[1]".into()).unwrap().unwrap(),
+        Value::U32(2)
+    );
+    assert_eq!(
+        source.get_key(&"count[2]".into()).unwrap().unwrap(),
+        Value::U32(3)
+    );
+    assert_eq!(source.get_key(&"count[3]".into()).unwrap(), None);
+
+    assert_eq!(
+        source
+            .get_key(&"map.test.test2[0]".into())
+            .unwrap()
+            .unwrap(),
+        Value::U32(1)
+    );
+    assert_eq!(
+        source
+            .get_key(&"map.test.test2[1]".into())
+            .unwrap()
+            .unwrap(),
+        Value::U32(2)
+    );
+    assert_eq!(
+        source
+            .get_key(&"map.test.test2[2]".into())
+            .unwrap()
+            .unwrap(),
+        Value::U32(3)
+    );
+    assert_eq!(source.get_key(&"map.test.test2[3]".into()).unwrap(), None);
+
+    assert_eq!(
+        source.get_key(&"non_string_key.1".into()).unwrap().unwrap(),
+        Value::U32(2)
+    );
+}

@@ -1,4 +1,3 @@
-use crate::{define::IncomingTranscoder, global::GlobalState};
 use std::{
     pin::Pin,
     sync::{Arc, Weak},
@@ -17,12 +16,14 @@ use pb::{
     },
 };
 
-pub struct IngestServer {
-    global: Weak<GlobalState>,
+use crate::global::{IncomingTranscoder, IngestGlobal};
+
+pub struct IngestServer<G: IngestGlobal> {
+    global: Weak<G>,
 }
 
-impl IngestServer {
-    pub fn new(global: &Arc<GlobalState>) -> ingest_server::IngestServer<Self> {
+impl<G: IngestGlobal> IngestServer<G> {
+    pub fn new(global: &Arc<G>) -> ingest_server::IngestServer<Self> {
         ingest_server::IngestServer::new(Self {
             global: Arc::downgrade(global),
         })
@@ -32,7 +33,7 @@ impl IngestServer {
 type Result<T> = std::result::Result<T, Status>;
 
 #[async_trait]
-impl ingest_server::Ingest for IngestServer {
+impl<G: IngestGlobal> ingest_server::Ingest for IngestServer<G> {
     /// Server streaming response type for the Watch method.
     type WatchStream = Pin<Box<dyn Stream<Item = Result<IngestWatchResponse>> + Send + Sync>>;
 
@@ -58,7 +59,7 @@ impl ingest_server::Ingest for IngestServer {
 
         let ulid = open_req.request_id.to_ulid();
 
-        let Some(handler) = global.requests.lock().await.remove(&ulid) else {
+        let Some(handler) = global.requests().lock().await.remove(&ulid) else {
             return Err(Status::not_found("No ingest request found with that UUID"));
         };
 

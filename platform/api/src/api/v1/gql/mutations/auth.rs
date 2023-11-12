@@ -1,10 +1,12 @@
+use crate::api::jwt::JwtState;
 use crate::api::middleware::auth::AuthError;
-use crate::api::v1::gql::models::two_fa::TwoFaRequest;
+use crate::api::request_context::AuthData;
+use crate::api::v1::gql::models::two_fa::{TwoFaRequest, TwoFaResponse};
 use crate::api::v1::gql::models::ulid::GqlUlid;
 use crate::api::v1::gql::validators::{PasswordValidator, UsernameValidator};
-use crate::api::v1::jwt::JwtState;
-use crate::api::v1::request_context::AuthData;
 use crate::database::TwoFaRequestActionTrait;
+use crate::global::ApiGlobal;
+use crate::turnstile::validate_turnstile_token;
 use crate::{
     api::v1::gql::{
         error::{GqlError, Result, ResultExt},
@@ -22,13 +24,13 @@ use pb::scuffle::platform::internal::two_fa::{
 };
 use prost::Message;
 
-#[derive(Default, Clone)]
-pub struct AuthMutation;
+#[derive(Clone)]
+pub struct AuthMutation<G>(std::marker::PhantomData<G>);
 
-#[derive(Union)]
-pub enum LoginResponse {
-    TwoFaRequest(TwoFaRequest),
-    Success(Session),
+impl<G: ApiGlobal> Default for AuthMutation<G> {
+    fn default() -> Self {
+        Self(std::marker::PhantomData)
+    }
 }
 
 #[derive(Union)]
@@ -38,7 +40,7 @@ pub enum TwoFaRequestFulfillResponse {
 
 #[Object]
 /// The mutation object for authentication
-impl AuthMutation {
+impl<G: ApiGlobal> AuthMutation<G> {
     /// Login using a username and password. If via websocket this will authenticate the websocket connection.
     async fn login<'ctx>(
         &self,
@@ -54,12 +56,11 @@ impl AuthMutation {
             desc = "Setting this to false will make it so logging in does not authenticate the connection."
         )]
         update_context: Option<bool>,
-    ) -> Result<LoginResponse> {
-        let global = ctx.get_global();
+    ) -> Result<TwoFaResponse<Session>> {
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
-        if !global
-            .validate_turnstile_token(&captcha_token)
+        if !validate_turnstile_token(global, &captcha_token)
             .await
             .map_err_gql("failed to validate captcha token")?
         {
@@ -71,7 +72,7 @@ impl AuthMutation {
         }
 
         let user = global
-            .user_by_username_loader
+            .user_by_username_loader()
             .load(username.to_lowercase())
             .await
             .map_err_gql("failed to fetch user")?
@@ -104,9 +105,11 @@ impl AuthMutation {
                     }
                     .encode_to_vec(),
                 )
-                .execute(global.db.as_ref())
+                .execute(global.db().as_ref())
                 .await?;
-            Ok(LoginResponse::TwoFaRequest(TwoFaRequest { id: request_id.into() }))
+            Ok(TwoFaResponse::TwoFaRequest(TwoFaRequest {
+                id: request_id.into(),
+            }))
         } else {
             let session = login.execute(global, user.id).await?;
 
@@ -123,7 +126,7 @@ impl AuthMutation {
                 request_context.set_auth(auth_data).await;
             }
 
-            Ok(LoginResponse::Success(Session {
+            Ok(TwoFaResponse::Success(Session {
                 id: session.id.0.into(),
                 token,
                 user_id: session.user_id.0.into(),
@@ -140,18 +143,19 @@ impl AuthMutation {
         #[graphql(desc = "ID of the 2fa request to be fulfilled.")] id: GqlUlid,
         #[graphql(desc = "The TOTP code.")] code: String,
     ) -> Result<Option<TwoFaRequestFulfillResponse>> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         // TODO: Make this a dataloader
-        let request: database::TwoFaRequest = sqlx::query_as("SELECT * FROM two_fa_requests WHERE id = $1")
-            .bind(Ulid::from(id.to_ulid()))
-            .fetch_optional(global.db.as_ref())
-            .await?
-            .ok_or(GqlError::NotFound("2fa request"))?;
+        let request: database::TwoFaRequest =
+            sqlx::query_as("SELECT * FROM two_fa_requests WHERE id = $1")
+                .bind(Ulid::from(id.to_ulid()))
+                .fetch_optional(global.db().as_ref())
+                .await?
+                .ok_or(GqlError::NotFound("2fa request"))?;
 
         let user = global
-            .user_by_id_loader
+            .user_by_id_loader()
             .load(request.user_id.into())
             .await
             .ok()
@@ -168,7 +172,7 @@ impl AuthMutation {
 
         sqlx::query("DELETE FROM two_fa_requests WHERE id = $1")
             .bind(request.id)
-            .execute(global.db.as_ref())
+            .execute(global.db().as_ref())
             .await?;
 
         match request.action.into_inner().action {
@@ -216,7 +220,7 @@ impl AuthMutation {
         )]
         update_context: Option<bool>,
     ) -> Result<Session> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         let jwt = JwtState::verify(global, &session_token).map_err_gql(GqlError::InvalidInput {
@@ -229,7 +233,7 @@ impl AuthMutation {
             "UPDATE user_sessions SET last_used_at = NOW() WHERE id = $1 RETURNING *",
         )
         .bind(Ulid::from(jwt.session_id))
-        .fetch_optional(global.db.as_ref())
+        .fetch_optional(global.db().as_ref())
         .await?
         .map_err_gql(GqlError::InvalidInput {
             fields: vec!["sessionToken"],
@@ -280,11 +284,10 @@ impl AuthMutation {
         )]
         update_context: Option<bool>,
     ) -> Result<Session> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
-        if !global
-            .validate_turnstile_token(&captcha_token)
+        if !validate_turnstile_token(global, &captcha_token)
             .await
             .map_err_gql("failed to validate captcha token")?
         {
@@ -300,7 +303,7 @@ impl AuthMutation {
         let email = email.to_lowercase();
 
         if global
-            .user_by_username_loader
+            .user_by_username_loader()
             .load(username.clone())
             .await
             .map_err_gql("failed to fetch user")?
@@ -313,7 +316,7 @@ impl AuthMutation {
             .into());
         }
 
-        let mut tx = global.db.begin().await?;
+        let mut tx = global.db().begin().await?;
 
         // TODO: maybe look to batch this
         let user: database::User = sqlx::query_as("INSERT INTO users (id, username, display_name, display_color, password_hash, email) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *")
@@ -350,7 +353,7 @@ impl AuthMutation {
         // We need to update the request context with the new session
         if update_context.unwrap_or(true) {
             let global_state = global
-                .global_state_loader
+                .global_state_loader()
                 .load(())
                 .await
                 .map_err_gql("failed to fetch global state")?
@@ -382,7 +385,7 @@ impl AuthMutation {
         )]
         session_token: Option<String>,
     ) -> Result<bool> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         let session_id = if let Some(token) = &session_token {
@@ -404,7 +407,7 @@ impl AuthMutation {
         // TODO: maybe look to batch this
         sqlx::query("DELETE FROM user_sessions WHERE id = $1")
             .bind(Ulid::from(session_id))
-            .execute(global.db.as_ref())
+            .execute(global.db().as_ref())
             .await?;
 
         if session_token.is_none() {

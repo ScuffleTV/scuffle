@@ -150,7 +150,7 @@ impl FlvTagData {
             Some(FlvTagType::ScriptData) => {
                 let values = Amf0Reader::new(reader.extract_remaining()).read_all()?;
 
-                let name = match values.get(0) {
+                let name = match values.first() {
                     Some(Amf0Value::String(name)) => name,
                     _ => return Err(FlvDemuxerError::InvalidScriptDataName),
                 };

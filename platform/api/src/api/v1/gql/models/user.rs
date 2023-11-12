@@ -3,17 +3,18 @@ use async_graphql::{ComplexObject, Context, SimpleObject};
 use crate::{
     api::v1::gql::{error::Result, guards::auth_guard},
     database::{self, SearchResult},
+    global::ApiGlobal,
 };
 
 use super::{channel::Channel, color::DisplayColor, date::DateRFC3339, ulid::GqlUlid};
 
 #[derive(SimpleObject, Clone)]
-pub struct UserSearchResult {
-    user: User,
+pub struct UserSearchResult<G: ApiGlobal> {
+    user: User<G>,
     similarity: f64,
 }
 
-impl From<SearchResult<database::User>> for UserSearchResult {
+impl<G: ApiGlobal> From<SearchResult<database::User>> for UserSearchResult<G> {
     fn from(value: SearchResult<database::User>) -> Self {
         Self {
             user: value.object.into(),
@@ -24,12 +25,12 @@ impl From<SearchResult<database::User>> for UserSearchResult {
 
 #[derive(SimpleObject, Clone)]
 #[graphql(complex)]
-pub struct User {
+pub struct User<G: ApiGlobal> {
     pub id: GqlUlid,
     pub display_name: String,
     pub display_color: DisplayColor,
     pub username: String,
-    pub channel: Channel,
+    pub channel: Channel<G>,
 
     // Private fields
     #[graphql(skip)]
@@ -43,7 +44,7 @@ pub struct User {
 }
 
 #[ComplexObject]
-impl User {
+impl<G: ApiGlobal> User<G> {
     async fn email(&self, ctx: &Context<'_>) -> Result<&String> {
         auth_guard(ctx, "email", &self.email_, self.id.into()).await
     }
@@ -61,7 +62,7 @@ impl User {
     }
 }
 
-impl From<database::User> for User {
+impl<G: ApiGlobal> From<database::User> for User<G> {
     fn from(value: database::User) -> Self {
         Self {
             id: value.id.0.into(),

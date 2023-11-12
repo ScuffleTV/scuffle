@@ -1,9 +1,10 @@
 use std::sync::{Arc, Mutex};
 
+use common::http::RouteError;
 use hyper::{header::IntoHeaderName, Body, Request};
 use routerify::{prelude::RequestExt as _, Middleware};
 
-use crate::{api::error::ApiErrorInterface, global::GlobalState};
+use crate::{api::error::ApiError, global::ApiGlobal};
 
 #[derive(Clone)]
 pub struct ResponseHeadersMiddleware(pub Arc<Mutex<hyper::HeaderMap>>);
@@ -14,7 +15,7 @@ impl Default for ResponseHeadersMiddleware {
     }
 }
 
-pub fn pre_flight_middleware(_: &Arc<GlobalState>) -> Middleware<Body, ApiErrorInterface> {
+pub fn pre_flight_middleware<G: ApiGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError<ApiError>> {
     Middleware::pre(|req| async move {
         req.set_context(ResponseHeadersMiddleware::default());
 
@@ -22,7 +23,7 @@ pub fn pre_flight_middleware(_: &Arc<GlobalState>) -> Middleware<Body, ApiErrorI
     })
 }
 
-pub fn post_flight_middleware(_: &Arc<GlobalState>) -> Middleware<Body, ApiErrorInterface> {
+pub fn post_flight_middleware<G: ApiGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError<ApiError>> {
     Middleware::post_with_info(|mut resp, info| async move {
         let headers: Option<ResponseHeadersMiddleware> = info.context();
 

@@ -1,5 +1,5 @@
-use common::database::Ulid;
 use bitmask_enum::bitmask;
+use common::database::Ulid;
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 /// A role that can be granted to a user.

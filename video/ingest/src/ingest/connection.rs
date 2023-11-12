@@ -23,7 +23,10 @@ use ulid::Ulid;
 use uuid::Uuid;
 use video_common::database::RoomStatus;
 
-use crate::{define::IncomingTranscoder, global::GlobalState};
+use crate::{
+    config::IngestConfig,
+    global::{IncomingTranscoder, IngestGlobal},
+};
 
 use super::{
     bytes_tracker::BytesTracker,
@@ -80,7 +83,7 @@ enum WhichTranscoder {
 }
 
 #[tracing::instrument(skip(global, socket))]
-pub async fn handle<S: AsyncReadWrite>(global: Arc<GlobalState>, socket: S, ip: IpAddr) {
+pub async fn handle<G: IngestGlobal, S: AsyncReadWrite>(global: Arc<G>, socket: S, ip: IpAddr) {
     // We only need a single buffer channel for this session because the entire session is single threaded
     // and we don't need to worry about buffering.
     let (event_producer, publish) = mpsc::channel(1);
@@ -99,7 +102,7 @@ pub async fn handle<S: AsyncReadWrite>(global: Arc<GlobalState>, socket: S, ip: 
     let mut session = RtmpSession::new(fut, publish, data);
 
     let Ok(Some(event)) = select! {
-        _ = global.ctx.done() => {
+        _ = global.ctx().done() => {
             tracing::debug!("Global context closed, closing connection");
             return;
         },
@@ -135,8 +138,8 @@ impl Connection {
         skip(global, event, _ip),
         fields(app = %event.app_name, stream = %event.stream_name)
     )]
-    async fn new(
-        global: &Arc<GlobalState>,
+    async fn new<G: IngestGlobal>(
+        global: &Arc<G>,
         event: PublishRequest,
         _ip: IpAddr,
     ) -> Result<Option<Self>> {
@@ -219,7 +222,7 @@ impl Connection {
         .bind(Uuid::from(organization_id))
         .bind(Uuid::from(room_id))
         .bind(&room_secret)
-        .fetch_optional(global.db.as_ref())
+        .fetch_optional(global.db().as_ref())
         .await?;
 
         let Some(result) = result else {
@@ -229,7 +232,7 @@ impl Connection {
 
         if let Some(old_id) = result.id {
             if let Err(err) = global
-                .nats
+                .nats()
                 .publish(
                     format!("ingest.{}.disconnect", Ulid::from(old_id)),
                     Bytes::new(),
@@ -275,9 +278,9 @@ impl Connection {
         skip(self, global, session),
         fields(organization_id = %self.organization_id, room_id = %self.room_id)
     )]
-    async fn run<'a>(
+    async fn run<'a, G: IngestGlobal>(
         &mut self,
-        global: &Arc<GlobalState>,
+        global: &Arc<G>,
         mut session: RtmpSession<'a, impl Future<Output = Result<bool, SessionError>>>,
     ) -> bool {
         tracing::info!("new publish request");
@@ -288,7 +291,7 @@ impl Connection {
         // The data receiver will never close, because the Session object is always in scope.
 
         let mut bitrate_update_interval =
-            tokio::time::interval(global.config.ingest.bitrate_update_interval);
+            tokio::time::interval(global.config().bitrate_update_interval);
         bitrate_update_interval.tick().await; // Skip the first tick (resolves instantly)
 
         let mut db_update_fut = pin!(update_db(
@@ -304,7 +307,7 @@ impl Connection {
         let mut clean_shutdown = false;
 
         let mut conn_id_sub = match global
-            .nats
+            .nats()
             .subscribe(format!("ingest.{}.disconnect", self.id))
             .await
         {
@@ -319,7 +322,7 @@ impl Connection {
         };
 
         while select! {
-            _ = global.ctx.done() => {
+            _ = global.ctx().done() => {
                 tracing::debug!("Global context closed, closing connection");
 
                 self.error = Some(IngestError::IngestShutdown);
@@ -417,9 +420,9 @@ impl Connection {
         clean_shutdown
     }
 
-    async fn handle_transcoder_message(
+    async fn handle_transcoder_message<G: IngestGlobal>(
         &mut self,
-        global: &Arc<GlobalState>,
+        global: &Arc<G>,
         msg: Result<Option<IngestWatchRequest>, Status>,
         transcoder: WhichTranscoder,
     ) -> bool {
@@ -497,7 +500,7 @@ impl Connection {
                         .bind(Uuid::from(self.organization_id))
                         .bind(Uuid::from(self.room_id))
                         .bind(Uuid::from(self.id))
-                        .execute(global.db.as_ref())
+                        .execute(global.db().as_ref())
                         .await
                         {
                             Ok(r) => {
@@ -620,7 +623,7 @@ impl Connection {
         }
     }
 
-    async fn request_transcoder(&mut self, global: &Arc<GlobalState>) -> bool {
+    async fn request_transcoder<G: IngestGlobal>(&mut self, global: &Arc<G>) -> bool {
         // If we already have a request pending, then we don't need to request another one.
         if self.next_transcoder_id.is_some() {
             return true;
@@ -630,21 +633,23 @@ impl Connection {
         self.next_transcoder_id = Some(request_id);
 
         global
-            .requests
+            .requests()
             .lock()
             .await
             .insert(request_id, self.incoming_sender.clone());
 
+        let config = global.config::<IngestConfig>();
+
         if let Err(err) = global
-            .nats
+            .nats()
             .publish(
-                global.config.ingest.transcoder_request_subject.clone(),
+                config.transcoder_request_subject.clone(),
                 TranscoderRequest {
                     organization_id: Some(self.organization_id.into()),
                     room_id: Some(self.room_id.into()),
                     request_id: Some(request_id.into()),
                     connection_id: Some(self.id.into()),
-                    grpc_endpoint: global.config.grpc.advertise_address.clone(),
+                    grpc_endpoint: config.grpc_advertise_address.clone(),
                 }
                 .encode_to_vec()
                 .into(),
@@ -663,9 +668,9 @@ impl Connection {
         true
     }
 
-    async fn on_init_segment(
+    async fn on_init_segment<G: IngestGlobal>(
         &mut self,
-        global: &Arc<GlobalState>,
+        global: &Arc<G>,
         video_settings: &VideoSettings,
         audio_settings: &AudioSettings,
         init_data: Bytes,
@@ -714,7 +719,7 @@ impl Connection {
         .bind(Uuid::from(self.organization_id))
         .bind(Uuid::from(self.room_id))
         .bind(Uuid::from(self.id))
-        .execute(global.db.as_ref())
+        .execute(global.db().as_ref())
         .await
         {
             Ok(r) => {
@@ -736,11 +741,12 @@ impl Connection {
         }
 
         if let Err(err) = global
-            .nats
+            .nats()
             .publish(
                 format!(
                     "{}.{}",
-                    global.config.ingest.events_subject, self.organization_id
+                    global.config::<IngestConfig>().events_subject,
+                    self.organization_id
                 ),
                 OrganizationEvent {
                     timestamp: Utc::now().timestamp_micros(),
@@ -763,26 +769,26 @@ impl Connection {
         self.request_transcoder(global).await
     }
 
-    async fn on_data(&mut self, global: &Arc<GlobalState>, data: ChannelData) -> bool {
+    async fn on_data<G: IngestGlobal>(&mut self, global: &Arc<G>, data: ChannelData) -> bool {
         self.bytes_tracker.add(&data);
 
-        if self.bytes_tracker.since_keyframe() >= global.config.ingest.max_bytes_between_keyframes {
+        let config = global.config::<IngestConfig>();
+
+        if self.bytes_tracker.since_keyframe() >= config.max_bytes_between_keyframes {
             self.error = Some(IngestError::KeyframeBitrateDistance(
                 self.bytes_tracker.since_keyframe(),
-                global.config.ingest.max_bytes_between_keyframes,
+                config.max_bytes_between_keyframes,
             ));
 
             return false;
         }
 
         if self.bytes_tracker.total() * 8
-            >= global.config.ingest.max_bitrate
-                * global.config.ingest.bitrate_update_interval.as_secs()
+            >= config.max_bitrate * config.bitrate_update_interval.as_secs()
         {
             self.error = Some(IngestError::BitrateLimit(
-                self.bytes_tracker.total() / global.config.ingest.bitrate_update_interval.as_secs()
-                    * 8,
-                global.config.ingest.max_bitrate,
+                self.bytes_tracker.total() / config.bitrate_update_interval.as_secs() * 8,
+                config.max_bitrate,
             ));
 
             return false;
@@ -853,11 +859,8 @@ impl Connection {
                 data,
             })) => {
                 let bitrate = video_settings.bitrate as u64 + audio_settings.bitrate as u64;
-                if bitrate >= global.config.ingest.max_bitrate {
-                    self.error = Some(IngestError::BitrateLimit(
-                        bitrate,
-                        global.config.ingest.max_bitrate,
-                    ));
+                if bitrate >= config.max_bitrate {
+                    self.error = Some(IngestError::BitrateLimit(bitrate, config.max_bitrate));
 
                     return false;
                 }
@@ -879,9 +882,9 @@ impl Connection {
         }
     }
 
-    pub async fn on_media_segment(
+    pub async fn on_media_segment<G: IngestGlobal>(
         &mut self,
-        global: &Arc<GlobalState>,
+        global: &Arc<G>,
         segment: MediaSegment,
     ) -> bool {
         if segment.keyframe {
@@ -1000,16 +1003,17 @@ impl Connection {
             }
         }
 
-        if Instant::now() - self.last_keyframe >= global.config.ingest.max_time_between_keyframes {
+        let config = global.config::<IngestConfig>();
+
+        if Instant::now() - self.last_keyframe >= config.max_time_between_keyframes {
             self.error = Some(IngestError::KeyframeTimeLimit(
-                global.config.ingest.max_time_between_keyframes.as_secs(),
+                config.max_time_between_keyframes.as_secs(),
             ));
 
             return false;
         }
 
-        if Instant::now() - self.last_transcoder_publish >= global.config.ingest.transcoder_timeout
-        {
+        if Instant::now() - self.last_transcoder_publish >= config.transcoder_timeout {
             tracing::error!("no transcoder available to publish to");
 
             self.error = Some(IngestError::NoTranscoderAvailable);
@@ -1027,9 +1031,12 @@ impl Connection {
         true
     }
 
-    fn on_bitrate_update(&mut self, global: &Arc<GlobalState>) -> bool {
-        let bitrate =
-            self.bytes_tracker.total() / global.config.ingest.bitrate_update_interval.as_secs();
+    fn on_bitrate_update<G: IngestGlobal>(&mut self, global: &Arc<G>) -> bool {
+        let bitrate = self.bytes_tracker.total()
+            / global
+                .config::<IngestConfig>()
+                .bitrate_update_interval
+                .as_secs();
 
         self.bytes_tracker.clear();
 
@@ -1043,14 +1050,18 @@ impl Connection {
         }
     }
 
-    async fn cleanup(&mut self, global: &Arc<GlobalState>, clean_disconnect: bool) -> Result<()> {
+    async fn cleanup<G: IngestGlobal>(
+        &mut self,
+        global: &Arc<G>,
+        clean_disconnect: bool,
+    ) -> Result<()> {
         if let Some(next_id) = self.next_transcoder_id.take() {
-            global.requests.lock().await.remove(&next_id);
+            global.requests().lock().await.remove(&next_id);
         }
 
         if !self.current_transcoder_id.is_nil() {
             global
-                .requests
+                .requests()
                 .lock()
                 .await
                 .remove(&self.current_transcoder_id);
@@ -1079,11 +1090,12 @@ impl Connection {
         }
 
         if let Err(err) = global
-            .nats
+            .nats()
             .publish(
                 format!(
                     "{}.{}",
-                    global.config.ingest.events_subject, self.organization_id
+                    global.config::<IngestConfig>().events_subject,
+                    self.organization_id
                 ),
                 OrganizationEvent {
                     timestamp: Utc::now().timestamp_micros(),
@@ -1131,7 +1143,7 @@ impl Connection {
         .bind(Uuid::from(self.organization_id))
         .bind(Uuid::from(self.room_id))
         .bind(Uuid::from(self.id))
-        .execute(global.db.as_ref())
+        .execute(global.db().as_ref())
         .await?;
 
         Ok(())

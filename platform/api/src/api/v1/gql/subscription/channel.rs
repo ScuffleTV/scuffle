@@ -9,20 +9,26 @@ use crate::api::v1::gql::{
     ext::ContextExt,
     models::ulid::GqlUlid,
 };
+use crate::global::ApiGlobal;
 
 use super::FollowStream;
 
-#[derive(Default)]
-pub struct ChannelSubscription;
+pub struct ChannelSubscription<G: ApiGlobal>(std::marker::PhantomData<G>);
+
+impl<G: ApiGlobal> Default for ChannelSubscription<G> {
+    fn default() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
 
 #[Subscription]
-impl ChannelSubscription {
+impl<G: ApiGlobal> ChannelSubscription<G> {
     async fn channel_follows<'ctx>(
         &self,
         ctx: &'ctx Context<'ctx>,
         channel_id: GqlUlid,
     ) -> Result<impl Stream<Item = Result<FollowStream>> + 'ctx> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         let auth = request_context
@@ -39,7 +45,7 @@ impl ChannelSubscription {
         }
 
         let mut subscription = global
-            .subscription_manager
+            .subscription_manager()
             .subscribe(format!(
                 "channel.{}.follows",
                 channel_id.to_ulid().to_string()
@@ -75,7 +81,7 @@ impl ChannelSubscription {
         ctx: &'ctx Context<'ctx>,
         channel_id: GqlUlid,
     ) -> Result<impl Stream<Item = Result<i64>> + 'ctx> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         let auth = request_context
@@ -95,11 +101,11 @@ impl ChannelSubscription {
             "SELECT COUNT(*) FROM channel_user WHERE channel_id = $1 AND following = true",
         )
         .bind(channel_id.to_uuid())
-        .fetch_one(global.db.as_ref())
+        .fetch_one(global.db().as_ref())
         .await?;
 
         let mut subscription = global
-            .subscription_manager
+            .subscription_manager()
             .subscribe(format!(
                 "channel.{}.follows",
                 channel_id.to_ulid().to_string()

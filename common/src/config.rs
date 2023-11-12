@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use crate::logging;
 
@@ -129,7 +129,40 @@ impl Default for RedisConfig {
     }
 }
 
-pub fn parse<C: config::Config + 'static>(
+#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
+pub struct DatabaseConfig {
+    /// The database URL to use
+    pub uri: String,
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            uri: "postgres://localhost:5432".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
+#[serde(default)]
+pub struct GrpcConfig {
+    /// The bind address for the gRPC server
+    pub bind_address: SocketAddr,
+
+    /// If we should use TLS for the gRPC server
+    pub tls: Option<TlsConfig>,
+}
+
+impl Default for GrpcConfig {
+    fn default() -> Self {
+        Self {
+            bind_address: "[::]:50055".to_string().parse().unwrap(),
+            tls: None,
+        }
+    }
+}
+
+pub fn parse<'de, C: config::Config + serde::Deserialize<'de> + 'static>(
     enable_cli: bool,
     config_file: Option<String>,
 ) -> config::Result<(C, Option<String>)> {

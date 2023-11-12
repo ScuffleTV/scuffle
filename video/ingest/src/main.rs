@@ -1,57 +1,112 @@
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc};
 
-use anyhow::Result;
-use common::{context::Context, logging, signal};
-use tokio::{select, signal::unix::SignalKind, time};
+use anyhow::Context as _;
+use binary_helper::{
+    bootstrap,
+    global::{setup_database, setup_nats},
+    grpc_health, grpc_server, impl_global_traits,
+};
+use common::{
+    context::Context,
+    global::{GlobalCtx, GlobalDb, GlobalNats},
+};
+use tokio::{
+    select,
+    sync::{mpsc, Mutex},
+};
+use ulid::Ulid;
+use video_ingest::{config::IngestConfig, global::IncomingTranscoder};
 
-mod config;
-mod define;
-mod global;
-mod grpc;
-mod ingest;
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    let config = config::AppConfig::parse()?;
-
-    logging::init(&config.logging.level, config.logging.mode)?;
-
-    if let Some(file) = &config.config_file {
-        tracing::info!(file = file, "loaded config from file");
-    }
-
-    let (ctx, handler) = Context::new();
-
-    let global = Arc::new(global::GlobalState::new(ctx, config).await?);
-
-    let ingest_future = tokio::spawn(ingest::run(global.clone()));
-    let grpc_future = tokio::spawn(grpc::run(global.clone()));
-
-    // Listen on both sigint and sigterm and cancel the context when either is received
-    let mut signal_handler = signal::SignalHandler::new()
-        .with_signal(SignalKind::interrupt())
-        .with_signal(SignalKind::terminate());
-
-    select! {
-        r = ingest_future => tracing::error!("api stopped unexpectedly: {:?}", r),
-        r = grpc_future => tracing::error!("grpc stopped unexpectedly: {:?}", r),
-        _ = signal_handler.recv() => tracing::info!("shutting down"),
-    }
-
-    // We cannot have a context in scope when we cancel the handler, otherwise it will deadlock.
-    drop(global);
-
-    // Cancel the context
-    tracing::info!("waiting for tasks to finish");
-
-    select! {
-        _ = time::sleep(Duration::from_secs(60)) => tracing::warn!("force shutting down"),
-        _ = signal_handler.recv() => tracing::warn!("force shutting down"),
-        _ = handler.cancel() => tracing::info!("shutting down"),
-    }
-
-    Ok(())
+#[derive(Debug, Clone, Default, serde::Deserialize, config::Config)]
+#[serde(default)]
+struct ExtConfig {
+    /// The Ingest configuration.
+    ingest: IngestConfig,
 }
 
-#[cfg(test)]
-mod tests;
+impl binary_helper::config::ConfigExtention for ExtConfig {
+    const APP_NAME: &'static str = "video-ingest";
+}
+
+type AppConfig = binary_helper::config::AppConfig<ExtConfig>;
+
+struct GlobalState {
+    ctx: Context,
+    config: AppConfig,
+    nats: async_nats::Client,
+    jetstream: async_nats::jetstream::Context,
+    db: Arc<sqlx::PgPool>,
+
+    requests: Mutex<HashMap<Ulid, mpsc::Sender<IncomingTranscoder>>>,
+}
+
+impl_global_traits!(GlobalState);
+
+impl common::global::GlobalConfigProvider<IngestConfig> for GlobalState {
+    #[inline(always)]
+    fn provide_config(&self) -> &IngestConfig {
+        &self.config.extra.ingest
+    }
+}
+
+impl video_ingest::global::IngestState for GlobalState {
+    fn requests(&self) -> &Mutex<HashMap<Ulid, mpsc::Sender<IncomingTranscoder>>> {
+        &self.requests
+    }
+}
+
+#[async_trait::async_trait]
+impl binary_helper::Global<AppConfig> for GlobalState {
+    async fn new(ctx: Context, config: AppConfig) -> anyhow::Result<Self> {
+        let (nats, jetstream) = setup_nats(&config.name, &config.nats).await?;
+        let db = setup_database(&config.database).await?;
+
+        Ok(Self {
+            ctx,
+            config,
+            nats,
+            jetstream,
+            db,
+            requests: Mutex::new(HashMap::new()),
+        })
+    }
+}
+
+#[tokio::main]
+pub async fn main() {
+    if let Err(err) = bootstrap::<AppConfig, GlobalState, _>(|global| async move {
+        let grpc_future = {
+            let mut server = grpc_server(&global.config.grpc)
+                .await
+                .context("failed to create grpc server")?;
+            let router = server.add_service(grpc_health::HealthServer::new(
+                &global,
+                |global, _| async move {
+                    !global.db().is_closed()
+                        && global.nats().connection_state()
+                            == async_nats::connection::State::Connected
+                },
+            ));
+
+            let router = video_ingest::grpc::add_routes(&global, router);
+
+            router.serve_with_shutdown(global.config.grpc.bind_address, async {
+                global.ctx().done().await;
+            })
+        };
+
+        let ingest_future = video_ingest::ingest::run(global.clone());
+
+        select! {
+            r = grpc_future => r.context("grpc server stopped unexpectedly")?,
+            r = ingest_future => r.context("ingest server stopped unexpectedly")?,
+        }
+
+        Ok(())
+    })
+    .await
+    {
+        tracing::error!("{:#}", err);
+        std::process::exit(1);
+    }
+}

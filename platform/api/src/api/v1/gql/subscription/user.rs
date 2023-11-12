@@ -9,11 +9,17 @@ use crate::api::v1::gql::{
     ext::ContextExt,
     models::{color::DisplayColor, ulid::GqlUlid},
 };
+use crate::global::ApiGlobal;
 
 use super::FollowStream;
 
-#[derive(Default)]
-pub struct UserSubscription;
+pub struct UserSubscription<G: ApiGlobal>(std::marker::PhantomData<G>);
+
+impl<G: ApiGlobal> Default for UserSubscription<G> {
+    fn default() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
 
 #[derive(SimpleObject)]
 struct DisplayNameStream {
@@ -28,16 +34,16 @@ struct DisplayColorStream {
 }
 
 #[Subscription]
-impl UserSubscription {
+impl<G: ApiGlobal> UserSubscription<G> {
     async fn user_display_name<'ctx>(
         &self,
         ctx: &'ctx Context<'ctx>,
         user_id: GqlUlid,
     ) -> Result<impl Stream<Item = Result<DisplayNameStream>> + 'ctx> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
 
         let Some(display_name) = global
-            .user_by_id_loader
+            .user_by_id_loader()
             .load(user_id.to_ulid())
             .await
             .map_err_gql("failed to fetch user")?
@@ -51,7 +57,7 @@ impl UserSubscription {
         };
 
         let mut subscription = global
-            .subscription_manager
+            .subscription_manager()
             .subscribe(format!("user.{}.display_name", user_id.to_ulid()))
             .await
             .map_err_gql("failed to subscribe to user display name")?;
@@ -85,10 +91,10 @@ impl UserSubscription {
         ctx: &'ctx Context<'ctx>,
         user_id: GqlUlid,
     ) -> Result<impl Stream<Item = Result<DisplayColorStream>> + 'ctx> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
 
         let Some(display_color) = global
-            .user_by_id_loader
+            .user_by_id_loader()
             .load(user_id.to_ulid())
             .await
             .map_err_gql("failed to fetch user")?
@@ -102,7 +108,7 @@ impl UserSubscription {
         };
 
         let mut subscription = global
-            .subscription_manager
+            .subscription_manager()
             .subscribe(format!("user.{}.display_color", user_id.to_ulid()))
             .await
             .map_err_gql("failed to subscribe to user display name")?;
@@ -137,7 +143,7 @@ impl UserSubscription {
         #[graphql(desc = "When specified, this subscription is limited to only this channel.")]
         channel_id: Option<GqlUlid>,
     ) -> Result<impl Stream<Item = Result<FollowStream>> + 'ctx> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         let auth = request_context
@@ -148,7 +154,7 @@ impl UserSubscription {
         let user_id: Ulid = auth.session.user_id.into();
 
         let mut subscription = global
-            .subscription_manager
+            .subscription_manager()
             .subscribe(format!("user.{}.follows", user_id.to_string()))
             .await
             .map_err_gql("failed to subscribe to user follows")?;
@@ -160,7 +166,7 @@ impl UserSubscription {
                 )
                 .bind(auth.session.user_id)
                 .bind(channel_id.to_uuid())
-                .fetch_optional(global.db.as_ref())
+                .fetch_optional(global.db().as_ref())
                 .await
                 .map_err_gql("failed to fetch channel_user")?
                 .unwrap_or((false,));

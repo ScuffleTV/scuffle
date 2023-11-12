@@ -6,14 +6,18 @@ use futures::StreamExt;
 use tokio::select;
 use tokio_util::sync::CancellationToken;
 
-use crate::{global::GlobalState, transcoder::job::handle_message};
+use crate::{config::TranscoderConfig, global::TranscoderGlobal, transcoder::job::handle_message};
 
 pub(crate) mod job;
 
-pub async fn run(global: Arc<GlobalState>) -> Result<()> {
+pub async fn run<G: TranscoderGlobal>(global: Arc<G>) -> Result<()> {
     let stream = global
-        .jetstream
-        .get_stream(global.config.transcoder.transcoder_request_subject.clone())
+        .jetstream()
+        .get_stream(
+            &global
+                .config::<TranscoderConfig>()
+                .transcoder_request_subject,
+        )
         .await?;
 
     let consumer = stream
@@ -47,7 +51,7 @@ pub async fn run(global: Arc<GlobalState>) -> Result<()> {
 
                 tokio::spawn(handle_message(global.clone(), m, child_token.clone()));
             },
-            _ = global.ctx.done() => {
+            _ = global.ctx().done() => {
                 tracing::debug!("context done");
                 break;
             }
@@ -59,7 +63,7 @@ pub async fn run(global: Arc<GlobalState>) -> Result<()> {
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    global.nats.flush().await?;
+    global.nats().flush().await?;
 
     Ok(())
 }

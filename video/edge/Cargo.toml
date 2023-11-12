@@ -3,7 +3,9 @@ name = "video-edge"
 version = "0.0.1"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "video-edge"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.75"
@@ -39,12 +41,14 @@ jwt = { version = "0.16.0", features = ["openssl"] }
 openssl = "0.10.59"
 ulid = { version = "1.1.0", features = ["uuid", "serde"] }
 itertools = "0.11.0"
+thiserror = "1.0.50"
 
 common = { workspace = true, features = ["default"] }
 config = { workspace = true }
 pb = { workspace = true }
 video-common = { workspace = true }
 video-player-types = { workspace = true }
+binary-helper = { workspace = true }
 
 [dev-dependencies]
 dotenvy = "0.15.7"

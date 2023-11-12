@@ -5,6 +5,7 @@ use ulid::Ulid;
 use uuid::Uuid;
 
 use crate::api::middleware::auth::AuthError;
+use crate::global::ApiGlobal;
 use crate::{
     api::v1::gql::{
         error::{GqlError, Result, ResultExt},
@@ -15,11 +16,16 @@ use crate::{
     database,
 };
 
-#[derive(Default)]
-pub struct ChatMutation;
+pub struct ChatMutation<G>(std::marker::PhantomData<G>);
+
+impl<G: ApiGlobal> Default for ChatMutation<G> {
+    fn default() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
 
 #[Object]
-impl ChatMutation {
+impl<G: ApiGlobal> ChatMutation<G> {
     // Send message in chat. You need to be logged in for that.
     async fn send_message<'ctx>(
         &self,
@@ -30,8 +36,8 @@ impl ChatMutation {
             validator(max_length = 500)
         )]
         content: String,
-    ) -> Result<ChatMessage> {
-        let global = ctx.get_global();
+    ) -> Result<ChatMessage<G>> {
+        let global = ctx.get_global::<G>();
         let request_context = ctx.get_req_context();
 
         // TODO: check if user is banned from chat
@@ -49,11 +55,11 @@ impl ChatMutation {
         .bind(auth.session.user_id)
         .bind(channel_id.to_uuid())
         .bind(content.clone())
-        .fetch_one(global.db.as_ref())
+        .fetch_one(global.db().as_ref())
         .await?;
 
         match global
-            .nats
+            .nats()
             .publish(
                 format!("channel.{}.chat.messages", channel_id.to_ulid()),
                 chat_message.to_protobuf().encode_to_vec().into(),

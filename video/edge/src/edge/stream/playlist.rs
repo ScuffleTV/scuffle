@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use common::database::PgNonNullVec;
+use common::http::ext::*;
 use hyper::StatusCode;
 use pb::{
     ext::UlidExt,
@@ -10,7 +12,6 @@ use pb::{
 };
 use ulid::Ulid;
 use uuid::Uuid;
-use common::database::PgNonNullVec;
 use video_common::database::{Recording, RecordingThumbnail, Rendition};
 use video_player_types::{
     RenditionPlaylist, RenditionPlaylistRendition, RenditionPlaylistSegment,
@@ -19,11 +20,8 @@ use video_player_types::{
 };
 
 use crate::{
-    edge::{
-        error::{Result, ResultExt},
-        stream::tokens::MediaClaims,
-    },
-    global::GlobalState,
+    edge::{error::Result, stream::tokens::MediaClaims},
+    global::EdgeGlobal,
 };
 
 use super::{
@@ -52,8 +50,8 @@ fn normalize_float(f: f64) -> f64 {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn room_playlist<A: AsRef<AudioConfig>, V: AsRef<VideoConfig>>(
-    global: &Arc<GlobalState>,
+pub fn room_playlist<A: AsRef<AudioConfig>, V: AsRef<VideoConfig>, G: EdgeGlobal>(
+    global: &Arc<G>,
     id: Ulid,
     organization_id: Ulid,
     connection_id: Ulid,
@@ -103,8 +101,8 @@ pub fn room_playlist<A: AsRef<AudioConfig>, V: AsRef<VideoConfig>>(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn recording_playlist<A: AsRef<AudioConfig>, V: AsRef<VideoConfig>>(
-    global: &Arc<GlobalState>,
+pub fn recording_playlist<A: AsRef<AudioConfig>, V: AsRef<VideoConfig>, G: EdgeGlobal>(
+    global: &Arc<G>,
     id: Ulid,
     organization_id: Ulid,
     recording_id: Ulid,
@@ -149,8 +147,8 @@ pub fn recording_playlist<A: AsRef<AudioConfig>, V: AsRef<VideoConfig>>(
     })
 }
 
-pub async fn rendition_playlist(
-    global: &Arc<GlobalState>,
+pub async fn rendition_playlist<G: EdgeGlobal>(
+    global: &Arc<G>,
     session: &SessionClaims,
     config: &HlsConfig,
     rendition: Rendition,
@@ -229,7 +227,7 @@ pub async fn rendition_playlist(
         )
         .bind(Uuid::from(recording_id))
         .bind(Uuid::from(organization_id))
-        .fetch_optional(global.db.as_ref())
+        .fetch_optional(global.db().as_ref())
         .await
         .map_err_route((
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -287,7 +285,7 @@ pub async fn rendition_playlist(
             )
             .bind(Uuid::from(*recording_id))
             .bind(rendition)
-            .fetch_optional(global.db.as_ref())
+            .fetch_optional(global.db().as_ref())
             .await
             .map_err_route((
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -305,7 +303,7 @@ pub async fn rendition_playlist(
                 "#,
             )
             .bind(Uuid::from(*recording_id))
-            .fetch_all(global.db.as_ref())
+            .fetch_all(global.db().as_ref())
             .await
             .map_err_route((
                 StatusCode::INTERNAL_SERVER_ERROR,

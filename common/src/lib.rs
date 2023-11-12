@@ -17,8 +17,13 @@ pub mod signal;
 #[cfg(feature = "macros")]
 #[macro_use]
 pub mod macros;
+#[cfg(feature = "global")]
+pub mod global;
 #[cfg(feature = "ratelimiter")]
 pub mod ratelimiter;
+
+#[cfg(feature = "http")]
+pub mod http;
 
 #[cfg(test)]
 mod tests;

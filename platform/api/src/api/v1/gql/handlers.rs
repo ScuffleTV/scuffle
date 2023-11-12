@@ -4,6 +4,7 @@ use async_graphql::{
     http::{WebSocketProtocols, WsMessage},
     Data,
 };
+use common::http::ext::*;
 use futures_util::{SinkExt, StreamExt};
 use hyper::{body::HttpBody, header, Body, Request, Response, StatusCode};
 use hyper_tungstenite::{
@@ -19,23 +20,20 @@ use tokio::select;
 
 use crate::{
     api::{
-        error::{ApiError, Result, ResultExt as _},
-        ext::RequestExt as _,
+        error::Result,
+        jwt::JwtState,
         middleware::auth::AuthError,
-        v1::{
-            jwt::JwtState,
-            request_context::{AuthData, RequestContext},
-        },
+        request_context::{AuthData, RequestContext},
     },
-    global::GlobalState,
+    global::ApiGlobal,
 };
 
 use super::{error::GqlError, ext::RequestExt as _, MySchema};
 
-async fn websocket_handler(
+async fn websocket_handler<G: ApiGlobal>(
     ws: HyperWebsocket,
-    schema: MySchema,
-    global: Arc<GlobalState>,
+    schema: MySchema<G>,
+    global: Arc<G>,
     protocol: WebSocketProtocols,
     request_context: RequestContext,
 ) {
@@ -102,13 +100,13 @@ async fn websocket_handler(
     //  This is interesting since when we shutdown we interrupt the stream forward rather then waiting for the stream to finish.
     select! {
         _ = stream.forward(&mut tx) => {}
-        _ = global.ctx.done() => {
+        _ = global.ctx().done() => {
             tx.send(Message::Close(Some(CloseFrame { code: CloseCode::Restart, reason: "server is restarting".into() }))).await.ok();
         }
     }
 }
 
-pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
+pub async fn graphql_handler<G: ApiGlobal>(mut req: Request<Body>) -> Result<Response<Body>> {
     if req.method() == hyper::Method::OPTIONS {
         // TODO: Why this? We have cors middleware
         return Ok(hyper::Response::builder()
@@ -125,11 +123,11 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
     }
 
     let schema = req
-        .data::<MySchema>()
+        .data::<MySchema<G>>()
         .expect("failed to get schema")
         .clone();
 
-    let global = req.get_global()?;
+    let global = req.get_global::<G>()?;
 
     let context: RequestContext = req.context().expect("missing request context");
 
@@ -145,10 +143,10 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
                     .split(',')
                     .find_map(|p| WebSocketProtocols::from_str(p.trim()).ok())
             })
-            .ok_or(ApiError::InvalidWsProtocol)?;
+            .map_err_route((StatusCode::BAD_REQUEST, "invalid websocket protocol"))?;
 
-        let (mut response, websocket) =
-            hyper_tungstenite::upgrade(&mut req, None).map_err(ApiError::WsUpgrade)?;
+        let (mut response, websocket) = hyper_tungstenite::upgrade(&mut req, None)
+            .map_err_route("failed to upgrade request")?;
 
         response.headers_mut().insert(
             header::SEC_WEBSOCKET_PROTOCOL,
@@ -174,8 +172,8 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
                 .body_mut()
                 .data()
                 .await
-                .map_err_route(ApiError::NoGqlRequest)?
-                .map_err(ApiError::ParseHttpBody)?;
+                .map_err_route((StatusCode::BAD_REQUEST, "missing request body"))?
+                .map_err_route((StatusCode::BAD_REQUEST, "failed to read body"))?;
 
             let content_type = req
                 .headers()
@@ -188,14 +186,18 @@ pub async fn graphql_handler(mut req: Request<Body>) -> Result<Response<Body>> {
                 Default::default(),
             )
             .await
-            .map_err(ApiError::ParseGql)?
+            .map_err_route((StatusCode::BAD_REQUEST, "failed to parse body"))?
         }
         hyper::Method::GET => {
-            let query = req.uri().query().ok_or(ApiError::NoGqlRequest)?;
-            async_graphql::http::parse_query_string(query)?
+            let query = req
+                .uri()
+                .query()
+                .map_err_route((StatusCode::BAD_REQUEST, "missing query string"))?;
+            async_graphql::http::parse_query_string(query)
+                .map_err_route((StatusCode::BAD_REQUEST, "failed to parse query string"))?
         }
         _ => {
-            return Err(ApiError::HttpMethodNotAllowed.into());
+            return Err((StatusCode::METHOD_NOT_ALLOWED, "method not allowed").into());
         }
     }
     .provide_global(global)

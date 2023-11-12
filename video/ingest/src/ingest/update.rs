@@ -5,14 +5,14 @@ use tokio::sync::mpsc;
 use ulid::Ulid;
 use uuid::Uuid;
 
-use crate::global::GlobalState;
+use crate::global::IngestGlobal;
 
 pub struct Update {
     pub bitrate: i32,
 }
 
-pub async fn update_db(
-    global: Arc<GlobalState>,
+pub async fn update_db<G: IngestGlobal>(
+    global: Arc<G>,
     id: Ulid,
     organization_id: Ulid,
     room_id: Ulid,
@@ -38,7 +38,7 @@ pub async fn update_db(
             .bind(Uuid::from(organization_id))
             .bind(Uuid::from(room_id))
             .bind(Uuid::from(id))
-            .execute(global.db.as_ref())
+            .execute(global.db().as_ref())
             .timeout(Duration::from_secs(3))
             .await
             {

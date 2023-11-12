@@ -1,4 +1,4 @@
-use crate::global::GlobalState;
+use crate::global::ApiGlobal;
 use std::{
     collections::HashSet,
     sync::{Arc, Weak},
@@ -35,12 +35,12 @@ mod utils;
 
 type Result<T> = std::result::Result<T, Status>;
 
-pub struct AccessTokenServer {
-    global: Weak<GlobalState>,
+pub struct AccessTokenServer<G: ApiGlobal> {
+    global: Weak<G>,
 }
 
-impl AccessTokenServer {
-    pub fn new(global: &Arc<GlobalState>) -> AccessTokenService<Self> {
+impl<G: ApiGlobal> AccessTokenServer<G> {
+    pub fn new(global: &Arc<G>) -> AccessTokenService<Self> {
         AccessTokenService::new(Self {
             global: Arc::downgrade(global),
         })
@@ -48,7 +48,7 @@ impl AccessTokenServer {
 }
 
 #[async_trait]
-impl AccessTokenServiceTrait for AccessTokenServer {
+impl<G: ApiGlobal> AccessTokenServiceTrait for AccessTokenServer<G> {
     async fn get(
         &self,
         request: Request<AccessTokenGetRequest>,
@@ -63,7 +63,7 @@ impl AccessTokenServiceTrait for AccessTokenServer {
 
         let results: Vec<AccessToken> = access_tokens
             .build_query_as()
-            .fetch_all(global.db.as_ref())
+            .fetch_all(global.db().as_ref())
             .await
             .map_err(|err| {
                 tracing::error!("failed to fetch access tokens: {}", err);
@@ -146,7 +146,7 @@ impl AccessTokenServiceTrait for AccessTokenServer {
         .bind(access_token.updated_at)
         .bind(access_token.expires_at)
         .bind(&access_token.scopes)
-        .execute(global.db.as_ref())
+        .execute(global.db().as_ref())
         .await
         .map_err(|err| {
             tracing::error!("failed to create access token: {}", err);
@@ -197,7 +197,7 @@ impl AccessTokenServiceTrait for AccessTokenServer {
         }
 
         let tokens_to_delete = global
-            .access_token_loader
+            .access_token_loader()
             .load_many(ids.into_iter())
             .await
             .map_err(|_| Status::internal("failed to load access tokens for delete"))?
@@ -236,7 +236,7 @@ impl AccessTokenServiceTrait for AccessTokenServer {
                 .collect::<Vec<_>>(),
         )
         .bind(access_token.organization_id)
-        .execute(global.db.as_ref())
+        .execute(global.db().as_ref())
         .await
         .map_err(|err| {
             tracing::error!("failed to delete access token: {}", err);

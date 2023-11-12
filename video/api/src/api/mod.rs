@@ -1,4 +1,4 @@
-use crate::global::GlobalState;
+use crate::{config::ApiConfig, global::ApiGlobal};
 use anyhow::Result;
 use std::sync::Arc;
 use tokio::select;
@@ -16,10 +16,11 @@ mod transcoding_config;
 
 mod utils;
 
-pub async fn run(global: Arc<GlobalState>) -> Result<()> {
-    tracing::info!("API Listening on {}", global.config.api.bind_address);
+pub async fn run<G: ApiGlobal>(global: Arc<G>) -> Result<()> {
+    let config = global.config::<ApiConfig>();
+    tracing::info!("API Listening on {}", config.bind_address);
 
-    let server = if let Some(tls) = &global.config.api.tls {
+    let server = if let Some(tls) = &config.tls {
         let cert = tokio::fs::read(&tls.cert).await?;
         let key = tokio::fs::read(&tls.key).await?;
         let ca_cert = tokio::fs::read(&tls.ca_cert).await?;
@@ -42,12 +43,12 @@ pub async fn run(global: Arc<GlobalState>) -> Result<()> {
     .add_service(s3_bucket::S3BucketServer::new(&global))
     .add_service(access_token::AccessTokenServer::new(&global))
     .add_service(events::EventsServer::new(&global))
-    .serve_with_shutdown(global.config.api.bind_address, async {
-        global.ctx.done().await;
+    .serve_with_shutdown(config.bind_address, async {
+        global.ctx().done().await;
     });
 
     select! {
-        _ = global.ctx.done() => {
+        _ = global.ctx().done() => {
             return Ok(());
         },
         r = server => {

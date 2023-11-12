@@ -1,25 +1,33 @@
 use async_graphql::{Context, Object};
 
-use crate::api::v1::gql::{
-    error::{Result, ResultExt},
-    ext::ContextExt,
-    models::{self, ulid::GqlUlid},
+use crate::{
+    api::v1::gql::{
+        error::{Result, ResultExt},
+        ext::ContextExt,
+        models::{self, ulid::GqlUlid},
+    },
+    global::ApiGlobal,
 };
 
-#[derive(Default)]
-pub struct CategoryQuery;
+pub struct CategoryQuery<G: ApiGlobal>(std::marker::PhantomData<G>);
+
+impl<G: ApiGlobal> Default for CategoryQuery<G> {
+    fn default() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
 
 #[Object]
-impl CategoryQuery {
+impl<G: ApiGlobal> CategoryQuery<G> {
     async fn by_id(
         &self,
         ctx: &Context<'_>,
         #[graphql(desc = "The id of the category.")] id: GqlUlid,
     ) -> Result<Option<models::category::Category>> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
 
         let user = global
-            .category_by_id_loader
+            .category_by_id_loader()
             .load(id.to_ulid())
             .await
             .map_err_gql("failed to fetch category")?;
@@ -32,10 +40,10 @@ impl CategoryQuery {
         ctx: &Context<'_>,
         #[graphql(desc = "The search query.")] query: String,
     ) -> Result<Vec<models::category::CategorySearchResult>> {
-        let global = ctx.get_global();
+        let global = ctx.get_global::<G>();
 
         let categories = global
-            .category_search_loader
+            .category_search_loader()
             .load(query)
             .await
             .ok()

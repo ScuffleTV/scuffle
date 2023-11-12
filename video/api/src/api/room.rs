@@ -1,4 +1,4 @@
-use crate::global::GlobalState;
+use crate::global::ApiGlobal;
 use std::sync::{Arc, Weak};
 
 use tonic::{async_trait, Request, Response, Status};
@@ -24,12 +24,12 @@ use super::utils::{
 
 type Result<T> = std::result::Result<T, Status>;
 
-pub struct RoomServer {
-    global: Weak<GlobalState>,
+pub struct RoomServer<G: ApiGlobal> {
+    global: Weak<G>,
 }
 
-impl RoomServer {
-    pub fn new(global: &Arc<GlobalState>) -> RoomService<Self> {
+impl<G: ApiGlobal> RoomServer<G> {
+    pub fn new(global: &Arc<G>) -> RoomService<Self> {
         RoomService::new(Self {
             global: Arc::downgrade(global),
         })
@@ -37,7 +37,7 @@ impl RoomServer {
 }
 
 #[async_trait]
-impl RoomServiceTrait for RoomServer {
+impl<G: ApiGlobal> RoomServiceTrait for RoomServer<G> {
     async fn get(&self, _request: Request<RoomGetRequest>) -> Result<Response<RoomGetResponse>> {
         todo!("TODO: implement Room::get")
     }

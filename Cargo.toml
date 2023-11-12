@@ -10,6 +10,7 @@ members = [
     "video/player",
     "video/player_types",
     "video/common",
+    "binary-helper",
     "common",
     "proto",
     "config/config",
@@ -47,6 +48,11 @@ config = { path = "config/config" }
 pb = { path = "proto" }
 video-common = { path = "video/common" }
 video-player-types = { path = "video/player_types" }
+video-api = { path = "video/api" }
+video-edge = { path = "video/edge" }
+video-ingest = { path = "video/ingest" }
+video-transcoder = { path = "video/transcoder" }
+binary-helper = { path = "binary-helper" }
 
 [patch."https://github.com/tokio-rs/tracing.git"]
 tracing = { git = "https://github.com/ScuffleTV/tracing" }

@@ -427,7 +427,7 @@ impl<S: AsyncReadWrite> Session<S> {
     ) -> Result<(), SessionError> {
         let mut writer = BytesWriter::default();
 
-        let stream_id = match others.get(0) {
+        let stream_id = match others.first() {
             Some(Amf0Value::Number(stream_id)) => *stream_id,
             _ => 0.0,
         } as u32;
@@ -461,7 +461,7 @@ impl<S: AsyncReadWrite> Session<S> {
         _command_obj: HashMap<String, Amf0Value>,
         others: Vec<Amf0Value>,
     ) -> Result<(), SessionError> {
-        let stream_name = match others.get(0) {
+        let stream_name = match others.first() {
             Some(Amf0Value::String(val)) => val,
             _ => {
                 return Err(SessionError::NoStreamName);

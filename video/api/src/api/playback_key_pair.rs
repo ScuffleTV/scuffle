@@ -1,4 +1,4 @@
-use crate::global::GlobalState;
+use crate::global::ApiGlobal;
 use std::sync::{Arc, Weak};
 
 use tonic::{async_trait, Request, Response, Status};
@@ -27,12 +27,12 @@ use super::utils::{
 
 type Result<T> = std::result::Result<T, Status>;
 
-pub struct PlaybackKeyPairServer {
-    global: Weak<GlobalState>,
+pub struct PlaybackKeyPairServer<G: ApiGlobal> {
+    global: Weak<G>,
 }
 
-impl PlaybackKeyPairServer {
-    pub fn new(global: &Arc<GlobalState>) -> PlaybackKeyPairService<Self> {
+impl<G: ApiGlobal> PlaybackKeyPairServer<G> {
+    pub fn new(global: &Arc<G>) -> PlaybackKeyPairService<Self> {
         PlaybackKeyPairService::new(Self {
             global: Arc::downgrade(global),
         })
@@ -40,7 +40,7 @@ impl PlaybackKeyPairServer {
 }
 
 #[async_trait]
-impl PlaybackKeyPairServiceTrait for PlaybackKeyPairServer {
+impl<G: ApiGlobal> PlaybackKeyPairServiceTrait for PlaybackKeyPairServer<G> {
     async fn get(
         &self,
         _request: Request<PlaybackKeyPairGetRequest>,

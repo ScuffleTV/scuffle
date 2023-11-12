@@ -1,4 +1,4 @@
-use crate::global::GlobalState;
+use crate::global::ApiGlobal;
 use std::sync::{Arc, Weak};
 
 use tonic::{async_trait, Request, Response, Status};
@@ -25,12 +25,12 @@ use super::utils::{
 
 type Result<T> = std::result::Result<T, Status>;
 
-pub struct RecordingServer {
-    global: Weak<GlobalState>,
+pub struct RecordingServer<G: ApiGlobal> {
+    global: Weak<G>,
 }
 
-impl RecordingServer {
-    pub fn new(global: &Arc<GlobalState>) -> RecordingService<Self> {
+impl<G: ApiGlobal> RecordingServer<G> {
+    pub fn new(global: &Arc<G>) -> RecordingService<Self> {
         RecordingService::new(Self {
             global: Arc::downgrade(global),
         })
@@ -38,7 +38,7 @@ impl RecordingServer {
 }
 
 #[async_trait]
-impl RecordingServiceTrait for RecordingServer {
+impl<G: ApiGlobal> RecordingServiceTrait for RecordingServer<G> {
     async fn get(
         &self,
         _request: Request<RecordingGetRequest>,

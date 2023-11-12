@@ -1,41 +1,6 @@
 use std::net::SocketAddr;
 
-use common::config::{LoggingConfig, NatsConfig, RedisConfig, TlsConfig};
-
-#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
-#[serde(default)]
-/// The API is the backend for the Scuffle service
-pub struct AppConfig {
-    /// The path to the config file
-    pub config_file: Option<String>,
-
-    /// Name of this instance
-    pub name: String,
-
-    /// If we should export the GraphQL schema, if set to true, the schema will be exported to the stdout, and the program will exit.
-    pub export_gql: bool,
-
-    ///  The logging config
-    pub logging: LoggingConfig,
-
-    /// API Config
-    pub api: ApiConfig,
-
-    /// Database Config
-    pub database: DatabaseConfig,
-
-    /// Turnstile Config
-    pub turnstile: TurnstileConfig,
-
-    /// JWT Config
-    pub jwt: JwtConfig,
-
-    /// Redis configuration
-    pub redis: RedisConfig,
-
-    /// Nats configuration
-    pub nats: NatsConfig,
-}
+use common::config::TlsConfig;
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
@@ -52,21 +17,6 @@ impl Default for ApiConfig {
         Self {
             bind_address: "[::]:4000".parse().expect("failed to parse bind address"),
             tls: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
-#[serde(default)]
-pub struct DatabaseConfig {
-    /// The database URL to use
-    pub uri: String,
-}
-
-impl Default for DatabaseConfig {
-    fn default() -> Self {
-        Self {
-            uri: "postgres://root@localhost:5432/scuffle_dev".to_string(),
         }
     }
 }
@@ -106,33 +56,5 @@ impl Default for JwtConfig {
             issuer: "scuffle".to_string(),
             secret: "scuffle".to_string(),
         }
-    }
-}
-
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            config_file: Some("config".to_string()),
-            name: "scuffle-api".to_string(),
-            export_gql: false,
-            logging: LoggingConfig::default(),
-            api: ApiConfig::default(),
-            database: DatabaseConfig::default(),
-            jwt: JwtConfig::default(),
-            turnstile: TurnstileConfig::default(),
-            redis: RedisConfig::default(),
-            nats: NatsConfig::default(),
-        }
-    }
-}
-
-impl AppConfig {
-    pub fn parse() -> config::Result<Self> {
-        let (mut config, config_file) =
-            common::config::parse::<Self>(!cfg!(test), Self::default().config_file)?;
-
-        config.config_file = config_file;
-
-        Ok(config)
     }
 }

@@ -34,7 +34,8 @@ use ulid::Ulid;
 use uuid::Uuid;
 use video_common::database::{Rendition, RoomStatus};
 
-use crate::global::GlobalState;
+use crate::config::TranscoderConfig;
+use crate::global::TranscoderGlobal;
 use crate::transcoder::job::track_parser::track_parser;
 use crate::transcoder::job::utils::{
     bind_socket, perform_sql_operations, spawn_ffmpeg, spawn_ffmpeg_screenshot, unix_stream,
@@ -51,8 +52,8 @@ mod renditions;
 mod track_parser;
 mod utils;
 
-pub async fn handle_message(
-    global: Arc<GlobalState>,
+pub async fn handle_message<G: TranscoderGlobal>(
+    global: Arc<G>,
     msg: Message,
     shutdown_token: CancellationToken,
 ) {
@@ -96,7 +97,7 @@ struct Ffmpeg {
     stdin: Option<ChildStdin>,
 }
 
-struct Job {
+struct Job<G: TranscoderGlobal> {
     organization_id: Ulid,
     room_id: Ulid,
     connection_id: Ulid,
@@ -111,7 +112,7 @@ struct Job {
     track_state: HashMap<Rendition, TrackState>,
     manifests: HashMap<Rendition, LiveRenditionManifest>,
 
-    tasker: MultiTasker,
+    tasker: MultiTasker<G>,
 
     screenshot_task: Option<TaskFuture<(Bytes, f64)>>,
 
@@ -146,8 +147,8 @@ impl Drop for CleanupPath {
     }
 }
 
-impl Job {
-    async fn new(global: &Arc<GlobalState>, msg: &Message) -> Result<Self> {
+impl<G: TranscoderGlobal> Job<G> {
+    async fn new(global: &Arc<G>, msg: &Message) -> Result<Self> {
         let message = TranscoderRequest::decode(msg.payload.clone())?;
 
         let organization_id = message.organization_id.to_ulid();
@@ -166,10 +167,11 @@ impl Job {
             "got new stream request",
         );
 
+        let config = global.config::<TranscoderConfig>();
+
         // We need to create a unix socket for ffmpeg to connect to.
         let socket_dir = CleanupPath(
-            Path::new(&global.config.transcoder.socket_dir)
-                .join(message.request_id.to_ulid().to_string()),
+            Path::new(&config.socket_dir).join(message.request_id.to_ulid().to_string()),
         );
         if let Err(err) = tokio::fs::create_dir_all(&socket_dir.0).await {
             anyhow::bail!("failed to create socket dir: {}", err)
@@ -183,19 +185,15 @@ impl Job {
             .map(Rendition::from)
             .map(|rendition| {
                 let sock_path = socket_dir.0.join(format!("{rendition}.sock"));
-                let socket = bind_socket(
-                    &sock_path,
-                    global.config.transcoder.ffmpeg_uid,
-                    global.config.transcoder.ffmpeg_gid,
-                )?;
+                let socket = bind_socket(&sock_path, config.ffmpeg_uid, config.ffmpeg_gid)?;
 
                 Ok((socket, rendition))
             })
             .collect::<Result<Vec<_>>>()?;
 
         let mut ffmpeg = spawn_ffmpeg(
-            global.config.transcoder.ffmpeg_gid,
-            global.config.transcoder.ffmpeg_uid,
+            config.ffmpeg_gid,
+            config.ffmpeg_uid,
             &socket_dir.0,
             &result.video_output,
             &result.audio_output,
@@ -277,7 +275,7 @@ impl Job {
 
     async fn run(
         &mut self,
-        global: &Arc<GlobalState>,
+        global: &Arc<G>,
         shutdown_token: CancellationToken,
         mut streams: impl Stream<Item = (io::Result<TrackOut>, Rendition)> + Unpin,
     ) -> Result<()> {
@@ -369,7 +367,7 @@ impl Job {
 
     async fn handle_msg(
         &mut self,
-        global: &Arc<GlobalState>,
+        global: &Arc<G>,
         msg: Option<Result<IngestWatchResponse, Status>>,
     ) -> Result<()> {
         tracing::trace!("recieved message");
@@ -437,7 +435,7 @@ impl Job {
 
     async fn take_screenshot(
         &mut self,
-        global: &Arc<GlobalState>,
+        global: &Arc<G>,
         data: &Bytes,
         start_time: f64,
     ) -> Result<()> {
@@ -448,12 +446,10 @@ impl Job {
         if let Some(init_segment) = &self.init_segment {
             let (width, height) = screenshot_size(&self.video_input);
 
-            let mut child = spawn_ffmpeg_screenshot(
-                global.config.transcoder.ffmpeg_gid,
-                global.config.transcoder.ffmpeg_uid,
-                width,
-                height,
-            )?;
+            let config = global.config::<TranscoderConfig>();
+
+            let mut child =
+                spawn_ffmpeg_screenshot(config.ffmpeg_gid, config.ffmpeg_uid, width, height)?;
 
             let mut stdin = child.stdin.take();
             stdin.as_mut().unwrap().write_all(init_segment).await?;
@@ -486,7 +482,7 @@ impl Job {
 
     fn handle_track(
         &mut self,
-        global: &Arc<GlobalState>,
+        global: &Arc<G>,
         rendition: Rendition,
         result: io::Result<TrackOut>,
     ) -> Result<()> {
@@ -578,7 +574,7 @@ impl Job {
                         .bind(Uuid::from(organization_id))
                         .bind(Uuid::from(room_id))
                         .bind(Uuid::from(connection_id))
-                        .execute(global.db.as_ref())
+                        .execute(global.db().as_ref())
                         .await
                         .map_err(|e| TaskError::Custom(e.into()))?;
 
@@ -589,8 +585,11 @@ impl Job {
                         }
 
                         global
-                            .nats
-                            .publish(global.config.transcoder.events_subject.clone(), event)
+                            .nats()
+                            .publish(
+                                global.config::<TranscoderConfig>().events_subject.clone(),
+                                event,
+                            )
                             .await
                             .map_err(|e| TaskError::Custom(e.into()))?;
 
@@ -610,17 +609,19 @@ impl Job {
         Ok(())
     }
 
-    fn handle_sample(&mut self, global: &Arc<GlobalState>, rendition: Rendition) -> Result<()> {
+    fn handle_sample(&mut self, global: &Arc<G>, rendition: Rendition) -> Result<()> {
         if !self.ready || self.first_init_put {
             return Ok(());
         }
 
         let track_state = self.track_state.get_mut(&rendition).unwrap();
 
+        let config = global.config::<TranscoderConfig>();
+
         let additions = track_state.split_samples(
-            global.config.transcoder.target_part_duration.as_secs_f64(),
-            global.config.transcoder.max_part_duration.as_secs_f64(),
-            global.config.transcoder.min_segment_duration.as_secs_f64(),
+            config.target_part_duration.as_secs_f64(),
+            config.max_part_duration.as_secs_f64(),
+            config.min_segment_duration.as_secs_f64(),
         );
 
         for (segment_idx, parts) in additions {
@@ -664,7 +665,7 @@ impl Job {
         }
 
         for idx in track_state
-            .retain_segments(global.config.transcoder.playlist_segments)
+            .retain_segments(config.playlist_segments)
             .into_iter()
             .flat_map(|s| s.parts.into_iter().map(|p| p.idx))
         {
@@ -688,7 +689,7 @@ impl Job {
 
     pub async fn handle_shutdown(
         &mut self,
-        global: &Arc<GlobalState>,
+        global: &Arc<G>,
         mut streams: impl Stream<Item = (io::Result<TrackOut>, Rendition)> + Unpin,
     ) -> Result<()> {
         tracing::info!("shutting down transcoder");
@@ -961,11 +962,11 @@ impl Job {
         self.manifests.insert(rendition, manifest);
     }
 
-    async fn fetch_manifests(&mut self, global: &Arc<GlobalState>) -> Result<()> {
+    async fn fetch_manifests(&mut self, global: &Arc<G>) -> Result<()> {
         let rendition_manfiests = async {
             futures_util::future::try_join_all(self.track_state.keys().map(|rendition| {
                 global
-                    .metadata_store
+                    .metadata_store()
                     .get(video_common::keys::rendition_manifest(
                         self.organization_id,
                         self.room_id,
@@ -979,7 +980,7 @@ impl Job {
 
         let manifest = async {
             global
-                .metadata_store
+                .metadata_store()
                 .get(video_common::keys::manifest(
                     self.organization_id,
                     self.room_id,

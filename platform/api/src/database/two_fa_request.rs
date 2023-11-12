@@ -8,7 +8,7 @@ use pb::scuffle::platform::internal::two_fa::{
     TwoFaRequestAction,
 };
 
-use crate::global::GlobalState;
+use crate::global::ApiGlobal;
 
 use super::{Session, User};
 
@@ -20,21 +20,21 @@ pub struct TwoFaRequest {
 }
 
 #[async_trait::async_trait]
-pub trait TwoFaRequestActionTrait {
+pub trait TwoFaRequestActionTrait<G: ApiGlobal> {
     type Result;
 
-    async fn execute(self, global: &Arc<GlobalState>, user_id: Ulid) -> Self::Result;
+    async fn execute(self, global: &Arc<G>, user_id: Ulid) -> Self::Result;
 }
 
 #[async_trait::async_trait]
-impl TwoFaRequestActionTrait for Login {
+impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
     type Result = sqlx::Result<Session>;
 
-    async fn execute(self, global: &Arc<GlobalState>, user_id: Ulid) -> Self::Result {
+    async fn execute(self, global: &Arc<G>, user_id: Ulid) -> Self::Result {
         let expires_at = Utc::now() + Duration::seconds(self.login_duration as i64);
 
         // TODO: maybe look to batch this
-        let mut tx = global.db.begin().await?;
+        let mut tx = global.db().begin().await?;
 
         let session: Session = sqlx::query_as(
             "INSERT INTO user_sessions (id, user_id, expires_at) VALUES ($1, $2, $3) RETURNING *",
@@ -57,11 +57,11 @@ impl TwoFaRequestActionTrait for Login {
 }
 
 #[async_trait::async_trait]
-impl TwoFaRequestActionTrait for ChangePassword {
+impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for ChangePassword {
     type Result = sqlx::Result<()>;
 
-    async fn execute(self, global: &Arc<GlobalState>, user_id: Ulid) -> sqlx::Result<()> {
-        let mut tx = global.db.begin().await?;
+    async fn execute(self, global: &Arc<G>, user_id: Ulid) -> sqlx::Result<()> {
+        let mut tx = global.db().begin().await?;
 
         let user: User =
             sqlx::query_as("UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING *")

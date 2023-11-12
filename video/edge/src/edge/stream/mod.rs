@@ -2,19 +2,23 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::TimeZone;
-use common::prelude::FutureTimeout;
+use common::database::{PgNonNullVec, Protobuf};
+use common::{
+    http::{ext::*, RouteError},
+    make_response,
+    prelude::FutureTimeout,
+};
 use hyper::{Body, Request, Response, StatusCode};
 use pb::scuffle::video::{
     internal::{LiveManifest, LiveRenditionManifest},
     v1::types::{AudioConfig, VideoConfig},
 };
 use prost::Message;
-use routerify::{prelude::RequestExt, Router};
+use routerify::{prelude::RequestExt as _, Router};
 use tokio::io::AsyncReadExt;
 use tokio::time::Instant;
 use ulid::Ulid;
 use uuid::Uuid;
-use common::database::{PgNonNullVec, Protobuf};
 use video_common::{
     database::{Rendition, Room, RoomStatus},
     keys,
@@ -23,11 +27,9 @@ use video_player_types::SessionRefresh;
 
 use self::tokens::{ScreenshotClaims, SessionClaims, SessionClaimsType};
 
-use super::error::{Result, RouteError};
-use crate::edge::stream::hls_config::HlsConfig;
+use super::{error::Result, EdgeError};
 use crate::edge::stream::tokens::MediaClaims;
-use crate::edge::{error::ResultExt, macros::make_response};
-use crate::{edge::ext::RequestExt as _, global::GlobalState};
+use crate::{edge::stream::hls_config::HlsConfig, global::EdgeGlobal};
 
 mod block_style;
 mod hls_config;
@@ -68,10 +70,10 @@ fn token(req: &Request<Body>) -> Option<String> {
     })
 }
 
-async fn room_playlist(req: Request<Body>) -> Result<Response<Body>> {
+async fn room_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
     let config = HlsConfig::new(&req)?;
 
-    let global = req.get_global()?;
+    let global = req.get_global::<G>()?;
 
     let organization_id = organization_id(&req)?;
     let room_id = room_id(&req)?;
@@ -96,7 +98,7 @@ async fn room_playlist(req: Request<Body>) -> Result<Response<Body>> {
     .bind(Uuid::from(organization_id))
     .bind(Uuid::from(room_id))
     .bind(RoomStatus::Offline)
-    .fetch_optional(global.db.as_ref())
+    .fetch_optional(global.db().as_ref())
     .await
     .map_err_route((
         StatusCode::INTERNAL_SERVER_ERROR,
@@ -188,7 +190,7 @@ async fn room_playlist(req: Request<Body>) -> Result<Response<Body>> {
             .get("x-player-version")
             .map(|v| v.to_str().unwrap_or_default()),
     )
-    .execute(global.db.as_ref())
+    .execute(global.db().as_ref())
     .await
     .map_err_route((
         StatusCode::INTERNAL_SERVER_ERROR,
@@ -239,10 +241,10 @@ struct RecordingExt {
     configs: PgNonNullVec<Vec<u8>>,
 }
 
-async fn recording_playlist(req: Request<Body>) -> Result<Response<Body>> {
+async fn recording_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
     let config = HlsConfig::new(&req)?;
 
-    let global = req.get_global()?;
+    let global = req.get_global::<G>()?;
 
     let organization_id = organization_id(&req)?;
     let recording_id = recording_id(&req)?;
@@ -288,7 +290,7 @@ async fn recording_playlist(req: Request<Body>) -> Result<Response<Body>> {
     )
     .bind(Uuid::from(recording_id))
     .bind(Uuid::from(organization_id))
-    .fetch_optional(global.db.as_ref())
+    .fetch_optional(global.db().as_ref())
     .await
     .map_err_route((
         StatusCode::INTERNAL_SERVER_ERROR,
@@ -401,7 +403,7 @@ async fn recording_playlist(req: Request<Body>) -> Result<Response<Body>> {
             .get("x-player-version")
             .map(|v| v.to_str().unwrap_or_default()),
     )
-    .execute(global.db.as_ref())
+    .execute(global.db().as_ref())
     .await
     .map_err_route((
         StatusCode::INTERNAL_SERVER_ERROR,
@@ -444,9 +446,9 @@ async fn recording_playlist(req: Request<Body>) -> Result<Response<Body>> {
     Ok(resp)
 }
 
-async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
+async fn session_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
     let config = HlsConfig::new(&req)?;
-    let global = req.get_global()?;
+    let global = req.get_global::<G>()?;
 
     let organization_id = organization_id(&req)?;
 
@@ -468,7 +470,7 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
     )
     .bind(Uuid::from(session.id))
     .bind(Uuid::from(session.organization_id))
-    .execute(global.db.as_ref())
+    .execute(global.db().as_ref())
     .await
     .map_err_route((
         StatusCode::INTERNAL_SERVER_ERROR,
@@ -489,7 +491,7 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
     } = session.ty
     {
         let mut subscription = global
-            .subscriber
+            .subscriber()
             .subscribe_kv(keys::rendition_manifest(
                 organization_id,
                 room_id,
@@ -575,8 +577,8 @@ async fn session_playlist(req: Request<Body>) -> Result<Response<Body>> {
     Ok(resp)
 }
 
-async fn session_refresh(req: Request<Body>) -> Result<Response<Body>> {
-    let global = req.get_global()?;
+async fn session_refresh<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
+    let global = req.get_global::<G>()?;
 
     let organization_id = organization_id(&req)?;
 
@@ -596,7 +598,7 @@ async fn session_refresh(req: Request<Body>) -> Result<Response<Body>> {
     )
     .bind(Uuid::from(session.id))
     .bind(Uuid::from(session.organization_id))
-    .execute(global.db.as_ref())
+    .execute(global.db().as_ref())
     .await
     .map_err_route((
         StatusCode::INTERNAL_SERVER_ERROR,
@@ -622,8 +624,8 @@ async fn session_refresh(req: Request<Body>) -> Result<Response<Body>> {
     Ok(resp)
 }
 
-async fn room_media(req: Request<Body>) -> Result<Response<Body>> {
-    let global = req.get_global()?;
+async fn room_media<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
+    let global = req.get_global::<G>()?;
 
     let organization_id = organization_id(&req)?;
 
@@ -634,7 +636,7 @@ async fn room_media(req: Request<Body>) -> Result<Response<Body>> {
     let claims = MediaClaims::verify(&global, organization_id, room_id, media)?;
 
     let mut subscriber = global
-        .subscriber
+        .subscriber()
         .subscribe_kv(keys::rendition_manifest(
             organization_id,
             room_id,
@@ -745,7 +747,7 @@ async fn room_media(req: Request<Body>) -> Result<Response<Body>> {
 
     for key in &keys {
         let mut item = global
-            .media_store
+            .media_store()
             .get(key)
             .await
             .map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to get media"))?;
@@ -772,8 +774,8 @@ async fn room_media(req: Request<Body>) -> Result<Response<Body>> {
     Ok(resp)
 }
 
-async fn room_screenshot(req: Request<Body>) -> Result<Response<Body>> {
-    let global = req.get_global()?;
+async fn room_screenshot<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
+    let global = req.get_global::<G>()?;
 
     let organization_id = organization_id(&req)?;
     let room_id = room_id(&req)?;
@@ -797,7 +799,7 @@ async fn room_screenshot(req: Request<Body>) -> Result<Response<Body>> {
     .bind(Uuid::from(organization_id))
     .bind(Uuid::from(room_id))
     .bind(RoomStatus::Offline)
-    .fetch_optional(global.db.as_ref())
+    .fetch_optional(global.db().as_ref())
     .await
     .map_err_route((
         StatusCode::INTERNAL_SERVER_ERROR,
@@ -821,7 +823,7 @@ async fn room_screenshot(req: Request<Body>) -> Result<Response<Body>> {
 
     // We have permission to see the screenshot.
     let manifest = global
-        .metadata_store
+        .metadata_store()
         .get(keys::manifest(organization_id, room_id, connection_id))
         .await
         .map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to get manifest"))?
@@ -857,8 +859,8 @@ async fn room_screenshot(req: Request<Body>) -> Result<Response<Body>> {
     Ok(response)
 }
 
-async fn room_screenshot_media(req: Request<Body>) -> Result<Response<Body>> {
-    let global = req.get_global()?;
+async fn room_screenshot_media<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
+    let global = req.get_global::<G>()?;
 
     let organization_id = Ulid::from_string(req.param("organization_id").unwrap())
         .map_err(|_| (StatusCode::BAD_REQUEST, "invalid organization_id"))?;
@@ -886,7 +888,7 @@ async fn room_screenshot_media(req: Request<Body>) -> Result<Response<Body>> {
 
     tracing::debug!(key = %key, "getting screenshot");
 
-    let mut item = global.media_store.get(&key).await.map_err_route((
+    let mut item = global.media_store().get(&key).await.map_err_route((
         StatusCode::INTERNAL_SERVER_ERROR,
         "failed to get screenshot",
     ))?;
@@ -907,20 +909,23 @@ async fn room_screenshot_media(req: Request<Body>) -> Result<Response<Body>> {
     Ok(resp)
 }
 
-pub fn routes(_: &Arc<GlobalState>) -> Router<Body, RouteError> {
+pub fn routes<G: EdgeGlobal>(_: &Arc<G>) -> Router<Body, RouteError<EdgeError>> {
     Router::builder()
-        .get("/:organization_id/:room_id.m3u8", room_playlist)
-        .get("/:organization_id/r/:recording_id.m3u8", recording_playlist)
+        .get("/:organization_id/:room_id.m3u8", room_playlist::<G>)
+        .get(
+            "/:organization_id/r/:recording_id.m3u8",
+            recording_playlist::<G>,
+        )
         .get(
             "/:organization_id/:session/:rendition.m3u8",
-            session_playlist,
+            session_playlist::<G>,
         )
-        .get("/:organization_id/:session/refresh", session_refresh)
-        .get("/:organization_id/:room_id.jpg", room_screenshot)
-        .get("/:organization_id/:room_id/:media.mp4", room_media)
+        .get("/:organization_id/:session/refresh", session_refresh::<G>)
+        .get("/:organization_id/:room_id.jpg", room_screenshot::<G>)
+        .get("/:organization_id/:room_id/:media.mp4", room_media::<G>)
         .get(
             "/:organization_id/:room_id/:screenshot.jpg",
-            room_screenshot_media,
+            room_screenshot_media::<G>,
         )
         .build()
         .expect("failed to build router")

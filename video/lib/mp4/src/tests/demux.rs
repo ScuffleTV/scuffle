@@ -1239,7 +1239,7 @@ fn test_demux_av1_aac() {
                             },
                         },
                         btrt: None,
-                        /// This box is not defined in the spec, so we are not parsing it.
+                        // This box is not defined in the spec, so we are not parsing it.
                         unknown: vec![DynBox::Unknown((
                             BoxHeader { box_type: *b"fiel" },
                             b"\x01\0".to_vec().into()

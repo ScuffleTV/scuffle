@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{Duration, TimeZone, Utc};
+use common::http::ext::*;
 use hmac::{Hmac, Mac};
 use hyper::StatusCode;
 use jwt::{AlgorithmType, PKeyWithDigest, SignWithKey, Token, VerifyWithKey};
@@ -10,10 +11,7 @@ use ulid::Ulid;
 use uuid::Uuid;
 use video_common::database::{PlaybackKeyPair, Rendition};
 
-use crate::{
-    edge::error::{Result, ResultExt},
-    global::GlobalState,
-};
+use crate::{config::EdgeConfig, edge::error::Result, global::EdgeGlobal};
 
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct TokenClaims {
@@ -58,8 +56,8 @@ impl TargetId {
 }
 
 impl TokenClaims {
-    pub async fn verify(
-        global: &Arc<GlobalState>,
+    pub async fn verify<G: EdgeGlobal>(
+        global: &Arc<G>,
         organization_id: Ulid,
         target_id: TargetId,
         token: &str,
@@ -163,7 +161,7 @@ impl TokenClaims {
         )
         .bind(Uuid::from(organization_id))
         .bind(Uuid::from(playback_key_pair_id))
-        .fetch_optional(global.db.as_ref())
+        .fetch_optional(global.db().as_ref())
         .await
         .map_err_route((
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -195,7 +193,7 @@ impl TokenClaims {
         .bind(target_id.recording())
         .bind(token.claims().user_id.as_ref())
         .bind(iat)
-        .fetch_optional(global.db.as_ref())
+        .fetch_optional(global.db().as_ref())
         .await
         .map_err_route((
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -216,7 +214,7 @@ impl TokenClaims {
             .bind(target_id.room())
             .bind(target_id.recording())
             .bind(id)
-            .execute(global.db.as_ref())
+            .execute(global.db().as_ref())
             .await
             .map_err_route((
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -265,14 +263,15 @@ pub enum MediaClaimsType {
 }
 
 impl MediaClaims {
-    pub fn verify(
-        global: &Arc<GlobalState>,
+    pub fn verify<G: EdgeGlobal>(
+        global: &Arc<G>,
         organization_id: Ulid,
         room_id: Ulid,
         token: &str,
     ) -> Result<Self> {
-        let key: Hmac<Sha256> = Hmac::new_from_slice(global.config.edge.media_key.as_bytes())
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
+        let key: Hmac<Sha256> =
+            Hmac::new_from_slice(global.config::<EdgeConfig>().media_key.as_bytes())
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
 
         let token: Token<jwt::Header, Self, _> = token
             .verify_with_key(&key)
@@ -293,9 +292,10 @@ impl MediaClaims {
         Ok(token.claims().clone())
     }
 
-    pub fn sign(&self, global: &Arc<GlobalState>) -> Result<String> {
-        let key: Hmac<Sha256> = Hmac::new_from_slice(global.config.edge.media_key.as_bytes())
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
+    pub fn sign<G: EdgeGlobal>(&self, global: &Arc<G>) -> Result<String> {
+        let key: Hmac<Sha256> =
+            Hmac::new_from_slice(global.config::<EdgeConfig>().media_key.as_bytes())
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
 
         let token = self
             .sign_with_key(&key)
@@ -325,14 +325,15 @@ pub struct ScreenshotClaims {
 }
 
 impl ScreenshotClaims {
-    pub fn verify(
-        global: &Arc<GlobalState>,
+    pub fn verify<G: EdgeGlobal>(
+        global: &Arc<G>,
         organization_id: Ulid,
         room_id: Ulid,
         token: &str,
     ) -> Result<Self> {
-        let key: Hmac<Sha256> = Hmac::new_from_slice(global.config.edge.media_key.as_bytes())
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
+        let key: Hmac<Sha256> =
+            Hmac::new_from_slice(global.config::<EdgeConfig>().media_key.as_bytes())
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
 
         let token: Token<jwt::Header, Self, _> = token
             .verify_with_key(&key)
@@ -353,9 +354,10 @@ impl ScreenshotClaims {
         Ok(token.claims().clone())
     }
 
-    pub fn sign(&self, global: &Arc<GlobalState>) -> Result<String> {
-        let key: Hmac<Sha256> = Hmac::new_from_slice(global.config.edge.media_key.as_bytes())
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
+    pub fn sign<G: EdgeGlobal>(&self, global: &Arc<G>) -> Result<String> {
+        let key: Hmac<Sha256> =
+            Hmac::new_from_slice(global.config::<EdgeConfig>().media_key.as_bytes())
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
 
         let token = self
             .sign_with_key(&key)
@@ -404,9 +406,14 @@ pub enum SessionClaimsType {
 }
 
 impl SessionClaims {
-    pub fn verify(global: &Arc<GlobalState>, organization_id: Ulid, token: &str) -> Result<Self> {
-        let key: Hmac<Sha256> = Hmac::new_from_slice(global.config.edge.session_key.as_bytes())
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
+    pub fn verify<G: EdgeGlobal>(
+        global: &Arc<G>,
+        organization_id: Ulid,
+        token: &str,
+    ) -> Result<Self> {
+        let key: Hmac<Sha256> =
+            Hmac::new_from_slice(global.config::<EdgeConfig>().session_key.as_bytes())
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
 
         let token: Token<jwt::Header, Self, _> = token
             .verify_with_key(&key)
@@ -423,9 +430,10 @@ impl SessionClaims {
         Ok(token.claims().clone())
     }
 
-    pub fn sign(&self, global: &Arc<GlobalState>) -> Result<String> {
-        let key: Hmac<Sha256> = Hmac::new_from_slice(global.config.edge.session_key.as_bytes())
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
+    pub fn sign<G: EdgeGlobal>(&self, global: &Arc<G>) -> Result<String> {
+        let key: Hmac<Sha256> =
+            Hmac::new_from_slice(global.config::<EdgeConfig>().session_key.as_bytes())
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
 
         let token = self
             .sign_with_key(&key)

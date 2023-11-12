@@ -1,4 +1,4 @@
-use crate::global::GlobalState;
+use crate::global::ApiGlobal;
 use std::sync::{Arc, Weak};
 
 use tonic::{async_trait, Request, Response, Status};
@@ -28,12 +28,12 @@ use super::utils::{
 
 type Result<T> = std::result::Result<T, Status>;
 
-pub struct TranscodingConfigServer {
-    global: Weak<GlobalState>,
+pub struct TranscodingConfigServer<G: ApiGlobal> {
+    global: Weak<G>,
 }
 
-impl TranscodingConfigServer {
-    pub fn new(global: &Arc<GlobalState>) -> TranscodingConfigService<Self> {
+impl<G: ApiGlobal> TranscodingConfigServer<G> {
+    pub fn new(global: &Arc<G>) -> TranscodingConfigService<Self> {
         TranscodingConfigService::new(Self {
             global: Arc::downgrade(global),
         })
@@ -41,7 +41,7 @@ impl TranscodingConfigServer {
 }
 
 #[async_trait]
-impl TranscodingConfigTrait for TranscodingConfigServer {
+impl<G: ApiGlobal> TranscodingConfigTrait for TranscodingConfigServer<G> {
     async fn get(
         &self,
         _request: Request<TranscodingConfigGetRequest>,

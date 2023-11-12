@@ -1,55 +1,20 @@
-use std::io;
-use std::{sync::Arc, time::Duration};
+use std::{io, sync::Arc, time::Duration};
 
-use anyhow::Result;
-use common::prelude::FutureTimeout;
-use hyper::http::header;
-use hyper::{server::conn::Http, Body, Response, StatusCode};
-use routerify::{Middleware, RequestInfo, RequestServiceBuilder, Router};
-use serde_json::json;
-use tokio::net::TcpSocket;
-use tokio::select;
+use anyhow::Context;
+use common::{http::RouteError, prelude::FutureTimeout};
+use hyper::Body;
+use hyper::{http::header, server::conn::Http};
+use routerify::{Middleware, RequestServiceBuilder, Router};
+use tokio::{net::TcpSocket, select};
 
-use crate::{edge::macros::make_response, global::GlobalState};
-
-use self::error::{RouteError, ShouldLog};
+use crate::{config::EdgeConfig, global::EdgeGlobal};
 
 mod error;
-mod ext;
-mod macros;
 mod stream;
 
-async fn error_handler(
-    err: Box<(dyn std::error::Error + Send + Sync + 'static)>,
-    info: RequestInfo,
-) -> Response<Body> {
-    match err.downcast::<RouteError>() {
-        Ok(err) => {
-            let location = err.location();
+pub use error::EdgeError;
 
-            err.span().in_scope(|| match err.should_log() {
-                ShouldLog::Yes => {
-                    tracing::error!(location = location.to_string(), error = ?err, "http error")
-                }
-                ShouldLog::Debug => {
-                    tracing::debug!(location = location.to_string(), error = ?err, "http error")
-                }
-                ShouldLog::No => (),
-            });
-
-            err.response()
-        }
-        Err(err) => {
-            tracing::error!(error = ?err, info = ?info, "unhandled http error");
-            make_response!(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                json!({ "message": "Internal Server Error", "success": false })
-            )
-        }
-    }
-}
-
-pub fn cors_middleware(_: &Arc<GlobalState>) -> Middleware<Body, RouteError> {
+pub fn cors_middleware<G: EdgeGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError<EdgeError>> {
     Middleware::post(|mut resp| async move {
         resp.headers_mut()
             .insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());
@@ -76,21 +41,21 @@ pub fn cors_middleware(_: &Arc<GlobalState>) -> Middleware<Body, RouteError> {
     })
 }
 
-pub fn routes(global: &Arc<GlobalState>) -> Router<Body, RouteError> {
+pub fn routes<G: EdgeGlobal>(global: &Arc<G>) -> Router<Body, RouteError<EdgeError>> {
     let weak = Arc::downgrade(global);
     Router::builder()
         .data(weak)
-        // Our error handler
-        .err_handler_with_info(error_handler)
+        .err_handler_with_info(common::http::error_handler::<EdgeError>)
         .middleware(cors_middleware(global))
         .scope("/", stream::routes(global))
         .build()
         .expect("failed to build router")
 }
 
-pub async fn run(global: Arc<GlobalState>) -> Result<()> {
-    tracing::info!("Listening on {}", global.config.edge.bind_address);
-    let socket = if global.config.edge.bind_address.is_ipv6() {
+pub async fn run<G: EdgeGlobal>(global: Arc<G>) -> anyhow::Result<()> {
+    let config = global.config::<EdgeConfig>();
+    tracing::info!("Edge(HTTP) listening on {}", config.bind_address);
+    let socket = if config.bind_address.is_ipv6() {
         TcpSocket::new_v6()?
     } else {
         TcpSocket::new_v4()?
@@ -98,13 +63,17 @@ pub async fn run(global: Arc<GlobalState>) -> Result<()> {
 
     socket.set_reuseaddr(true)?;
     socket.set_reuseport(true)?;
-    socket.bind(global.config.edge.bind_address)?;
+    socket.bind(config.bind_address)?;
     let listener = socket.listen(1024)?;
 
-    let tls_acceptor = if let Some(tls) = &global.config.edge.tls {
+    let tls_acceptor = if let Some(tls) = &config.tls {
         tracing::info!("TLS enabled");
-        let cert = std::fs::read(&tls.cert).expect("failed to read rtmp cert");
-        let key = std::fs::read(&tls.key).expect("failed to read rtmp key");
+        let cert = tokio::fs::read(&tls.cert)
+            .await
+            .context("failed to read edge ssl cert")?;
+        let key = tokio::fs::read(&tls.key)
+            .await
+            .context("failed to read edge ssl private key")?;
 
         let key = rustls::PrivateKey(
             rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(io::Cursor::new(key)))?
@@ -135,7 +104,7 @@ pub async fn run(global: Arc<GlobalState>) -> Result<()> {
 
     loop {
         select! {
-            _ = global.ctx.done() => {
+            _ = global.ctx().done() => {
                 return Ok(());
             },
             r = listener.accept() => {

@@ -19,7 +19,7 @@ pub fn stsd_entry(config: HEVCDecoderConfigurationRecord) -> Result<(DynBox, Sps
         .arrays
         .iter()
         .find(|a| a.nal_unit_type == h265::NaluType::Sps)
-        .and_then(|v| v.nalus.get(0))
+        .and_then(|v| v.nalus.first())
     else {
         return Err(TransmuxError::InvalidHEVCDecoderConfigurationRecord);
     };

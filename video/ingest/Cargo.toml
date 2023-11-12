@@ -3,7 +3,9 @@ name = "video-ingest"
 version = "0.0.1"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "video-ingest"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.75"
@@ -44,6 +46,7 @@ aac = { workspace = true }
 config = { workspace = true }
 pb = { workspace = true }
 video-common = { workspace = true }
+binary-helper = { workspace = true }
 
 [dev-dependencies]
 dotenvy = "0.15.7"

@@ -1,6 +1,8 @@
 use async_graphql::{MergedSubscription, SimpleObject, Subscription};
 use futures_util::Stream;
 
+use crate::global::ApiGlobal;
+
 use self::{channel::ChannelSubscription, chat::ChatSubscription, user::UserSubscription};
 
 use super::models::ulid::GqlUlid;
@@ -16,13 +18,24 @@ struct FollowStream {
     pub following: bool,
 }
 
-#[derive(MergedSubscription, Default)]
-pub struct Subscription(
-    UserSubscription,
-    ChannelSubscription,
-    ChatSubscription,
+#[derive(MergedSubscription)]
+pub struct Subscription<G: ApiGlobal>(
+    UserSubscription<G>,
+    ChannelSubscription<G>,
+    ChatSubscription<G>,
     NoopSubscription,
 );
+
+impl<G: ApiGlobal> Default for Subscription<G> {
+    fn default() -> Self {
+        Self(
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+        )
+    }
+}
 
 #[derive(Default)]
 struct NoopSubscription;

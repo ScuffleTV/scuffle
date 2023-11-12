@@ -3,17 +3,17 @@ use std::sync::Arc;
 use async_graphql::extensions::ExtensionContext;
 use async_graphql::Context;
 
-use crate::global::GlobalState;
+use crate::global::ApiGlobal;
 
-use crate::api::v1::request_context::RequestContext;
+use crate::api::request_context::RequestContext;
 
 pub trait ContextExt {
-    fn get_global(&self) -> &Arc<GlobalState>;
+    fn get_global<G: ApiGlobal>(&self) -> &Arc<G>;
     fn get_req_context(&self) -> &RequestContext;
 }
 
 impl ContextExt for Context<'_> {
-    fn get_global(&self) -> &Arc<GlobalState> {
+    fn get_global<G: ApiGlobal>(&self) -> &Arc<G> {
         self.data_unchecked()
     }
 
@@ -23,7 +23,7 @@ impl ContextExt for Context<'_> {
 }
 
 impl ContextExt for ExtensionContext<'_> {
-    fn get_global(&self) -> &Arc<GlobalState> {
+    fn get_global<G: ApiGlobal>(&self) -> &Arc<G> {
         self.data_unchecked()
     }
 
@@ -33,12 +33,12 @@ impl ContextExt for ExtensionContext<'_> {
 }
 
 pub trait RequestExt {
-    fn provide_global(self, global: Arc<GlobalState>) -> Self;
+    fn provide_global<G: ApiGlobal>(self, global: Arc<G>) -> Self;
     fn provide_context(self, ctx: RequestContext) -> Self;
 }
 
 impl RequestExt for async_graphql::Request {
-    fn provide_global(self, global: Arc<GlobalState>) -> Self {
+    fn provide_global<G: ApiGlobal>(self, global: Arc<G>) -> Self {
         self.data(global)
     }
 
@@ -48,7 +48,7 @@ impl RequestExt for async_graphql::Request {
 }
 
 impl RequestExt for async_graphql::Data {
-    fn provide_global(mut self, global: Arc<GlobalState>) -> Self {
+    fn provide_global<G: ApiGlobal>(mut self, global: Arc<G>) -> Self {
         self.insert(global);
         self
     }

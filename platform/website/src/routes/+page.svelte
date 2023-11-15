@@ -6,6 +6,7 @@
 	import BigStreamPreview from "$/components/home/big-stream-preview.svelte";
 	import Logo from "$/components/icons/logo.svelte";
 	import { onMount } from "svelte";
+	import { PUBLIC_ASSET_BASE_URL } from "$env/static/public";
 
 	// We should always load 13 previews because that means that we show 12 previews in the "How about this?" section
 	// 12 is a nice number because it's divisible by 2, 3, 4, and 6 which means that it fills all rows in the grid layout most of the time.
@@ -257,20 +258,12 @@
 
 <svelte:head>
 	<title>Scuffle - Home</title>
-	<meta name="description" content="Scuffle - open-source live-streaming platform" />
-	<meta name="keywords" content="scuffle, live, stream, watch" />
 
 	<!-- Open Graph -->
-	<meta property="og:type" content="website" />
 	<meta property="og:title" content="Scuffle" />
 	<meta property="og:description" content="Scuffle - open-source live-streaming platform" />
-	<meta property="og:image" content="https://scuffle.tv/favicon.ico" />
-	<meta property="og:image:alt" content="Scuffle Logo" />
-	<!-- TODO: Change this when the domain changes -->
-	<meta property="og:url" content="https://scuffle.tv/" />
-	<meta property="og:site_name" content="Scuffle" />
-	<!-- TODO: Change this when localizing -->
-	<meta property="og:locale" content="en_US" />
+	<meta property="og:image" content="{PUBLIC_ASSET_BASE_URL}/banner.jpeg" />
+	<meta property="og:image:alt" content="Scuffle Banner" />
 </svelte:head>
 
 <div class="content" aria-label="Page content">

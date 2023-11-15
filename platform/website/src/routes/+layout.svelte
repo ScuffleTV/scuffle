@@ -12,6 +12,7 @@
 	import Spinner from "$/components/spinner.svelte";
 	import DevBanner from "$/components/dev-banner.svelte";
 	import SolveTwoFaDialog from "$/components/auth/solve-two-fa-dialog.svelte";
+	import { PUBLIC_TWITTER_HANDLE } from "$env/static/public";
 
 	export let data: LayoutData;
 
@@ -31,6 +32,23 @@
 		}, delay);
 	});
 </script>
+
+<svelte:head>
+	<meta name="description" content="Scuffle - open-source live-streaming platform" />
+	<meta name="keywords" content="scuffle, live, stream, watch, live-streaming, open-source" />
+
+	<!-- Open Graph -->
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Scuffle" />
+	<!-- TODO: Change this when localizing -->
+	<meta property="og:locale" content="en_US" />
+
+	<!-- Twitter -->
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Scuffle" />
+	<meta name="twitter:description" content="Scuffle - open-source live-streaming platform" />
+	<meta name="twitter:site" content={PUBLIC_TWITTER_HANDLE} />
+</svelte:head>
 
 <header>
 	<a href="#main" class="skip-to-main">Skip to main content</a>

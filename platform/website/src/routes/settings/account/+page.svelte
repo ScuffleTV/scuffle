@@ -15,8 +15,6 @@
 	import ChangePassword from "$/components/settings/account/change-password.svelte";
 	import Field from "$/components/form/field.svelte";
 
-	//TODO: Improve detail texts
-
 	const client = getContextClient();
 
 	let email = $user?.email;
@@ -90,7 +88,7 @@
 	<SectionContainer>
 		<Section
 			title="Email"
-			details="Your email address is used to log in to your account."
+			details="Primary contact for account management and notifications."
 			on:reset={() => (email = $user?.email)}
 			showReset={emailChanged}
 		>
@@ -117,7 +115,7 @@
 				<span class="error message">Unverified</span>
 			{/if}
 		</Section>
-		<Section title="Password" details="Your password is used to log in to your account.">
+		<Section title="Password" details="Protect your account with a strong, unique password.">
 			<button
 				class="button primary change-password"
 				on:click={() => (showDialog = Dialog.ChangePassword)}
@@ -126,7 +124,10 @@
 				Change Password
 			</button>
 		</Section>
-		<Section title="2-Factor-Authentication" details="2FA adds more security to your account.">
+		<Section
+			title="2-Factor-Authentication"
+			details="Add an extra layer of security to your account."
+		>
 			<div class="input big">
 				<div class="twofa-state" class:enabled={$user.totpEnabled}>
 					{#if $user.totpEnabled}

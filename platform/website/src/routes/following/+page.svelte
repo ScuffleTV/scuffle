@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SmallStreamPreview from "$/components/home/small-stream-preview.svelte";
+	import { PUBLIC_ASSET_BASE_URL } from "$env/static/public";
 
 	const following = [
 		{
@@ -16,6 +17,12 @@
 
 <svelte:head>
 	<title>Scuffle - Following</title>
+
+	<!-- Open Graph -->
+	<meta property="og:title" content="Scuffle - Following" />
+	<meta property="og:description" content="Scuffle - open-source live-streaming platform" />
+	<meta property="og:image" content="{PUBLIC_ASSET_BASE_URL}/banner.jpeg" />
+	<meta property="og:image:alt" content="Scuffle Banner" />
 </svelte:head>
 
 <div class="content" aria-label="Page content">

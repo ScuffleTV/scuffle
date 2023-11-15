@@ -2,6 +2,7 @@
 	import UserBanner from "$/components/settings/user-banner.svelte";
 	import TabSelector from "$/components/tab-selector.svelte";
 	import { authDialog, AuthDialog, user, sessionToken } from "$/store/auth";
+	import { PUBLIC_ASSET_BASE_URL } from "$env/static/public";
 	import { faArrowUpRightFromSquare, faRoadBarrier } from "@fortawesome/free-solid-svg-icons";
 	import Fa from "svelte-fa";
 
@@ -21,6 +22,12 @@
 
 <svelte:head>
 	<title>Scuffle - Settings</title>
+
+	<!-- Open Graph -->
+	<meta property="og:title" content="Scuffle - Settings" />
+	<meta property="og:description" content="Scuffle - open-source live-streaming platform" />
+	<meta property="og:image" content="{PUBLIC_ASSET_BASE_URL}/banner.jpeg" />
+	<meta property="og:image:alt" content="Scuffle Banner" />
 </svelte:head>
 
 <div class="content">
@@ -36,10 +43,9 @@
 		<UserBanner />
 		<slot />
 	{:else}
-		<!-- TODO: Improve error -->
 		<div class="error">
 			<Fa icon={faRoadBarrier} size="3x" />
-			<span>Please log in to view this page.</span>
+			<span>Please sign in to access the settings.</span>
 		</div>
 	{/if}
 </div>

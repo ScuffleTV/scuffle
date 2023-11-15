@@ -12,7 +12,6 @@
 	import Field, { FieldStatusType, type FieldStatus } from "$/components/form/field.svelte";
 
 	// TODO: Add invisible turnstile captcha
-	// TODO: Improve details text
 
 	const recommendedColors = ["#ff7a00", "#ffe457", "#57ff86", "#00ffd1", "#5786ff", "#8357ff"];
 
@@ -133,7 +132,7 @@
 
 {#if $user}
 	<SectionContainer>
-		<Section title="Profile Picture" details="Shows on your channel page.">
+		<Section title="Profile Picture" details="Personalize your account with a profile picture.">
 			<div class="input big">
 				<DefaultAvatar userId={$user.id} displayColor={$user.displayColor} size={6 * 16} />
 				<div class="buttons">
@@ -197,7 +196,7 @@
 		<StatusBar
 			{status}
 			on:save={saveChanges}
-			saveDisabled={displayNameStatus?.type !== FieldStatusType.Success}
+			saveDisabled={displayNameStatus?.type === FieldStatusType.Error}
 		/>
 	</SectionContainer>
 {/if}

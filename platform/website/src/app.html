@@ -7,21 +7,18 @@
 
 		<title class="remove-after-load">Scuffle</title>
 
-		<!-- Twitter -->
-		<meta name="twitter:card" content="summary" />
-		<meta name="twitter:title" content="Scuffle" />
-		<meta name="twitter:description" content="Scuffle - open-source live-streaming platform" />
-		<!-- TODO: Change when we don't get twitter handle -->
-		<meta name="twitter:site" content="@scuffle" />
-
 		<style>
 			body {
 				margin: 0;
 				background-color: #1b1b1b;
 				color: white;
 				font-family: "Inter", sans-serif;
-				max-height: 100vh;
-				min-height: 100vh;
+
+				max-height: 100vh; /* For browsers that don't support svh */
+				max-height: 100svh;
+				min-height: 100vh; /* For browsers that don't support svh */
+				min-height: 100svh;
+
 				min-width: 100vw;
 				max-width: 100vw;
 				overflow: hidden;
@@ -34,8 +31,12 @@
 					"side-nav content";
 				grid-template-rows: auto 1fr;
 				grid-template-columns: auto 1fr;
-				min-height: 100vh;
-				max-height: 100vh;
+
+				min-height: 100vh; /* For browsers that don't support svh */
+				min-height: 100svh;
+				max-height: 100vh; /* For browsers that don't support svh */
+				max-height: 100svh;
+
 				overflow: hidden;
 			}
 

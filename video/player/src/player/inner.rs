@@ -1,136 +1,134 @@
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use tokio::sync::broadcast;
 use ulid::Ulid;
 use url::Url;
 use video_player_types::ThumbnailRange;
 
-use super::{
-    api::ApiClient, bandwidth::Bandwidth, events::EventManager, settings::PlayerSettingsParsed,
-    variant::Variant,
-};
+use super::api::ApiClient;
+use super::bandwidth::Bandwidth;
+use super::events::EventManager;
+use super::settings::PlayerSettingsParsed;
+use super::variant::Variant;
 
 pub type PlayerInnerHolder = Rc<RefCell<PlayerInner>>;
 
 #[derive(Debug)]
 pub struct InterfaceSettings {
-    pub target: Option<VideoTarget>,
-    pub token: Option<String>,
-    pub state: PlayerState,
-    pub player_settings: PlayerSettingsParsed,
-    pub next_variant_id: Option<NextVariant>,
-    pub realtime_mode: bool,
-    pub auto_seek: bool,
+	pub target: Option<VideoTarget>,
+	pub token: Option<String>,
+	pub state: PlayerState,
+	pub player_settings: PlayerSettingsParsed,
+	pub next_variant_id: Option<NextVariant>,
+	pub realtime_mode: bool,
+	pub auto_seek: bool,
 }
 
 #[derive(Debug)]
 pub struct RunnerSettings {
-    pub current_variant_id: u32,
-    pub dvr_supported: bool,
-    pub realtime_supported: bool,
-    pub variants: Vec<Variant>,
-    pub thumbnail_prefix: Option<Url>,
-    pub thumbnails: Vec<ThumbnailRange>,
-    pub request_wakeup: broadcast::Sender<()>,
-    pub visible: bool,
+	pub current_variant_id: u32,
+	pub dvr_supported: bool,
+	pub realtime_supported: bool,
+	pub variants: Vec<Variant>,
+	pub thumbnail_prefix: Option<Url>,
+	pub thumbnails: Vec<ThumbnailRange>,
+	pub request_wakeup: broadcast::Sender<()>,
+	pub visible: bool,
 }
 
 impl Default for RunnerSettings {
-    fn default() -> Self {
-        let (request_wakeup, _) = broadcast::channel(1);
+	fn default() -> Self {
+		let (request_wakeup, _) = broadcast::channel(1);
 
-        Self {
-            current_variant_id: 0,
-            dvr_supported: false,
-            realtime_supported: false,
-            variants: Vec::new(),
-            thumbnail_prefix: None,
-            thumbnails: Vec::new(),
-            visible: true,
-            request_wakeup,
-        }
-    }
+		Self {
+			current_variant_id: 0,
+			dvr_supported: false,
+			realtime_supported: false,
+			variants: Vec::new(),
+			thumbnail_prefix: None,
+			thumbnails: Vec::new(),
+			visible: true,
+			request_wakeup,
+		}
+	}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlayerState {
-    Running,
-    Stopped,
-    Shutdown,
-    Initialized,
+	Running,
+	Stopped,
+	Shutdown,
+	Initialized,
 }
 
 #[derive(Debug, Clone, Copy, serde::Serialize, tsify::Tsify)]
 #[serde(rename_all = "lowercase")]
 pub enum NextVariantAutoCause {
-    Bandwidth,
-    Visibility,
+	Bandwidth,
+	Visibility,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum NextVariant {
-    Switch(u32),
-    Auto {
-        id: u32,
-        cause: NextVariantAutoCause,
-    },
-    Force(u32),
+	Switch(u32),
+	Auto { id: u32, cause: NextVariantAutoCause },
+	Force(u32),
 }
 
 impl NextVariant {
-    pub fn variant_id(&self) -> u32 {
-        match self {
-            Self::Switch(id) | Self::Force(id) | Self::Auto { id, .. } => *id,
-        }
-    }
+	pub fn variant_id(&self) -> u32 {
+		match self {
+			Self::Switch(id) | Self::Force(id) | Self::Auto { id, .. } => *id,
+		}
+	}
 
-    pub fn is_force(&self) -> bool {
-        matches!(self, Self::Force(_))
-    }
+	pub fn is_force(&self) -> bool {
+		matches!(self, Self::Force(_))
+	}
 
-    pub fn automatic(&self) -> Option<NextVariantAutoCause> {
-        match self {
-            Self::Auto { cause, .. } => Some(*cause),
-            _ => None,
-        }
-    }
+	pub fn automatic(&self) -> Option<NextVariantAutoCause> {
+		match self {
+			Self::Auto { cause, .. } => Some(*cause),
+			_ => None,
+		}
+	}
 }
 
 pub struct PlayerInner {
-    pub video_element: web_sys::HtmlVideoElement,
-    pub interface_settings: InterfaceSettings,
-    pub client: ApiClient,
-    pub runner_settings: RunnerSettings,
-    pub events: EventManager,
-    pub bandwidth: Bandwidth,
+	pub video_element: web_sys::HtmlVideoElement,
+	pub interface_settings: InterfaceSettings,
+	pub client: ApiClient,
+	pub runner_settings: RunnerSettings,
+	pub events: EventManager,
+	pub bandwidth: Bandwidth,
 }
 
 impl PlayerInner {
-    pub fn use_dvr(&self, bypass_supported: bool) -> bool {
-        self.interface_settings.player_settings.enable_dvr
-            && (self.runner_settings.dvr_supported || bypass_supported)
-    }
+	pub fn use_dvr(&self, bypass_supported: bool) -> bool {
+		self.interface_settings.player_settings.enable_dvr && (self.runner_settings.dvr_supported || bypass_supported)
+	}
 
-    pub fn set_realtime(&mut self, realtime: bool) -> Result<bool, &'static str> {
-        if realtime && !self.runner_settings.realtime_supported {
-            return Err("realtime is not supported, by the player, so it cannot be enabled");
-        }
+	pub fn set_realtime(&mut self, realtime: bool) -> Result<bool, &'static str> {
+		if realtime && !self.runner_settings.realtime_supported {
+			return Err("realtime is not supported, by the player, so it cannot be enabled");
+		}
 
-        if !realtime && !self.use_dvr(false) {
-            return Err("dvr is not supported, by the player so realtime cannot be disabled");
-        }
+		if !realtime && !self.use_dvr(false) {
+			return Err("dvr is not supported, by the player so realtime cannot be disabled");
+		}
 
-        if self.interface_settings.realtime_mode == realtime {
-            return Ok(false);
-        }
+		if self.interface_settings.realtime_mode == realtime {
+			return Ok(false);
+		}
 
-        self.interface_settings.realtime_mode = realtime;
-        Ok(true)
-    }
+		self.interface_settings.realtime_mode = realtime;
+		Ok(true)
+	}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VideoTarget {
-    Recording(Ulid),
-    Room(Ulid),
+	Recording(Ulid),
+	Room(Ulid),
 }

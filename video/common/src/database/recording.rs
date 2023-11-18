@@ -2,17 +2,17 @@ use common::database::Ulid;
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct Recording {
-    pub id: Ulid,
-    pub organization_id: Ulid,
+	pub id: Ulid,
+	pub organization_id: Ulid,
 
-    pub room_id: Option<Ulid>,
-    pub recording_config_id: Option<Ulid>,
+	pub room_id: Option<Ulid>,
+	pub recording_config_id: Option<Ulid>,
 
-    pub public: bool,
-    pub deleted: bool,
-    pub allow_dvr: bool,
+	pub public: bool,
+	pub deleted: bool,
+	pub allow_dvr: bool,
 
-    pub updated_at: chrono::DateTime<chrono::Utc>,
+	pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 // impl Recording {
@@ -20,8 +20,8 @@ pub struct Recording {
 //         pb::scuffle::video::v1::types::Recording {
 //             id: Some(self.id.into()),
 //             room_id: self.room_id.map(|id| id.into()),
-//             recording_config_id: self.recording_config_id.map(|id| id.into()),
-//             video_renditions: self
+//             recording_config_id: self.recording_config_id.map(|id|
+// id.into()),             video_renditions: self
 //                 .video_renditions
 //                 .into_iter()
 //                 .map(|r| PbRenditionVideo::from(r).into())

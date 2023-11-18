@@ -1,4 +1,5 @@
-use std::{os::unix::process::CommandExt, path::Path};
+use std::os::unix::process::CommandExt;
+use std::path::Path;
 
 use common::vec_of_strings;
 use mp4::codec::{AudioCodec, VideoCodec};
@@ -7,47 +8,47 @@ use tokio::process::{Child, Command};
 use video_common::database::Rendition;
 
 pub fn spawn_ffmpeg(
-    gid: u32,
-    uid: u32,
-    socket_dir: &Path,
-    video_output: &[VideoConfig],
-    audio_output: &[AudioConfig],
+	gid: u32,
+	uid: u32,
+	socket_dir: &Path,
+	video_output: &[VideoConfig],
+	audio_output: &[AudioConfig],
 ) -> anyhow::Result<Child> {
-    let filter_graph_items = video_output
-        .iter()
-        .filter(|v| v.rendition() != PbRendition::VideoSource)
-        .collect::<Vec<_>>();
+	let filter_graph_items = video_output
+		.iter()
+		.filter(|v| v.rendition() != PbRendition::VideoSource)
+		.collect::<Vec<_>>();
 
-    let filter_graph = filter_graph_items
-        .iter()
-        .enumerate()
-        .map(|(i, settings)| {
-            let previous = if i == 0 {
-                "[0:v]".to_string()
-            } else {
-                format!("[{}_out]", i - 1)
-            };
+	let filter_graph = filter_graph_items
+		.iter()
+		.enumerate()
+		.map(|(i, settings)| {
+			let previous = if i == 0 {
+				"[0:v]".to_string()
+			} else {
+				format!("[{}_out]", i - 1)
+			};
 
-            let rendition = Rendition::from(settings.rendition());
+			let rendition = Rendition::from(settings.rendition());
 
-            format!(
-                "{}scale={}:{},pad=ceil(iw/2)*2:ceil(ih/2)*2{}",
-                previous,
-                settings.width,
-                settings.height,
-                if i == filter_graph_items.len() - 1 {
-                    format!("[{rendition}]")
-                } else {
-                    format!(",split=2[{rendition}][{i}_out]")
-                }
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(";");
+			format!(
+				"{}scale={}:{},pad=ceil(iw/2)*2:ceil(ih/2)*2{}",
+				previous,
+				settings.width,
+				settings.height,
+				if i == filter_graph_items.len() - 1 {
+					format!("[{rendition}]")
+				} else {
+					format!(",split=2[{rendition}][{i}_out]")
+				}
+			)
+		})
+		.collect::<Vec<_>>()
+		.join(";");
 
-    const MP4_FLAGS: &str = "+frag_keyframe+empty_moov+default_base_moof";
+	const MP4_FLAGS: &str = "+frag_keyframe+empty_moov+default_base_moof";
 
-    #[rustfmt::skip]
+	#[rustfmt::skip]
     let mut args = vec_of_strings![
         "-v", "error",
         "-i", "-",
@@ -56,30 +57,30 @@ pub fn spawn_ffmpeg(
         "-max_muxing_queue_size", "1024",
     ];
 
-    if !filter_graph.is_empty() {
-        args.extend(vec_of_strings!["-filter_complex", filter_graph]);
-    }
+	if !filter_graph.is_empty() {
+		args.extend(vec_of_strings!["-filter_complex", filter_graph]);
+	}
 
-    for output in video_output {
-        let rendition = Rendition::from(output.rendition());
+	for output in video_output {
+		let rendition = Rendition::from(output.rendition());
 
-        if output.rendition() == PbRendition::VideoSource {
-            #[rustfmt::skip]
+		if output.rendition() == PbRendition::VideoSource {
+			#[rustfmt::skip]
             args.extend(vec_of_strings![
                 "-map", "0:v",
                 "-c:v", "copy",
             ]);
-        } else {
-            let codec: VideoCodec = match output.codec.parse() {
-                Ok(c) => c,
-                Err(err) => {
-                    anyhow::bail!("invalid video codec: {}", err);
-                }
-            };
+		} else {
+			let codec: VideoCodec = match output.codec.parse() {
+				Ok(c) => c,
+				Err(err) => {
+					anyhow::bail!("invalid video codec: {}", err);
+				}
+			};
 
-            match codec {
-                VideoCodec::Avc { profile, level, .. } => {
-                    #[rustfmt::skip]
+			match codec {
+				VideoCodec::Avc { profile, level, .. } => {
+					#[rustfmt::skip]
                     args.extend(vec_of_strings![
                         "-map", format!("[{rendition}]"),
                         "-c:v", "libx264",
@@ -120,17 +121,17 @@ pub fn spawn_ffmpeg(
                         "-crf", "23",
                         "-tune", "zerolatency",
                     ]);
-                }
-                VideoCodec::Av1 { .. } => {
-                    anyhow::bail!("av1 is not supported");
-                }
-                VideoCodec::Hevc { .. } => {
-                    anyhow::bail!("hevc is not supported");
-                }
-            }
-        }
+				}
+				VideoCodec::Av1 { .. } => {
+					anyhow::bail!("av1 is not supported");
+				}
+				VideoCodec::Hevc { .. } => {
+					anyhow::bail!("hevc is not supported");
+				}
+			}
+		}
 
-        #[rustfmt::skip]
+		#[rustfmt::skip]
         args.extend(vec_of_strings![
             "-f", "mp4",
             "-movflags", MP4_FLAGS,
@@ -140,28 +141,28 @@ pub fn spawn_ffmpeg(
                 socket_dir.join(format!("{}.sock", rendition)).display()
             ),
         ]);
-    }
+	}
 
-    for output in audio_output {
-        let rendition = Rendition::from(output.rendition());
+	for output in audio_output {
+		let rendition = Rendition::from(output.rendition());
 
-        if output.rendition() == PbRendition::AudioSource {
-            #[rustfmt::skip]
+		if output.rendition() == PbRendition::AudioSource {
+			#[rustfmt::skip]
             args.extend(vec_of_strings![
                 "-map", "0:a",
                 "-c:a", "copy",
             ]);
-        } else {
-            let codec: AudioCodec = match output.codec.parse() {
-                Ok(c) => c,
-                Err(err) => {
-                    anyhow::bail!("invalid audio codec: {}", err);
-                }
-            };
+		} else {
+			let codec: AudioCodec = match output.codec.parse() {
+				Ok(c) => c,
+				Err(err) => {
+					anyhow::bail!("invalid audio codec: {}", err);
+				}
+			};
 
-            match codec {
-                AudioCodec::Aac { object_type } => {
-                    #[rustfmt::skip]
+			match codec {
+				AudioCodec::Aac { object_type } => {
+					#[rustfmt::skip]
                     args.extend(vec_of_strings![
                         "-map", "0:a",
                         "-c:a", "aac",
@@ -181,9 +182,9 @@ pub fn spawn_ffmpeg(
                             }
                         },
                     ]);
-                }
-                AudioCodec::Opus => {
-                    #[rustfmt::skip]
+				}
+				AudioCodec::Opus => {
+					#[rustfmt::skip]
                     args.extend(vec_of_strings![
                         "-map", "0:a",
                         "-c:a", "libopus",
@@ -191,11 +192,11 @@ pub fn spawn_ffmpeg(
                         "-ar", format!("{}", output.sample_rate),
                         "-ac", format!("{}", output.channels),
                     ]);
-                }
-            }
-        }
+				}
+			}
+		}
 
-        #[rustfmt::skip]
+		#[rustfmt::skip]
         args.extend(vec_of_strings![
             "-f", "mp4",
             "-movflags", MP4_FLAGS,
@@ -205,36 +206,31 @@ pub fn spawn_ffmpeg(
                 socket_dir.join(format!("{}.sock", rendition)).display()
             ),
         ]);
-    }
+	}
 
-    let mut child = std::process::Command::new("ffmpeg");
+	let mut child = std::process::Command::new("ffmpeg");
 
-    child
-        .args(&args)
-        .stdin(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::inherit())
-        .stdout(std::process::Stdio::null())
-        .process_group(0)
-        .uid(uid)
-        .gid(gid)
-        .env_clear()
-        .env("PATH", std::env::var("PATH").unwrap_or_default());
+	child
+		.args(&args)
+		.stdin(std::process::Stdio::piped())
+		.stderr(std::process::Stdio::inherit())
+		.stdout(std::process::Stdio::null())
+		.process_group(0)
+		.uid(uid)
+		.gid(gid)
+		.env_clear()
+		.env("PATH", std::env::var("PATH").unwrap_or_default());
 
-    Ok(match Command::from(child).kill_on_drop(true).spawn() {
-        Ok(c) => c,
-        Err(err) => {
-            anyhow::bail!("failed to spawn ffmpeg: {}", err);
-        }
-    })
+	Ok(match Command::from(child).kill_on_drop(true).spawn() {
+		Ok(c) => c,
+		Err(err) => {
+			anyhow::bail!("failed to spawn ffmpeg: {}", err);
+		}
+	})
 }
 
-pub fn spawn_ffmpeg_screenshot(
-    gid: u32,
-    uid: u32,
-    width: i32,
-    height: i32,
-) -> anyhow::Result<Child> {
-    #[rustfmt::skip]
+pub fn spawn_ffmpeg_screenshot(gid: u32, uid: u32, width: i32, height: i32) -> anyhow::Result<Child> {
+	#[rustfmt::skip]
     let args = vec_of_strings![
         "-v", "error",
         "-i", "-",
@@ -248,23 +244,23 @@ pub fn spawn_ffmpeg_screenshot(
         "-",
     ];
 
-    let mut child = std::process::Command::new("ffmpeg");
+	let mut child = std::process::Command::new("ffmpeg");
 
-    child
-        .args(&args)
-        .stdin(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::inherit())
-        .stdout(std::process::Stdio::piped())
-        .process_group(0)
-        .uid(uid)
-        .gid(gid)
-        .env_clear()
-        .env("PATH", std::env::var("PATH").unwrap_or_default());
+	child
+		.args(&args)
+		.stdin(std::process::Stdio::piped())
+		.stderr(std::process::Stdio::inherit())
+		.stdout(std::process::Stdio::piped())
+		.process_group(0)
+		.uid(uid)
+		.gid(gid)
+		.env_clear()
+		.env("PATH", std::env::var("PATH").unwrap_or_default());
 
-    Ok(match Command::from(child).kill_on_drop(true).spawn() {
-        Ok(c) => c,
-        Err(err) => {
-            anyhow::bail!("failed to spawn ffmpeg: {}", err);
-        }
-    })
+	Ok(match Command::from(child).kill_on_drop(true).spawn() {
+		Ok(c) => c,
+		Err(err) => {
+			anyhow::bail!("failed to spawn ffmpeg: {}", err);
+		}
+	})
 }

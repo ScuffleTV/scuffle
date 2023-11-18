@@ -2,30 +2,32 @@ syntax = "proto3";
 
 package scuffle.platform.internal.events;
 
+import "scuffle/types/ulid.proto";
+
 // For user.{id}.display_name event
 message UserDisplayName {
-  string user_id = 1;
+  scuffle.types.Ulid user_id = 1;
   string display_name = 2;
 }
 
 // For user.{id}.display_color event
 message UserDisplayColor {
-  string user_id = 1;
+  scuffle.types.Ulid user_id = 1;
   int32 display_color = 2;
 }
 
 // For channel.{id}.chat.message event
 message ChatMessage {
-  string id = 1;
-  string user_id = 2;
-  string channel_id = 3;
+  scuffle.types.Ulid id = 1;
+  scuffle.types.Ulid user_id = 2;
+  scuffle.types.Ulid channel_id = 3;
   string content = 4;
 }
 
 // For user.{id}.follows event
 // And channel.{id}.follows event
 message UserFollowChannel {
-  string user_id = 1;
-  string channel_id = 2;
+  scuffle.types.Ulid user_id = 1;
+  scuffle.types.Ulid channel_id = 2;
   bool following = 3;
 }

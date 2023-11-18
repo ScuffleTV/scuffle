@@ -1,136 +1,101 @@
-use crate::global::ApiGlobal;
 use std::sync::{Arc, Weak};
 
+use pb::ext::UlidExt;
+use pb::scuffle::video::v1::recording_server::{Recording as RecordingServiceTrait, RecordingServer as RecordingService};
+use pb::scuffle::video::v1::types::access_token_scope::{Permission, Resource};
+use pb::scuffle::video::v1::types::Tags;
+use pb::scuffle::video::v1::{
+	RecordingDeleteRequest, RecordingDeleteResponse, RecordingGetRequest, RecordingGetResponse, RecordingModifyRequest,
+	RecordingModifyResponse, RecordingTagRequest, RecordingTagResponse, RecordingUntagRequest, RecordingUntagResponse,
+};
 use tonic::{async_trait, Request, Response, Status};
 
-use pb::{
-    ext::UlidExt,
-    scuffle::video::v1::{
-        recording_server::{
-            Recording as RecordingServiceTrait, RecordingServer as RecordingService,
-        },
-        types::{
-            access_token_scope::{Permission, Resource},
-            Tags,
-        },
-        RecordingDeleteRequest, RecordingDeleteResponse, RecordingGetRequest, RecordingGetResponse,
-        RecordingModifyRequest, RecordingModifyResponse, RecordingTagRequest, RecordingTagResponse,
-        RecordingUntagRequest, RecordingUntagResponse,
-    },
-};
-
-use super::utils::{
-    add_tag_query, get_global, remove_tag_query, validate_auth_request, validate_tags,
-};
+use super::utils::{add_tag_query, get_global, remove_tag_query, validate_auth_request, validate_tags};
+use crate::global::ApiGlobal;
 
 type Result<T> = std::result::Result<T, Status>;
 
 pub struct RecordingServer<G: ApiGlobal> {
-    global: Weak<G>,
+	global: Weak<G>,
 }
 
 impl<G: ApiGlobal> RecordingServer<G> {
-    pub fn new(global: &Arc<G>) -> RecordingService<Self> {
-        RecordingService::new(Self {
-            global: Arc::downgrade(global),
-        })
-    }
+	pub fn new(global: &Arc<G>) -> RecordingService<Self> {
+		RecordingService::new(Self {
+			global: Arc::downgrade(global),
+		})
+	}
 }
 
 #[async_trait]
 impl<G: ApiGlobal> RecordingServiceTrait for RecordingServer<G> {
-    async fn get(
-        &self,
-        _request: Request<RecordingGetRequest>,
-    ) -> Result<Response<RecordingGetResponse>> {
-        todo!("TODO: implement Recording::get")
-    }
+	async fn get(&self, _request: Request<RecordingGetRequest>) -> Result<Response<RecordingGetResponse>> {
+		todo!("TODO: implement Recording::get")
+	}
 
-    async fn modify(
-        &self,
-        _request: Request<RecordingModifyRequest>,
-    ) -> Result<Response<RecordingModifyResponse>> {
-        todo!("TODO: implement Recording::modify")
-    }
+	async fn modify(&self, _request: Request<RecordingModifyRequest>) -> Result<Response<RecordingModifyResponse>> {
+		todo!("TODO: implement Recording::modify")
+	}
 
-    async fn delete(
-        &self,
-        _request: Request<RecordingDeleteRequest>,
-    ) -> Result<Response<RecordingDeleteResponse>> {
-        todo!("TODO: implement Recording::delete")
-    }
+	async fn delete(&self, _request: Request<RecordingDeleteRequest>) -> Result<Response<RecordingDeleteResponse>> {
+		todo!("TODO: implement Recording::delete")
+	}
 
-    async fn tag(
-        &self,
-        request: Request<RecordingTagRequest>,
-    ) -> Result<Response<RecordingTagResponse>> {
-        let global = get_global(&self.global)?;
+	async fn tag(&self, request: Request<RecordingTagRequest>) -> Result<Response<RecordingTagResponse>> {
+		let global = get_global(&self.global)?;
 
-        let access_token = validate_auth_request(
-            &global,
-            &request,
-            (Resource::RecordingConfig, Permission::Modify),
-        )
-        .await?;
+		let access_token = validate_auth_request(&global, &request, (Resource::RecordingConfig, Permission::Modify)).await?;
 
-        let Some(tags) = request.get_ref().tags.as_ref() else {
-            return Err(Status::invalid_argument("tags must be provided"));
-        };
+		let Some(tags) = request.get_ref().tags.as_ref() else {
+			return Err(Status::invalid_argument("tags must be provided"));
+		};
 
-        if tags.tags.is_empty() {
-            return Err(Status::invalid_argument("tags must not be empty"));
-        }
+		if tags.tags.is_empty() {
+			return Err(Status::invalid_argument("tags must not be empty"));
+		}
 
-        validate_tags(Some(tags))?;
+		validate_tags(Some(tags))?;
 
-        let id = request.get_ref().id.to_ulid();
+		let id = request.get_ref().id.to_ulid();
 
-        let updated_tags = add_tag_query(
-            &global,
-            "recordings",
-            &tags.tags,
-            id,
-            Some(access_token.organization_id.into()),
-        )
-        .await?
-        .ok_or_else(|| Status::not_found("recording not found"))?;
+		let updated_tags = add_tag_query(
+			&global,
+			"recordings",
+			&tags.tags,
+			id,
+			Some(access_token.organization_id.into()),
+		)
+		.await?
+		.ok_or_else(|| Status::not_found("recording not found"))?;
 
-        Ok(Response::new(RecordingTagResponse {
-            tags: Some(Tags { tags: updated_tags }),
-        }))
-    }
+		Ok(Response::new(RecordingTagResponse {
+			tags: Some(Tags { tags: updated_tags }),
+		}))
+	}
 
-    async fn untag(
-        &self,
-        request: Request<RecordingUntagRequest>,
-    ) -> Result<Response<RecordingUntagResponse>> {
-        let global = get_global(&self.global)?;
+	async fn untag(&self, request: Request<RecordingUntagRequest>) -> Result<Response<RecordingUntagResponse>> {
+		let global = get_global(&self.global)?;
 
-        let access_token = validate_auth_request(
-            &global,
-            &request,
-            (Resource::RecordingConfig, Permission::Modify),
-        )
-        .await?;
+		let access_token = validate_auth_request(&global, &request, (Resource::RecordingConfig, Permission::Modify)).await?;
 
-        if request.get_ref().tags.is_empty() {
-            return Err(Status::invalid_argument("tags must not be empty"));
-        }
+		if request.get_ref().tags.is_empty() {
+			return Err(Status::invalid_argument("tags must not be empty"));
+		}
 
-        let id = request.get_ref().id.to_ulid();
+		let id = request.get_ref().id.to_ulid();
 
-        let updated_tags = remove_tag_query(
-            &global,
-            "recordings",
-            &request.get_ref().tags,
-            id,
-            Some(access_token.organization_id.into()),
-        )
-        .await?
-        .ok_or_else(|| Status::not_found("recording config not found"))?;
+		let updated_tags = remove_tag_query(
+			&global,
+			"recordings",
+			&request.get_ref().tags,
+			id,
+			Some(access_token.organization_id.into()),
+		)
+		.await?
+		.ok_or_else(|| Status::not_found("recording config not found"))?;
 
-        Ok(Response::new(RecordingUntagResponse {
-            tags: Some(Tags { tags: updated_tags }),
-        }))
-    }
+		Ok(Response::new(RecordingUntagResponse {
+			tags: Some(Tags { tags: updated_tags }),
+		}))
+	}
 }

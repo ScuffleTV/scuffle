@@ -9,18 +9,16 @@ use crate::api::error::ApiError;
 use crate::global::ApiGlobal;
 
 pub fn cors_middleware<G: ApiGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError<ApiError>> {
-    Middleware::post(|mut resp| async move {
-        resp.headers_mut()
-            .insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());
-        resp.headers_mut().insert(
-            header::ACCESS_CONTROL_ALLOW_METHODS,
-            "GET, POST, OPTIONS".parse().unwrap(),
-        );
-        resp.headers_mut().insert(
-            header::ACCESS_CONTROL_ALLOW_HEADERS,
-            "Content-Type, Authorization".parse().unwrap(),
-        );
+	Middleware::post(|mut resp| async move {
+		resp.headers_mut()
+			.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());
+		resp.headers_mut()
+			.insert(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, OPTIONS".parse().unwrap());
+		resp.headers_mut().insert(
+			header::ACCESS_CONTROL_ALLOW_HEADERS,
+			"Content-Type, Authorization".parse().unwrap(),
+		);
 
-        Ok(resp)
-    })
+		Ok(resp)
+	})
 }

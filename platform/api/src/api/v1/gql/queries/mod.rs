@@ -1,7 +1,10 @@
-use crate::{api::v1::gql::error::Result, global::ApiGlobal};
 use async_graphql::{ComplexObject, Context, SimpleObject};
 
-use super::{error::ResultExt, ext::ContextExt, models};
+use super::error::ext::*;
+use super::ext::ContextExt;
+use super::models;
+use crate::api::v1::gql::error::Result;
+use crate::global::ApiGlobal;
 
 mod category;
 mod user;
@@ -10,57 +13,55 @@ mod user;
 #[graphql(complex)]
 /// The root query type which contains root level fields.
 pub struct Query<G: ApiGlobal> {
-    pub category: category::CategoryQuery<G>,
-    pub user: user::UserQuery<G>,
+	pub category: category::CategoryQuery<G>,
+	pub user: user::UserQuery<G>,
 }
 
 impl<G: ApiGlobal> Default for Query<G> {
-    fn default() -> Self {
-        Self {
-            category: Default::default(),
-            user: Default::default(),
-        }
-    }
+	fn default() -> Self {
+		Self {
+			category: Default::default(),
+			user: Default::default(),
+		}
+	}
 }
 
 #[derive(Clone, SimpleObject)]
 struct SearchResults<G: ApiGlobal> {
-    users: Vec<models::user::UserSearchResult<G>>,
-    categories: Vec<models::category::CategorySearchResult>,
+	users: Vec<models::user::UserSearchResult<G>>,
+	categories: Vec<models::category::CategorySearchResult>,
 }
 
 #[ComplexObject]
 impl<G: ApiGlobal> Query<G> {
-    async fn search(
-        &self,
-        ctx: &Context<'_>,
-        #[graphql(desc = "The search query.")] query: String,
-    ) -> Result<SearchResults<G>> {
-        let global = ctx.get_global::<G>();
+	async fn search(
+		&self,
+		ctx: &Context<'_>,
+		#[graphql(desc = "The search query.")] query: String,
+	) -> Result<SearchResults<G>> {
+		let global = ctx.get_global::<G>();
 
-        // TODO: perhaps this can be a single query, where we rank them together.
-        let users = global
-            .user_search_loader()
-            .load(query.clone())
-            .await
-            .ok()
-            .flatten()
-            .map_err_gql("failed to search users")?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+		// TODO: perhaps this can be a single query, where we rank them together.
+		let users = global
+			.user_search_loader()
+			.load(query.clone())
+			.await
+			.map_err_ignored_gql("failed to search users")?
+			.map_err_gql("failed to search users")?
+			.into_iter()
+			.map(Into::into)
+			.collect();
 
-        let categories = global
-            .category_search_loader()
-            .load(query)
-            .await
-            .ok()
-            .flatten()
-            .map_err_gql("failed to search categories")?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+		let categories = global
+			.category_search_loader()
+			.load(query)
+			.await
+			.map_err_ignored_gql("failed to search categories")?
+			.map_err_gql("failed to search categories")?
+			.into_iter()
+			.map(Into::into)
+			.collect();
 
-        Ok(SearchResults { users, categories })
-    }
+		Ok(SearchResults { users, categories })
+	}
 }

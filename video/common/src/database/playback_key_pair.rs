@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use common::database::Ulid;
 
+use super::DatabaseTable;
+
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct PlaybackKeyPair {
 	pub id: Ulid,
@@ -10,6 +12,11 @@ pub struct PlaybackKeyPair {
 	pub fingerprint: String,
 	pub updated_at: chrono::DateTime<chrono::Utc>,
 	pub tags: sqlx::types::Json<HashMap<String, String>>,
+}
+
+impl DatabaseTable for PlaybackKeyPair {
+	const FRIENDLY_NAME: &'static str = "playback key pair";
+	const NAME: &'static str = "playback_key_pairs";
 }
 
 impl PlaybackKeyPair {

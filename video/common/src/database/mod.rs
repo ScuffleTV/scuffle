@@ -35,3 +35,14 @@ pub use room_status::*;
 pub use s3_bucket::*;
 pub use session_token_revoke::*;
 pub use transcoding_config::*;
+
+pub trait DatabaseTable {
+	/// The name of the table in the database.
+	const NAME: &'static str;
+
+	/// The friendly name of the table. This is used in error messages and
+	/// should be able to be pluralized. For example, "recording" or "playback
+	/// session" as we can say "recording not found" or "playback sessions not
+	/// found".
+	const FRIENDLY_NAME: &'static str;
+}

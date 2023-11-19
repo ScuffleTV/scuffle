@@ -17,6 +17,9 @@ anyhow = "1.0.75"
 tower-layer = "0.3.2"
 async-stream = "0.3.5"
 futures-util = "0.3.29"
+rustls = "0.21.9"
+rustls-pemfile = "1.0.4"
+fred = { version = "7.0.0", features = ["enable-rustls", "sentinel-client", "dns"] }
 
 config = { workspace = true }
 common = { workspace = true }

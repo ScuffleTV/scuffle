@@ -4,7 +4,7 @@ package scuffle.video.internal.events;
 
 import "scuffle/types/ulid.proto";
 
-message TranscoderRequest {
+message TranscoderRequestTask {
   scuffle.types.Ulid organization_id = 1;
   scuffle.types.Ulid room_id = 2;
   scuffle.types.Ulid connection_id = 3;

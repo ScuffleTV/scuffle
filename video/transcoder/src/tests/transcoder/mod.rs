@@ -13,7 +13,7 @@ use common::global::*;
 use common::prelude::FutureTimeout;
 use futures_util::Stream;
 use pb::ext::UlidExt;
-use pb::scuffle::video::internal::events::{organization_event, OrganizationEvent, TranscoderRequest};
+use pb::scuffle::video::internal::events::{organization_event, OrganizationEvent, TranscoderRequestTask};
 use pb::scuffle::video::internal::ingest_server::{Ingest, IngestServer};
 use pb::scuffle::video::internal::{
 	ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse, LiveRenditionManifest,
@@ -179,7 +179,7 @@ async fn test_transcode() {
 		.nats()
 		.publish(
 			config.transcoder_request_subject.clone(),
-			TranscoderRequest {
+			TranscoderRequestTask {
 				room_id: Some(room_id.into()),
 				organization_id: Some(org_id.into()),
 				request_id: Some(req_id.into()),
@@ -726,7 +726,7 @@ async fn test_transcode_reconnect() {
 			.nats()
 			.publish(
 				config.transcoder_request_subject.clone(),
-				TranscoderRequest {
+				TranscoderRequestTask {
 					room_id: Some(room_id.into()),
 					organization_id: Some(org_id.into()),
 					request_id: Some(req_id.into()),
@@ -895,7 +895,7 @@ async fn test_transcode_reconnect() {
 			.nats()
 			.publish(
 				config.transcoder_request_subject.clone(),
-				TranscoderRequest {
+				TranscoderRequestTask {
 					room_id: Some(room_id.into()),
 					organization_id: Some(org_id.into()),
 					request_id: Some(new_req_id.into()),
@@ -1070,7 +1070,7 @@ async fn test_transcode_reconnect() {
 			.nats()
 			.publish(
 				config.transcoder_request_subject.clone(),
-				TranscoderRequest {
+				TranscoderRequestTask {
 					room_id: Some(room_id.into()),
 					organization_id: Some(org_id.into()),
 					request_id: Some(new_req_id.into()),
@@ -1250,7 +1250,7 @@ async fn test_transcode_reconnect() {
 			.nats()
 			.publish(
 				config.transcoder_request_subject.clone(),
-				TranscoderRequest {
+				TranscoderRequestTask {
 					room_id: Some(room_id.into()),
 					organization_id: Some(org_id.into()),
 					request_id: Some(new_req_id.into()),

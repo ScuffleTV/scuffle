@@ -8,6 +8,7 @@ import "scuffle/video/v1/types/recording_config.proto";
 import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/tags.proto";
 import "scuffle/video/v1/types/search_options.proto";
+import "scuffle/video/v1/types/failed_resource.proto";
 
 // This service allows for the creation, modification, and deletion of recording
 // configs.
@@ -55,9 +56,18 @@ message RecordingConfigGetResponse {
 
 // The request payload for RecordingConfig.Create.
 message RecordingConfigCreateRequest {
+  // The renditions to store. Must contain at least one audio and one video rendition.
   repeated types.Rendition stored_renditions = 1;
+
+  // The lifecycle policies to apply to the recording config.
   repeated types.RecordingLifecyclePolicy lifecycle_policies = 2;
-  types.Tags tags = 3;
+
+  // The id of the s3 bucket to store the recordings in. If not specified, the
+  // managed bucket will be used.
+  optional scuffle.types.Ulid s3_bucket_id = 3;
+
+  // The tags to apply to the recording config.
+  types.Tags tags = 4;
 }
 
 // The response payload for RecordingConfig.Create.
@@ -88,14 +98,17 @@ message RecordingConfigModifyResponse {
 
 // The request payload for RecordingConfig.Delete.
 message RecordingConfigDeleteRequest {
+  // The ids of the recording configs to delete.
   repeated scuffle.types.Ulid ids = 1;
-  bool delete_recordings = 2;
 }
 
 // The response payload for RecordingConfig.Delete.
 message RecordingConfigDeleteResponse {
+  // The ids of the recording configs that were deleted.
   repeated scuffle.types.Ulid ids = 1;
-  repeated scuffle.types.Ulid recording_ids = 2;
+
+  // The recording configs that failed to deleted.
+  repeated types.FailedResource failed_deletes = 2;
 }
 
 // The request payload for RecordingConfig.Tag.

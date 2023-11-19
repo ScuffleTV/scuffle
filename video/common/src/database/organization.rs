@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use common::database::Ulid;
 
+use super::DatabaseTable;
+
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct Organization {
 	// The primary key for the organization
@@ -15,4 +17,9 @@ pub struct Organization {
 
 	// Tags associated with the organization
 	pub tags: sqlx::types::Json<HashMap<String, String>>,
+}
+
+impl DatabaseTable for Organization {
+	const FRIENDLY_NAME: &'static str = "organization";
+	const NAME: &'static str = "organizations";
 }

@@ -17,6 +17,7 @@ local function ratelimit_impl(limit_key, exceeded_key, banned_key, cost, quota, 
         if exceeded > exceed_limit then
             redis.call("SET", banned_key, 1)
             redis.call("EXPIRE", banned_key, banned_reset_seconds)
+
             table.insert(response, {"remaining", -1})
             table.insert(response, {"banned", 1})
             table.insert(response, {"reset", banned_reset_seconds})

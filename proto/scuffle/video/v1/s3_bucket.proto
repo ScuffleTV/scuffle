@@ -6,6 +6,7 @@ import "scuffle/video/v1/types/s3_bucket.proto";
 import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/tags.proto";
 import "scuffle/video/v1/types/search_options.proto";
+import "scuffle/video/v1/types/failed_resource.proto";
 
 // This service allows for creating, modifying, and deleting s3 buckets.
 service S3Bucket {
@@ -47,20 +48,20 @@ message S3BucketGetResponse {
 
 // The request payload for S3Bucket.Create.
 message S3BucketCreateRequest {
-  // The access token for the s3 bucket.
-  string access_token = 1;
+  // The access key id for the s3 bucket.
+  string access_key_id = 1;
 
-  // The secret token for the s3 bucket.
-  string secret_token = 2;
+  // The secret access key for the s3 bucket.
+  string secret_access_key = 2;
 
   // The name of the s3 bucket.
   string name = 3;
+  
+  // The region for the s3 bucket.
+  string region = 4;
 
   // The endpoint for the s3 bucket.
-  string endpoint = 4;
-
-  // The region for the s3 bucket.
-  string region = 5;
+  optional string endpoint = 5;
 
   // The public url for the s3 bucket. (optional, to allow for watching
   // recordings and DVR)
@@ -85,18 +86,24 @@ message S3BucketModifyRequest {
   scuffle.types.Ulid id = 1;
 
   // The access token for the s3 bucket.
-  optional string access_token = 2;
+  optional string access_key_id = 2;
 
   // The secret token for the s3 bucket.
-  optional string secret_token = 3;
+  optional string secret_access_key = 3;
+  
+  optional string name = 4;
+
+  optional string region = 5;
+
+  optional string endpoint = 6;
 
   // The public url for the s3 bucket. (optional, to allow for watching
   // recordings and DVR) If you want to remove the public url, set this to an
   // empty string.
-  optional string public_url = 4;
+  optional string public_url = 7;
 
   // New tags to apply to the s3 bucket. (this will replace the existing tags)
-  optional types.Tags tags = 5;
+  optional types.Tags tags = 8;
 }
 
 // The response payload for S3Bucket.Modify.
@@ -116,6 +123,9 @@ message S3BucketDeleteRequest {
 message S3BucketDeleteResponse {
   // The ids of the s3 buckets that were deleted.
   repeated scuffle.types.Ulid ids = 1;
+
+  // The s3 buckets that failed to be deleted.
+  repeated types.FailedResource failed_deletes = 2;
 }
 
 // The request payload for S3Bucket.Tag.

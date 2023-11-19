@@ -1,10 +1,14 @@
+use std::io;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context as _;
 use async_nats::ServerAddr;
-use common::config::{DatabaseConfig, NatsConfig};
+use common::config::{DatabaseConfig, NatsConfig, RedisConfig};
+use fred::interfaces::ClientLike;
+use fred::types::ServerConfig;
+use rustls::RootCertStore;
 use sqlx::postgres::PgConnectOptions;
 use sqlx::ConnectOptions;
 
@@ -93,4 +97,92 @@ pub async fn setup_database(config: &DatabaseConfig) -> anyhow::Result<Arc<sqlx:
 		.await
 		.context("failed to connect to database")?,
 	))
+}
+
+pub async fn setup_redis(config: &RedisConfig) -> anyhow::Result<Arc<fred::clients::RedisPool>> {
+	let hosts = config
+		.addresses
+		.iter()
+		.map(|host| {
+			let mut server = fred::types::Server::try_from(host.as_str()).context("failed to parse redis server address")?;
+			if let Some(tls) = &config.tls {
+				server.tls_server_name = tls.domain.as_ref().map(|d| d.into());
+			}
+
+			Ok(server)
+		})
+		.collect::<anyhow::Result<Vec<_>>>()?;
+
+	let server = if let Some(sentinel) = &config.sentinel {
+		ServerConfig::Sentinel {
+			hosts,
+			service_name: sentinel.service_name.clone(),
+		}
+	} else if hosts.len() == 1 {
+		ServerConfig::Centralized {
+			server: hosts.into_iter().next().unwrap(),
+		}
+	} else {
+		ServerConfig::Clustered { hosts }
+	};
+
+	let tls = if let Some(tls) = &config.tls {
+		let mut cert_store = RootCertStore::empty();
+
+		let ca_cert = tokio::fs::read(&tls.ca_cert).await.context("failed to read redis ca cert")?;
+		let cert = tokio::fs::read(&tls.cert).await.context("failed to read redis client cert")?;
+		let key = tokio::fs::read(&tls.key)
+			.await
+			.context("failed to read redis client private key")?;
+
+		let ca_certs = rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(ca_cert)))?
+			.into_iter()
+			.map(rustls::Certificate)
+			.collect::<Vec<_>>();
+
+		let key =
+			rustls::PrivateKey(rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(io::Cursor::new(key)))?.remove(0));
+
+		let certs = rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(cert)))?
+			.into_iter()
+			.map(rustls::Certificate)
+			.collect();
+
+		for cert in &ca_certs {
+			cert_store.add(cert).context("failed to add redis ca cert")?;
+		}
+
+		Some(fred::types::TlsConfig::from(fred::types::TlsConnector::from(
+			rustls::ClientConfig::builder()
+				.with_safe_defaults()
+				.with_root_certificates(cert_store)
+				.with_client_auth_cert(certs, key)
+				.context("failed to create redis tls config")?,
+		)))
+	} else {
+		None
+	};
+
+	let redis = Arc::new(
+		fred::clients::RedisPool::new(
+			fred::types::RedisConfig {
+				database: Some(config.database),
+				password: config.password.clone(),
+				username: config.username.clone(),
+				server,
+				tls,
+				..Default::default()
+			},
+			None,
+			None,
+			None,
+			config.pool_size,
+		)
+		.context("failed to create redis pool")?,
+	);
+
+	redis.connect();
+	redis.wait_for_connect().await.context("failed to connect to redis")?;
+
+	Ok(redis)
 }

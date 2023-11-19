@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use common::database::{Protobuf, TraitProtobuf, TraitProtobufVec, Ulid};
+use common::database::{Protobuf, Ulid};
 use pb::scuffle::video::v1::types::{AudioConfig, RecordingConfig, TranscodingConfig, VideoConfig};
 
-use super::RoomStatus;
+use super::{DatabaseTable, RoomStatus};
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct Room {
@@ -39,6 +39,11 @@ pub struct Room {
 	pub tags: sqlx::types::Json<HashMap<String, String>>,
 }
 
+impl DatabaseTable for Room {
+	const FRIENDLY_NAME: &'static str = "room";
+	const NAME: &'static str = "rooms";
+}
+
 impl Room {
 	pub fn into_proto(self) -> pb::scuffle::video::v1::types::Room {
 		pb::scuffle::video::v1::types::Room {
@@ -52,10 +57,16 @@ impl Room {
 			last_live_at: self.last_live_at.map(|t| t.timestamp_millis()),
 			last_disconnected_at: self.last_disconnected_at.map(|t| t.timestamp_millis()),
 			status: self.status.into(),
-			audio_input: self.audio_input.map(|a| a.into_inner()),
-			video_input: self.video_input.map(|v| v.into_inner()),
-			audio_output: self.audio_output.map(|a| a.into_vec()).unwrap_or_default(),
-			video_output: self.video_output.map(|v| v.into_vec()).unwrap_or_default(),
+			audio_input: self.audio_input.map(common::database::TraitProtobuf::into_inner),
+			video_input: self.video_input.map(common::database::TraitProtobuf::into_inner),
+			audio_output: self
+				.audio_output
+				.map(common::database::TraitProtobufVec::into_vec)
+				.unwrap_or_default(),
+			video_output: self
+				.video_output
+				.map(common::database::TraitProtobufVec::into_vec)
+				.unwrap_or_default(),
 			active_recording_id: self.active_recording_id.map(|r| r.0.into()),
 			active_connection_id: self.active_ingest_connection_id.map(|c| c.0.into()),
 			tags: Some(self.tags.0.into()),

@@ -7,6 +7,7 @@ import "scuffle/video/v1/types/transcoding_config.proto";
 import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/tags.proto";
 import "scuffle/video/v1/types/search_options.proto";
+import "scuffle/video/v1/types/failed_resource.proto";
 
 // This service allows for the creation, modification, and deletion of
 // transcoding configurations.
@@ -56,6 +57,9 @@ message TranscodingConfigGetResponse {
 message TranscodingConfigCreateRequest {
   // The renditions to transcode to. Must be at least one.
   repeated types.Rendition renditions = 2;
+
+  // The tags to apply to the transcoding config.
+  types.Tags tags = 3;
 }
 
 // The response payload for TranscodingConfig.Create.
@@ -69,8 +73,12 @@ message TranscodingConfigModifyRequest {
   // The transcoding config to modify.
   scuffle.types.Ulid id = 1;
 
-  // The renditions to transcode to. Must be at least one.
-  repeated types.Rendition renditions = 2;
+  message RenditionList {
+    repeated types.Rendition items = 1;
+  }
+
+  optional RenditionList renditions = 2;
+  optional types.Tags tags = 3;
 }
 
 // The response payload for TranscodingConfig.Modify.
@@ -89,8 +97,8 @@ message TranscodingConfigDeleteResponse {
   // The transcoding configs that were deleted.
   repeated scuffle.types.Ulid ids = 1;
 
-  // The room ids that were affected by the deletion.
-  repeated scuffle.types.Ulid room_ids = 2;
+  // The transcoding configs that failed to be deleted.
+  repeated types.FailedResource failed_deletes = 2;
 }
 
 // The request payload for TranscodingConfig.Tag.

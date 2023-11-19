@@ -41,7 +41,7 @@ message PlaybackSessionGetRequest {
   optional types.PlaybackSessionTarget target = 5;
 
   // The options to use when searching for playback sessions.
-  optional types.SearchOptions search = 6;
+  optional types.SearchOptions search_options = 6;
 }
 
 // The response payload for PlaybackSession.Get.
@@ -57,11 +57,9 @@ message PlaybackSessionRevokeRequest {
   repeated scuffle.types.Ulid ids = 1;
 
   // Revoke all playback sessions for the specified user id.
-  // Cannot be used with ids.
   optional string user_id = 2;
 
   // Revoke all playback sessions for the specified target.
-  // Cannot be used with ids.
   optional types.PlaybackSessionTarget target = 3;
 
   // Revoke all playback sessions that were created before the specified

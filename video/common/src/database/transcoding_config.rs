@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use common::database::Ulid;
 use pb::scuffle::video::v1::types::Rendition as PbRendition;
 
-use super::Rendition;
+use super::{DatabaseTable, Rendition};
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct TranscodingConfig {
@@ -12,6 +12,11 @@ pub struct TranscodingConfig {
 	pub renditions: Vec<Rendition>,
 	pub updated_at: chrono::DateTime<chrono::Utc>,
 	pub tags: sqlx::types::Json<HashMap<String, String>>,
+}
+
+impl DatabaseTable for TranscodingConfig {
+	const FRIENDLY_NAME: &'static str = "transcoding config";
+	const NAME: &'static str = "transcoding_configs";
 }
 
 impl TranscodingConfig {

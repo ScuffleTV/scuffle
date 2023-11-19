@@ -10,7 +10,6 @@ DROP TABLE IF EXISTS recordings CASCADE;
 DROP TABLE IF EXISTS recording_thumbnails CASCADE;
 DROP TABLE IF EXISTS recording_renditions CASCADE;
 DROP TABLE IF EXISTS recording_rendition_segments CASCADE;
-DROP VIEW IF EXISTS recording_rendition_manifests;
 DROP TABLE IF EXISTS playback_key_pairs CASCADE;
 DROP TABLE IF EXISTS playback_key_pairs CASCADE;
 DROP TABLE IF EXISTS playback_sessions CASCADE;

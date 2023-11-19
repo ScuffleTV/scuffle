@@ -55,7 +55,7 @@ impl Recording {
 					let region = s3_bucket
 						.endpoint
 						.as_ref()
-						.or(s3_bucket.region.as_ref())
+						.or(Some(&s3_bucket.region))
 						.and_then(|s| s.parse().ok())
 						.ok_or_else(|| anyhow::anyhow!("Invalid S3 region: {:?}", s3_bucket.region))?;
 					match region {
@@ -67,8 +67,8 @@ impl Recording {
 					}
 				},
 				s3::creds::Credentials {
-					access_key: Some(s3_bucket.access_key.clone()),
-					secret_key: Some(s3_bucket.secret_key.clone()),
+					access_key: Some(s3_bucket.access_key_id.clone()),
+					secret_key: Some(s3_bucket.secret_access_key.clone()),
 					security_token: None,
 					session_token: None,
 					expiration: None,

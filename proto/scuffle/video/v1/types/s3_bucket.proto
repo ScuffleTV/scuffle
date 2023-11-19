@@ -17,10 +17,10 @@ message S3Bucket {
   string region = 3;
 
   // The endpoint of the bucket
-  string endpoint = 4;
+  optional string endpoint = 4;
 
   // The access key of the bucket
-  string access_key = 5;
+  string access_key_id = 5;
 
   // The public url of the bucket
   optional string public_url = 6;

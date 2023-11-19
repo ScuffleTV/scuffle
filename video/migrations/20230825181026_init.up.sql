@@ -29,10 +29,10 @@ CREATE TABLE s3_buckets (
     organization_id UUID NOT NULL,
 
     name VARCHAR(64) NOT NULL,
-    region VARCHAR(64),
+    region VARCHAR(64) NOT NULL,
     endpoint VARCHAR(256),
-    access_key VARCHAR(256) NOT NULL,
-    secret_key VARCHAR(256) NOT NULL,
+    access_key_id VARCHAR(256) NOT NULL,
+    secret_access_key VARCHAR(256) NOT NULL,
     public_url VARCHAR(256),
     managed BOOLEAN NOT NULL,
 
@@ -104,9 +104,11 @@ CREATE TABLE recordings (
     s3_bucket_id UUID NOT NULL,
 
     public BOOLEAN NOT NULL DEFAULT FALSE,
-    deleted BOOLEAN NOT NULL DEFAULT FALSE,
     allow_dvr BOOLEAN NOT NULL DEFAULT FALSE,
-    updated_at TIMESTAMPTZ(3) NOT NULL DEFAULT NOW()
+    deleted_at TIMESTAMPTZ(3),
+    updated_at TIMESTAMPTZ(3) NOT NULL DEFAULT NOW(),
+
+    tags JSONB NOT NULL DEFAULT '{}'::JSONB
 );
 
 CREATE TABLE recording_renditions (
@@ -176,22 +178,22 @@ CREATE TABLE session_token_revokes (
 
 -- Relations
 
-ALTER TABLE access_tokens ADD CONSTRAINT access_tokens_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id) ON DELETE CASCADE;
+ALTER TABLE access_tokens ADD CONSTRAINT access_tokens_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id);
 
-ALTER TABLE s3_buckets ADD CONSTRAINT s3_buckets_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id) ON DELETE CASCADE;
+ALTER TABLE s3_buckets ADD CONSTRAINT s3_buckets_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id);
 
-ALTER TABLE transcoding_configs ADD CONSTRAINT transcoding_configs_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id) ON DELETE CASCADE;
+ALTER TABLE transcoding_configs ADD CONSTRAINT transcoding_configs_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id);
 
-ALTER TABLE recording_configs ADD CONSTRAINT recording_configs_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id) ON DELETE CASCADE;
-ALTER TABLE recording_configs ADD CONSTRAINT recording_configs_s3_bucket_id_fkey FOREIGN KEY (s3_bucket_id) REFERENCES s3_buckets (id) ON DELETE CASCADE;
+ALTER TABLE recording_configs ADD CONSTRAINT recording_configs_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id);
+ALTER TABLE recording_configs ADD CONSTRAINT recording_configs_s3_bucket_id_fkey FOREIGN KEY (s3_bucket_id) REFERENCES s3_buckets (id);
 
-ALTER TABLE rooms ADD CONSTRAINT rooms_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id) ON DELETE CASCADE;
-ALTER TABLE rooms ADD CONSTRAINT rooms_transcoding_config_id_fkey FOREIGN KEY (transcoding_config_id) REFERENCES transcoding_configs (id) ON DELETE SET NULL;
-ALTER TABLE rooms ADD CONSTRAINT rooms_recording_config_id_fkey FOREIGN KEY (recording_config_id) REFERENCES recording_configs (id) ON DELETE SET NULL;
+ALTER TABLE rooms ADD CONSTRAINT rooms_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id);
+ALTER TABLE rooms ADD CONSTRAINT rooms_transcoding_config_id_fkey FOREIGN KEY (transcoding_config_id) REFERENCES transcoding_configs (id);
+ALTER TABLE rooms ADD CONSTRAINT rooms_recording_config_id_fkey FOREIGN KEY (recording_config_id) REFERENCES recording_configs (id);
 
-ALTER TABLE recordings ADD CONSTRAINT recordings_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id) ON DELETE CASCADE;
-ALTER TABLE recordings ADD CONSTRAINT recordings_room_id_fkey FOREIGN KEY (room_id) REFERENCES rooms (id) ON DELETE SET NULL;
-ALTER TABLE recordings ADD CONSTRAINT recordings_recording_config_id_fkey FOREIGN KEY (recording_config_id) REFERENCES recording_configs (id) ON DELETE SET NULL;
+ALTER TABLE recordings ADD CONSTRAINT recordings_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id);
+ALTER TABLE recordings ADD CONSTRAINT recordings_room_id_fkey FOREIGN KEY (room_id) REFERENCES rooms (id);
+ALTER TABLE recordings ADD CONSTRAINT recordings_recording_config_id_fkey FOREIGN KEY (recording_config_id) REFERENCES recording_configs (id);
 ALTER TABLE recordings ADD CONSTRAINT recordings_s3_bucket_id_fkey FOREIGN KEY (s3_bucket_id) REFERENCES s3_buckets (id);
 
 ALTER TABLE recording_thumbnails ADD CONSTRAINT recording_thumbnails_recording_id_fkey FOREIGN KEY (recording_id) REFERENCES recordings (id);
@@ -200,13 +202,15 @@ ALTER TABLE recording_renditions ADD CONSTRAINT recording_renditions_recording_i
 
 ALTER TABLE recording_rendition_segments ADD CONSTRAINT recording_rendition_segments_recording_id_fkey FOREIGN KEY (recording_id) REFERENCES recordings (id);
 
-ALTER TABLE playback_key_pairs ADD CONSTRAINT playback_key_pairs_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id) ON DELETE CASCADE;
+ALTER TABLE playback_key_pairs ADD CONSTRAINT playback_key_pairs_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id);
 
+-- Playback sessions are cascaded because no events are emitted when they are deleted, they are ephemeral
 ALTER TABLE playback_sessions ADD CONSTRAINT playback_sessions_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id) ON DELETE CASCADE;
 ALTER TABLE playback_sessions ADD CONSTRAINT playback_sessions_room_id_fkey FOREIGN KEY (room_id) REFERENCES rooms (id) ON DELETE CASCADE;
 ALTER TABLE playback_sessions ADD CONSTRAINT playback_sessions_recording_id_fkey FOREIGN KEY (recording_id) REFERENCES recordings (id) ON DELETE CASCADE;
 ALTER TABLE playback_sessions ADD CONSTRAINT playback_sessions_playback_key_pair_id_fkey FOREIGN KEY (playback_key_pair_id) REFERENCES playback_key_pairs (id) ON DELETE CASCADE;
 
+-- Session tokens are cascaded because no events are emitted when they are deleted, they are ephemeral
 ALTER TABLE session_token_revokes ADD CONSTRAINT session_token_revokes_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES organizations (id) ON DELETE CASCADE;
 ALTER TABLE session_token_revokes ADD CONSTRAINT session_token_revokes_room_id_fkey FOREIGN KEY (room_id) REFERENCES rooms (id) ON DELETE CASCADE;
 ALTER TABLE session_token_revokes ADD CONSTRAINT session_token_revokes_recording_id_fkey FOREIGN KEY (recording_id) REFERENCES recordings (id) ON DELETE CASCADE;

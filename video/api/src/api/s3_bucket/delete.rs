@@ -1,0 +1,113 @@
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+
+use pb::scuffle::video::v1::types::access_token_scope::Permission;
+use pb::scuffle::video::v1::types::{FailedResource, Resource};
+use pb::scuffle::video::v1::{S3BucketDeleteRequest, S3BucketDeleteResponse};
+use tonic::Status;
+use video_common::database::{AccessToken, DatabaseTable};
+
+use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
+use crate::global::ApiGlobal;
+use crate::ratelimit::RateLimitResource;
+
+impl_request_scopes!(
+	S3BucketDeleteRequest,
+	video_common::database::S3Bucket,
+	(Resource::S3Bucket, Permission::Delete),
+	RateLimitResource::S3BucketDelete
+);
+
+#[async_trait::async_trait]
+impl ApiRequest<S3BucketDeleteResponse> for tonic::Request<S3BucketDeleteRequest> {
+	async fn process<G: ApiGlobal>(
+		&self,
+		global: &Arc<G>,
+		access_token: &AccessToken,
+	) -> tonic::Result<tonic::Response<S3BucketDeleteResponse>> {
+		let req = self.get_ref();
+
+		if req.ids.len() > 100 {
+			return Err(tonic::Status::invalid_argument("too many ids provided for delete: max 100"));
+		}
+
+		if req.ids.is_empty() {
+			return Err(tonic::Status::invalid_argument("no ids provided for delete"));
+		}
+
+		let mut ids_to_delete = req.ids.iter().map(pb::ext::UlidExt::to_ulid).collect::<HashSet<_>>();
+
+		let mut qb = sqlx::query_builder::QueryBuilder::default();
+
+		qb.push("(SELECT DISTINCT s3_bucket_id AS id FROM ")
+			.push(<video_common::database::RecordingConfig as DatabaseTable>::NAME)
+			.push(" WHERE s3_bucket_id = ANY(")
+			.push_bind(ids_to_delete.iter().copied().map(common::database::Ulid).collect::<Vec<_>>())
+			.push(") AND organization_id = ")
+			.push_bind(access_token.organization_id)
+			.push(") UNION (SELECT DISTINCT s3_bucket_id AS id FROM ")
+			.push(<video_common::database::Recording as DatabaseTable>::NAME)
+			.push(" WHERE s3_bucket_id = ANY($1) AND organization_id = $2)");
+
+		let used_buckets: Vec<common::database::Ulid> = qb.build_query_scalar().fetch_all(global.db().as_ref()).await.map_err(|err| {
+			tracing::error!(err = %err, "failed to check if any {}s are being used", <S3BucketDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME);
+			Status::internal(format!("failed to check if any {}s are being used", <S3BucketDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME))
+		})?;
+
+		let mut failed_deletes = used_buckets
+			.into_iter()
+			.map(|id| {
+				ids_to_delete.remove(&id.0);
+				(
+					id.0,
+					"s3 bucket used by recording or recording config, recordings might be pending deletion",
+				)
+			})
+			.collect::<HashMap<_, _>>();
+
+		let deleted_ids = if !ids_to_delete.is_empty() {
+			let mut qb = sqlx::query_builder::QueryBuilder::default();
+
+			qb.push("DELETE FROM ")
+				.push(<S3BucketDeleteRequest as TonicRequest>::Table::NAME)
+				.push(" WHERE id = ANY(")
+				.push_bind(ids_to_delete.iter().copied().map(common::database::Ulid).collect::<Vec<_>>())
+				.push(") AND organization_id = ")
+				.push_bind(access_token.organization_id)
+				.push(" AND managed = false")
+				.push(" RETURNING id");
+
+			let deleted_ids: Vec<common::database::Ulid> =
+				qb.build_query_scalar().fetch_all(global.db().as_ref()).await.map_err(|err| {
+					tracing::error!(err = %err, "failed to delete {}", <S3BucketDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME);
+					Status::internal(format!(
+						"failed to delete {}",
+						<S3BucketDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME
+					))
+				})?;
+
+			deleted_ids.iter().for_each(|id| {
+				ids_to_delete.remove(&id.0);
+			});
+
+			deleted_ids
+		} else {
+			Default::default()
+		};
+
+		ids_to_delete.into_iter().for_each(|id| {
+			failed_deletes.insert(id, "s3 bucket not found");
+		});
+
+		Ok(tonic::Response::new(S3BucketDeleteResponse {
+			ids: deleted_ids.into_iter().map(|id| id.0.into()).collect(),
+			failed_deletes: failed_deletes
+				.into_iter()
+				.map(|(id, reason)| FailedResource {
+					id: Some(id.into()),
+					reason: reason.to_string(),
+				})
+				.collect(),
+		}))
+	}
+}

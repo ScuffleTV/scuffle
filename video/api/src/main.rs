@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use binary_helper::global::{setup_database, setup_nats};
+use binary_helper::global::{setup_database, setup_nats, setup_redis};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
+use common::config::RedisConfig;
 use common::context::Context;
 use common::dataloader::DataLoader;
 use common::global::{GlobalCtx, GlobalDb, GlobalNats};
@@ -15,6 +16,9 @@ use video_api::dataloaders;
 struct ExtConfig {
 	/// The API configuration.
 	api: ApiConfig,
+
+	/// The Redis configuration.
+	redis: RedisConfig,
 }
 
 impl binary_helper::config::ConfigExtention for ExtConfig {
@@ -29,10 +33,20 @@ struct GlobalState {
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
 	db: Arc<sqlx::PgPool>,
+	redis: Arc<fred::clients::RedisPool>,
 	access_token_loader: DataLoader<dataloaders::AccessTokenLoader>,
+	recording_state_loader: DataLoader<dataloaders::RecordingStateLoader>,
+	room_loader: DataLoader<dataloaders::RoomLoader>,
 }
 
 impl_global_traits!(GlobalState);
+
+impl common::global::GlobalRedis for GlobalState {
+	#[inline(always)]
+	fn redis(&self) -> &Arc<fred::clients::RedisPool> {
+		&self.redis
+	}
+}
 
 impl common::global::GlobalConfigProvider<ApiConfig> for GlobalState {
 	#[inline(always)]
@@ -46,6 +60,16 @@ impl video_api::global::ApiState for GlobalState {
 	fn access_token_loader(&self) -> &DataLoader<dataloaders::AccessTokenLoader> {
 		&self.access_token_loader
 	}
+
+	#[inline(always)]
+	fn recording_state_loader(&self) -> &DataLoader<dataloaders::RecordingStateLoader> {
+		&self.recording_state_loader
+	}
+
+	#[inline(always)]
+	fn room_loader(&self) -> &DataLoader<dataloaders::RoomLoader> {
+		&self.room_loader
+	}
 }
 
 #[async_trait::async_trait]
@@ -53,8 +77,15 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 	async fn new(ctx: Context, config: AppConfig) -> anyhow::Result<Self> {
 		let (nats, jetstream) = setup_nats(&config.name, &config.nats).await?;
 		let db = setup_database(&config.database).await?;
+		let redis = setup_redis(&config.extra.redis).await?;
 
 		let access_token_loader = dataloaders::AccessTokenLoader::new(db.clone());
+		let recording_state_loader = dataloaders::RecordingStateLoader::new(db.clone());
+		let room_loader = dataloaders::RoomLoader::new(db.clone());
+
+		common::ratelimiter::load_rate_limiter_script(&*redis)
+			.await
+			.context("failed to load rate limiter script")?;
 
 		Ok(Self {
 			ctx,
@@ -62,7 +93,10 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			nats,
 			jetstream,
 			db,
+			redis,
 			access_token_loader,
+			recording_state_loader,
+			room_loader,
 		})
 	}
 }

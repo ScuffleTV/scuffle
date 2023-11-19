@@ -4,6 +4,7 @@ use pb::scuffle::video::v1::types::{playback_session, playback_session_target, P
 use super::playback_session_browser::PlaybackSessionBrowser;
 use super::playback_session_device::PlaybackSessionDevice;
 use super::playback_session_platform::PlaybackSessionPlatform;
+use super::DatabaseTable;
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct PlaybackSession {
@@ -23,6 +24,11 @@ pub struct PlaybackSession {
 	pub platform: PlaybackSessionPlatform,
 	pub browser: PlaybackSessionBrowser,
 	pub player_version: Option<String>,
+}
+
+impl DatabaseTable for PlaybackSession {
+	const FRIENDLY_NAME: &'static str = "playback session";
+	const NAME: &'static str = "playback_sessions";
 }
 
 impl PlaybackSession {

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use common::database::{Protobuf, Ulid};
 use pb::scuffle::video::v1::types::{RecordingLifecyclePolicy, Rendition as PbRendition};
 
-use super::Rendition;
+use super::{DatabaseTable, Rendition};
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct RecordingConfig {
@@ -14,6 +14,11 @@ pub struct RecordingConfig {
 	pub updated_at: chrono::DateTime<chrono::Utc>,
 	pub s3_bucket_id: Ulid,
 	pub tags: sqlx::types::Json<HashMap<String, String>>,
+}
+
+impl DatabaseTable for RecordingConfig {
+	const FRIENDLY_NAME: &'static str = "recording config";
+	const NAME: &'static str = "recording_configs";
 }
 
 impl RecordingConfig {

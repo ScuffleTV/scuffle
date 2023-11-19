@@ -6,6 +6,7 @@ import "scuffle/video/v1/types/playback_key_pair.proto";
 import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/tags.proto";
 import "scuffle/video/v1/types/search_options.proto";
+import "scuffle/video/v1/types/failed_resource.proto";
 
 // This service allows for creating, modifying, and deleting playback key pairs.
 service PlaybackKeyPair {
@@ -91,6 +92,9 @@ message PlaybackKeyPairDeleteRequest {
 message PlaybackKeyPairDeleteResponse {
   // The ids of the playback key pairs that were deleted.
   repeated scuffle.types.Ulid ids = 1;
+
+  // The playback key pairs that failed to be deleted.
+  repeated types.FailedResource failed_deletes = 2;
 }
 
 // The request payload for PlaybackKeyPair.Tag.

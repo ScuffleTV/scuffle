@@ -1,6 +1,6 @@
 use common::database::Ulid;
 
-use super::Rendition;
+use super::{DatabaseTable, Rendition};
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct RecordingRenditionSegment {
@@ -11,4 +11,9 @@ pub struct RecordingRenditionSegment {
 	pub start_time: f32,
 	pub end_time: f32,
 	pub size_bytes: i32,
+}
+
+impl DatabaseTable for RecordingRenditionSegment {
+	const FRIENDLY_NAME: &'static str = "recording rendition segment";
+	const NAME: &'static str = "recording_rendition_segments";
 }

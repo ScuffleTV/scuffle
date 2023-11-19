@@ -4,6 +4,8 @@ use chrono::Utc;
 use common::database::{Protobuf, Ulid};
 use pb::scuffle::video::v1::types::AccessTokenScope;
 
+use super::DatabaseTable;
+
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct AccessToken {
 	pub id: Ulid,
@@ -16,8 +18,13 @@ pub struct AccessToken {
 	pub tags: sqlx::types::Json<HashMap<String, String>>,
 }
 
+impl DatabaseTable for AccessToken {
+	const FRIENDLY_NAME: &'static str = "access token";
+	const NAME: &'static str = "access_tokens";
+}
+
 impl AccessToken {
-	pub fn to_proto(self) -> pb::scuffle::video::v1::types::AccessToken {
+	pub fn into_proto(self) -> pb::scuffle::video::v1::types::AccessToken {
 		pb::scuffle::video::v1::types::AccessToken {
 			id: Some(self.id.0.into()),
 			created_at: self.id.0.timestamp_ms() as i64,

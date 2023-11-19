@@ -4,9 +4,8 @@ use chrono::{Duration, TimeZone, Utc};
 use common::http::ext::*;
 use hmac::{Hmac, Mac};
 use hyper::StatusCode;
-use jwt::{AlgorithmType, PKeyWithDigest, SignWithKey, Token, VerifyWithKey};
-use openssl::hash::MessageDigest;
-use openssl::pkey::PKey;
+use jwt::asymmetric::VerifyingKey;
+use jwt::{asymmetric, AlgorithmType, SignWithKey, Token, VerifyWithKey};
 use sha2::Sha256;
 use ulid::Ulid;
 use uuid::Uuid;
@@ -164,14 +163,15 @@ impl TokenClaims {
 
 		let keypair = keypair.ok_or((StatusCode::BAD_REQUEST, "invalid token, keypair not found"))?;
 
-		let signing_algo = PKeyWithDigest {
-			digest: MessageDigest::sha384(),
-			key: PKey::public_key_from_pem(&keypair.public_key)
-				.map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to parse public key"))?,
-		};
+		let public_key = asymmetric::PublicKey::from_pem_bytes(&keypair.public_key)
+			.map_ignore_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to parse public key"))?
+			.into_ec384()
+			.map_ignore_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to parse public key"))?;
+
+		let verifier = asymmetric::AsymmetricKeyWithDigest::new(VerifyingKey::from_ec384(public_key));
 
 		let token = token
-			.verify_with_key(&signing_algo)
+			.verify_with_key(&verifier)
 			.map_err(|_| (StatusCode::BAD_REQUEST, "invalid token, failed to verify"))?;
 
 		if sqlx::query(

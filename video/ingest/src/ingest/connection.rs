@@ -11,7 +11,7 @@ use chrono::Utc;
 use flv::{FlvTag, FlvTagData, FlvTagType};
 use futures::Future;
 use futures_util::StreamExt;
-use pb::scuffle::video::internal::events::{organization_event, OrganizationEvent, TranscoderRequest};
+use pb::scuffle::video::internal::events::{organization_event, OrganizationEvent, TranscoderRequestTask};
 use pb::scuffle::video::internal::{ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse};
 use pb::scuffle::video::v1::types::Rendition;
 use prost::Message as _;
@@ -24,6 +24,7 @@ use transmuxer::{AudioSettings, MediaSegment, TransmuxResult, Transmuxer, VideoS
 use ulid::Ulid;
 use uuid::Uuid;
 use video_common::database::RoomStatus;
+use video_common::keys;
 
 use super::bytes_tracker::BytesTracker;
 use super::errors::IngestError;
@@ -177,7 +178,7 @@ impl Connection {
 
 		#[derive(sqlx::FromRow)]
 		struct Response {
-			id: Option<Uuid>,
+			id: Option<common::database::Ulid>,
 		}
 
 		let id = Ulid::new();
@@ -227,7 +228,7 @@ impl Connection {
 		if let Some(old_id) = result.id {
 			if let Err(err) = global
 				.nats()
-				.publish(format!("ingest.{}.disconnect", Ulid::from(old_id)), Bytes::new())
+				.publish(keys::ingest_disconnect(old_id.0), Bytes::new())
 				.await
 			{
 				tracing::error!(error = %err, "failed to publish disconnect event");
@@ -297,7 +298,7 @@ impl Connection {
 
 		let mut clean_shutdown = false;
 
-		let mut conn_id_sub = match global.nats().subscribe(format!("ingest.{}.disconnect", self.id)).await {
+		let mut conn_id_sub = match global.nats().subscribe(keys::ingest_disconnect(self.id)).await {
 			Ok(sub) => sub,
 			Err(e) => {
 				tracing::error!(error = %e, "failed to subscribe to disconnect subject");
@@ -623,7 +624,7 @@ impl Connection {
 			.nats()
 			.publish(
 				config.transcoder_request_subject.clone(),
-				TranscoderRequest {
+				TranscoderRequestTask {
 					organization_id: Some(self.organization_id.into()),
 					room_id: Some(self.room_id.into()),
 					request_id: Some(request_id.into()),

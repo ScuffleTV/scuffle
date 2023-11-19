@@ -6,6 +6,7 @@ import "scuffle/video/v1/types/room.proto";
 import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/tags.proto";
 import "scuffle/video/v1/types/search_options.proto";
+import "scuffle/video/v1/types/failed_resource.proto";
 
 // This service allows for the creation, modification, and deletion of rooms.
 service Room {
@@ -48,10 +49,10 @@ message RoomGetRequest {
   optional scuffle.types.Ulid recording_config_id = 3;
 
   // Filter by the room's live status.
-  optional bool is_live = 5;
+  optional bool live = 5;
 
   // Filter by the room's visibility status.
-  optional bool is_private = 6;
+  optional bool private = 6;
 
   // The options to use when searching for recording configs.
   optional types.SearchOptions search_options = 7;
@@ -118,11 +119,6 @@ message RoomModifyResponse {
 message RoomDeleteRequest {
   // The ids of the rooms to delete.
   repeated scuffle.types.Ulid ids = 1;
-  // Whether or not to delete the recordings for the rooms.
-  // If you delete the recordings for a room, you will not be able to recover
-  // them. If you do not delete the recordings, they will be stored without a
-  // room association.
-  bool delete_recordings = 2;
 }
 
 // The response payload for Room.Delete.
@@ -130,9 +126,8 @@ message RoomDeleteResponse {
   // The ids of the rooms that were deleted.
   repeated scuffle.types.Ulid ids = 1;
 
-  // The recording ids of the recordings that were either deleted or
-  // disassociated.
-  repeated scuffle.types.Ulid recording_ids = 2;
+  // The rooms that failed to be deleted.
+  repeated types.FailedResource failed_deletes = 2;
 }
 
 // The request payload for Room.Disconnect.
@@ -145,6 +140,9 @@ message RoomDisconnectRequest {
 message RoomDisconnectResponse {
   // The ids of the rooms that were disconnected.
   repeated scuffle.types.Ulid ids = 1;
+
+  // The rooms that failed to be disconnected.
+  repeated types.FailedResource failed_disconnects = 2;
 }
 
 // The request payload for Room.ResetKey.
@@ -165,6 +163,8 @@ message RoomResetKeyResponse {
   }
 
   repeated RoomKeyPair rooms = 1;
+
+  repeated types.FailedResource failed_resets = 2;
 }
 
 // The request payload for Room.Tag.

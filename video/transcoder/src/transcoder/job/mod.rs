@@ -12,7 +12,7 @@ use common::prelude::FutureTimeout;
 use futures::{FutureExt, StreamExt};
 use futures_util::{Future, Stream, TryFutureExt};
 use pb::ext::UlidExt;
-use pb::scuffle::video::internal::events::{organization_event, OrganizationEvent, TranscoderRequest};
+use pb::scuffle::video::internal::events::{organization_event, OrganizationEvent, TranscoderRequestTask};
 use pb::scuffle::video::internal::ingest_client::IngestClient;
 use pb::scuffle::video::internal::{
 	ingest_watch_request, ingest_watch_response, live_rendition_manifest, IngestWatchRequest, IngestWatchResponse,
@@ -141,7 +141,7 @@ impl Drop for CleanupPath {
 
 impl<G: TranscoderGlobal> Job<G> {
 	async fn new(global: &Arc<G>, msg: &Message) -> Result<Self> {
-		let message = TranscoderRequest::decode(msg.payload.clone())?;
+		let message = TranscoderRequestTask::decode(msg.payload.clone())?;
 
 		let organization_id = message.organization_id.to_ulid();
 		let room_id = message.room_id.to_ulid();

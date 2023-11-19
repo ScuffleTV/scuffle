@@ -5,6 +5,8 @@ use crate::dataloaders;
 
 pub trait ApiState {
 	fn access_token_loader(&self) -> &DataLoader<dataloaders::AccessTokenLoader>;
+	fn recording_state_loader(&self) -> &DataLoader<dataloaders::RecordingStateLoader>;
+	fn room_loader(&self) -> &DataLoader<dataloaders::RoomLoader>;
 }
 
 pub trait ApiGlobal:
@@ -13,6 +15,7 @@ pub trait ApiGlobal:
 	+ common::global::GlobalNats
 	+ common::global::GlobalDb
 	+ common::global::GlobalConfig
+	+ common::global::GlobalRedis
 	+ ApiState
 	+ Send
 	+ Sync
@@ -26,6 +29,7 @@ impl<T> ApiGlobal for T where
 		+ common::global::GlobalNats
 		+ common::global::GlobalDb
 		+ common::global::GlobalConfig
+		+ common::global::GlobalRedis
 		+ ApiState
 		+ Send
 		+ Sync

@@ -12,7 +12,7 @@ use common::global::*;
 use common::prelude::FutureTimeout;
 use futures::StreamExt;
 use pb::ext::UlidExt;
-use pb::scuffle::video::internal::events::{organization_event, OrganizationEvent, TranscoderRequest};
+use pb::scuffle::video::internal::events::{organization_event, OrganizationEvent, TranscoderRequestTask};
 use pb::scuffle::video::internal::ingest_client::IngestClient;
 use pb::scuffle::video::internal::{ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse};
 use pb::scuffle::video::v1::types::Rendition;
@@ -25,6 +25,7 @@ use tokio::task::JoinHandle;
 use ulid::Ulid;
 use uuid::Uuid;
 use video_common::database::Room;
+use video_common::keys;
 
 use super::global::GlobalState;
 use crate::config::{IngestConfig, RtmpConfig};
@@ -151,7 +152,7 @@ struct TestState {
 	pub room_id: Ulid,
 	pub global: Arc<GlobalState>,
 	pub handler: common::context::Handler,
-	pub transcoder_requests: Pin<Box<dyn futures::Stream<Item = TranscoderRequest>>>,
+	pub transcoder_requests: Pin<Box<dyn futures::Stream<Item = TranscoderRequestTask>>>,
 	pub organization_events: Pin<Box<dyn futures::Stream<Item = OrganizationEvent>>>,
 	pub ingest_handle: JoinHandle<anyhow::Result<()>>,
 	pub grpc_handle: JoinHandle<Result<(), tonic::transport::Error>>,
@@ -214,7 +215,7 @@ impl TestState {
 					select! {
 						message = stream.next() => {
 							let message = message.unwrap();
-							yield TranscoderRequest::decode(message.payload).unwrap();
+							yield TranscoderRequestTask::decode(message.payload).unwrap();
 						}
 						_ = global.ctx().done() => {
 							break;
@@ -278,7 +279,7 @@ impl TestState {
 		}
 	}
 
-	async fn transcoder_request(&mut self) -> TranscoderRequest {
+	async fn transcoder_request(&mut self) -> TranscoderRequestTask {
 		tokio::time::timeout(Duration::from_secs(2), self.transcoder_requests.next())
 			.await
 			.expect("failed to receive event")
@@ -627,7 +628,7 @@ async fn test_ingest_stream_shutdown() {
 	state
 		.global
 		.nats()
-		.publish(format!("ingest.{}.disconnect", connection_id), Bytes::new())
+		.publish(keys::ingest_disconnect(connection_id), Bytes::new())
 		.await
 		.unwrap();
 

@@ -39,3 +39,7 @@ pub fn s3_thumbnail(organization_id: Ulid, recording_id: Ulid, thumbnail_idx: u3
 pub fn s3_init(organization_id: Ulid, recording_id: Ulid, rendition: Rendition) -> String {
 	format!("{organization_id}/{recording_id}/{rendition}/init.mp4",)
 }
+
+pub fn ingest_disconnect(session_id: Ulid) -> String {
+	format!("ingest.{session_id}.disconnect")
+}

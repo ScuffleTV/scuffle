@@ -1,18 +1,28 @@
 <script lang="ts">
 	import SmallStreamPreview from "$/components/home/small-stream-preview.svelte";
+	import type { User } from "$/gql/graphql";
 	import { PUBLIC_ASSET_BASE_URL } from "$env/static/public";
 
 	const following = [
 		{
-			streamer: "TroyKomodo",
-			title: "working on https://github.com/ScuffleTV/scuffle",
-			tags: ["Programming", "English"],
-			viewers: 1,
+			user: {
+				id: "01H8WMQ6EPH7YFM1PQTJF81TT7",
+				username: "troykomodo",
+				displayName: "TroyKomodo",
+				channel: {
+					title: "working on https://github.com/ScuffleTV/scuffle",
+					liveViewerCount: 1,
+				},
+			},
 			avatar:
 				"https://static-cdn.jtvnw.net/jtv_user_pictures/3773bfdd-110b-4911-b914-6f04362a1331-profile_image-70x70.png",
 			preview: "/troykomodo-preview.png",
 		},
-	];
+	] as {
+		user: User;
+		avatar: string;
+		preview: string;
+	}[];
 </script>
 
 <svelte:head>
@@ -30,7 +40,7 @@
 	<section class="following" aria-labelledby="following-title">
 		{#each following as preview}
 			<article>
-				<SmallStreamPreview {...preview} />
+				<SmallStreamPreview user={preview.user} avatar={preview.avatar} preview={preview.preview} />
 			</article>
 		{/each}
 	</section>

@@ -14,6 +14,7 @@ export async function verifyToken(client: Client, token: string) {
 				}
 			`),
 			{ token },
+			{ requestPolicy: "network-only" },
 		)
 		.toPromise();
 
@@ -48,11 +49,12 @@ export function getUser(client: Client) {
 				}
 			`),
 			{},
+			{ requestPolicy: "network-only" },
 		)
 		.toPromise();
 }
 
-export async function logout(client: Client, token?: string) {
+export async function logout(client: Client, token?: string | null) {
 	await client
 		.mutation(
 			graphql(`
@@ -63,6 +65,7 @@ export async function logout(client: Client, token?: string) {
 				}
 			`),
 			{ token },
+			{ requestPolicy: "network-only" },
 		)
 		.toPromise();
 }

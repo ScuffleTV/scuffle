@@ -60,8 +60,7 @@ impl From<i32> for Color {
 
 impl ToString for Color {
 	fn to_string(&self) -> String {
-		let (r, g, b) = self.rgb();
-		format!("#{r:02x}{g:02x}{b:02x}")
+		format!("#{:06x}", self.0)
 	}
 }
 

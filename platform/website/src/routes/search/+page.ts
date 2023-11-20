@@ -1,6 +1,7 @@
 import { error } from "@sveltejs/kit";
+import type { PageLoadEvent } from "./$types";
 
-export function load({ url }) {
+export async function load({ url }: PageLoadEvent) {
 	const query = url.searchParams.get("q");
 
 	if (!query) {

@@ -183,13 +183,13 @@ checksum = "71938f30533e4d95a6d17aa530939da3842c2ab6f4f84b9dae68447e4129f74a"
 
 [[package]]
 name = "async-graphql"
-version = "6.0.10"
+version = "6.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a665c228a226506796fca6de90cf1ad477157513ee15d6327bf810d5a3a98f72"
+checksum = "298a5d587d6e6fdb271bf56af2dc325a80eb291fd0fc979146584b9a05494a8c"
 dependencies = [
- "async-graphql-derive 6.0.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "async-graphql-parser 6.0.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "async-graphql-value 6.0.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-graphql-derive 6.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-graphql-parser 6.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-graphql-value 6.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "async-stream",
  "async-trait",
  "base64 0.13.1",
@@ -216,12 +216,12 @@ dependencies = [
 
 [[package]]
 name = "async-graphql"
-version = "6.0.10"
-source = "git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics#7d59ff2c2e0913479c9f0d1b127556e408248a9b"
+version = "6.0.11"
+source = "git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics#be5d4884df3301d0865b3a54485e01ab3c3e0f2b"
 dependencies = [
- "async-graphql-derive 6.0.10 (git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics)",
- "async-graphql-parser 6.0.10 (git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics)",
- "async-graphql-value 6.0.10 (git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics)",
+ "async-graphql-derive 6.0.11 (git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics)",
+ "async-graphql-parser 6.0.11 (git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics)",
+ "async-graphql-value 6.0.11 (git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics)",
  "async-stream",
  "async-trait",
  "base64 0.13.1",
@@ -253,12 +253,12 @@ dependencies = [
 
 [[package]]
 name = "async-graphql-derive"
-version = "6.0.10"
+version = "6.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2f04964faf9ad71289d4c51b3b43a7b9c01c23c16d9c52bca48161ba8a3cbc3"
+checksum = "c7f329c7eb9b646a72f70c9c4b516c70867d356ec46cb00dcac8ad343fd006b0"
 dependencies = [
  "Inflector",
- "async-graphql-parser 6.0.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-graphql-parser 6.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "darling",
  "proc-macro-crate",
  "proc-macro2",
@@ -270,11 +270,11 @@ dependencies = [
 
 [[package]]
 name = "async-graphql-derive"
-version = "6.0.10"
-source = "git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics#7d59ff2c2e0913479c9f0d1b127556e408248a9b"
+version = "6.0.11"
+source = "git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics#be5d4884df3301d0865b3a54485e01ab3c3e0f2b"
 dependencies = [
  "Inflector",
- "async-graphql-parser 6.0.10 (git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics)",
+ "async-graphql-parser 6.0.11 (git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics)",
  "darling",
  "proc-macro-crate",
  "proc-macro2",
@@ -286,11 +286,11 @@ dependencies = [
 
 [[package]]
 name = "async-graphql-parser"
-version = "6.0.10"
+version = "6.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "786a2329756a9946d83106e389a977a808ab22628cb797c1afcf174fd01c40d5"
+checksum = "6139181845757fd6a73fbb8839f3d036d7150b798db0e9bb3c6e83cdd65bd53b"
 dependencies = [
- "async-graphql-value 6.0.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-graphql-value 6.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "pest",
  "serde",
  "serde_json",
@@ -298,10 +298,10 @@ dependencies = [
 
 [[package]]
 name = "async-graphql-parser"
-version = "6.0.10"
-source = "git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics#7d59ff2c2e0913479c9f0d1b127556e408248a9b"
+version = "6.0.11"
+source = "git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics#be5d4884df3301d0865b3a54485e01ab3c3e0f2b"
 dependencies = [
- "async-graphql-value 6.0.10 (git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics)",
+ "async-graphql-value 6.0.11 (git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics)",
  "pest",
  "serde",
  "serde_json",
@@ -309,9 +309,9 @@ dependencies = [
 
 [[package]]
 name = "async-graphql-value"
-version = "6.0.10"
+version = "6.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "305ca1e36538655babbfa8a9a1d82cb1dd01961af2feeafa06d3a0c9af793bed"
+checksum = "323a5143f5bdd2030f45e3f2e0c821c9b1d36e79cf382129c64299c50a7f3750"
 dependencies = [
  "bytes",
  "indexmap 2.1.0",
@@ -321,8 +321,8 @@ dependencies = [
 
 [[package]]
 name = "async-graphql-value"
-version = "6.0.10"
-source = "git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics#7d59ff2c2e0913479c9f0d1b127556e408248a9b"
+version = "6.0.11"
+source = "git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics#be5d4884df3301d0865b3a54485e01ab3c3e0f2b"
 dependencies = [
  "bytes",
  "indexmap 2.1.0",
@@ -1936,6 +1936,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25db6b064527c5d482d0423354fcd07a89a2dfe07b67892e62411946db7f07b0"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2637,7 +2646,7 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "argon2",
- "async-graphql 6.0.10 (git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics)",
+ "async-graphql 6.0.11 (git+https://github.com/ScuffleTV/async-graphql.git?branch=troy/union-generics)",
  "async-nats",
  "async-stream",
  "async-trait",
@@ -2655,6 +2664,7 @@ dependencies = [
  "http",
  "hyper",
  "hyper-tungstenite",
+ "itertools 0.12.0",
  "jwt",
  "negative-impl",
  "pb",
@@ -2862,7 +2872,7 @@ checksum = "1fa3d084c8704911bfefb2771be2f9b6c5c0da7343a71e0021ee3c665cada738"
 dependencies = [
  "bytes",
  "heck",
- "itertools",
+ "itertools 0.11.0",
  "log",
  "multimap",
  "once_cell",
@@ -2883,7 +2893,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "065717a5dfaca4a83d2fe57db3487b311365200000551d7a364e715dbf4346bc"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.11.0",
  "proc-macro2",
  "quote",
  "syn 2.0.39",
@@ -3155,9 +3165,9 @@ dependencies = [
 
 [[package]]
 name = "rsa"
-version = "0.9.3"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86ef35bf3e7fe15a53c4ab08a998e42271eab13eb0db224126bc7bc4c4bad96d"
+checksum = "6a3211b01eea83d80687da9eef70e39d65144a3894866a5153a2723e425a157f"
 dependencies = [
  "const-oid",
  "digest",
@@ -3258,9 +3268,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.24"
+version = "0.38.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ad981d6c340a49cdc40a1028d9c6084ec7e9fa33fcb839cab656a267071e234"
+checksum = "dc99bc2d4f1fed22595588a013687477aedf3cdcfb26558c559edb67b4d9b22e"
 dependencies = [
  "bitflags 2.4.1",
  "errno",
@@ -3722,7 +3732,7 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b7b278788e7be4d0d29c0f39497a0eef3fba6bbc8e70d8bf7fde46edeaa9e85"
 dependencies = [
- "itertools",
+ "itertools 0.11.0",
  "nom",
  "unicode_categories",
 ]
@@ -4751,9 +4761,9 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "uuid"
-version = "1.5.0"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88ad59a7560b41a70d191093a945f0b87bc1deeda46fb237479708a1d6b6cdfc"
+checksum = "5e395fcf16a7a3d8127ec99782007af141946b4795001f876d54fb0d55978560"
 dependencies = [
  "getrandom",
  "serde",
@@ -4776,7 +4786,7 @@ name = "video-api"
 version = "0.0.1"
 dependencies = [
  "anyhow",
- "async-graphql 6.0.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-graphql 6.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "async-nats",
  "async-stream",
  "async-trait",
@@ -4812,7 +4822,7 @@ dependencies = [
 name = "video-common"
 version = "0.0.1"
 dependencies = [
- "async-graphql 6.0.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-graphql 6.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "async-nats",
  "async-trait",
  "bytes",
@@ -4849,7 +4859,7 @@ dependencies = [
  "futures-util",
  "hmac",
  "hyper",
- "itertools",
+ "itertools 0.11.0",
  "jwt",
  "nix",
  "openssl",

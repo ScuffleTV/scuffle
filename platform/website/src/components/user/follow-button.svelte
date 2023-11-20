@@ -62,6 +62,7 @@
 						}
 					`),
 					{ channelId, follow: !following },
+					{ requestPolicy: "network-only" },
 				)
 				.toPromise();
 			if (res.data) {

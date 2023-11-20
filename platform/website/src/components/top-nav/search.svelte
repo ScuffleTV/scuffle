@@ -2,14 +2,16 @@
 	import Fa from "svelte-fa";
 	import { faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 	import { getContextClient } from "@urql/svelte";
-	import { graphql } from "$/gql";
 	import MouseTrap from "../mouse-trap.svelte";
-	import DefaultAvatar from "../user/default-avatar.svelte";
-	import { viewersToString } from "$/lib/utils";
 	import { goto } from "$app/navigation";
+	import Category from "../search/category.svelte";
+	import User from "../search/user.svelte";
+	import type { SearchResult } from "$/gql/graphql";
+	import { searchQuery } from "$/lib/search";
 
 	function onSubmit(e: Event) {
 		if (query) {
+			clearTimeout(timeout);
 			closed = true;
 		} else {
 			e.preventDefault();
@@ -20,87 +22,38 @@
 			const exactMatches = results.filter((r) => r.similarity === 1.0);
 			if (exactMatches.length === 1) {
 				const result = exactMatches[0];
-				if (result.__typename === "UserSearchResult") {
-					goto(`/${result.user.username}`);
-				} else if (result.__typename === "CategorySearchResult") {
-					goto(`/categories/${result.category.name.toLowerCase()}`);
+				if (result.object.__typename === "User") {
+					goto(`/${result.object.username}`);
+					e.preventDefault();
+					clearTimeout(timeout);
+					closed = true;
+				} else if (result.object.__typename === "Category") {
+					goto(`/categories/${result.object.name.toLowerCase()}`);
+					e.preventDefault();
+					clearTimeout(timeout);
+					closed = true;
 				}
 			}
-			e.preventDefault();
 		}
 	}
 
 	const client = getContextClient();
 
-	function searchQuery(query: string) {
-		console.log("Searching for", query);
-		return client
-			.query(
-				graphql(`
-					query Search($query: String!) {
-						results: search(query: $query) {
-							users {
-								similarity
-								user {
-									id
-									username
-									displayName
-									displayColor {
-										color
-										hue
-										isGray
-									}
-									channel {
-										title
-										liveViewerCount
-										category {
-											name
-										}
-									}
-								}
-							}
-							categories {
-								similarity
-								category {
-									name
-								}
-							}
-						}
-					}
-				`),
-				{ query },
-				{ requestPolicy: "network-only" },
-			)
-			.toPromise();
-	}
-
-	type SearchResults = Exclude<
-		Awaited<ReturnType<typeof searchQuery>>["data"],
-		undefined
-	>["results"];
-	type UserResult = SearchResults["users"][number];
-	type CategoryResult = SearchResults["categories"][number];
-
 	let queryInput: HTMLInputElement;
 	let query = "";
 
 	let timeout: NodeJS.Timeout | number;
-	let results: (UserResult | CategoryResult)[] | undefined;
+	let results: SearchResult[] | undefined;
 	let closed = false;
 
 	function search(query: string) {
 		clearTimeout(timeout);
 		timeout = setTimeout(() => {
 			if (query) {
-				searchQuery(query).then((res) => {
+				searchQuery(client, query).then((res) => {
 					closed = false;
 					if (res.data) {
-						results = [...res.data.results.users, ...res.data.results.categories];
-						results.sort((a, b) => {
-							if (a.similarity > b.similarity) return -1;
-							if (a.similarity < b.similarity) return 1;
-							return 0;
-						});
+						results = res.data.resp.results as SearchResult[];
 					}
 				});
 			} else {
@@ -120,7 +73,7 @@
 			<input
 				name="q"
 				type="text"
-				placeholder="SEARCH"
+				placeholder="Search"
 				autocomplete="off"
 				bind:this={queryInput}
 				bind:value={query}
@@ -136,46 +89,10 @@
 			<ul class="results">
 				{#each results as result}
 					<li>
-						{#if result.__typename === "UserSearchResult"}
-							<a on:click={() => (closed = true)} href="/{result.user.username}">
-								<div class="avatar">
-									<DefaultAvatar
-										userId={result.user.id}
-										displayColor={result.user.displayColor}
-										size={2.5 * 16}
-									/>
-								</div>
-								<div class="text-container">
-									<span class="name">
-										<span class:offline={typeof result.user.channel.liveViewerCount !== "number"}
-											>{result.user.displayName}</span
-										>
-										{#if typeof result.user.channel.liveViewerCount === "number" && result.user.channel.category?.name}
-											<span class="category">• {result.user.channel.category.name}</span>
-										{/if}
-									</span>
-									{#if typeof result.user.channel.liveViewerCount === "number" && result.user.channel.title}
-										<span class="title">{result.user.channel.title}</span>
-									{/if}
-								</div>
-								{#if typeof result.user.channel.liveViewerCount === "number"}
-									<span class="live-viewers"
-										>{viewersToString(result.user.channel.liveViewerCount)}</span
-									>
-								{/if}
-							</a>
-						{:else if result.__typename === "CategorySearchResult"}
-							<a
-								on:click={() => (closed = true)}
-								href="/categories/{result.category.name.toLowerCase()}"
-							>
-								<div class="avatar">
-									<img src="/categories/minecraft.png" alt="Category banner" />
-								</div>
-								<div class="text-container">
-									<span class="name">{result.category.name}</span>
-								</div>
-							</a>
+						{#if result.object.__typename === "User"}
+							<User user={result.object} on:close={() => (closed = true)} />
+						{:else if result.object.__typename === "Category"}
+							<Category category={result.object} on:close={() => (closed = true)} />
 						{/if}
 					</li>
 				{/each}
@@ -266,91 +183,5 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-
-		a {
-			color: $textColor;
-			text-decoration: none;
-			padding: 0.5rem;
-
-			display: flex;
-			gap: 0.5rem;
-			align-items: center;
-
-			border-radius: 0.25rem;
-			background-color: $bgColor;
-
-			transition: background-color 0.2s;
-
-			&:hover,
-			&:focus-visible {
-				background-color: $bgColorLight;
-			}
-
-			.avatar {
-				display: flex;
-				justify-content: center;
-				width: 2.5rem;
-				height: 2.5rem;
-
-				& > img {
-					height: 100%;
-				}
-			}
-
-			.text-container {
-				flex-grow: 1;
-
-				display: flex;
-				flex-direction: column;
-				justify-content: center;
-				gap: 0.4rem;
-
-				overflow: hidden;
-			}
-
-			.name,
-			.title {
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-			}
-
-			.name {
-				color: $textColor;
-				font-size: 1rem;
-				font-weight: 500;
-			}
-
-			.title,
-			.category {
-				color: $textColorLight;
-				font-size: 0.865rem;
-				font-weight: 500;
-			}
-
-			.live-viewers {
-				font-size: 0.865rem;
-				font-weight: 500;
-
-				margin-right: 0.2rem;
-
-				white-space: nowrap;
-
-				&::before {
-					content: "";
-					display: inline-block;
-					width: 0.4rem;
-					height: 0.4rem;
-					background-color: $liveColor;
-					border-radius: 50%;
-					margin-right: 0.4rem;
-					margin-bottom: 0.1rem;
-				}
-			}
-
-			.offline {
-				color: $textColorLight;
-			}
-		}
 	}
 </style>

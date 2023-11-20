@@ -1,21 +1,19 @@
 use common::dataloader::DataLoader;
 
 use crate::config::{ApiConfig, JwtConfig, TurnstileConfig};
-use crate::dataloader::category::{CategoryByIdLoader, CategorySearchLoader};
+use crate::dataloader::category::CategoryByIdLoader;
 use crate::dataloader::global_state::GlobalStateLoader;
 use crate::dataloader::role::RoleByIdLoader;
 use crate::dataloader::session::SessionByIdLoader;
-use crate::dataloader::user::{UserByIdLoader, UserByUsernameLoader, UserSearchLoader};
+use crate::dataloader::user::{UserByIdLoader, UserByUsernameLoader};
 use crate::subscription::SubscriptionManager;
 
 pub trait ApiState {
 	fn user_by_username_loader(&self) -> &DataLoader<UserByUsernameLoader>;
 	fn user_by_id_loader(&self) -> &DataLoader<UserByIdLoader>;
-	fn user_search_loader(&self) -> &DataLoader<UserSearchLoader>;
 	fn session_by_id_loader(&self) -> &DataLoader<SessionByIdLoader>;
 	fn role_by_id_loader(&self) -> &DataLoader<RoleByIdLoader>;
 	fn category_by_id_loader(&self) -> &DataLoader<CategoryByIdLoader>;
-	fn category_search_loader(&self) -> &DataLoader<CategorySearchLoader>;
 	fn global_state_loader(&self) -> &DataLoader<GlobalStateLoader>;
 
 	fn subscription_manager(&self) -> &SubscriptionManager;

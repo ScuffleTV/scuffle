@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Sadge from "$/components/sadge.svelte";
 	import { page } from "$app/stores";
 
 	let title = $page.error?.message ?? "Error";
@@ -9,7 +10,7 @@
 </svelte:head>
 
 <div class="container">
-	<img src="/Sadge.webp" alt="Sadge" />
+	<Sadge />
 	<h1>{title}</h1>
 	<span>
 		{#if $page.status === 401}
@@ -45,10 +46,6 @@
 		text-align: center;
 
 		font-size: 1.5rem;
-	}
-
-	img {
-		filter: saturate(0) opacity(0.5);
 	}
 
 	a {

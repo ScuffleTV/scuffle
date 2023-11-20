@@ -5,7 +5,7 @@ use common::dataloader::{DataLoader, Loader, LoaderOutput};
 use ulid::Ulid;
 use uuid::Uuid;
 
-use crate::database::{SearchResult, User};
+use crate::database::User;
 
 pub struct UserByUsernameLoader {
 	db: Arc<sqlx::PgPool>,
@@ -71,43 +71,6 @@ impl Loader for UserByIdLoader {
 
 		for result in results {
 			map.insert(result.id.0, result);
-		}
-
-		Ok(map)
-	}
-}
-
-pub struct UserSearchLoader {
-	db: Arc<sqlx::PgPool>,
-}
-
-impl UserSearchLoader {
-	pub fn new(db: Arc<sqlx::PgPool>) -> DataLoader<Self> {
-		DataLoader::new(Self { db })
-	}
-}
-
-#[async_trait::async_trait]
-impl Loader for UserSearchLoader {
-	type Error = ();
-	type Key = String;
-	type Value = Vec<SearchResult<User>>;
-
-	async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
-		let mut map = HashMap::new();
-
-		for key in keys {
-			let results: Self::Value = sqlx::query_as(
-				"SELECT users.*, similarity(username, $1) FROM users WHERE username % $1 ORDER BY similarity DESC LIMIT 5",
-			)
-			.bind(key)
-			.fetch_all(self.db.as_ref())
-			.await
-			.map_err(|e| {
-				tracing::error!(err = %e, "failed to fetch users by search");
-			})?;
-
-			map.insert(key.clone(), results);
 		}
 
 		Ok(map)

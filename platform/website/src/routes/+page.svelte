@@ -7,110 +7,172 @@
 	import Logo from "$/components/icons/logo.svelte";
 	import { onMount } from "svelte";
 	import { PUBLIC_ASSET_BASE_URL } from "$env/static/public";
+	import type { User } from "$/gql/graphql";
+	import ShowMore from "$/components/show-more.svelte";
 
 	// We should always load 13 previews because that means that we show 12 previews in the "How about this?" section
 	// 12 is a nice number because it's divisible by 2, 3, 4, and 6 which means that it fills all rows in the grid layout most of the time.
 	const streamPreviews = [
 		{
-			streamer: "TroyKomodo",
-			title: "working on https://github.com/ScuffleTV/scuffle",
-			tags: ["Programming", "English"],
-			viewers: 1,
+			user: {
+				id: "01H8WMQ6EPH7YFM1PQTJF81TT7",
+				username: "troykomodo",
+				displayName: "TroyKomodo",
+				channel: {
+					title: "working on https://github.com/ScuffleTV/scuffle",
+					liveViewerCount: 1,
+				},
+			},
 			avatar:
 				"https://static-cdn.jtvnw.net/jtv_user_pictures/3773bfdd-110b-4911-b914-6f04362a1331-profile_image-70x70.png",
 			preview: "/troykomodo-preview.png",
 		},
 		{
-			streamer: "BTSSmash",
-			title: "RERUN: Sparg0 vs MuteAce - Group B Ultimate Summit 6 - SSBU Singles | Cloud vs Peach",
-			tags: ["Just Chatting", "English", "reacts", "memes"],
-			viewers: 1100,
+			user: {
+				id: "01H8WMQ6EPH7YFM1PQTJF81TT7",
+				username: "btssmash",
+				displayName: "BTSSmash",
+				channel: {
+					title:
+						"RERUN: Sparg0 vs MuteAce - Group B Ultimate Summit 6 - SSBU Singles | Cloud vs Peach",
+					liveViewerCount: 1100,
+				},
+			},
 			avatar:
 				"https://static-cdn.jtvnw.net/jtv_user_pictures/ffdc21f2-f4f9-4ee7-b94d-d7b87df7edc3-profile_image-70x70.jpg",
 			preview: "/btssmash-preview.png",
 		},
 		{
-			streamer: "xQc",
-			title: "LIVE👏CLICK👏NOW👏DRAMA👏NEWS👏PAGMAN",
-			tags: ["Minecraft", "LGBTQ+", "NoDamage"],
-			viewers: 75300,
+			user: {
+				id: "01H8WMQ6EPH7YFM1PQTJF81TT7",
+				username: "xqc",
+				displayName: "xQc",
+				channel: {
+					title: "LIVE👏CLICK👏NOW👏DRAMA👏NEWS👏PAGMAN",
+					liveViewerCount: 75300,
+				},
+			},
 			avatar:
 				"https://static-cdn.jtvnw.net/jtv_user_pictures/xqc-profile_image-9298dca608632101-300x300.jpeg",
 			preview: "/xqc-preview.png",
 		},
 		{
-			streamer: "PewDiePie",
-			title: "Enjoy @PewDiePie ∞  Stream (See link in description of latest video for PROOF)",
-			tags: ["English"],
-			viewers: 1_200_000,
+			user: {
+				id: "01H8WMQ6EPH7YFM1PQTJF81TT7",
+				username: "pewdiepie",
+				displayName: "PewDiePie",
+				channel: {
+					title: "Enjoy @PewDiePie ∞  Stream (See link in description of latest video for PROOF)",
+					liveViewerCount: 1_200_000,
+				},
+			},
 			avatar:
 				"https://cdn.7tv.app/user/641c5678d9a6d799492574c9/av_643efce7400b6139d0908507/2x.webp",
 			preview: "/pewdiepie-preview.png",
 		},
 		{
-			streamer: "Bob Ross",
-			title: "A Happy Little Weekend Marathon! - The Joy of Painting with Bob Ross",
-			tags: ["English", "Painting", "ASMR"],
-			viewers: 1_200_000,
+			user: {
+				id: "01H8WMQ6EPH7YFM1PQTJF81TT7",
+				username: "bobross",
+				displayName: "Bob Ross",
+				channel: {
+					title: "A Happy Little Weekend Marathon! - The Joy of Painting with Bob Ross",
+					liveViewerCount: 1_200_000,
+				},
+			},
 			avatar:
 				"https://static-cdn.jtvnw.net/jtv_user_pictures/bobross-profile_image-0b9dd167a9bb16b5-70x70.jpeg",
 			preview: "/bobross-preview.png",
 		},
 		{
-			streamer: "Ottomated",
-			title: "Ludwig told me to re-make Steam from scratch...",
-			tags: ["Programming", "English", "React", "NodeJS"],
-			viewers: 1,
+			user: {
+				id: "01H8WMQ6EPH7YFM1PQTJF81TT7",
+				username: "ottomated",
+				displayName: "Ottomated",
+				channel: {
+					title: "Ludwig told me to re-make Steam from scratch...",
+					liveViewerCount: 1,
+				},
+			},
 			avatar:
 				"https://static-cdn.jtvnw.net/jtv_user_pictures/d8c28a0b-c232-4c46-88e9-87b14c29eeb0-profile_image-70x70.png",
 			preview: "/ottomated-preview.png",
 		},
 		{
-			streamer: "Supinic",
-			title: "super secret smol sunday stream",
-			tags: ["Just Chatting", "English"],
-			viewers: 1100,
+			user: {
+				id: "01H8WMQ6EPH7YFM1PQTJF81TT7",
+				username: "supinic",
+				displayName: "Supinic",
+				channel: {
+					title: "super secret smol sunday stream",
+					liveViewerCount: 1100,
+				},
+			},
 			avatar:
 				"https://static-cdn.jtvnw.net/jtv_user_pictures/supinic-profile_image-310328b1ff949bf8-70x70.png",
 			preview: "/supinic-preview.png",
 		},
 		{
-			streamer: "NymN",
-			title: "PotFriend Fan Club | !twitter !pobox !youtube",
-			tags: ["Just Chatting", "English", "reacts", "memes"],
-			viewers: 1100,
+			user: {
+				id: "01H8WMQ6EPH7YFM1PQTJF81TT7",
+				username: "nymn",
+				displayName: "NymN",
+				channel: {
+					title: "PotFriend Fan Club | !twitter !pobox !youtube",
+					liveViewerCount: 1100,
+				},
+			},
 			avatar:
 				"https://static-cdn.jtvnw.net/jtv_user_pictures/nymn-profile_image-d52821b50793580f-300x300.jpeg",
 			preview: "/nymn-preview.png",
 		},
 		{
-			streamer: "realSport",
-			title: "REAL SPORTS WITH BRYANT GUMBEL",
-			tags: ["Sport", "Chinese", "Hockey", "Baseball"],
-			viewers: 1_200_000,
+			user: {
+				id: "01H8WMQ6EPH7YFM1PQTJF81TT7",
+				username: "realsport",
+				displayName: "realSport",
+				channel: {
+					title: "REAL SPORTS WITH BRYANT GUMBEL",
+					liveViewerCount: 1_200_000,
+				},
+			},
 			avatar:
 				"https://static-cdn.jtvnw.net/jtv_user_pictures/4a1b51a9-0094-4cb8-bdf4-dba7c7e64dea-profile_image-300x300.png",
 			preview: "/realsport-preview.png",
 		},
 		{
-			streamer: "rainbolt",
-			title: "GEOGUESSER WITH CHAT",
-			tags: ["Geoguesser", "English", "interact", "bigbrain"],
-			viewers: 100,
+			user: {
+				id: "01H8WMQ6EPH7YFM1PQTJF81TT7",
+				username: "rainbolt",
+				displayName: "rainbolt",
+				channel: {
+					title: "GEOGUESSER WITH CHAT",
+					liveViewerCount: 100,
+				},
+			},
 			avatar:
 				"https://static-cdn.jtvnw.net/jtv_user_pictures/1310788d-3ea3-488a-8d77-5585a97dfe90-profile_image-300x300.png",
 			preview: "/rainbolt-preview.png",
 		},
 		{
-			streamer: "AMOURANTH",
-			title: "🟢--DROPS ON--🔥 + COSPLAY! 💦 ! s--> my fun links",
-			tags: ["Just Chatting", "English", "reacts", "memes"],
-			viewers: 1100,
+			user: {
+				id: "01H8WMQ6EPH7YFM1PQTJF81TT7",
+				username: "amouranth",
+				displayName: "AMOURANTH",
+				channel: {
+					title: "🟢--DROPS ON--🔥 + COSPLAY! 💦 ! s--> my fun links",
+					liveViewerCount: 1100,
+				},
+			},
 			avatar:
 				"https://static-cdn.jtvnw.net/jtv_user_pictures/7f349bf3-ada7-4486-a0f1-a6e055b68fca-profile_image-70x70.png",
 			preview: "/amouranth-preview.png",
 		},
-	];
+	] as {
+		user: User;
+		avatar: string;
+		preview: string;
+	}[];
 
 	const categories = [
 		{
@@ -269,7 +331,12 @@
 <div class="content" aria-label="Page content">
 	<div class="bg-gradient"></div>
 
-	<BigStreamPreview {...streamPreviews[0]} id="01H8WMQ6EPH7YFM1PQTJF81TT7" />
+	<BigStreamPreview
+		user={streamPreviews[0].user}
+		avatar={streamPreviews[0].avatar}
+		preview={streamPreviews[0].preview}
+		tags={["sometag"]}
+	/>
 
 	<div class="container hbt-container">
 		<h2 class="title" id="hbt-title">How about this?</h2>
@@ -277,11 +344,19 @@
 			{#each streamPreviews.slice(1) as preview, i}
 				{#if i === 0}
 					<article bind:offsetWidth={previewWidth}>
-						<SmallStreamPreview {...preview} />
+						<SmallStreamPreview
+							user={preview.user}
+							avatar={preview.avatar}
+							preview={preview.preview}
+						/>
 					</article>
 				{:else}
 					<article>
-						<SmallStreamPreview {...preview} />
+						<SmallStreamPreview
+							user={preview.user}
+							avatar={preview.avatar}
+							preview={preview.preview}
+						/>
 					</article>
 				{/if}
 			{/each}
@@ -294,11 +369,7 @@
 				<span>Go live to appear here</span>
 			</article>
 		</section>
-		<button class="show-more">
-			<h4>show more</h4>
-			<Fa icon={faChevronDown} />
-			<hr />
-		</button>
+		<ShowMore />
 	</div>
 
 	<div class="container categories-container">
@@ -382,34 +453,6 @@
 			&.hbt-container {
 				padding: 0 1rem;
 			}
-		}
-	}
-
-	.show-more {
-		width: 100%;
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		cursor: pointer;
-		color: $primaryColor;
-
-		margin-top: 0.5rem;
-
-		&:hover,
-		&:focus-visible {
-			color: $primaryColorLight;
-		}
-
-		& > h4 {
-			margin: 0;
-			font-size: 0.95rem;
-			font-weight: 400;
-		}
-
-		& > hr {
-			border-style: solid;
-			flex-grow: 1;
-			color: $bgColorLight;
 		}
 	}
 

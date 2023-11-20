@@ -8,11 +8,11 @@ use common::context::Context;
 use common::dataloader::DataLoader;
 use common::global::*;
 use platform_api::config::{ApiConfig, JwtConfig, TurnstileConfig};
-use platform_api::dataloader::category::{CategoryByIdLoader, CategorySearchLoader};
+use platform_api::dataloader::category::CategoryByIdLoader;
 use platform_api::dataloader::global_state::GlobalStateLoader;
 use platform_api::dataloader::role::RoleByIdLoader;
 use platform_api::dataloader::session::SessionByIdLoader;
-use platform_api::dataloader::user::{UserByIdLoader, UserByUsernameLoader, UserSearchLoader};
+use platform_api::dataloader::user::{UserByIdLoader, UserByUsernameLoader};
 use platform_api::subscription::SubscriptionManager;
 use tokio::select;
 
@@ -69,13 +69,11 @@ struct GlobalState {
 	db: Arc<sqlx::PgPool>,
 
 	category_by_id_loader: DataLoader<CategoryByIdLoader>,
-	category_search_loader: DataLoader<CategorySearchLoader>,
 	global_state_loader: DataLoader<GlobalStateLoader>,
 	role_by_id_loader: DataLoader<RoleByIdLoader>,
 	session_by_id_loader: DataLoader<SessionByIdLoader>,
 	user_by_id_loader: DataLoader<UserByIdLoader>,
 	user_by_username_loader: DataLoader<UserByUsernameLoader>,
-	user_search_loader: DataLoader<UserSearchLoader>,
 
 	subscription_manager: SubscriptionManager,
 }
@@ -108,10 +106,6 @@ impl platform_api::global::ApiState for GlobalState {
 		&self.category_by_id_loader
 	}
 
-	fn category_search_loader(&self) -> &DataLoader<CategorySearchLoader> {
-		&self.category_search_loader
-	}
-
 	fn global_state_loader(&self) -> &DataLoader<GlobalStateLoader> {
 		&self.global_state_loader
 	}
@@ -132,10 +126,6 @@ impl platform_api::global::ApiState for GlobalState {
 		&self.user_by_username_loader
 	}
 
-	fn user_search_loader(&self) -> &DataLoader<UserSearchLoader> {
-		&self.user_search_loader
-	}
-
 	fn subscription_manager(&self) -> &SubscriptionManager {
 		&self.subscription_manager
 	}
@@ -148,13 +138,11 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 		let db = setup_database(&config.database).await?;
 
 		let category_by_id_loader = CategoryByIdLoader::new(db.clone());
-		let category_search_loader = CategorySearchLoader::new(db.clone());
 		let global_state_loader = GlobalStateLoader::new(db.clone());
 		let role_by_id_loader = RoleByIdLoader::new(db.clone());
 		let session_by_id_loader = SessionByIdLoader::new(db.clone());
 		let user_by_id_loader = UserByIdLoader::new(db.clone());
 		let user_by_username_loader = UserByUsernameLoader::new(db.clone());
-		let user_search_loader = UserSearchLoader::new(db.clone());
 
 		let subscription_manager = SubscriptionManager::default();
 
@@ -165,13 +153,11 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			jetstream,
 			db,
 			category_by_id_loader,
-			category_search_loader,
 			global_state_loader,
 			role_by_id_loader,
 			session_by_id_loader,
 			user_by_id_loader,
 			user_by_username_loader,
-			user_search_loader,
 			subscription_manager,
 		})
 	}

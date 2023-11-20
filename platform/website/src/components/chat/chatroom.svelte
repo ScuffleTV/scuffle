@@ -72,7 +72,7 @@
 
 	async function sendMessageInner(message: string) {
 		const response = await client
-			.mutation(newMessageQuery, { channelId, content: message })
+			.mutation(newMessageQuery, { channelId, content: message }, { requestPolicy: "network-only" })
 			.toPromise();
 		if (response.error) {
 			// TODO: Failed to send message

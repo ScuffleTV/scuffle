@@ -6,25 +6,8 @@ use super::date::DateRFC3339;
 use super::ulid::GqlUlid;
 use crate::api::v1::gql::error::Result;
 use crate::api::v1::gql::guards::auth_guard;
-use crate::database::{
-	SearchResult, {self},
-};
+use crate::database;
 use crate::global::ApiGlobal;
-
-#[derive(SimpleObject, Clone)]
-pub struct UserSearchResult<G: ApiGlobal> {
-	user: User<G>,
-	similarity: f64,
-}
-
-impl<G: ApiGlobal> From<SearchResult<database::User>> for UserSearchResult<G> {
-	fn from(value: SearchResult<database::User>) -> Self {
-		Self {
-			user: value.object.into(),
-			similarity: value.similarity,
-		}
-	}
-}
 
 #[derive(SimpleObject, Clone)]
 #[graphql(complex)]

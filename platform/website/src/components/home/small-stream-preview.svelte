@@ -1,12 +1,17 @@
 <script lang="ts">
+	import type { User } from "$/gql/graphql";
 	import { viewersToString } from "$/lib/utils";
 	import Player from "../player.svelte";
 
-	export let streamer: string;
-	export let title: string;
-	export let viewers: number;
+	// export let streamer: string;
+	// export let title: string;
+	// export let viewers: number;
 	export let avatar: string;
 	export let preview: string;
+
+	export let user: User;
+
+	$: viewers = viewersToString(user.channel.liveViewerCount ?? 0, true);
 
 	let timeout: number | NodeJS.Timeout;
 	let focused: boolean = false;
@@ -26,12 +31,12 @@
 
 <a
 	class="preview"
-	href="/{streamer}"
+	href="/{user.username}"
 	on:mouseenter={onFocus}
 	on:mouseleave={onBlur}
 	on:focus={onFocus}
 	on:blur={onBlur}
-	aria-label="{streamer} streaming {title} with {viewersToString(viewers, true)}"
+	aria-label="{user.displayName} streaming {user.channel.title} with {viewers}"
 >
 	{#if focused}
 		<div class="video">
@@ -40,12 +45,12 @@
 	{:else}
 		<img src={preview} alt="Stream Thumbnail" class="thumbnail" />
 	{/if}
-	<img src={avatar} alt="{streamer}'s avatar" class="avatar" />
+	<img src={avatar} alt="{user.displayName}'s avatar" class="avatar" />
 	<div class="text-container">
-		<span class="title">{title}</span>
-		<span class="name">{streamer}</span>
+		<span class="title">{user.channel.title}</span>
+		<span class="name">{user.displayName}</span>
 	</div>
-	<span class="viewers">{viewersToString(viewers, true)}</span>
+	<span class="viewers">{viewers}</span>
 </a>
 
 <style lang="scss">
@@ -65,13 +70,21 @@
 		grid-template-rows: auto auto auto;
 		grid-template-columns: auto 1fr;
 		gap: 0.5rem;
+
+		border-radius: 0.5rem;
+		padding: 0.5rem;
+		transition: background-color 0.2s;
+
+		&:hover {
+			background-color: $bgColorLight;
+		}
 	}
 
 	.viewers {
 		position: absolute;
 
-		top: 0.5rem;
-		left: 0;
+		top: 1rem;
+		left: 0.5rem;
 
 		font-size: 0.875rem;
 		background-color: rgba(0, 0, 0, 0.5);

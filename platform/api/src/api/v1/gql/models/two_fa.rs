@@ -1,8 +1,8 @@
 use async_graphql::{SimpleObject, Union};
 
+use super::session::Session;
 use super::ulid::GqlUlid;
-use crate::api::v1::gql::models::session::Session;
-use crate::api::v1::gql::models::user::User;
+use super::user::User;
 use crate::global::ApiGlobal;
 
 #[derive(Clone, SimpleObject)]

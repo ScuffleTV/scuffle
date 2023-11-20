@@ -16,7 +16,8 @@ type AuthMutation {
 		id: ULID!
 	): TwoFaRequestFulfillResponse
 	"""
-	Login using a username and password. If via websocket this will authenticate the websocket connection.
+	Login using a username and password. If via websocket this will
+	authenticate the websocket connection.
 	"""
 	login(
 		"""
@@ -41,7 +42,8 @@ type AuthMutation {
 		validity: Int
 	): LoginResponse!
 	"""
-	Login with a session token. If via websocket this will authenticate the websocket connection.
+	Login with a session token. If via websocket this will authenticate the
+	websocket connection.
 	"""
 	loginWithToken(
 		"""
@@ -54,7 +56,8 @@ type AuthMutation {
 		updateContext: Boolean
 	): Session!
 	"""
-	Logout the user with the given session token. This will invalidate the session token.
+	Logout the user with the given session token. This will invalidate the
+	session token.
 	"""
 	logout(
 		"""
@@ -63,7 +66,8 @@ type AuthMutation {
 		sessionToken: String
 	): Boolean!
 	"""
-	If successful will return a new session for the account which just got created.
+	If successful will return a new session for the account which just got
+	created.
 	"""
 	register(
 		"""
@@ -109,15 +113,28 @@ type CategoryQuery {
 	): Category
 	searchByName(
 		"""
+		The result limit, default: 5
+		"""
+		limit: Int
+		"""
+		The result offset, default: 0
+		"""
+		offset: Int
+		"""
 		The search query.
 		"""
 		query: String!
-	): [CategorySearchResult!]!
+	): CategorySearchResults!
 }
 
 type CategorySearchResult {
-	category: Category!
+	object: Category!
 	similarity: Float!
+}
+
+type CategorySearchResults {
+	results: [CategorySearchResult!]!
+	totalCount: Int!
 }
 
 union ChangePasswordResponse = TwoFaRequest | User
@@ -216,16 +233,31 @@ type Query {
 	category: CategoryQuery!
 	search(
 		"""
+		The result limit, default: 5
+		"""
+		limit: Int
+		"""
+		The result offset, default: 0
+		"""
+		offset: Int
+		"""
 		The search query.
 		"""
 		query: String!
-	): SearchResults!
+	): SearchAllResults!
 	user: UserQuery!
 }
 
-type SearchResults {
-	categories: [CategorySearchResult!]!
-	users: [UserSearchResult!]!
+union SearchAllResultData = Category | User
+
+type SearchAllResults {
+	results: [SearchResult!]!
+	totalCount: Int!
+}
+
+type SearchResult {
+	object: SearchAllResultData!
+	similarity: Float!
 }
 
 type Session {
@@ -409,10 +441,18 @@ type UserQuery {
 	isFollowing(channelId: ULID!): Boolean!
 	searchByUsername(
 		"""
+		The result limit, default: 5
+		"""
+		limit: Int
+		"""
+		The result offset, default: 0
+		"""
+		offset: Int
+		"""
 		The search query.
 		"""
 		query: String!
-	): [UserSearchResult!]!
+	): UserSearchResults!
 	"""
 	Get the user of the current context(session)
 	"""
@@ -420,8 +460,13 @@ type UserQuery {
 }
 
 type UserSearchResult {
+	object: User!
 	similarity: Float!
-	user: User!
+}
+
+type UserSearchResults {
+	results: [UserSearchResult!]!
+	totalCount: Int!
 }
 
 extend schema

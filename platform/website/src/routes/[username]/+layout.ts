@@ -42,6 +42,7 @@ export async function load({ params, parent }: LayoutLoadEvent) {
 			{
 				username: params.username,
 			},
+			{ requestPolicy: "network-only" },
 		)
 		.toPromise();
 
@@ -70,6 +71,7 @@ export async function load({ params, parent }: LayoutLoadEvent) {
 					}
 				`),
 				{ channelId: res.data.user.user.id },
+				{ requestPolicy: "network-only" },
 			)
 			.toPromise();
 

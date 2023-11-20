@@ -2,24 +2,7 @@ use async_graphql::SimpleObject;
 
 use super::date::DateRFC3339;
 use super::ulid::GqlUlid;
-use crate::database::{
-	SearchResult, {self},
-};
-
-#[derive(SimpleObject, Clone)]
-pub struct CategorySearchResult {
-	category: Category,
-	similarity: f64,
-}
-
-impl From<SearchResult<database::Category>> for CategorySearchResult {
-	fn from(value: SearchResult<database::Category>) -> Self {
-		Self {
-			category: value.object.into(),
-			similarity: value.similarity,
-		}
-	}
-}
+use crate::database;
 
 #[derive(SimpleObject, Clone)]
 pub struct Category {

@@ -1,11 +1,13 @@
-use async_graphql::{Context, Object};
+use async_graphql::{Context, Object, SimpleObject};
 
 use crate::api::auth::AuthError;
 use crate::api::v1::gql::error::ext::*;
 use crate::api::v1::gql::error::{GqlError, Result};
 use crate::api::v1::gql::ext::ContextExt;
+use crate::api::v1::gql::models;
+use crate::api::v1::gql::models::search_result::SearchResult;
 use crate::api::v1::gql::models::ulid::GqlUlid;
-use crate::api::v1::gql::models::{self};
+use crate::api::v1::gql::models::user::User;
 use crate::database;
 use crate::global::ApiGlobal;
 
@@ -15,6 +17,22 @@ pub struct UserQuery<G: ApiGlobal>(std::marker::PhantomData<G>);
 impl<G: ApiGlobal> Default for UserQuery<G> {
 	fn default() -> Self {
 		Self(std::marker::PhantomData)
+	}
+}
+
+#[derive(SimpleObject)]
+struct UserSearchResults<G: ApiGlobal> {
+	results: Vec<SearchResult<User<G>>>,
+	total_count: u32,
+}
+
+impl<G: ApiGlobal> From<Vec<database::SearchResult<database::User>>> for UserSearchResults<G> {
+	fn from(value: Vec<database::SearchResult<database::User>>) -> Self {
+		let total_count = value.first().map(|r| r.total_count).unwrap_or(0) as u32;
+		Self {
+			results: value.into_iter().map(Into::into).collect(),
+			total_count,
+		}
 	}
 }
 
@@ -76,17 +94,20 @@ impl<G: ApiGlobal> UserQuery<G> {
 		&self,
 		ctx: &Context<'_>,
 		#[graphql(desc = "The search query.")] query: String,
-	) -> Result<Vec<models::user::UserSearchResult<G>>> {
+		#[graphql(desc = "The result limit, default: 5", validator(minimum = 0, maximum = 50))] limit: Option<i32>,
+		#[graphql(desc = "The result offset, default: 0", validator(minimum = 0, maximum = 950))] offset: Option<i32>,
+	) -> Result<UserSearchResults<G>> {
 		let global = ctx.get_global::<G>();
 
-		let users = global
-			.user_search_loader()
-			.load(query)
+		let users: Vec<database::SearchResult<database::User>> = sqlx::query_as("SELECT users.*, similarity(username, $1), COUNT(*) OVER() AS total_count FROM users WHERE username % $1 ORDER BY similarity DESC LIMIT $2 OFFSET $3")
+			.bind(query)
+			.bind(limit.unwrap_or(5))
+			.bind(offset.unwrap_or(0))
+			.fetch_all(global.db().as_ref())
 			.await
-			.map_err_ignored_gql("failed to search users")?
 			.map_err_gql("failed to search users")?;
 
-		Ok(users.into_iter().map(Into::into).collect())
+		Ok(users.into())
 	}
 
 	/// Get if the current user is following a given channel
@@ -135,16 +156,16 @@ impl<G: ApiGlobal> UserQuery<G> {
 		// This query is not very good, we should have some paging mechinsm with ids.
 		let channels: Vec<database::User> = sqlx::query_as(
 			r#"
-			SELECT 
+			SELECT
 				users.*
-			FROM 
-				channel_user 
+			FROM
+				channel_user
 			INNER JOIN
-				users 
-			ON 
-				users.id = channel_user.channel_id 
-			WHERE 
-				channel_user.user_id = $1 
+				users
+			ON
+				users.id = channel_user.channel_id
+			WHERE
+				channel_user.user_id = $1
 				AND channel_user.following = true
 			ORDER BY
 				users.channel_live_viewer_count DESC,

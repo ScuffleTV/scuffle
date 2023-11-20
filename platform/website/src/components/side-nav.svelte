@@ -40,6 +40,7 @@
 					}
 				`),
 				{ userId, limit },
+				{ requestPolicy: "network-only" },
 			)
 			.toPromise();
 

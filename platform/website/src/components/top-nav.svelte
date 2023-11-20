@@ -27,8 +27,7 @@
 	}
 
 	function onLogoutClick() {
-		logout(client);
-		$sessionToken = null;
+		logout(client, $sessionToken).then(() => ($sessionToken = null));
 	}
 
 	function toggleSideNav() {

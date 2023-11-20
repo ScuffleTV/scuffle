@@ -5,11 +5,9 @@
 	import Messages, { ChatStatus } from "../chat/messages.svelte";
 	import { writable } from "svelte/store";
 	import Player from "../player.svelte";
+	import type { User } from "$/gql/graphql";
 
-	export let id: string;
-	export let streamer: string;
-	export let title: string;
-	export let viewers: number;
+	export let user: User;
 	export let avatar: string;
 	export let preview: string;
 	export let tags: string[];
@@ -17,29 +15,28 @@
 	let chatStatus = writable(ChatStatus.Connecting);
 	let playing = false;
 
+	$: viewers = viewersToString(user.channel.liveViewerCount ?? 0, true);
+
 	function onPlayClick() {
 		playing = true;
 	}
 </script>
 
-<div
-	class="preview"
-	aria-label="{streamer} streaming {title} with {viewersToString(viewers, true)}"
->
+<div class="preview" aria-label="{user.displayName} streaming {user.channel.title} with {viewers}">
 	<div class="stream-info">
-		<a class="user" href="/{streamer}">
+		<a class="user" href="/{user.username}">
 			<img src={avatar} alt="User Avatar" />
-			<h2>{streamer}</h2>
+			<h2>{user.displayName}</h2>
 		</a>
-		<a class="title" href="/{streamer}">{title}</a>
+		<a class="title" href="/{user.username}">{user.channel.title}</a>
 		<div class="tags">
 			{#each tags as tag}
 				<Tag content={tag} />
 			{/each}
 		</div>
-		<span class="viewers">{viewersToString(viewers, true)}</span>
+		<span class="viewers">{viewers}</span>
 	</div>
-	<a class="video" href="/{streamer}">
+	<a class="video" href="/{user.username}">
 		{#if playing}
 			<Player
 				streamId={"00000000-0000-0000-0000-000000000000"}
@@ -56,7 +53,7 @@
 		{/if}
 	</a>
 	<div class="messages">
-		<Messages channelId={id} {chatStatus} onlyUserMessages />
+		<Messages channelId={user.id} {chatStatus} onlyUserMessages />
 	</div>
 </div>
 

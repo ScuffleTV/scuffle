@@ -43,7 +43,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 		let global = ctx.get_global::<G>();
 		let auth = ctx
 			.get_req_context()
-			.auth()
+			.auth(global)
 			.await?
 			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
@@ -115,7 +115,10 @@ impl<G: ApiGlobal> UserQuery<G> {
 		let global = ctx.get_global::<G>();
 		let request_context = ctx.get_req_context();
 
-		let auth = request_context.auth().await?.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
+		let auth = request_context
+			.auth(global)
+			.await?
+			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
 		let (is_following,): (bool,) = sqlx::query_as(
 			r#"
@@ -146,7 +149,10 @@ impl<G: ApiGlobal> UserQuery<G> {
 		let global = ctx.get_global::<G>();
 		let request_context = ctx.get_req_context();
 
-		let auth = request_context.auth().await?.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
+		let auth = request_context
+			.auth(global)
+			.await?
+			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
 		// TODO: Also allow users with permission
 		if id.to_ulid() != auth.session.user_id.0 {

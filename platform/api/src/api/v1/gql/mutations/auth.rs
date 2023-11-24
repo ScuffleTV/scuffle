@@ -430,7 +430,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 			jwt.session_id
 		} else {
 			request_context
-				.auth()
+				.auth(global)
 				.await?
 				.map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?
 				.session

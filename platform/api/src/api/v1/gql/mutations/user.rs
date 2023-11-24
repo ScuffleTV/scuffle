@@ -44,7 +44,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 		let request_context = ctx.get_req_context();
 
 		let auth = request_context
-			.auth()
+			.auth(global)
 			.await?
 			.map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
@@ -78,7 +78,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 		let request_context = ctx.get_req_context();
 
 		let auth = request_context
-			.auth()
+			.auth(global)
 			.await?
 			.map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
@@ -143,7 +143,10 @@ impl<G: ApiGlobal> UserMutation<G> {
 		let global = ctx.get_global::<G>();
 		let request_context = ctx.get_req_context();
 
-		let auth = request_context.auth().await?.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
+		let auth = request_context
+			.auth(global)
+			.await?
+			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
 		let user: database::User = sqlx::query_as(
 			r#"
@@ -187,7 +190,10 @@ impl<G: ApiGlobal> UserMutation<G> {
 		let global = ctx.get_global::<G>();
 		let request_context = ctx.get_req_context();
 
-		let auth = request_context.auth().await?.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
+		let auth = request_context
+			.auth(global)
+			.await?
+			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
 		let user = global
 			.user_by_id_loader()
@@ -251,7 +257,10 @@ impl<G: ApiGlobal> UserMutation<G> {
 		let global = ctx.get_global::<G>();
 		let request_context = ctx.get_req_context();
 
-		let auth = request_context.auth().await?.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
+		let auth = request_context
+			.auth(global)
+			.await?
+			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
 		if auth.session.user_id.0 == channel_id.to_ulid() {
 			return Err(GqlError::InvalidInput {

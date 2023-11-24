@@ -54,6 +54,8 @@ async fn websocket_handler<G: ApiGlobal>(
 		})
 		.map(Message::into_data);
 
+	request_context.websocket().await;
+
 	let data = Data::default()
 		.provide_context(request_context.clone())
 		.provide_global(global.clone());

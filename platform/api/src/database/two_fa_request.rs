@@ -108,8 +108,6 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for ChangePassword {
 		.execute(tx.as_mut())
 		.await?;
 
-		// TODO: Logout active connections (See #145)
-
 		tx.commit().await?;
 
 		Ok(())

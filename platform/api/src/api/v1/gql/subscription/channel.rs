@@ -29,7 +29,10 @@ impl<G: ApiGlobal> ChannelSubscription<G> {
 		let global = ctx.get_global::<G>();
 		let request_context = ctx.get_req_context();
 
-		let auth = request_context.auth().await?.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
+		let auth = request_context
+			.auth(global)
+			.await?
+			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
 		// TODO: allow other users with permissions
 		if auth.session.user_id.0 != channel_id.to_ulid() {
@@ -70,7 +73,10 @@ impl<G: ApiGlobal> ChannelSubscription<G> {
 		let global = ctx.get_global::<G>();
 		let request_context = ctx.get_req_context();
 
-		let auth = request_context.auth().await?.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
+		let auth = request_context
+			.auth(global)
+			.await?
+			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
 		// TODO: allow other users with permissions
 		if auth.session.user_id.0 != channel_id.to_ulid() {

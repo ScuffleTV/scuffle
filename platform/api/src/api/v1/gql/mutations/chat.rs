@@ -35,7 +35,7 @@ impl<G: ApiGlobal> ChatMutation<G> {
 
 		// TODO: check if user is banned from chat
 		let auth = request_context
-			.auth()
+			.auth(global)
 			.await?
 			.map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 

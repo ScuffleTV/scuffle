@@ -50,8 +50,8 @@ impl<G: ApiGlobal> Channel<G> {
 		Ok(category.map(Into::into))
 	}
 
-	async fn stream_key(&self, ctx: &Context<'_>) -> Result<&Option<String>> {
-		auth_guard(ctx, "streamKey", &self.stream_key_, self.id.into()).await
+	async fn stream_key(&self, ctx: &Context<'_>) -> Result<Option<&str>> {
+		auth_guard::<_, G>(ctx, "streamKey", self.stream_key_.as_deref(), self.id.into()).await
 	}
 
 	async fn followers_count(&self, ctx: &Context<'_>) -> Result<i64> {

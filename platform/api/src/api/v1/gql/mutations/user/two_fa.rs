@@ -28,7 +28,7 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 		let request_context = ctx.get_req_context();
 
 		let auth = request_context
-			.auth()
+			.auth(global)
 			.await?
 			.map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
@@ -99,7 +99,7 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 		let request_context = ctx.get_req_context();
 
 		let auth = request_context
-			.auth()
+			.auth(global)
 			.await?
 			.map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
@@ -156,7 +156,7 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 		let request_context = ctx.get_req_context();
 
 		let auth = request_context
-			.auth()
+			.auth(global)
 			.await?
 			.map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 

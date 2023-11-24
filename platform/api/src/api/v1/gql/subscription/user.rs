@@ -134,7 +134,10 @@ impl<G: ApiGlobal> UserSubscription<G> {
 		let global = ctx.get_global::<G>();
 		let request_context = ctx.get_req_context();
 
-		let auth = request_context.auth().await?.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
+		let auth = request_context
+			.auth(global)
+			.await?
+			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
 		let user_id: Ulid = auth.session.user_id.into();
 

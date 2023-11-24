@@ -31,20 +31,20 @@ pub struct User<G: ApiGlobal> {
 
 #[ComplexObject]
 impl<G: ApiGlobal> User<G> {
-	async fn email(&self, ctx: &Context<'_>) -> Result<&String> {
-		auth_guard(ctx, "email", &self.email_, self.id.into()).await
+	async fn email(&self, ctx: &Context<'_>) -> Result<&str> {
+		auth_guard::<_, G>(ctx, "email", self.email_.as_str(), self.id.into()).await
 	}
 
 	async fn email_verified(&self, ctx: &Context<'_>) -> Result<bool> {
-		auth_guard(ctx, "emailVerified", self.email_verified_, self.id.into()).await
+		auth_guard::<_, G>(ctx, "emailVerified", self.email_verified_, self.id.into()).await
 	}
 
 	async fn last_login_at(&self, ctx: &Context<'_>) -> Result<&DateRFC3339> {
-		auth_guard(ctx, "lastLoginAt", &self.last_login_at_, self.id.into()).await
+		auth_guard::<_, G>(ctx, "lastLoginAt", &self.last_login_at_, self.id.into()).await
 	}
 
 	async fn totp_enabled(&self, ctx: &Context<'_>) -> Result<bool> {
-		auth_guard(ctx, "totpEnabled", self.totp_enabled_, self.id.into()).await
+		auth_guard::<_, G>(ctx, "totpEnabled", self.totp_enabled_, self.id.into()).await
 	}
 }
 

@@ -1,5 +1,3 @@
-use std::sync::{Arc, Weak};
-
 use pb::scuffle::video::v1::playback_session_server::{
 	PlaybackSession as PlaybackSessionServiceTrait, PlaybackSessionServer as PlaybackSessionService,
 };
@@ -18,14 +16,18 @@ mod get;
 mod revoke;
 
 pub struct PlaybackSessionServer<G: ApiGlobal> {
-	global: Weak<G>,
+	_phantom: std::marker::PhantomData<G>,
 }
 
 impl<G: ApiGlobal> PlaybackSessionServer<G> {
-	pub fn new(global: &Arc<G>) -> PlaybackSessionService<Self> {
-		PlaybackSessionService::new(Self {
-			global: Arc::downgrade(global),
-		})
+	pub fn build() -> PlaybackSessionService<Self> {
+		PlaybackSessionService::new(Self::new())
+	}
+
+	pub(crate) const fn new() -> Self {
+		Self {
+			_phantom: std::marker::PhantomData,
+		}
 	}
 }
 
@@ -33,7 +35,7 @@ impl<G: ApiGlobal> PlaybackSessionServer<G> {
 impl<G: ApiGlobal> PlaybackSessionServiceTrait for PlaybackSessionServer<G> {
 	async fn get(&self, request: Request<PlaybackSessionGetRequest>) -> tonic::Result<Response<PlaybackSessionGetResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -42,7 +44,7 @@ impl<G: ApiGlobal> PlaybackSessionServiceTrait for PlaybackSessionServer<G> {
 		request: Request<PlaybackSessionRevokeRequest>,
 	) -> tonic::Result<Response<PlaybackSessionRevokeResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -51,7 +53,7 @@ impl<G: ApiGlobal> PlaybackSessionServiceTrait for PlaybackSessionServer<G> {
 		request: Request<PlaybackSessionCountRequest>,
 	) -> tonic::Result<Response<PlaybackSessionCountResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 }

@@ -56,7 +56,7 @@ message S3BucketCreateRequest {
 
   // The name of the s3 bucket.
   string name = 3;
-  
+
   // The region for the s3 bucket.
   string region = 4;
 
@@ -90,7 +90,7 @@ message S3BucketModifyRequest {
 
   // The secret token for the s3 bucket.
   optional string secret_access_key = 3;
-  
+
   optional string name = 4;
 
   optional string region = 5;

@@ -7,6 +7,8 @@ import "scuffle/types/ulid.proto";
 import "scuffle/video/v1/types/tags.proto";
 import "scuffle/video/v1/types/search_options.proto";
 import "scuffle/video/v1/types/failed_resource.proto";
+import "scuffle/video/v1/types/visibility.proto";
+import "scuffle/video/v1/types/room_status.proto";
 
 // This service allows for the creation, modification, and deletion of rooms.
 service Room {
@@ -48,11 +50,11 @@ message RoomGetRequest {
   // Filter by the recording config id.
   optional scuffle.types.Ulid recording_config_id = 3;
 
-  // Filter by the room's live status.
-  optional bool live = 5;
+  // Filter by the room's status.
+  optional types.RoomStatus status = 5;
 
   // Filter by the room's visibility status.
-  optional bool private = 6;
+  optional types.Visibility visibility = 6;
 
   // The options to use when searching for recording configs.
   optional types.SearchOptions search_options = 7;
@@ -76,8 +78,8 @@ message RoomCreateRequest {
   // Meaning that DVR will not be available and the room will not be recorded.
   optional scuffle.types.Ulid recording_config_id = 3;
 
-  // Specify the visibility of the room. (default: false)
-  bool private = 4;
+  // Specify the visibility of the room.
+  types.Visibility visibility = 4;
 
   // The tags to apply to the room.
   types.Tags tags = 5;
@@ -87,6 +89,9 @@ message RoomCreateRequest {
 message RoomCreateResponse {
   // The room that was created.
   types.Room room = 1;
+
+  // The key for the room that was created.
+  string stream_key = 2;
 }
 
 // The request payload for Room.Modify.
@@ -102,8 +107,8 @@ message RoomModifyRequest {
   // To remove the recording config, set this to a nil ulid.
   optional scuffle.types.Ulid recording_config_id = 3;
 
-  // Specify the visibility of the room. (default: false)
-  optional bool private = 4;
+  // Specify the visibility of the room.
+  optional types.Visibility visibility = 4;
 
   // The tags to apply to the room. (will overwrite existing tags)
   optional types.Tags tags = 5;

@@ -143,9 +143,9 @@ impl<G: TranscoderGlobal> Job<G> {
 	async fn new(global: &Arc<G>, msg: &Message) -> Result<Self> {
 		let message = TranscoderRequestTask::decode(msg.payload.clone())?;
 
-		let organization_id = message.organization_id.to_ulid();
-		let room_id = message.room_id.to_ulid();
-		let connection_id = message.connection_id.to_ulid();
+		let organization_id = message.organization_id.into_ulid();
+		let room_id = message.room_id.into_ulid();
+		let connection_id = message.connection_id.into_ulid();
 
 		let result = perform_sql_operations(global, organization_id, room_id, connection_id).await?;
 
@@ -153,7 +153,7 @@ impl<G: TranscoderGlobal> Job<G> {
 			%organization_id,
 			%room_id,
 			%connection_id,
-			transcoding_config_id = %result.transcoding_config.id.to_ulid(),
+			transcoding_config_id = %result.transcoding_config.id.into_ulid(),
 			recording_id = %result.recording.as_ref().map(|r| r.id().to_string()).unwrap_or_default(),
 			"got new stream request",
 		);
@@ -161,7 +161,7 @@ impl<G: TranscoderGlobal> Job<G> {
 		let config = global.config::<TranscoderConfig>();
 
 		// We need to create a unix socket for ffmpeg to connect to.
-		let socket_dir = CleanupPath(Path::new(&config.socket_dir).join(message.request_id.to_ulid().to_string()));
+		let socket_dir = CleanupPath(Path::new(&config.socket_dir).join(message.request_id.into_ulid().to_string()));
 		if let Err(err) = tokio::fs::create_dir_all(&socket_dir.0).await {
 			anyhow::bail!("failed to create socket dir: {}", err)
 		}
@@ -200,7 +200,7 @@ impl<G: TranscoderGlobal> Job<G> {
 
 		send.try_send(IngestWatchRequest {
 			message: Some(ingest_watch_request::Message::Open(ingest_watch_request::Open {
-				request_id: message.request_id.clone(),
+				request_id: message.request_id,
 			})),
 		})
 		.ok();

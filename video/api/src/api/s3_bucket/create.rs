@@ -7,6 +7,10 @@ use tonic::Status;
 use ulid::Ulid;
 use video_common::database::{AccessToken, DatabaseTable};
 
+use super::utils::{
+	validate_access_key_id, validate_endpoint, validate_name, validate_public_url, validate_region,
+	validate_secret_access_key,
+};
 use crate::api::utils::tags::validate_tags;
 use crate::api::utils::{impl_request_scopes, QbRequest, QbResponse, TonicRequest};
 use crate::global::ApiGlobal;
@@ -45,6 +49,7 @@ impl QbRequest for S3BucketCreateRequest {
 		seperated.push("secret_access_key");
 		seperated.push("public_url");
 		seperated.push("tags");
+		seperated.push("managed");
 
 		qb.push(") VALUES (");
 
@@ -53,12 +58,17 @@ impl QbRequest for S3BucketCreateRequest {
 		// TODO: check if this is actually secure. How do we prevent SSRF?
 		// How do we make sure that these urls point outside of our network?
 		if let Some(endpoint) = &self.endpoint {
-			url::Url::parse(endpoint).map_err(|_| Status::invalid_argument("invalid endpoint"))?;
+			validate_endpoint(endpoint)?;
 		}
 
 		if let Some(public_url) = &self.public_url {
-			url::Url::parse(public_url).map_err(|_| Status::invalid_argument("invalid public url"))?;
+			validate_public_url(public_url)?;
 		}
+
+		validate_name(&self.name)?;
+		validate_region(&self.region)?;
+		validate_access_key_id(&self.access_key_id)?;
+		validate_secret_access_key(&self.secret_access_key)?;
 
 		seperated.push_bind(common::database::Ulid(Ulid::new()));
 		seperated.push_bind(access_token.organization_id);
@@ -69,6 +79,7 @@ impl QbRequest for S3BucketCreateRequest {
 		seperated.push_bind(&self.secret_access_key);
 		seperated.push_bind(&self.public_url);
 		seperated.push_bind(sqlx::types::Json(self.tags.clone().unwrap_or_default().tags));
+		seperated.push_bind(false);
 
 		qb.push(") RETURNING *");
 

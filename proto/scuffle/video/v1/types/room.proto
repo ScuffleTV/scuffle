@@ -7,6 +7,7 @@ import "scuffle/video/v1/types/room_status.proto";
 import "scuffle/video/v1/types/video_config.proto";
 import "scuffle/video/v1/types/audio_config.proto";
 import "scuffle/video/v1/types/tags.proto";
+import "scuffle/video/v1/types/visibility.proto";
 
 // A room is a container for a live stream. It contains information about the
 // stream, such as the stream key, the transcoding and recording configurations
@@ -24,50 +25,47 @@ message Room {
   // The room status
   RoomStatus status = 4;
 
-  // Whether or not the room is currently private.
-  bool private = 5;
-
-  // The stream key for the room.
-  string stream_key = 6;
+  // The visibility of the room.
+  Visibility visibility = 5;
 
   // The video input of the room session.
   // This is reported by the ingest server.
-  optional VideoConfig video_input = 7;
+  optional VideoConfig video_input = 6;
 
   // The audio input of the room session.
   // This is reported by the ingest server.
-  optional AudioConfig audio_input = 8;
+  optional AudioConfig audio_input = 7;
 
   // The video outputs of the room session.
   // This is reported by the transcode server.
-  repeated VideoConfig video_output = 9;
+  repeated VideoConfig video_output = 8;
 
   // The audio outputs of the room session.
   // This is reported by the transcode server.
-  repeated AudioConfig audio_output = 10;
+  repeated AudioConfig audio_output = 9;
 
   // The current connection id of the room session.
-  optional scuffle.types.Ulid active_connection_id = 11;
+  optional scuffle.types.Ulid active_connection_id = 10;
 
   // The current recording id of the room session.
-  optional scuffle.types.Ulid active_recording_id = 12;
+  optional scuffle.types.Ulid active_recording_id = 11;
 
   // The time the room was created.
   // This is a Unix timestamp in nanoseconds.
-  int64 created_at = 13;
+  int64 created_at = 12;
 
   // The time the room was last updated.
   // This is a Unix timestamp in nanoseconds.
-  int64 updated_at = 14;
+  int64 updated_at = 13;
 
   // The time the room was last live.
   // This is a Unix timestamp in nanoseconds.
-  optional int64 last_live_at = 15;
+  optional int64 last_live_at = 14;
 
   // The time the room was last ended.
   // This is a Unix timestamp in nanoseconds.
-  optional int64 last_disconnected_at = 16;
+  optional int64 last_disconnected_at = 15;
 
   // The tags associated with the room.
-  Tags tags = 17;
+  Tags tags = 16;
 }

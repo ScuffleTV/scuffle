@@ -25,3 +25,13 @@ impl From<RoomStatus> for pb::scuffle::video::v1::types::RoomStatus {
 		}
 	}
 }
+
+impl From<pb::scuffle::video::v1::types::RoomStatus> for RoomStatus {
+	fn from(value: pb::scuffle::video::v1::types::RoomStatus) -> Self {
+		match value {
+			pb::scuffle::video::v1::types::RoomStatus::Offline => RoomStatus::Offline,
+			pb::scuffle::video::v1::types::RoomStatus::WaitingForTranscoder => RoomStatus::WaitingForTranscoder,
+			pb::scuffle::video::v1::types::RoomStatus::Ready => RoomStatus::Ready,
+		}
+	}
+}

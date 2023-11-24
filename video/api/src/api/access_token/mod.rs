@@ -1,5 +1,3 @@
-use std::sync::{Arc, Weak};
-
 use pb::scuffle::video::v1::access_token_server::{
 	AccessToken as AccessTokenServiceTrait, AccessTokenServer as AccessTokenService,
 };
@@ -21,14 +19,18 @@ mod tag;
 mod untag;
 
 pub struct AccessTokenServer<G: ApiGlobal> {
-	global: Weak<G>,
+	_phantom: std::marker::PhantomData<G>,
 }
 
 impl<G: ApiGlobal> AccessTokenServer<G> {
-	pub fn new(global: &Arc<G>) -> AccessTokenService<Self> {
-		AccessTokenService::new(Self {
-			global: Arc::downgrade(global),
-		})
+	pub fn build() -> AccessTokenService<Self> {
+		AccessTokenService::new(Self::new())
+	}
+
+	pub(crate) const fn new() -> Self {
+		Self {
+			_phantom: std::marker::PhantomData,
+		}
 	}
 }
 
@@ -36,7 +38,7 @@ impl<G: ApiGlobal> AccessTokenServer<G> {
 impl<G: ApiGlobal> AccessTokenServiceTrait for AccessTokenServer<G> {
 	async fn get(&self, request: Request<AccessTokenGetRequest>) -> tonic::Result<Response<AccessTokenGetResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -45,7 +47,7 @@ impl<G: ApiGlobal> AccessTokenServiceTrait for AccessTokenServer<G> {
 		request: Request<AccessTokenCreateRequest>,
 	) -> tonic::Result<Response<AccessTokenCreateResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -54,19 +56,19 @@ impl<G: ApiGlobal> AccessTokenServiceTrait for AccessTokenServer<G> {
 		request: Request<AccessTokenDeleteRequest>,
 	) -> tonic::Result<Response<AccessTokenDeleteResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
 	async fn tag(&self, request: Request<AccessTokenTagRequest>) -> tonic::Result<Response<AccessTokenTagResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
 	async fn untag(&self, request: Request<AccessTokenUntagRequest>) -> tonic::Result<Response<AccessTokenUntagResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 }

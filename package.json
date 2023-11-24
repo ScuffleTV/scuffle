@@ -1,9 +1,9 @@
 {
 	"private": true,
 	"devDependencies": {
-		"@commitlint/cli": "^17.7.1",
-		"@commitlint/config-conventional": "^17.7.0",
-		"commitlint": "^17.7.1",
+		"@commitlint/cli": "^18.4.3",
+		"@commitlint/config-conventional": "^18.4.3",
+		"commitlint": "^18.4.3",
 		"husky": "^8.0.3",
 		"prettier": "^3.0.3"
 	},

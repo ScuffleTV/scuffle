@@ -10,7 +10,7 @@ use prost::Message;
 use s3::Region;
 use ulid::Ulid;
 use uuid::Uuid;
-use video_common::database::{Rendition, S3Bucket};
+use video_common::database::{Rendition, S3Bucket, Visibility};
 
 use super::{upload_segment_generator, upload_thumbnail_generator, RecordingState, Task, TaskDomain, ThumbnailUpload};
 use crate::global::TranscoderGlobal;
@@ -42,7 +42,7 @@ impl Recording {
 		id: Ulid,
 		organization_id: Ulid,
 		room_id: Ulid,
-		public: bool,
+		visibility: Visibility,
 		audio_outputs: &[AudioConfig],
 		video_outputs: &[VideoConfig],
 		s3_bucket: &S3Bucket,
@@ -90,7 +90,7 @@ impl Recording {
                 organization_id,
                 room_id,
                 recording_config_id,
-                public,
+                visibility,
                 allow_dvr,
                 s3_bucket_id
             ) VALUES (
@@ -107,14 +107,15 @@ impl Recording {
 		.bind(Uuid::from(id))
 		.bind(Uuid::from(organization_id))
 		.bind(Uuid::from(room_id))
-		.bind(Uuid::from(recording_config.id.to_ulid()))
-		.bind(public)
+		.bind(Uuid::from(recording_config.id.into_ulid()))
+		.bind(visibility)
 		.bind(allow_dvr)
 		.bind(s3_bucket.id)
 		.execute(tx.as_mut())
 		.await?;
 
-		let mut qb = sqlx::QueryBuilder::new("INSERT INTO recording_renditions (recording_id, rendition, config)");
+		let mut qb =
+			sqlx::QueryBuilder::new("INSERT INTO recording_renditions (organization_id, recording_id, rendition, config)");
 
 		let video_outputs = video_outputs
 			.iter()
@@ -124,7 +125,8 @@ impl Recording {
 			.map(|o| (Rendition::from(o.rendition()), o.encode_to_vec()));
 
 		qb.push_values(video_outputs.chain(audio_outputs), |mut b, (rendition, config)| {
-			b.push_bind(Uuid::from(id));
+			b.push_bind(common::database::Ulid(organization_id));
+			b.push_bind(common::database::Ulid(id));
 			b.push_bind(rendition);
 			b.push_bind(config);
 		});
@@ -153,7 +155,7 @@ impl Recording {
 			.iter()
 			.map(|r| ThumbnailUpload {
 				idx: r.idx,
-				id: r.ulid.to_ulid(),
+				id: r.ulid.into_ulid(),
 				data: Bytes::new(),
 				start_time: r.timestamp as f64,
 			})

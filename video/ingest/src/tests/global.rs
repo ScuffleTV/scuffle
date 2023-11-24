@@ -63,7 +63,7 @@ pub async fn mock_global_state(config: IngestConfig) -> (Arc<GlobalState>, Handl
 
 	logging::init(&logging_level, Default::default()).expect("failed to initialize logging");
 
-	let database_uri = std::env::var("VIDEO_DATABASE_URL").expect("DATABASE_URL must be set");
+	let database_uri = std::env::var("VIDEO_DATABASE_URL_TEST").expect("VIDEO_DATABASE_URL_TEST must be set");
 	let nats_addr = std::env::var("NATS_ADDR").expect("NATS_URL must be set");
 
 	let nats = async_nats::connect(&nats_addr).await.expect("failed to connect to nats");

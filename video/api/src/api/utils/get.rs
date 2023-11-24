@@ -1,7 +1,8 @@
-use pb::ext::UlidExt;
 use pb::scuffle::video::v1::types::SearchOptions;
 use tonic::Status;
 use uuid::Uuid;
+
+use super::tags::validate_tags;
 
 pub fn organization_id(
 	seperated: &mut sqlx::query_builder::Separated<'_, '_, sqlx::Postgres, &str>,
@@ -14,7 +15,13 @@ pub fn organization_id(
 pub fn ids(seperated: &mut sqlx::query_builder::Separated<'_, '_, sqlx::Postgres, &str>, ids: &[pb::scuffle::types::Ulid]) {
 	if !ids.is_empty() {
 		seperated.push("id = ANY(");
-		seperated.push_bind_unseparated(ids.iter().map(pb::ext::UlidExt::to_uuid).collect::<Vec<_>>());
+		seperated.push_bind_unseparated(
+			ids.iter()
+				.copied()
+				.map(pb::scuffle::types::Ulid::into_ulid)
+				.map(common::database::Ulid)
+				.collect::<Vec<_>>(),
+		);
 		seperated.push_unseparated(")");
 	}
 }
@@ -25,9 +32,15 @@ pub fn search_options(
 ) -> tonic::Result<()> {
 	if let Some(options) = search_options {
 		if let Some(after_id) = options.after_id.as_ref() {
-			seperated.push("id > ");
-			seperated.push_bind_unseparated(after_id.to_uuid());
+			if options.reverse {
+				seperated.push("id < ");
+			} else {
+				seperated.push("id > ");
+			}
+			seperated.push_bind_unseparated(common::database::Ulid(after_id.into_ulid()));
 		}
+
+		validate_tags(options.tags.as_ref())?;
 
 		if let Some(tags) = options.tags.as_ref() {
 			if !tags.tags.is_empty() {
@@ -46,16 +59,16 @@ pub fn search_options(
 			return Err(Status::invalid_argument("limit must be between 1 and 1000"));
 		};
 
-		seperated.push_unseparated(" LIMIT ");
-		seperated.push_bind_unseparated(limit);
-
 		if options.reverse {
 			seperated.push_unseparated(" ORDER BY id DESC");
 		} else {
 			seperated.push_unseparated(" ORDER BY id ASC");
 		}
+
+		seperated.push_unseparated(" LIMIT ");
+		seperated.push_bind_unseparated(limit);
 	} else {
-		seperated.push_unseparated(" LIMIT 100 ORDER BY id ASC");
+		seperated.push_unseparated(" ORDER BY id ASC LIMIT 100");
 	}
 
 	Ok(())

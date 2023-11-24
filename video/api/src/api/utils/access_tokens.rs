@@ -5,7 +5,7 @@ use pb::scuffle::video::v1::types::{AccessTokenScope, Resource};
 use tonic::Status;
 use video_common::database::AccessToken;
 
-pub struct RequiredScope(Vec<AccessTokenScope>);
+pub struct RequiredScope(pub Vec<AccessTokenScope>);
 
 pub type ResourcePermission = (Resource, Permission);
 
@@ -18,32 +18,8 @@ impl From<ResourcePermission> for RequiredScope {
 	}
 }
 
-impl From<Vec<ResourcePermission>> for RequiredScope {
-	fn from(permissions: Vec<ResourcePermission>) -> Self {
-		Self(
-			permissions
-				.into_iter()
-				.map(|(resource, permission)| AccessTokenScope {
-					resource: Some(resource.into()),
-					permission: vec![permission.into()],
-				})
-				.collect(),
-		)
-		.optimize()
-	}
-}
-
-impl From<Permission> for RequiredScope {
-	fn from(permission: Permission) -> Self {
-		Self(vec![AccessTokenScope {
-			resource: None,
-			permission: vec![permission.into()],
-		}])
-	}
-}
-
 impl RequiredScope {
-	fn optimize(self) -> Self {
+	pub fn optimize(self) -> Self {
 		let mut scopes = self.0;
 
 		scopes.dedup();
@@ -88,15 +64,16 @@ impl RequiredScope {
 			scopes.insert(None, global_scope);
 		}
 
-		let scopes = scopes.into_values().filter(|s| !s.permission.is_empty()).collect::<Vec<_>>();
+		let mut scopes = scopes.into_values().filter(|s| !s.permission.is_empty()).collect::<Vec<_>>();
+
+		scopes.sort_unstable_by(|a, b| {
+			a.resource
+				.as_ref()
+				.and_then(|a| Resource::try_from(*a).ok())
+				.cmp(&b.resource.as_ref().and_then(|b| Resource::try_from(*b).ok()))
+		});
 
 		Self(scopes)
-	}
-}
-
-impl From<AccessTokenScope> for RequiredScope {
-	fn from(scope: AccessTokenScope) -> Self {
-		Self(vec![scope])
 	}
 }
 
@@ -131,13 +108,11 @@ impl std::fmt::Display for RequiredScope {
 }
 
 pub trait AccessTokenExt {
-	fn has_scope(&self, required: impl Into<RequiredScope>) -> tonic::Result<()>;
+	fn has_scope(&self, required: &RequiredScope) -> tonic::Result<()>;
 }
 
 impl AccessTokenExt for AccessToken {
-	fn has_scope(&self, required: impl Into<RequiredScope>) -> tonic::Result<()> {
-		let required = required.into().optimize();
-
+	fn has_scope(&self, required: &RequiredScope) -> tonic::Result<()> {
 		if required.0.iter().all(|required| {
 			self.scopes.iter().any(|scope| {
 				// Check that the scope is for all resources (unset) or matches the resource in

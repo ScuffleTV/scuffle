@@ -1,11 +1,13 @@
 pub mod access_tokens;
+pub mod auth;
 pub mod get;
 pub mod ratelimit;
 pub mod tags;
+
 use std::sync::Arc;
 
 pub use access_tokens::{AccessTokenExt, RequiredScope};
-pub use ratelimit::{get_global, validate_auth_request, TonicRequest};
+pub use ratelimit::TonicRequest;
 use tonic::Status;
 use video_common::database::{AccessToken, DatabaseTable};
 

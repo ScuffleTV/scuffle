@@ -60,9 +60,9 @@ impl<G: ApiGlobal> ChatSubscription<G> {
 					.map_err_ignored_gql("failed to decode chat message")?;
 
 				yield Ok(ChatMessage {
-					id: event.id.to_ulid().into(),
-					user_id: event.user_id.to_ulid().into(),
-					channel_id: event.channel_id.to_ulid().into(),
+					id: event.id.into_ulid().into(),
+					user_id: event.user_id.into_ulid().into(),
+					channel_id: event.channel_id.into_ulid().into(),
 					content: event.content,
 					r#type: MessageType::User,
 					_phantom: std::marker::PhantomData,

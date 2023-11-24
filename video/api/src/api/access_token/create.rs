@@ -28,9 +28,21 @@ impl QbRequest for AccessTokenCreateRequest {
 		_: &Arc<G>,
 		access_token: &AccessToken,
 	) -> tonic::Result<sqlx::QueryBuilder<'_, sqlx::Postgres>> {
-		let permissions = RequiredScope::from(self.scopes.clone());
+		if self.scopes.len() > 20 {
+			return Err(Status::invalid_argument("scopes must not be longer than 20"));
+		}
 
-		access_token.has_scope(permissions)?;
+		if self.scopes.iter().any(|s| s.permission.len() > 20) {
+			return Err(Status::invalid_argument("permission must not be longer than 20"));
+		}
+
+		let permissions = RequiredScope(self.scopes.clone()).optimize();
+
+		if self.scopes.is_empty() {
+			return Err(Status::invalid_argument("scopes must not be empty"));
+		}
+
+		access_token.has_scope(&permissions)?;
 
 		validate_tags(self.tags.as_ref())?;
 
@@ -41,32 +53,26 @@ impl QbRequest for AccessTokenCreateRequest {
 		let mut seperated = qb.separated(",");
 
 		seperated.push("id");
-		seperated.push("secret_key");
 		seperated.push("organization_id");
-		seperated.push("tags");
+		seperated.push("secret_token");
+		seperated.push("scopes");
 		seperated.push("last_active_at");
 		seperated.push("updated_at");
 		seperated.push("expires_at");
-		seperated.push("scopes");
+		seperated.push("tags");
 
 		qb.push(") VALUES (");
 
 		let mut seperated = qb.separated(",");
 
 		seperated.push_bind(common::database::Ulid(Ulid::new()));
-		seperated.push_bind(common::database::Ulid(Ulid::new()));
 		seperated.push_bind(access_token.organization_id);
-		seperated.push_bind(sqlx::types::Json(self.tags.clone().unwrap_or_default().tags));
+		seperated.push_bind(common::database::Ulid(Ulid::new()));
+		seperated.push_bind(permissions.0.into_iter().map(common::database::Protobuf).collect::<Vec<_>>());
 		seperated.push_bind(None::<chrono::DateTime<chrono::Utc>>);
 		seperated.push_bind(chrono::Utc::now());
 		seperated.push_bind(self.expires_at);
-		seperated.push_bind(
-			self.scopes
-				.clone()
-				.into_iter()
-				.map(common::database::Protobuf)
-				.collect::<Vec<_>>(),
-		);
+		seperated.push_bind(sqlx::types::Json(self.tags.clone().unwrap_or_default().tags));
 
 		qb.push(") RETURNING *");
 
@@ -86,8 +92,11 @@ impl QbResponse for AccessTokenCreateResponse {
 			)));
 		}
 
+		let query_object = query_object.into_iter().next().unwrap();
+
 		Ok(Self {
-			access_token: Some(query_object.into_iter().next().unwrap().into_proto()),
+			secret: query_object.secret_token.to_string(),
+			access_token: Some(query_object.into_proto()),
 		})
 	}
 }

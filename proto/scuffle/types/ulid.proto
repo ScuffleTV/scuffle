@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package scuffle.types;
 
-// A ULID is a 128-bit universally unique identifier.
-// Similar to UUIDs, but time sortable.
+// ULID is a 128-bit universally unique identifier that is lexicographically
+// sortable and contains a timestamp. See
 message Ulid {
-  uint64 msb = 1;
-  uint64 lsb = 2;
+  uint64 most_significant_ulid_bits = 1;
+  uint64 least_significant_ulid_bits = 2;
 }

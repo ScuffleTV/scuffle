@@ -316,11 +316,11 @@ async fn test_ingest_stream() {
 
 	let update = state.organization_event().await;
 	assert!(update.timestamp > 0);
-	assert_eq!(update.id.to_ulid(), state.org_id);
+	assert_eq!(update.id.into_ulid(), state.org_id);
 	match update.event {
 		Some(organization_event::Event::RoomLive(room_live)) => {
-			assert_eq!(room_live.room_id.to_ulid(), state.room_id);
-			assert!(!room_live.connection_id.to_ulid().is_nil());
+			assert_eq!(room_live.room_id.into_ulid(), state.room_id);
+			assert!(!room_live.connection_id.into_ulid().is_nil());
 		}
 		_ => panic!("unexpected event"),
 	}
@@ -356,14 +356,14 @@ async fn test_ingest_stream() {
 	assert_eq!(room.status, video_common::database::RoomStatus::WaitingForTranscoder);
 
 	let msg = state.transcoder_request().await;
-	assert!(!msg.request_id.to_ulid().is_nil());
-	assert!(!msg.room_id.to_ulid().is_nil());
-	assert!(!msg.connection_id.to_ulid().is_nil());
-	assert!(!msg.organization_id.to_ulid().is_nil());
+	assert!(!msg.request_id.into_ulid().is_nil());
+	assert!(!msg.room_id.into_ulid().is_nil());
+	assert!(!msg.connection_id.into_ulid().is_nil());
+	assert!(!msg.organization_id.into_ulid().is_nil());
 	assert!(!msg.grpc_endpoint.is_empty());
 
 	// We should now be able to join the stream
-	let mut watcher = Watcher::new(msg.request_id.to_ulid(), msg.grpc_endpoint).await;
+	let mut watcher = Watcher::new(msg.request_id.into_ulid(), msg.grpc_endpoint).await;
 
 	match watcher.recv().await.message {
 		Some(ingest_watch_response::Message::Media(media)) => {
@@ -397,14 +397,14 @@ async fn test_ingest_stream() {
 
 	// It should now create a new transcoder to handle the stream
 	let msg = state.transcoder_request().await;
-	assert!(!msg.request_id.to_ulid().is_nil());
-	assert!(!msg.room_id.to_ulid().is_nil());
-	assert!(!msg.connection_id.to_ulid().is_nil());
-	assert!(!msg.organization_id.to_ulid().is_nil());
+	assert!(!msg.request_id.into_ulid().is_nil());
+	assert!(!msg.room_id.into_ulid().is_nil());
+	assert!(!msg.connection_id.into_ulid().is_nil());
+	assert!(!msg.organization_id.into_ulid().is_nil());
 	assert!(!msg.grpc_endpoint.is_empty());
 
 	// We should now be able to join the stream
-	let mut new_watcher = Watcher::new(msg.request_id.to_ulid(), msg.grpc_endpoint).await;
+	let mut new_watcher = Watcher::new(msg.request_id.into_ulid(), msg.grpc_endpoint).await;
 
 	let mut got_shutting_down = false;
 	while let Ok(Some(msg)) = watcher.recv.message().await {
@@ -474,11 +474,11 @@ async fn test_ingest_stream() {
 
 	let update = state.organization_event().await;
 	assert!(update.timestamp > 0);
-	assert_eq!(update.id.to_ulid(), state.org_id);
+	assert_eq!(update.id.into_ulid(), state.org_id);
 	match update.event {
 		Some(organization_event::Event::RoomDisconnect(room_disconnect)) => {
-			assert_eq!(room_disconnect.room_id.to_ulid(), state.room_id);
-			assert!(!room_disconnect.connection_id.to_ulid().is_nil());
+			assert_eq!(room_disconnect.room_id.into_ulid(), state.room_id);
+			assert!(!room_disconnect.connection_id.into_ulid().is_nil());
 			assert!(!room_disconnect.clean);
 			assert_eq!(room_disconnect.error, None);
 		}
@@ -514,24 +514,24 @@ async fn test_ingest_stream_transcoder_disconnect() {
 
 	let update = state.organization_event().await;
 	assert!(update.timestamp > 0);
-	assert_eq!(update.id.to_ulid(), state.org_id);
+	assert_eq!(update.id.into_ulid(), state.org_id);
 	match update.event {
 		Some(organization_event::Event::RoomLive(room_live)) => {
-			assert_eq!(room_live.room_id.to_ulid(), state.room_id);
-			assert!(!room_live.connection_id.to_ulid().is_nil());
+			assert_eq!(room_live.room_id.into_ulid(), state.room_id);
+			assert!(!room_live.connection_id.into_ulid().is_nil());
 		}
 		_ => panic!("unexpected event"),
 	}
 
 	let msg = state.transcoder_request().await;
-	assert!(!msg.request_id.to_ulid().is_nil());
-	assert!(!msg.room_id.to_ulid().is_nil());
-	assert!(!msg.connection_id.to_ulid().is_nil());
-	assert!(!msg.organization_id.to_ulid().is_nil());
+	assert!(!msg.request_id.into_ulid().is_nil());
+	assert!(!msg.room_id.into_ulid().is_nil());
+	assert!(!msg.connection_id.into_ulid().is_nil());
+	assert!(!msg.organization_id.into_ulid().is_nil());
 	assert!(!msg.grpc_endpoint.is_empty());
 
 	// We should now be able to join the stream
-	let mut watcher = Watcher::new(msg.request_id.to_ulid(), msg.grpc_endpoint).await;
+	let mut watcher = Watcher::new(msg.request_id.into_ulid(), msg.grpc_endpoint).await;
 
 	match watcher.recv().await.message {
 		Some(ingest_watch_response::Message::Media(media)) => {
@@ -557,13 +557,13 @@ async fn test_ingest_stream_transcoder_disconnect() {
 	drop(watcher);
 
 	let msg = state.transcoder_request().await;
-	assert!(!msg.request_id.to_ulid().is_nil());
-	assert!(!msg.room_id.to_ulid().is_nil());
-	assert!(!msg.connection_id.to_ulid().is_nil());
-	assert!(!msg.organization_id.to_ulid().is_nil());
+	assert!(!msg.request_id.into_ulid().is_nil());
+	assert!(!msg.room_id.into_ulid().is_nil());
+	assert!(!msg.connection_id.into_ulid().is_nil());
+	assert!(!msg.organization_id.into_ulid().is_nil());
 	assert!(!msg.grpc_endpoint.is_empty());
 
-	let mut watcher = Watcher::new(msg.request_id.to_ulid(), msg.grpc_endpoint).await;
+	let mut watcher = Watcher::new(msg.request_id.into_ulid(), msg.grpc_endpoint).await;
 
 	match watcher.recv().await.message {
 		Some(ingest_watch_response::Message::Media(media)) => {
@@ -589,11 +589,11 @@ async fn test_ingest_stream_transcoder_disconnect() {
 
 	let update = state.organization_event().await;
 	assert!(update.timestamp > 0);
-	assert_eq!(update.id.to_ulid(), state.org_id);
+	assert_eq!(update.id.into_ulid(), state.org_id);
 	match update.event {
 		Some(organization_event::Event::RoomDisconnect(room_disconnect)) => {
-			assert_eq!(room_disconnect.room_id.to_ulid(), state.room_id);
-			assert!(!room_disconnect.connection_id.to_ulid().is_nil());
+			assert_eq!(room_disconnect.room_id.into_ulid(), state.room_id);
+			assert!(!room_disconnect.connection_id.into_ulid().is_nil());
 			assert!(!room_disconnect.clean);
 			assert_eq!(room_disconnect.error, None);
 		}
@@ -614,13 +614,13 @@ async fn test_ingest_stream_shutdown() {
 
 	let update = state.organization_event().await;
 	assert!(update.timestamp > 0);
-	assert_eq!(update.id.to_ulid(), state.org_id);
+	assert_eq!(update.id.into_ulid(), state.org_id);
 
 	let connection_id = match update.event {
 		Some(organization_event::Event::RoomLive(room_live)) => {
-			assert_eq!(room_live.room_id.to_ulid(), state.room_id);
-			assert!(!room_live.connection_id.to_ulid().is_nil());
-			room_live.connection_id.to_ulid()
+			assert_eq!(room_live.room_id.into_ulid(), state.room_id);
+			assert!(!room_live.connection_id.into_ulid().is_nil());
+			room_live.connection_id.into_ulid()
 		}
 		_ => panic!("unexpected event"),
 	};
@@ -639,12 +639,12 @@ async fn test_ingest_stream_shutdown() {
 	let update = state.organization_event().await;
 
 	assert!(update.timestamp > 0);
-	assert_eq!(update.id.to_ulid(), state.org_id);
+	assert_eq!(update.id.into_ulid(), state.org_id);
 
 	match update.event {
 		Some(organization_event::Event::RoomDisconnect(room_disconnect)) => {
-			assert_eq!(room_disconnect.room_id.to_ulid(), state.room_id);
-			assert_eq!(room_disconnect.connection_id.to_ulid(), connection_id);
+			assert_eq!(room_disconnect.room_id.into_ulid(), state.room_id);
+			assert_eq!(room_disconnect.connection_id.into_ulid(), connection_id);
 			assert!(room_disconnect.clean);
 			assert_eq!(room_disconnect.error, Some("I14: Disconnect requested".into()));
 		}
@@ -677,12 +677,12 @@ async fn test_ingest_stream_transcoder_full() {
 
 	let update = state.organization_event().await;
 	assert!(update.timestamp > 0);
-	assert_eq!(update.id.to_ulid(), state.org_id);
+	assert_eq!(update.id.into_ulid(), state.org_id);
 
 	let connection_id = match update.event {
 		Some(organization_event::Event::RoomLive(room_live)) => {
-			assert_eq!(room_live.room_id.to_ulid(), state.room_id);
-			assert!(!room_live.connection_id.to_ulid().is_nil());
+			assert_eq!(room_live.room_id.into_ulid(), state.room_id);
+			assert!(!room_live.connection_id.into_ulid().is_nil());
 			room_live.connection_id
 		}
 		_ => panic!("unexpected event"),
@@ -716,15 +716,15 @@ async fn test_ingest_stream_transcoder_full() {
 
 	let msg = state.transcoder_request().await;
 	assert_eq!(
-		msg.connection_id.to_uuid(),
+		common::database::Ulid(msg.connection_id.into_ulid()),
 		room.active_ingest_connection_id.unwrap().0.into(),
 	);
-	assert!(!msg.request_id.to_ulid().is_nil());
-	assert_eq!(msg.organization_id.to_ulid(), state.org_id);
-	assert_eq!(msg.room_id.to_ulid(), state.room_id);
+	assert!(!msg.request_id.into_ulid().is_nil());
+	assert_eq!(msg.organization_id.into_ulid(), state.org_id);
+	assert_eq!(msg.room_id.into_ulid(), state.room_id);
 
 	// We should now be able to join the stream
-	let mut watcher = Watcher::new(msg.request_id.to_ulid(), msg.grpc_endpoint).await;
+	let mut watcher = Watcher::new(msg.request_id.into_ulid(), msg.grpc_endpoint).await;
 
 	match watcher.recv().await.message {
 		Some(ingest_watch_response::Message::Media(media)) => {
@@ -771,11 +771,11 @@ async fn test_ingest_stream_transcoder_full() {
 
 	let room_disconnect = state.organization_event().await;
 	assert!(room_disconnect.timestamp > 0);
-	assert_eq!(room_disconnect.id.to_ulid(), state.org_id);
+	assert_eq!(room_disconnect.id.into_ulid(), state.org_id);
 
 	match room_disconnect.event {
 		Some(organization_event::Event::RoomDisconnect(room_disconnect)) => {
-			assert_eq!(room_disconnect.room_id.to_ulid(), state.room_id);
+			assert_eq!(room_disconnect.room_id.into_ulid(), state.room_id);
 			assert_eq!(room_disconnect.connection_id, connection_id);
 			assert!(room_disconnect.clean);
 			assert!(room_disconnect.error.is_none());
@@ -819,25 +819,25 @@ async fn test_ingest_stream_transcoder_full_tls(tls_dir: PathBuf) {
 
 	let live = state.organization_event().await;
 	assert!(live.timestamp > 0);
-	assert_eq!(live.id.to_ulid(), state.org_id);
+	assert_eq!(live.id.into_ulid(), state.org_id);
 
 	match live.event {
 		Some(organization_event::Event::RoomLive(live)) => {
-			assert_eq!(live.room_id.to_ulid(), state.room_id);
-			assert!(!live.connection_id.to_ulid().is_nil());
+			assert_eq!(live.room_id.into_ulid(), state.room_id);
+			assert!(!live.connection_id.into_ulid().is_nil());
 		}
 		_ => panic!("unexpected event"),
 	}
 
 	let msg = state.transcoder_request().await;
-	assert!(!msg.request_id.to_ulid().is_nil());
-	assert!(!msg.room_id.to_ulid().is_nil());
-	assert!(!msg.connection_id.to_ulid().is_nil());
-	assert!(!msg.organization_id.to_ulid().is_nil());
+	assert!(!msg.request_id.into_ulid().is_nil());
+	assert!(!msg.room_id.into_ulid().is_nil());
+	assert!(!msg.connection_id.into_ulid().is_nil());
+	assert!(!msg.organization_id.into_ulid().is_nil());
 	assert!(!msg.grpc_endpoint.is_empty());
 
 	// We should now be able to join the stream
-	let mut watcher = Watcher::new(msg.request_id.to_ulid(), msg.grpc_endpoint).await;
+	let mut watcher = Watcher::new(msg.request_id.into_ulid(), msg.grpc_endpoint).await;
 
 	match watcher.recv().await.message {
 		Some(ingest_watch_response::Message::Media(media)) => {
@@ -884,12 +884,12 @@ async fn test_ingest_stream_transcoder_full_tls(tls_dir: PathBuf) {
 
 	let room_disconnect = state.organization_event().await;
 	assert!(room_disconnect.timestamp > 0);
-	assert_eq!(room_disconnect.id.to_ulid(), state.org_id);
+	assert_eq!(room_disconnect.id.into_ulid(), state.org_id);
 
 	match room_disconnect.event {
 		Some(organization_event::Event::RoomDisconnect(room_disconnect)) => {
-			assert_eq!(room_disconnect.room_id.to_ulid(), state.room_id);
-			assert!(!room_disconnect.connection_id.to_ulid().is_nil());
+			assert_eq!(room_disconnect.room_id.into_ulid(), state.room_id);
+			assert!(!room_disconnect.connection_id.into_ulid().is_nil());
 			assert!(room_disconnect.clean);
 			assert!(room_disconnect.error.is_none());
 		}
@@ -920,12 +920,12 @@ async fn test_ingest_stream_transcoder_probe() {
 
 	let live = state.organization_event().await;
 	assert!(live.timestamp > 0);
-	assert_eq!(live.id.to_ulid(), state.org_id);
+	assert_eq!(live.id.into_ulid(), state.org_id);
 
 	match live.event {
 		Some(organization_event::Event::RoomLive(live)) => {
-			assert_eq!(live.room_id.to_ulid(), state.room_id);
-			assert!(!live.connection_id.to_ulid().is_nil());
+			assert_eq!(live.room_id.into_ulid(), state.room_id);
+			assert!(!live.connection_id.into_ulid().is_nil());
 		}
 		_ => panic!("unexpected event"),
 	}
@@ -934,12 +934,12 @@ async fn test_ingest_stream_transcoder_probe() {
 	let writer = ffprobe.stdin.as_mut().unwrap();
 
 	let msg = state.transcoder_request().await;
-	assert!(!msg.request_id.to_ulid().is_nil());
-	assert_eq!(msg.organization_id.to_ulid(), state.org_id);
-	assert_eq!(msg.room_id.to_ulid(), state.room_id);
+	assert!(!msg.request_id.into_ulid().is_nil());
+	assert_eq!(msg.organization_id.into_ulid(), state.org_id);
+	assert_eq!(msg.room_id.into_ulid(), state.room_id);
 
 	// We should now be able to join the stream
-	let mut watcher = Watcher::new(msg.request_id.to_ulid(), msg.grpc_endpoint).await;
+	let mut watcher = Watcher::new(msg.request_id.into_ulid(), msg.grpc_endpoint).await;
 
 	match watcher.recv().await.message {
 		Some(ingest_watch_response::Message::Media(media)) => {
@@ -1039,7 +1039,7 @@ async fn test_ingest_stream_transcoder_probe_reconnect() {
 
 	let msg = state.transcoder_request().await;
 
-	let mut watcher = Watcher::new(msg.request_id.to_ulid(), msg.grpc_endpoint).await;
+	let mut watcher = Watcher::new(msg.request_id.into_ulid(), msg.grpc_endpoint).await;
 
 	match watcher.recv().await.message {
 		Some(ingest_watch_response::Message::Media(media)) => {
@@ -1119,7 +1119,7 @@ async fn test_ingest_stream_transcoder_probe_reconnect() {
 
 	let msg = state.transcoder_request().await;
 
-	let mut new_watcher = Watcher::new(msg.request_id.to_ulid(), msg.grpc_endpoint).await;
+	let mut new_watcher = Watcher::new(msg.request_id.into_ulid(), msg.grpc_endpoint).await;
 
 	let mut got_shutting_down = false;
 	while let Ok(Some(msg)) = watcher.recv.message().await {
@@ -1236,7 +1236,7 @@ async fn test_ingest_stream_transcoder_probe_reconnect_unexpected() {
 
 	let msg = state.transcoder_request().await;
 
-	let mut watcher = Watcher::new(msg.request_id.to_ulid(), msg.grpc_endpoint).await;
+	let mut watcher = Watcher::new(msg.request_id.into_ulid(), msg.grpc_endpoint).await;
 
 	match watcher.recv().await.message {
 		Some(ingest_watch_response::Message::Media(media)) => {
@@ -1308,7 +1308,7 @@ async fn test_ingest_stream_transcoder_probe_reconnect_unexpected() {
 
 	let msg = state.transcoder_request().await;
 
-	let mut new_watcher = Watcher::new(msg.request_id.to_ulid(), msg.grpc_endpoint).await;
+	let mut new_watcher = Watcher::new(msg.request_id.into_ulid(), msg.grpc_endpoint).await;
 
 	let mut ffprobe = spawn_ffprobe();
 	let writer = ffprobe.stdin.as_mut().unwrap();

@@ -18,6 +18,12 @@ impl_request_scopes!(
 	RateLimitResource::RoomResetKey
 );
 
+#[derive(sqlx::FromRow)]
+struct RoomResetKeyRow {
+	id: common::database::Ulid,
+	stream_key: String,
+}
+
 #[async_trait::async_trait]
 impl ApiRequest<RoomResetKeyResponse> for tonic::Request<RoomResetKeyRequest> {
 	async fn process<G: ApiGlobal>(
@@ -35,7 +41,12 @@ impl ApiRequest<RoomResetKeyResponse> for tonic::Request<RoomResetKeyRequest> {
 			return Err(tonic::Status::invalid_argument("no ids provided for delete"));
 		}
 
-		let mut ids_to_reset = req.ids.iter().map(pb::ext::UlidExt::to_ulid).collect::<HashSet<_>>();
+		let mut ids_to_reset = req
+			.ids
+			.iter()
+			.copied()
+			.map(pb::scuffle::types::Ulid::into_ulid)
+			.collect::<HashSet<_>>();
 
 		let data = ids_to_reset
 			.iter()
@@ -43,30 +54,29 @@ impl ApiRequest<RoomResetKeyResponse> for tonic::Request<RoomResetKeyRequest> {
 
 		let mut qb = sqlx::query_builder::QueryBuilder::default();
 
-		qb.push("UPDATE ")
-			.push(<RoomResetKeyRequest as TonicRequest>::Table::NAME)
-			.push(" r SET r.stream_key = v.stream_key FROM (")
-			.push_values(data, |mut b, data| {
+		qb.push("WITH updated_values AS ( SELECT * FROM (")
+			.push_values(data.clone(), |mut b, data| {
 				b.push_bind(data.0).push_bind(data.1);
 			})
-			.push(") AS v (id, stream_key) WHERE r.id = v.id AND r.organization_id = ")
+			.push(") AS v (id, stream_key)) UPDATE ")
+			.push(<RoomResetKeyRequest as TonicRequest>::Table::NAME)
+			.push(" r SET stream_key = uv.stream_key FROM updated_values uv WHERE r.id = uv.id AND r.organization_id = ")
 			.push_bind(access_token.organization_id)
 			.push(" RETURNING r.id, r.stream_key");
 
-		let rows: Vec<(common::database::Ulid, String)> =
-			qb.build_query_scalar().fetch_all(global.db().as_ref()).await.map_err(|err| {
-				tracing::error!(err = %err, "failed to reset room stream keys");
-				tonic::Status::internal("failed to reset room stream keys")
-			})?;
+		let rows: Vec<RoomResetKeyRow> = qb.build_query_as().fetch_all(global.db().as_ref()).await.map_err(|err| {
+			tracing::error!(err = %err, "failed to reset room stream keys");
+			tonic::Status::internal("failed to reset room stream keys")
+		})?;
 
 		let rooms = rows
 			.into_iter()
-			.map(|(id, key)| {
-				ids_to_reset.remove(&id.0);
+			.map(|row| {
+				ids_to_reset.remove(&row.id.0);
 
 				room_reset_key_response::RoomKeyPair {
-					id: Some(id.0.into()),
-					key,
+					id: Some(row.id.0.into()),
+					key: row.stream_key,
 				}
 			})
 			.collect::<Vec<_>>();

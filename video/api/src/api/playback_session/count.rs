@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use pb::ext::UlidExt;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{playback_session_target, Resource};
 use pb::scuffle::video::v1::{playback_session_count_request, PlaybackSessionCountRequest, PlaybackSessionCountResponse};
@@ -43,7 +42,7 @@ impl QbRequest for PlaybackSessionCountRequest {
 
 		match filter {
 			playback_session_count_request::Filter::UserId(user_id) => {
-				qb.push("recording_id, room_id) AS deduped FROM playback_sessions WHERE user_id = ")
+				qb.push("(recording_id, room_id)) AS deduped FROM playback_sessions WHERE user_id = ")
 					.push_bind(user_id)
 					.push(" AND organization_id = ")
 					.push_bind(access_token.organization_id);
@@ -51,20 +50,21 @@ impl QbRequest for PlaybackSessionCountRequest {
 			playback_session_count_request::Filter::Target(target) => {
 				let target = target
 					.target
-					.as_ref()
 					.ok_or_else(|| tonic::Status::invalid_argument("filter is required"))?;
 
-				qb.push("user_id, ip_address) AS deduped FROM playback_sessions WHERE organization_id = ")
+				qb.push("COALESCE(user_id, ip_address::text)) AS deduped FROM playback_sessions WHERE organization_id = ")
 					.push_bind(access_token.organization_id);
 				qb.push(" AND ");
 
 				match target {
 					playback_session_target::Target::RecordingId(recording_id) => {
 						qb.push("recording_id = ")
-							.push_bind(common::database::Ulid(recording_id.to_ulid()));
+							.push_bind(common::database::Ulid(recording_id.into_ulid()));
+						qb.push(" AND room_id IS NULL");
 					}
 					playback_session_target::Target::RoomId(room_id) => {
-						qb.push("room_id = ").push_bind(common::database::Ulid(room_id.to_ulid()));
+						qb.push("room_id = ").push_bind(common::database::Ulid(room_id.into_ulid()));
+						qb.push(" AND recording_id IS NULL");
 					}
 				}
 			}

@@ -1,5 +1,3 @@
-use std::sync::{Arc, Weak};
-
 use pb::scuffle::video::v1::playback_key_pair_server::{
 	PlaybackKeyPair as PlaybackKeyPairServiceTrait, PlaybackKeyPairServer as PlaybackKeyPairService,
 };
@@ -22,17 +20,21 @@ mod modify;
 mod tag;
 mod untag;
 
-mod utils;
+pub(crate) mod utils;
 
 pub struct PlaybackKeyPairServer<G: ApiGlobal> {
-	global: Weak<G>,
+	_phantom: std::marker::PhantomData<G>,
 }
 
 impl<G: ApiGlobal> PlaybackKeyPairServer<G> {
-	pub fn new(global: &Arc<G>) -> PlaybackKeyPairService<Self> {
-		PlaybackKeyPairService::new(Self {
-			global: Arc::downgrade(global),
-		})
+	pub fn build() -> PlaybackKeyPairService<Self> {
+		PlaybackKeyPairService::new(Self::new())
+	}
+
+	pub(crate) const fn new() -> Self {
+		Self {
+			_phantom: std::marker::PhantomData,
+		}
 	}
 }
 
@@ -40,7 +42,7 @@ impl<G: ApiGlobal> PlaybackKeyPairServer<G> {
 impl<G: ApiGlobal> PlaybackKeyPairServiceTrait for PlaybackKeyPairServer<G> {
 	async fn get(&self, request: Request<PlaybackKeyPairGetRequest>) -> tonic::Result<Response<PlaybackKeyPairGetResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -49,7 +51,7 @@ impl<G: ApiGlobal> PlaybackKeyPairServiceTrait for PlaybackKeyPairServer<G> {
 		request: Request<PlaybackKeyPairCreateRequest>,
 	) -> tonic::Result<Response<PlaybackKeyPairCreateResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -58,7 +60,7 @@ impl<G: ApiGlobal> PlaybackKeyPairServiceTrait for PlaybackKeyPairServer<G> {
 		request: Request<PlaybackKeyPairModifyRequest>,
 	) -> tonic::Result<Response<PlaybackKeyPairModifyResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -67,13 +69,13 @@ impl<G: ApiGlobal> PlaybackKeyPairServiceTrait for PlaybackKeyPairServer<G> {
 		request: Request<PlaybackKeyPairDeleteRequest>,
 	) -> tonic::Result<Response<PlaybackKeyPairDeleteResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
 	async fn tag(&self, request: Request<PlaybackKeyPairTagRequest>) -> tonic::Result<Response<PlaybackKeyPairTagResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -82,7 +84,7 @@ impl<G: ApiGlobal> PlaybackKeyPairServiceTrait for PlaybackKeyPairServer<G> {
 		request: Request<PlaybackKeyPairUntagRequest>,
 	) -> tonic::Result<Response<PlaybackKeyPairUntagResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 }

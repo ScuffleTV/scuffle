@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1.34.0", features = ["full"] }
 tracing = "0.1.40"
-sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
+sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid", "ipnetwork"] }
 sqlx-postgres = "0.7.2"
 prost = "0.12.1"
 uuid = { version = "1.5.0", features = ["v4"] }

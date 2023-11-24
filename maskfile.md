@@ -14,10 +14,6 @@
   - flags: --no-js
   - type: bool
   - desc: Disables JS formatting
-- no_terraform
-  - flags: --no-terraform
-  - type: bool
-  - desc: Disables Terraform formatting
 - no_proto
   - flags: --no-proto
   - type: bool
@@ -33,17 +29,13 @@ if [ "$no_js" != "true" ]; then
     pnpm --recursive --parallel --stream run format
 fi
 
-if [ "$no_terraform" != "true" ]; then
-    terraform fmt -recursive
-fi
-
 if [ "$no_proto" != "true" ]; then
     find . -name '*.proto' -exec clang-format -i {} \;
 fi
 
 if [ "$no_rust" != "true" ]; then
-    cargo fmt --all
-    cargo clippy --fix --allow-dirty --allow-staged
+    cargo +nightly fmt --all
+    cargo +nightly clippy --fix --allow-dirty --allow-staged
 fi
 ```
 
@@ -61,10 +53,6 @@ fi
   - flags: --no-js
   - type: bool
   - desc: Disables JS linting
-- no_terraform
-  - flags: --no-terraform
-  - type: bool
-  - desc: Disables Terraform linting
 - no_proto
   - flags: --no-proto
   - type: bool
@@ -84,10 +72,6 @@ fi
 
 if [ "$no_js" != "true" ]; then
     pnpm --recursive --parallel --stream run lint
-fi
-
-if [ "$no_terraform" != "true" ]; then
-    terraform fmt -check -recursive
 fi
 
 if [ "$no_proto" != "true" ]; then
@@ -151,15 +135,7 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 if [ "$no_rust" != "true" ]; then
-  cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace --fail-fast -r --exclude video-player
-fi
-
-if [ "$no_js" != "true" ]; then
-    if [ "$no_player_build" != "true" ]; then
-        $MASK build player
-    fi
-
-    pnpm --recursive --parallel --stream run test
+  cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace --fail-fast --exclude video-player
 fi
 ```
 
@@ -171,6 +147,14 @@ fi
 
 > Migrate the database
 
+**OPTIONS**
+
+- refresh
+  - flags: --refresh
+  - type: bool
+  - desc: Drops the database before migrating
+
+
 ```bash
 set -e
 if [[ "$verbose" == "true" ]]; then
@@ -180,13 +164,23 @@ fi
 # We load the .env file
 export $(cat .env | xargs)
 
+action="setup"
+
+if [ "$refresh" == "true" ]; then
+    action="reset -y"
+fi
+
 echo "Migrating platform database"
-DATABASE_URL=$PLATFORM_DATABASE_URL sqlx database create
-DATABASE_URL=$PLATFORM_DATABASE_URL sqlx migrate run --source ./platform/migrations
+DATABASE_URL=$PLATFORM_DATABASE_URL sqlx database $action --source ./platform/migrations
 
 echo "Migrating video database"
-DATABASE_URL=$VIDEO_DATABASE_URL sqlx database create
-DATABASE_URL=$VIDEO_DATABASE_URL sqlx migrate run --source ./video/migrations
+DATABASE_URL=$VIDEO_DATABASE_URL sqlx database $action --source ./video/migrations
+
+echo "Migrating platform test database"
+DATABASE_URL=$PLATFORM_DATABASE_URL_TEST sqlx database $action --source ./platform/migrations
+
+echo "Migrating video test database"
+DATABASE_URL=$VIDEO_DATABASE_URL_TEST sqlx database $action --source ./video/migrations
 ```
 
 ### up
@@ -243,8 +237,11 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 if [ ! -f .env ]; then
-    echo "PLATFORM_DATABASE_URL=postgres://root@localhost:5432/scuffle_platform" >> .env
-    echo "VIDEO_DATABASE_URL=postgres://root@localhost:5432/scuffle_video" >> .env
+    DATABASE_URL=postgres://root@localhost:5432/scuffle
+    echo "PLATFORM_DATABASE_URL=${DATABASE_URL}_platform" >> .env
+    echo "VIDEO_DATABASE_URL=${DATABASE_URL}_video" >> .env
+    echo "PLATFORM_DATABASE_URL_TEST=${DATABASE_URL}_platform_test" >> .env
+    echo "VIDEO_DATABASE_URL_TEST=${DATABASE_URL}_video_test" >> .env
     echo "NATS_ADDR=localhost:4222" >> .env
     echo "REDIS_ADDR=localhost:6379" >> .env
 fi
@@ -285,6 +282,8 @@ fi
 
 if [ "$no_rust" != "true" ]; then
     rustup update
+
+    rustup install nightly
 
     rustup component add rustfmt clippy llvm-tools-preview
 
@@ -350,7 +349,7 @@ if [ "$no_rust" != "true" ]; then
 fi
 
 if [ "$no_js" != "true" ]; then
-    pnpm --recursive --stream run update
+    pnpm --recursive --stream run update --latest
 fi
 ```
 

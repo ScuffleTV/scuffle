@@ -5,6 +5,7 @@ name: "db-scuffle-dev"
 services:
   cockroach:
     image: ghcr.io/scuffletv/cockroach:latest
+    command: start-single-node --insecure --store=type=mem,size=0.25 --advertise-addr=0.0.0.0
     ports:
       - "5432:26257"
       - "8080:8080"

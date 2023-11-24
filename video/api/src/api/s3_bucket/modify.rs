@@ -6,6 +6,11 @@ use pb::scuffle::video::v1::types::Resource;
 use pb::scuffle::video::v1::{S3BucketModifyRequest, S3BucketModifyResponse};
 use video_common::database::{AccessToken, DatabaseTable};
 
+use super::utils::{
+	validate_access_key_id, validate_endpoint, validate_name, validate_public_url, validate_region,
+	validate_secret_access_key,
+};
+use crate::api::errors::MODIFY_NO_FIELDS;
 use crate::api::utils::tags::validate_tags;
 use crate::api::utils::{impl_request_scopes, QbRequest, QbResponse, TonicRequest};
 use crate::global::ApiGlobal;
@@ -36,20 +41,24 @@ impl QbRequest for S3BucketModifyRequest {
 		let mut seperated = qb.separated(",");
 
 		if let Some(access_key_id) = &self.access_key_id {
+			validate_access_key_id(access_key_id)?;
 			seperated.push("access_key_id = ").push_bind_unseparated(access_key_id);
 		}
 
 		if let Some(secret_access_key) = &self.secret_access_key {
+			validate_secret_access_key(secret_access_key)?;
 			seperated
 				.push("secret_access_key = ")
 				.push_bind_unseparated(secret_access_key);
 		}
 
 		if let Some(name) = &self.name {
+			validate_name(name)?;
 			seperated.push("name = ").push_bind_unseparated(name);
 		}
 
 		if let Some(region) = &self.region {
+			validate_region(region)?;
 			seperated.push("region = ").push_bind_unseparated(region);
 		}
 
@@ -57,6 +66,7 @@ impl QbRequest for S3BucketModifyRequest {
 			if endpoint.is_empty() {
 				seperated.push("endpoint = NULL");
 			} else {
+				validate_endpoint(endpoint)?;
 				seperated.push("endpoint = ").push_bind_unseparated(endpoint);
 			}
 		}
@@ -65,6 +75,7 @@ impl QbRequest for S3BucketModifyRequest {
 			if public_url.is_empty() {
 				seperated.push("public_url = NULL");
 			} else {
+				validate_public_url(public_url)?;
 				seperated.push("public_url = ").push_bind_unseparated(public_url);
 			}
 		}
@@ -73,9 +84,20 @@ impl QbRequest for S3BucketModifyRequest {
 			seperated.push("tags = ").push_bind_unseparated(sqlx::types::Json(&tags.tags));
 		}
 
+		if self.tags.is_none()
+			&& self.access_key_id.is_none()
+			&& self.secret_access_key.is_none()
+			&& self.name.is_none()
+			&& self.region.is_none()
+			&& self.endpoint.is_none()
+			&& self.public_url.is_none()
+		{
+			return Err(tonic::Status::invalid_argument(MODIFY_NO_FIELDS));
+		}
+
 		seperated.push("updated_at = NOW()");
 
-		qb.push(" WHERE id = ").push_bind(common::database::Ulid(self.id.to_ulid()));
+		qb.push(" WHERE id = ").push_bind(common::database::Ulid(self.id.into_ulid()));
 		qb.push(" AND organization_id = ").push_bind(access_token.organization_id);
 		qb.push(" RETURNING *");
 

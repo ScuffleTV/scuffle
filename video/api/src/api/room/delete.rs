@@ -35,7 +35,12 @@ impl ApiRequest<RoomDeleteResponse> for tonic::Request<RoomDeleteRequest> {
 			return Err(tonic::Status::invalid_argument("no ids provided for delete"));
 		}
 
-		let mut ids_to_delete = req.ids.iter().map(pb::ext::UlidExt::to_ulid).collect::<HashSet<_>>();
+		let mut ids_to_delete = req
+			.ids
+			.iter()
+			.copied()
+			.map(pb::scuffle::types::Ulid::into_ulid)
+			.collect::<HashSet<_>>();
 
 		let mut qb = sqlx::query_builder::QueryBuilder::default();
 
@@ -65,7 +70,7 @@ impl ApiRequest<RoomDeleteResponse> for tonic::Request<RoomDeleteRequest> {
 			qb.push("DELETE FROM ")
 				.push(<RoomDeleteRequest as TonicRequest>::Table::NAME)
 				.push(" WHERE id = ANY(")
-				.push_bind(self.get_ref().ids.iter().map(pb::ext::UlidExt::to_uuid).collect::<Vec<_>>())
+				.push_bind(ids_to_delete.iter().copied().map(common::database::Ulid).collect::<Vec<_>>())
 				.push(") AND organization_id = ")
 				.push_bind(access_token.organization_id)
 				.push(" RETURNING id");

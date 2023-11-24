@@ -1,13 +1,14 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use pb::ext::UlidExt;
+use chrono::TimeZone;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{playback_session_target, Resource};
 use pb::scuffle::video::v1::{PlaybackSessionRevokeRequest, PlaybackSessionRevokeResponse};
+use ulid::Ulid;
 use video_common::database::AccessToken;
 
-use crate::api::utils::{impl_request_scopes, QbRequest, QbResponse};
+use crate::api::utils::{impl_request_scopes, ApiRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 
@@ -18,23 +19,18 @@ impl_request_scopes!(
 	RateLimitResource::PlaybackSessionRevoke
 );
 
-#[derive(sqlx::FromRow)]
-pub struct PlaybackSessionRevokeQueryResp {
-	deleted_count: i64,
-}
-
 #[async_trait::async_trait]
-impl QbRequest for PlaybackSessionRevokeRequest {
-	type QueryObject = PlaybackSessionRevokeQueryResp;
-
-	async fn build_query<G: ApiGlobal>(
+impl ApiRequest<PlaybackSessionRevokeResponse> for tonic::Request<PlaybackSessionRevokeRequest> {
+	async fn process<G: ApiGlobal>(
 		&self,
-		_: &Arc<G>,
+		global: &Arc<G>,
 		access_token: &AccessToken,
-	) -> tonic::Result<sqlx::query_builder::QueryBuilder<'_, sqlx::Postgres>> {
+	) -> tonic::Result<tonic::Response<PlaybackSessionRevokeResponse>> {
 		let mut qb = sqlx::query_builder::QueryBuilder::default();
 
-		if self.ids.len() > 100 {
+		let req = self.get_ref();
+
+		if req.ids.len() > 100 {
 			return Err(tonic::Status::invalid_argument("too many ids provided for revoke: max 100"));
 		}
 
@@ -46,53 +42,104 @@ impl QbRequest for PlaybackSessionRevokeRequest {
 			.push("organization_id = ")
 			.push_bind_unseparated(access_token.organization_id);
 
-		if !self.ids.is_empty() {
-			let ids = self.ids.iter().map(pb::ext::UlidExt::to_ulid).collect::<HashSet<_>>();
+		if let Some(before) = req.before {
+			if before < 0 {
+				return Err(tonic::Status::invalid_argument("before must be positive"));
+			}
+
+			seperated
+				.push("id < ")
+				.push_bind_unseparated(common::database::Ulid(Ulid::from_parts(before as u64, 0)));
+		}
+
+		if !req.ids.is_empty() {
+			let ids = req
+				.ids
+				.iter()
+				.copied()
+				.map(pb::scuffle::types::Ulid::into_ulid)
+				.map(common::database::Ulid)
+				.collect::<HashSet<_>>();
 
 			seperated
 				.push("id = ANY(")
-				.push_bind_unseparated(ids.into_iter().map(common::database::Ulid).collect::<Vec<_>>())
-				.push_bind_unseparated(")");
+				.push_bind_unseparated(ids.into_iter().collect::<Vec<_>>())
+				.push_unseparated(")");
 		}
 
-		if let Some(user_id) = &self.user_id {
+		if let Some(user_id) = &req.user_id {
 			seperated.push("user_id = ").push_bind_unseparated(user_id);
 		}
 
-		if let Some(target) = &self.target {
-			match &target.target {
-				Some(playback_session_target::Target::RecordingId(recording_id)) => {
-					seperated
-						.push("recording_id = ")
-						.push_bind_unseparated(common::database::Ulid(recording_id.to_ulid()));
-				}
-				Some(playback_session_target::Target::RoomId(room_id)) => {
-					seperated
-						.push("room_id = ")
-						.push_bind_unseparated(common::database::Ulid(room_id.to_ulid()));
-				}
-				None => {}
+		if let Some(authorized) = req.authorized {
+			if req.user_id.is_some() {
+				return Err(tonic::Status::invalid_argument(
+					"cannot specify both user_id and unauthorized",
+				));
+			}
+
+			if authorized {
+				seperated.push("user_id IS NOT NULL");
+			} else {
+				seperated.push("user_id IS NULL");
 			}
 		}
 
-		qb.push(" RETURNING COUNT(*) AS deleted_count");
-
-		Ok(qb)
-	}
-}
-
-impl QbResponse for PlaybackSessionRevokeResponse {
-	type Request = PlaybackSessionRevokeRequest;
-
-	fn from_query_object(query_object: Vec<<Self::Request as QbRequest>::QueryObject>) -> tonic::Result<Self> {
-		if query_object.is_empty() {
-			return Err(tonic::Status::not_found("no playback sessions found"));
+		match req.target.and_then(|t| t.target) {
+			Some(playback_session_target::Target::RecordingId(recording_id)) => {
+				seperated
+					.push("recording_id = ")
+					.push_bind_unseparated(common::database::Ulid(recording_id.into_ulid()));
+			}
+			Some(playback_session_target::Target::RoomId(room_id)) => {
+				seperated
+					.push("room_id = ")
+					.push_bind_unseparated(common::database::Ulid(room_id.into_ulid()));
+			}
+			None => {}
 		}
 
-		let deleted_count = query_object[0].deleted_count;
+		let mut tx = global.db().begin().await.map_err(|e| {
+			tracing::error!(err = %e, "beginning transaction");
+			tonic::Status::internal("playback session revoke failed")
+		})?;
 
-		Ok(Self {
-			revoked: deleted_count as u64,
-		})
+		let result = qb.build().execute(tx.as_mut()).await.map_err(|e| {
+			tracing::error!(err = %e, "revoking playback sessions");
+			tonic::Status::internal("playback session revoke failed")
+		})?;
+
+		if req.ids.is_empty()
+			&& req.before.map_or(true, |b| {
+				chrono::Utc.timestamp_millis_opt(b).unwrap() > chrono::Utc::now() - chrono::Duration::minutes(10)
+			}) {
+			sqlx::query("INSERT INTO playback_session_revocations(organization_id, room_id, recording_id, user_id, revoke_before) VALUES ($1, $2, $3, $4, $5)")
+				.bind(access_token.organization_id)
+				.bind(req.target.and_then(|t| match t.target {
+					Some(playback_session_target::Target::RoomId(room_id)) => Some(common::database::Ulid(room_id.into_ulid())),
+					_ => None,
+				}))
+				.bind(req.target.and_then(|t| match t.target {
+					Some(playback_session_target::Target::RecordingId(recording_id)) => Some(common::database::Ulid(recording_id.into_ulid())),
+					_ => None,
+				}))
+				.bind(req.user_id.as_ref())
+				.bind(req.before.map_or_else(chrono::Utc::now, |b| chrono::Utc.timestamp_millis_opt(b).unwrap()))
+				.execute(tx.as_mut())
+				.await
+				.map_err(|e| {
+					tracing::error!(err = %e, "playback session revoke failed");
+					tonic::Status::internal("playback session revoke failed")
+				})?;
+		}
+
+		tx.commit().await.map_err(|e| {
+			tracing::error!(err = %e, "committing transaction");
+			tonic::Status::internal("playback session revoke failed")
+		})?;
+
+		Ok(tonic::Response::new(PlaybackSessionRevokeResponse {
+			revoked: result.rows_affected(),
+		}))
 	}
 }

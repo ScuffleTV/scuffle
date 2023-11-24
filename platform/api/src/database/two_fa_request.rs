@@ -104,7 +104,7 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for ChangePassword {
 			"#,
 		)
 		.bind(user.id)
-		.bind(Ulid::from(self.current_session_id.to_ulid()))
+		.bind(Ulid::from(self.current_session_id.into_ulid()))
 		.execute(tx.as_mut())
 		.await?;
 

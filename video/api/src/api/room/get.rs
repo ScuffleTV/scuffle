@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use pb::ext::UlidExt;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::Resource;
 use pb::scuffle::video::v1::{RoomGetRequest, RoomGetResponse};
-use video_common::database::{AccessToken, DatabaseTable, RoomStatus};
+use tonic::Status;
+use video_common::database::{AccessToken, DatabaseTable, RoomStatus, Visibility};
 
 use crate::api::utils::{get, impl_request_scopes, QbRequest, QbResponse};
 use crate::global::ApiGlobal;
@@ -35,22 +35,28 @@ impl QbRequest for RoomGetRequest {
 
 		if let Some(transcoding_config_id) = self.transcoding_config_id.as_ref() {
 			seperated.push("transcoding_config_id = ");
-			seperated.push_bind_unseparated(transcoding_config_id.to_uuid());
+			seperated.push_bind_unseparated(common::database::Ulid(transcoding_config_id.into_ulid()));
 		}
 
 		if let Some(recording_config_id) = self.recording_config_id.as_ref() {
 			seperated.push("recording_config_id = ");
-			seperated.push_bind_unseparated(recording_config_id.to_uuid());
+			seperated.push_bind_unseparated(common::database::Ulid(recording_config_id.into_ulid()));
 		}
 
-		if let Some(live) = self.live {
+		if let Some(status) = self.status {
+			let status = pb::scuffle::video::v1::types::RoomStatus::try_from(status)
+				.map_err(|_| Status::invalid_argument("invalid status value"))?;
+
 			seperated.push("status = ");
-			seperated.push_bind_unseparated(if live { RoomStatus::Ready } else { RoomStatus::Offline });
+			seperated.push_bind_unseparated(RoomStatus::from(status));
 		}
 
-		if let Some(private) = self.private {
-			seperated.push("private = ");
-			seperated.push_bind_unseparated(private);
+		if let Some(visibility) = self.visibility {
+			let visibility = pb::scuffle::video::v1::types::Visibility::try_from(visibility)
+				.map_err(|_| Status::invalid_argument("invalid visibility value"))?;
+
+			seperated.push("visibility = ");
+			seperated.push_bind_unseparated(Visibility::from(visibility));
 		}
 
 		get::search_options(&mut seperated, self.search_options.as_ref())?;

@@ -270,12 +270,12 @@ async fn test_transcode() {
 
 	{
 		let event = OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-		assert_eq!(event.id.to_ulid(), org_id);
+		assert_eq!(event.id.into_ulid(), org_id);
 		assert!(event.timestamp > 0);
 		match event.event {
 			Some(organization_event::Event::RoomReady(r)) => {
-				assert_eq!(r.room_id.to_ulid(), room_id);
-				assert_eq!(r.connection_id.to_ulid(), connection_id);
+				assert_eq!(r.room_id.into_ulid(), room_id);
+				assert_eq!(r.connection_id.into_ulid(), connection_id);
 			}
 			_ => panic!("unexpected event"),
 		};
@@ -566,7 +566,7 @@ async fn test_transcode() {
 			.renditions
 			.contains(&(Rendition::AudioSource as i32))
 	);
-	assert_eq!(active_transcoding_config.id.to_ulid(), Ulid::nil());
+	assert_eq!(active_transcoding_config.id.into_ulid(), Ulid::nil());
 	assert_eq!(active_transcoding_config.created_at, 0);
 
 	assert_eq!(video_output.len(), 1);
@@ -809,12 +809,12 @@ async fn test_transcode_reconnect() {
 
 		{
 			let event = OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-			assert_eq!(event.id.to_ulid(), org_id);
+			assert_eq!(event.id.into_ulid(), org_id);
 			assert!(event.timestamp > 0);
 			match event.event {
 				Some(organization_event::Event::RoomReady(r)) => {
-					assert_eq!(r.room_id.to_ulid(), room_id);
-					assert_eq!(r.connection_id.to_ulid(), connection_id);
+					assert_eq!(r.room_id.into_ulid(), room_id);
+					assert_eq!(r.connection_id.into_ulid(), connection_id);
 				}
 				_ => panic!("unexpected event"),
 			};
@@ -978,12 +978,12 @@ async fn test_transcode_reconnect() {
 
 		{
 			let event = OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-			assert_eq!(event.id.to_ulid(), org_id);
+			assert_eq!(event.id.into_ulid(), org_id);
 			assert!(event.timestamp > 0);
 			match event.event {
 				Some(organization_event::Event::RoomReady(r)) => {
-					assert_eq!(r.room_id.to_ulid(), room_id);
-					assert_eq!(r.connection_id.to_ulid(), connection_id);
+					assert_eq!(r.room_id.into_ulid(), room_id);
+					assert_eq!(r.connection_id.into_ulid(), connection_id);
 				}
 				_ => panic!("unexpected event"),
 			};
@@ -1153,12 +1153,12 @@ async fn test_transcode_reconnect() {
 
 		{
 			let event = OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-			assert_eq!(event.id.to_ulid(), org_id);
+			assert_eq!(event.id.into_ulid(), org_id);
 			assert!(event.timestamp > 0);
 			match event.event {
 				Some(organization_event::Event::RoomReady(r)) => {
-					assert_eq!(r.room_id.to_ulid(), room_id);
-					assert_eq!(r.connection_id.to_ulid(), connection_id);
+					assert_eq!(r.room_id.into_ulid(), room_id);
+					assert_eq!(r.connection_id.into_ulid(), connection_id);
 				}
 				_ => panic!("unexpected event"),
 			};
@@ -1333,12 +1333,12 @@ async fn test_transcode_reconnect() {
 
 		{
 			let event = OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-			assert_eq!(event.id.to_ulid(), org_id);
+			assert_eq!(event.id.into_ulid(), org_id);
 			assert!(event.timestamp > 0);
 			match event.event {
 				Some(organization_event::Event::RoomReady(r)) => {
-					assert_eq!(r.room_id.to_ulid(), room_id);
-					assert_eq!(r.connection_id.to_ulid(), connection_id);
+					assert_eq!(r.room_id.into_ulid(), room_id);
+					assert_eq!(r.connection_id.into_ulid(), connection_id);
 				}
 				_ => panic!("unexpected event"),
 			};

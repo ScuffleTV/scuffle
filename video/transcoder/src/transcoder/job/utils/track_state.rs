@@ -150,7 +150,7 @@ impl TrackState {
 						start_ts: 0,
 					})
 					.collect(),
-				id: s.id.to_ulid(),
+				id: s.id.into_ulid(),
 			})
 			.collect::<Vec<_>>();
 

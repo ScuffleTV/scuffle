@@ -5,7 +5,6 @@ use bytes::Bytes;
 use futures_util::{FutureExt, StreamExt, TryStreamExt};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use ulid::Ulid;
-use uuid::Uuid;
 use video_common::database::Rendition;
 
 pub type TaskFuture = video_common::tasker::TaskFuture<(), TaskError>;
@@ -129,6 +128,7 @@ pub fn upload_segment_generator<G: TranscoderGlobal>(
 			if sqlx::query(
 				r#"
 				INSERT INTO recording_rendition_segments (
+					organization_id,
 					recording_id,
 					rendition,
 					idx,
@@ -143,13 +143,15 @@ pub fn upload_segment_generator<G: TranscoderGlobal>(
 					$4,
 					$5,
 					$6,
-					$7
+					$7,
+					$8
 				)"#,
 			)
-			.bind(Uuid::from(state.recording_id))
+			.bind(common::database::Ulid(state.organization_id))
+			.bind(common::database::Ulid(state.recording_id))
 			.bind(upload.rendition)
 			.bind(upload.segment_idx as i32)
-			.bind(Uuid::from(upload.segment_id))
+			.bind(common::database::Ulid(upload.segment_id))
 			.bind(normalize_float(upload.start_time))
 			.bind(normalize_float(upload.start_time + upload.duration))
 			.bind(size as i64)
@@ -197,6 +199,7 @@ pub fn upload_thumbnail_generator<G: TranscoderGlobal>(
 			if sqlx::query(
 				r#"
 				INSERT INTO recording_thumbnails (
+					organization_id,
 					recording_id,
 					idx,
 					id,
@@ -210,9 +213,10 @@ pub fn upload_thumbnail_generator<G: TranscoderGlobal>(
 					$5
 				)"#,
 			)
-			.bind(Uuid::from(state.recording_id))
+			.bind(common::database::Ulid(state.organization_id))
+			.bind(common::database::Ulid(state.recording_id))
 			.bind(partial.idx as i32)
-			.bind(Uuid::from(partial.id))
+			.bind(common::database::Ulid(partial.id))
 			.bind(normalize_float(partial.start_time))
 			.bind(size as i64)
 			.execute(global.db().as_ref())

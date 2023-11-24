@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use common::dataloader::{DataLoader, Loader, LoaderOutput};
@@ -32,12 +31,6 @@ impl Loader for RoleByIdLoader {
 				tracing::error!(err = %e, "failed to fetch roles");
 			})?;
 
-		let mut map = HashMap::new();
-
-		for result in results {
-			map.insert(result.id.0, result);
-		}
-
-		Ok(map)
+		Ok(results.into_iter().map(|r| (r.id.0, r)).collect())
 	}
 }

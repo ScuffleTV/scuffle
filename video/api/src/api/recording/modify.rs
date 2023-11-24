@@ -5,8 +5,9 @@ use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::Resource;
 use pb::scuffle::video::v1::{RecordingModifyRequest, RecordingModifyResponse};
 use tonic::Status;
-use video_common::database::{AccessToken, DatabaseTable};
+use video_common::database::{AccessToken, DatabaseTable, Visibility};
 
+use crate::api::errors::MODIFY_NO_FIELDS;
 use crate::api::utils::tags::validate_tags;
 use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
@@ -40,7 +41,8 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 
 		if let Some(room_id) = &req.room_id {
 			sqlx::query("SELECT id FROM rooms WHERE id = $1 AND organization_id = $2")
-				.bind(room_id.to_uuid())
+				.bind(common::database::Ulid(room_id.into_ulid()))
+				.bind(access_token.organization_id)
 				.fetch_optional(global.db().as_ref())
 				.await
 				.map_err(|err| {
@@ -49,12 +51,15 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 				})?
 				.ok_or_else(|| Status::not_found("room not found"))?;
 
-			seperated.push("room_id = ").push_bind_unseparated(room_id.to_uuid());
+			seperated
+				.push("room_id = ")
+				.push_bind_unseparated(common::database::Ulid(room_id.into_ulid()));
 		}
 
 		if let Some(recording_config_id) = &req.recording_config_id {
 			sqlx::query("SELECT id FROM recording_configs WHERE id = $1 AND organization_id = $2")
-				.bind(recording_config_id.to_uuid())
+				.bind(common::database::Ulid(recording_config_id.into_ulid()))
+				.bind(access_token.organization_id)
 				.fetch_optional(global.db().as_ref())
 				.await
 				.map_err(|err| {
@@ -65,20 +70,29 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 
 			seperated
 				.push("recording_config_id = ")
-				.push_bind_unseparated(recording_config_id.to_uuid());
+				.push_bind_unseparated(common::database::Ulid(recording_config_id.into_ulid()));
 		}
 
-		if let Some(public) = req.public {
-			seperated.push("public = ").push_bind_unseparated(public);
+		if let Some(visibility) = req.visibility {
+			let visibility = pb::scuffle::video::v1::types::Visibility::try_from(visibility)
+				.map_err(|_| Status::invalid_argument("invalid visibility value"))?;
+
+			seperated
+				.push("visibility = ")
+				.push_bind_unseparated(Visibility::from(visibility));
 		}
 
 		if let Some(tags) = &req.tags {
 			seperated.push("tags = ").push_bind_unseparated(sqlx::types::Json(&tags.tags));
 		}
 
+		if req.tags.is_none() && req.room_id.is_none() && req.recording_config_id.is_none() && req.visibility.is_none() {
+			return Err(Status::invalid_argument(MODIFY_NO_FIELDS));
+		}
+
 		seperated.push("updated_at = ").push_bind_unseparated(chrono::Utc::now());
 
-		qb.push(" WHERE id = ").push_bind(req.id.to_uuid());
+		qb.push(" WHERE id = ").push_bind(common::database::Ulid(req.id.into_ulid()));
 		qb.push(" AND organization_id = ").push_bind(access_token.organization_id);
 		qb.push(" RETURNING *");
 
@@ -94,7 +108,7 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 
 		let state = global
 			.recording_state_loader()
-			.load(recording.id.0)
+			.load((recording.organization_id.0, recording.id.0))
 			.await
 			.map_err(|_| Status::internal("failed to load recording state"))?
 			.unwrap_or_default();

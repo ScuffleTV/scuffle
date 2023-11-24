@@ -7,11 +7,20 @@ use super::{DatabaseTable, Rendition};
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct TranscodingConfig {
-	pub id: Ulid,
+	/// The organization this transcoding config belongs to (primary key)
 	pub organization_id: Ulid,
+	/// A unique id for the transcoding config (primary key)
+	pub id: Ulid,
+
+	/// The renditions this transcoding config uses
 	pub renditions: Vec<Rendition>,
+
+	/// The date and time the transcoding config was last updated
 	pub updated_at: chrono::DateTime<chrono::Utc>,
-	pub tags: sqlx::types::Json<HashMap<String, String>>,
+
+	#[sqlx(json)]
+	/// Tags associated with the transcoding config
+	pub tags: HashMap<String, String>,
 }
 
 impl DatabaseTable for TranscodingConfig {
@@ -21,12 +30,15 @@ impl DatabaseTable for TranscodingConfig {
 
 impl TranscodingConfig {
 	pub fn into_proto(self) -> pb::scuffle::video::v1::types::TranscodingConfig {
+		let mut renditions: Vec<_> = self.renditions.into_iter().map(|r| PbRendition::from(r).into()).collect();
+		renditions.sort();
+
 		pb::scuffle::video::v1::types::TranscodingConfig {
 			id: Some(self.id.0.into()),
-			renditions: self.renditions.into_iter().map(|r| PbRendition::from(r).into()).collect(),
+			renditions,
 			created_at: self.id.0.timestamp_ms() as i64,
 			updated_at: self.updated_at.timestamp_micros(),
-			tags: Some(self.tags.0.into()),
+			tags: Some(self.tags.into()),
 		}
 	}
 }

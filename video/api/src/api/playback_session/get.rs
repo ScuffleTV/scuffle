@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use pb::ext::UlidExt;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{playback_session_target, Resource};
 use pb::scuffle::video::v1::{PlaybackSessionGetRequest, PlaybackSessionGetResponse};
@@ -38,22 +37,43 @@ impl QbRequest for PlaybackSessionGetRequest {
 			seperated.push_bind_unseparated(user_id);
 		}
 
-		if let Some(authorized) = self.authorized {
-			seperated.push("authorized = ");
-			seperated.push_bind(authorized);
+		if let Some(playback_key_pair_id) = self.playback_key_pair_id {
+			seperated.push("playback_key_pair_id = ");
+			seperated.push_bind_unseparated(common::database::Ulid(playback_key_pair_id.into_ulid()));
+		} else if let Some(authorized) = self.authorized {
+			if authorized {
+				seperated.push("playback_key_pair_id IS NOT NULL");
+			} else {
+				seperated.push("playback_key_pair_id IS NULL");
+			}
 		}
 
-		if let Some(target) = self.target.as_ref() {
-			match &target.target {
+		if let Some(ip_address) = self.ip_address.as_ref() {
+			let ip = ip_address
+				.parse::<std::net::IpAddr>()
+				.map_err(|_| tonic::Status::invalid_argument(format!("invalid ip address: {}", ip_address)))?;
+
+			seperated.push("ip_address = ");
+			seperated.push_bind_unseparated(ip);
+		}
+
+		if let Some(target) = self.target {
+			match target.target {
 				Some(playback_session_target::Target::RecordingId(recording_id)) => {
 					seperated.push("recording_id = ");
-					seperated.push_bind_unseparated(recording_id.to_uuid());
+					seperated.push_bind_unseparated(common::database::Ulid(recording_id.into_ulid()));
 				}
 				Some(playback_session_target::Target::RoomId(room_id)) => {
 					seperated.push("room_id = ");
-					seperated.push_bind_unseparated(room_id.to_uuid());
+					seperated.push_bind_unseparated(common::database::Ulid(room_id.into_ulid()));
 				}
 				None => {}
+			}
+		}
+
+		if let Some(tags) = self.search_options.as_ref().and_then(|o| o.tags.as_ref()) {
+			if !tags.tags.is_empty() {
+				return Err(tonic::Status::invalid_argument("tags are not supported by playback sessions"));
 			}
 		}
 

@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use common::dataloader::{DataLoader, Loader, LoaderOutput};
@@ -32,13 +31,7 @@ impl Loader for UserByUsernameLoader {
 				tracing::error!(err = %e, "failed to fetch users by username");
 			})?;
 
-		let mut map = HashMap::new();
-
-		for result in results {
-			map.insert(result.username.clone(), result);
-		}
-
-		Ok(map)
+		Ok(results.into_iter().map(|r| (r.username.clone(), r)).collect())
 	}
 }
 
@@ -67,12 +60,6 @@ impl Loader for UserByIdLoader {
 				tracing::error!(err = %e, "failed to fetch users by id");
 			})?;
 
-		let mut map = HashMap::new();
-
-		for result in results {
-			map.insert(result.id.0, result);
-		}
-
-		Ok(map)
+		Ok(results.into_iter().map(|r| (r.id.0, r)).collect())
 	}
 }

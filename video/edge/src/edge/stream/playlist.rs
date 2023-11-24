@@ -8,7 +8,7 @@ use pb::scuffle::video::internal::LiveRenditionManifest;
 use pb::scuffle::video::v1::types::{AudioConfig, VideoConfig};
 use ulid::Ulid;
 use uuid::Uuid;
-use video_common::database::{Recording, RecordingThumbnail, Rendition};
+use video_common::database::{Recording, RecordingThumbnail, Rendition, Visibility};
 use video_player_types::{
 	RenditionPlaylist, RenditionPlaylistRendition, RenditionPlaylistSegment, RenditionPlaylistSegmentPart,
 	RoomPlaylistTrack, RoomPlaylistTrackAudio, RoomPlaylistTrackVideo, SessionPlaylist, ThumbnailRange,
@@ -172,7 +172,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 			if config.scuffle_dvr {
 				manifest.recording_data.as_ref().map(|d| {
 					(
-						d.recording_ulid.to_ulid(),
+						d.recording_ulid.into_ulid(),
 						config.skip,
 						manifest.segments.first().map(|s| s.idx),
 					)
@@ -205,7 +205,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 		.await
 		.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?
 		.and_then(|r: RecordingExt| {
-			if r.recording.public || session.was_authenticated {
+			if r.recording.visibility == Visibility::Public || session.was_authenticated {
 				Some((recording_id, skip, active_idx, r.public_url))
 			} else {
 				None
@@ -332,7 +332,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 					d.thumbnails
 						.iter()
 						.map(|t| ThumbnailRange {
-							id: format!("{}.{}.jpg", t.idx, t.ulid.to_ulid()),
+							id: format!("{}.{}.jpg", t.idx, t.ulid.into_ulid()),
 							start_time: normalize_float(t.timestamp as f64),
 							idx: t.idx,
 						})
@@ -400,7 +400,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 					let end_time = current_duration as f64 / manifest.timescale as f64;
 
 					let dvr_tag = if recording_data.is_some() {
-						let id = segment.id.to_ulid();
+						let id = segment.id.into_ulid();
 						let idx = segment.idx;
 						Some(format!("{idx}.{id}.mp4"))
 					} else {

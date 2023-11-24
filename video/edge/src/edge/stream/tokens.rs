@@ -8,7 +8,6 @@ use jwt::asymmetric::VerifyingKey;
 use jwt::{asymmetric, AlgorithmType, SignWithKey, Token, VerifyWithKey};
 use sha2::Sha256;
 use ulid::Ulid;
-use uuid::Uuid;
 use video_common::database::{PlaybackKeyPair, Rendition};
 
 use crate::config::EdgeConfig;
@@ -41,22 +40,6 @@ pub struct TokenClaims {
 pub enum TargetId {
 	Room(Ulid),
 	Recording(Ulid),
-}
-
-impl TargetId {
-	fn room(&self) -> Option<Uuid> {
-		match self {
-			TargetId::Room(id) => Some(Uuid::from(*id)),
-			_ => None,
-		}
-	}
-
-	fn recording(&self) -> Option<Uuid> {
-		match self {
-			TargetId::Recording(id) => Some(Uuid::from(*id)),
-			_ => None,
-		}
-	}
 }
 
 impl TokenClaims {
@@ -155,8 +138,8 @@ impl TokenClaims {
 				AND id = $2
 			"#,
 		)
-		.bind(Uuid::from(organization_id))
-		.bind(Uuid::from(playback_key_pair_id))
+		.bind(common::database::Ulid(organization_id))
+		.bind(common::database::Ulid(playback_key_pair_id))
 		.fetch_optional(global.db().as_ref())
 		.await
 		.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?;
@@ -174,54 +157,49 @@ impl TokenClaims {
 			.verify_with_key(&verifier)
 			.map_err(|_| (StatusCode::BAD_REQUEST, "invalid token, failed to verify"))?;
 
-		if sqlx::query(
-			r#"
-            SELECT 
-				1
-			FROM
-				session_token_revokes
-			WHERE
-				organization_id = $1
-				AND room_id = $2
-				AND recording_id = $3
-				AND user_id = $4
-				AND sso_id IS NULL
-				AND expires_at - INTERVAL '10 minutes' < $5
-			LIMIT 1
-        	"#,
-		)
-		.bind(Uuid::from(organization_id))
-		.bind(target_id.room())
-		.bind(target_id.recording())
-		.bind(token.claims().user_id.as_ref())
-		.bind(iat)
-		.fetch_optional(global.db().as_ref())
-		.await
-		.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?
-		.is_some()
+		let mut qb = sqlx::query_builder::QueryBuilder::default();
+
+		qb.push("SELECT 1 FROM playback_session_revocations WHERE organization_id = ")
+			.push_bind(common::database::Ulid(organization_id))
+			.push(" AND revoke_before < ")
+			.push_bind(iat);
+
+		if let Some(uid) = token.claims().user_id.as_ref() {
+			qb.push(" AND user_id = ").push_bind(uid);
+		} else {
+			qb.push(" AND user_id IS NULL");
+		}
+
+		match target_id {
+			TargetId::Recording(recording_id) => {
+				qb.push(" AND (recording_id = ")
+					.push_bind(common::database::Ulid(recording_id))
+					.push(" OR recording_id IS NULL) AND room_id IS NULL");
+			}
+			TargetId::Room(room_id) => {
+				qb.push(" AND (room_id = ")
+					.push_bind(common::database::Ulid(room_id))
+					.push(" OR room_id IS NULL) AND recording_id IS NULL");
+			}
+		}
+
+		qb.push(" AND sso_id IS NULL LIMIT 1");
+
+		if qb
+			.build()
+			.fetch_optional(global.db().as_ref())
+			.await
+			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?
+			.is_some()
 		{
 			return Err((StatusCode::BAD_REQUEST, "invalid token, token has been revoked").into());
 		}
 
 		if let Some(id) = token.claims().id.as_ref() {
 			if sqlx::query(
-				r#"
-                INSERT INTO session_token_revokes (
-					organization_id,
-					room_id,
-					recording_id,
-					sso_id
-				) VALUES (
-					$1,
-					$2,
-					$3,
-					$4
-				) ON CONFLICT DO NOTHING
-           		"#,
+				"INSERT INTO playback_session_revocations(organization_id, sso_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
 			)
-			.bind(Uuid::from(organization_id))
-			.bind(target_id.room())
-			.bind(target_id.recording())
+			.bind(common::database::Ulid(organization_id))
 			.bind(id)
 			.execute(global.db().as_ref())
 			.await

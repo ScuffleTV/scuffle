@@ -17,7 +17,7 @@ use tokio::io::AsyncReadExt;
 use tokio::time::Instant;
 use ulid::Ulid;
 use uuid::Uuid;
-use video_common::database::{Rendition, Room, RoomStatus};
+use video_common::database::{Rendition, Room, RoomStatus, Visibility};
 use video_common::keys;
 use video_player_types::SessionRefresh;
 
@@ -104,7 +104,7 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Bod
 
 	let video_output = room.video_output.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
-	if room.private && token.is_none() {
+	if room.visibility == Visibility::Public && token.is_none() {
 		return Err((StatusCode::UNAUTHORIZED, "room is private, token is required").into());
 	}
 
@@ -671,7 +671,7 @@ async fn room_screenshot<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<B
 			.ok_or((StatusCode::NOT_FOUND, "room not found"))?,
 	);
 
-	if room.private && token.is_none() {
+	if room.visibility == Visibility::Public && token.is_none() {
 		return Err((StatusCode::UNAUTHORIZED, "room is private, token is required").into());
 	}
 

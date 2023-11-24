@@ -6,6 +6,3 @@ pub mod global;
 pub mod grpc;
 pub mod subscription;
 pub mod turnstile;
-
-// #[cfg(test)]
-// mod tests;

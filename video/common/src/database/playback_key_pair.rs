@@ -6,12 +6,23 @@ use super::DatabaseTable;
 
 #[derive(Debug, Clone, Default, sqlx::FromRow)]
 pub struct PlaybackKeyPair {
-	pub id: Ulid,
+	/// The organization this playback key pair belongs to (primary key)
 	pub organization_id: Ulid,
+	/// A unique id for the playback key pair (primary key)
+	pub id: Ulid,
+
+	/// The public key (in PEM format) for the playback key pair
 	pub public_key: Vec<u8>,
+
+	/// The fingerprint of the public key (SHA-256, hex-encoded)
 	pub fingerprint: String,
+
+	/// The date and time the playback key pair was last updated
 	pub updated_at: chrono::DateTime<chrono::Utc>,
-	pub tags: sqlx::types::Json<HashMap<String, String>>,
+
+	#[sqlx(json)]
+	/// Tags associated with the playback key pair
+	pub tags: HashMap<String, String>,
 }
 
 impl DatabaseTable for PlaybackKeyPair {
@@ -26,7 +37,7 @@ impl PlaybackKeyPair {
 			fingerprint: self.fingerprint,
 			created_at: self.id.0.timestamp_ms() as i64,
 			updated_at: self.updated_at.timestamp_millis(),
-			tags: Some(self.tags.0.into()),
+			tags: Some(self.tags.into()),
 		}
 	}
 }

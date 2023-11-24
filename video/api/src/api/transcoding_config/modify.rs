@@ -8,6 +8,7 @@ use pb::scuffle::video::v1::{TranscodingConfigModifyRequest, TranscodingConfigMo
 use tonic::Status;
 use video_common::database::{AccessToken, DatabaseTable, Rendition};
 
+use crate::api::errors::MODIFY_NO_FIELDS;
 use crate::api::utils::tags::validate_tags;
 use crate::api::utils::{impl_request_scopes, QbRequest, QbResponse, TonicRequest};
 use crate::global::ApiGlobal;
@@ -57,9 +58,13 @@ impl QbRequest for TranscodingConfigModifyRequest {
 			seperated.push("tags = ").push_bind_unseparated(sqlx::types::Json(&tags.tags));
 		}
 
+		if self.renditions.is_none() && self.tags.is_none() {
+			return Err(tonic::Status::invalid_argument(MODIFY_NO_FIELDS));
+		}
+
 		seperated.push("updated_at = NOW()");
 
-		qb.push(" WHERE id = ").push_bind(common::database::Ulid(self.id.to_ulid()));
+		qb.push(" WHERE id = ").push_bind(common::database::Ulid(self.id.into_ulid()));
 		qb.push(" AND organization_id = ").push_bind(access_token.organization_id);
 		qb.push(" RETURNING *");
 

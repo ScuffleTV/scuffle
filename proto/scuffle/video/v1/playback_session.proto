@@ -37,6 +37,13 @@ message PlaybackSessionGetRequest {
   // Filter by if the playback session was authorized or not.
   optional bool authorized = 4;
 
+  // Filter by the ip address of the playback session.
+  optional string ip_address = 3;
+
+  // Filter by the playback key pair that was used to create the playback
+  // session. This implies that the playback session was authorized.
+  optional scuffle.types.Ulid playback_key_pair_id = 7;
+
   // Filter by the target of the playback session.
   optional types.PlaybackSessionTarget target = 5;
 
@@ -53,7 +60,11 @@ message PlaybackSessionGetResponse {
 // The request payload for PlaybackSession.Revoke.
 message PlaybackSessionRevokeRequest {
   // A list of ids to revoke. If empty, one of the other options must be
-  // specified.
+  // specified. If ids are provided only the playback sessions with the
+  // specified ids will be revoked. This will be filtered by the other options.
+  // Meaning, if you specify 10 ids here and specify a user_id, only the
+  // playback sessions with the specified ids and user_id will be revoked. (max:
+  // 100)
   repeated scuffle.types.Ulid ids = 1;
 
   // Revoke all playback sessions for the specified user id.
@@ -62,9 +73,13 @@ message PlaybackSessionRevokeRequest {
   // Revoke all playback sessions for the specified target.
   optional types.PlaybackSessionTarget target = 3;
 
+  // Revoke all playback sessions that are authorized or not authorized.
+  // Cannot be used with user_id.
+  optional bool authorized = 4;
+
   // Revoke all playback sessions that were created before the specified
   // timestamp.
-  optional int64 before = 4;
+  optional int64 before = 5;
 }
 
 // The response payload for PlaybackSession.Revoke.

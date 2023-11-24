@@ -43,10 +43,7 @@ impl QbResponse for AccessTokenGetResponse {
 
 	fn from_query_object(query_objects: Vec<<Self::Request as QbRequest>::QueryObject>) -> tonic::Result<Self> {
 		Ok(Self {
-			access_tokens: query_objects
-				.into_iter()
-				.map(video_common::database::AccessToken::into_proto)
-				.collect(),
+			access_tokens: query_objects.into_iter().map(AccessToken::into_proto).collect(),
 		})
 	}
 }

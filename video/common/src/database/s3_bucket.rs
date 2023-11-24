@@ -6,18 +6,35 @@ use super::DatabaseTable;
 
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct S3Bucket {
-	pub id: Ulid,
+	/// The organization this S3 bucket belongs to (primary key)
 	pub organization_id: Ulid,
+	/// A unique id for the S3 bucket (primary key)
+	pub id: Ulid,
 
+	/// The name of the S3 bucket
 	pub name: String,
+
+	/// The region the S3 bucket is in
 	pub region: String,
+
+	/// The custom endpoint for the S3 bucket
 	pub endpoint: Option<String>,
+
+	/// The access key id for the S3 bucket
 	pub access_key_id: String,
+
+	/// The secret access key for the S3 bucket
 	pub secret_access_key: String,
+
+	/// The public url for the S3 bucket
 	pub public_url: Option<String>,
+
+	/// Whether or not the S3 bucket is managed by Scuffle
 	pub managed: bool,
 
-	pub tags: sqlx::types::Json<HashMap<String, String>>,
+	#[sqlx(json)]
+	/// Tags associated with the S3 bucket
+	pub tags: HashMap<String, String>,
 }
 
 impl DatabaseTable for S3Bucket {
@@ -35,7 +52,7 @@ impl S3Bucket {
 			access_key_id: self.access_key_id,
 			public_url: self.public_url,
 			managed: self.managed,
-			tags: Some(self.tags.0.into()),
+			tags: Some(self.tags.into()),
 		}
 	}
 }

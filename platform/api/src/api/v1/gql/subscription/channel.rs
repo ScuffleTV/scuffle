@@ -53,8 +53,8 @@ impl<G: ApiGlobal> ChannelSubscription<G> {
 				let event = pb::scuffle::platform::internal::events::UserFollowChannel::decode(message.payload)
 					.map_err_ignored_gql("failed to decode user follow")?;
 
-				let user_id = event.user_id.to_ulid();
-				let channel_id = event.channel_id.to_ulid();
+				let user_id = event.user_id.into_ulid();
+				let channel_id = event.channel_id.into_ulid();
 
 				yield Ok(FollowStream {
 					user_id: user_id.into(),

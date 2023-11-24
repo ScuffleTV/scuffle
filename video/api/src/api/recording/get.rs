@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
-use pb::ext::UlidExt;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::Resource;
 use pb::scuffle::video::v1::{RecordingGetRequest, RecordingGetResponse};
 use tonic::Status;
-use video_common::database::{AccessToken, DatabaseTable};
+use video_common::database::{AccessToken, DatabaseTable, Visibility};
 
 use crate::api::utils::{get, impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
@@ -38,22 +37,25 @@ impl ApiRequest<RecordingGetResponse> for tonic::Request<RecordingGetRequest> {
 
 		if let Some(room_id) = req.room_id.as_ref() {
 			seperated.push("room_id = ");
-			seperated.push_bind_unseparated(room_id.to_uuid());
+			seperated.push_bind_unseparated(common::database::Ulid(room_id.into_ulid()));
 		}
 
 		if let Some(recording_config_id) = req.recording_config_id.as_ref() {
 			seperated.push("recording_config_id = ");
-			seperated.push_bind_unseparated(recording_config_id.to_uuid());
+			seperated.push_bind_unseparated(common::database::Ulid(recording_config_id.into_ulid()));
 		}
 
 		if let Some(s3_bucket_id) = req.s3_bucket_id.as_ref() {
 			seperated.push("s3_bucket_id = ");
-			seperated.push_bind_unseparated(s3_bucket_id.to_uuid());
+			seperated.push_bind_unseparated(common::database::Ulid(s3_bucket_id.into_ulid()));
 		}
 
-		if let Some(public) = req.public {
-			seperated.push("public = ");
-			seperated.push_bind(public);
+		if let Some(visibility) = req.visibility {
+			let visibility = pb::scuffle::video::v1::types::Visibility::try_from(visibility)
+				.map_err(|_| Status::invalid_argument("invalid visibility value"))?;
+
+			seperated.push("visibility = ");
+			seperated.push_bind_unseparated(Visibility::from(visibility));
 		}
 
 		if let Some(deleted) = req.deleted {
@@ -73,7 +75,7 @@ impl ApiRequest<RecordingGetResponse> for tonic::Request<RecordingGetRequest> {
 
 		let states = global
 			.recording_state_loader()
-			.load_many(results.iter().map(|recording| recording.id.0))
+			.load_many(results.iter().map(|recording| (recording.organization_id.0, recording.id.0)))
 			.await
 			.map_err(|_| Status::internal("failed to load recording states"))?;
 
@@ -84,7 +86,7 @@ impl ApiRequest<RecordingGetResponse> for tonic::Request<RecordingGetRequest> {
 				.into_iter()
 				.map(|recording| {
 					states
-						.get(&recording.id.0)
+						.get(&(recording.organization_id.0, recording.id.0))
 						.unwrap_or(&default_state)
 						.recording_to_proto(recording)
 				})

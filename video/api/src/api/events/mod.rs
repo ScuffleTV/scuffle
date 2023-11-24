@@ -1,5 +1,4 @@
 use std::pin::Pin;
-use std::sync::{Arc, Weak};
 
 use futures_util::Stream;
 use pb::scuffle::video::v1::events_server::{Events, EventsServer as EventsService};
@@ -14,8 +13,7 @@ use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 
 pub struct EventsServer<G: ApiGlobal> {
-	#[allow(dead_code)]
-	global: Weak<G>,
+	_phantom: std::marker::PhantomData<G>,
 }
 
 impl_request_scopes!(
@@ -26,10 +24,14 @@ impl_request_scopes!(
 );
 
 impl<G: ApiGlobal> EventsServer<G> {
-	pub fn new(global: &Arc<G>) -> EventsService<Self> {
-		EventsService::new(Self {
-			global: Arc::downgrade(global),
-		})
+	pub fn build() -> EventsService<Self> {
+		EventsService::new(Self::new())
+	}
+
+	pub(crate) const fn new() -> Self {
+		Self {
+			_phantom: std::marker::PhantomData,
+		}
 	}
 }
 

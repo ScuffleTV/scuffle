@@ -31,14 +31,21 @@ impl ApiRequest<RecordingConfigDeleteResponse> for tonic::Request<RecordingConfi
 		let req = self.get_ref();
 
 		if req.ids.len() > 100 {
-			return Err(tonic::Status::invalid_argument("too many ids provided for delete: max 100".to_string()));
+			return Err(tonic::Status::invalid_argument(
+				"too many ids provided for delete: max 100".to_string(),
+			));
 		}
 
 		if req.ids.is_empty() {
 			return Err(tonic::Status::invalid_argument("no ids provided for delete"));
 		}
 
-		let mut ids_to_delete = req.ids.iter().map(pb::ext::UlidExt::to_ulid).collect::<HashSet<_>>();
+		let mut ids_to_delete = req
+			.ids
+			.iter()
+			.copied()
+			.map(pb::scuffle::types::Ulid::into_ulid)
+			.collect::<HashSet<_>>();
 
 		qb.push("(SELECT DISTINCT recording_config_id AS id FROM ")
 			.push(<video_common::database::Room as DatabaseTable>::NAME)

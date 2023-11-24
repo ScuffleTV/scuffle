@@ -37,7 +37,12 @@ impl ApiRequest<PlaybackKeyPairDeleteResponse> for tonic::Request<PlaybackKeyPai
 			return Err(tonic::Status::invalid_argument("no ids provided for delete"));
 		}
 
-		let mut ids_to_delete = req.ids.iter().map(pb::ext::UlidExt::to_ulid).collect::<HashSet<_>>();
+		let mut ids_to_delete = req
+			.ids
+			.iter()
+			.copied()
+			.map(pb::scuffle::types::Ulid::into_ulid)
+			.collect::<HashSet<_>>();
 
 		qb.push("DELETE FROM ")
 			.push(<PlaybackKeyPairDeleteRequest as TonicRequest>::Table::NAME)

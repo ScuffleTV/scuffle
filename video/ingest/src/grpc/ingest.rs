@@ -48,7 +48,7 @@ impl<G: IngestGlobal> ingest_server::Ingest for IngestServer<G> {
 			None => return Err(Status::invalid_argument("No message provided")),
 		};
 
-		let ulid = open_req.request_id.to_ulid();
+		let ulid = open_req.request_id.into_ulid();
 
 		let Some(handler) = global.requests().lock().await.remove(&ulid) else {
 			return Err(Status::not_found("No ingest request found with that UUID"));

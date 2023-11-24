@@ -1,5 +1,3 @@
-use std::sync::{Arc, Weak};
-
 use pb::scuffle::video::v1::recording_config_server::{
 	RecordingConfig as RecordingConfigServiceTrait, RecordingConfigServer as RecordingConfigService,
 };
@@ -23,14 +21,18 @@ mod tag;
 mod untag;
 
 pub struct RecordingConfigServer<G: ApiGlobal> {
-	global: Weak<G>,
+	_phantom: std::marker::PhantomData<G>,
 }
 
 impl<G: ApiGlobal> RecordingConfigServer<G> {
-	pub fn new(global: &Arc<G>) -> RecordingConfigService<Self> {
-		RecordingConfigService::new(Self {
-			global: Arc::downgrade(global),
-		})
+	pub fn build() -> RecordingConfigService<Self> {
+		RecordingConfigService::new(Self::new())
+	}
+
+	pub(crate) const fn new() -> Self {
+		Self {
+			_phantom: std::marker::PhantomData,
+		}
 	}
 }
 
@@ -38,7 +40,7 @@ impl<G: ApiGlobal> RecordingConfigServer<G> {
 impl<G: ApiGlobal> RecordingConfigServiceTrait for RecordingConfigServer<G> {
 	async fn get(&self, request: Request<RecordingConfigGetRequest>) -> tonic::Result<Response<RecordingConfigGetResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -47,7 +49,7 @@ impl<G: ApiGlobal> RecordingConfigServiceTrait for RecordingConfigServer<G> {
 		request: Request<RecordingConfigCreateRequest>,
 	) -> tonic::Result<Response<RecordingConfigCreateResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -56,7 +58,7 @@ impl<G: ApiGlobal> RecordingConfigServiceTrait for RecordingConfigServer<G> {
 		request: Request<RecordingConfigModifyRequest>,
 	) -> tonic::Result<Response<RecordingConfigModifyResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -65,13 +67,13 @@ impl<G: ApiGlobal> RecordingConfigServiceTrait for RecordingConfigServer<G> {
 		request: Request<RecordingConfigDeleteRequest>,
 	) -> tonic::Result<Response<RecordingConfigDeleteResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
 	async fn tag(&self, request: Request<RecordingConfigTagRequest>) -> tonic::Result<Response<RecordingConfigTagResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -80,7 +82,7 @@ impl<G: ApiGlobal> RecordingConfigServiceTrait for RecordingConfigServer<G> {
 		request: Request<RecordingConfigUntagRequest>,
 	) -> tonic::Result<Response<RecordingConfigUntagResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 }

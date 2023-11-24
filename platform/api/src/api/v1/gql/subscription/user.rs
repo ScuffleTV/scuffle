@@ -69,7 +69,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 				let event = pb::scuffle::platform::internal::events::UserDisplayName::decode(message.payload)
 					.map_err_ignored_gql("failed to decode user display name")?;
 
-				let user_id = event.user_id.to_ulid();
+				let user_id = event.user_id.into_ulid();
 
 				yield Ok(DisplayNameStream {
 					user_id: user_id.into(),
@@ -116,7 +116,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 				let event = pb::scuffle::platform::internal::events::UserDisplayColor::decode(message.payload)
 					.map_err_ignored_gql("failed to decode user display name")?;
 
-				let user_id = event.user_id.to_ulid();
+				let user_id = event.user_id.into_ulid();
 
 				yield Ok(DisplayColorStream {
 					user_id: user_id.into(),
@@ -178,9 +178,9 @@ impl<G: ApiGlobal> UserSubscription<G> {
 				let event = pb::scuffle::platform::internal::events::UserFollowChannel::decode(message.payload)
 					.map_err_ignored_gql("failed to decode user follow")?;
 
-				let user_id = event.user_id.to_ulid();
+				let user_id = event.user_id.into_ulid();
 
-				let event_channel_id = event.channel_id.to_ulid();
+				let event_channel_id = event.channel_id.into_ulid();
 
 				if channel_id.is_some_and(|i| event_channel_id != *i) {
 					continue;

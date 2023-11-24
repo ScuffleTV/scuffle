@@ -64,6 +64,9 @@ message AccessTokenCreateRequest {
 message AccessTokenCreateResponse {
   // The access token that was created.
   types.AccessToken access_token = 1;
+
+  // The secret of the access token that was created.
+  string secret = 2;
 }
 
 // The request payload for AccessToken.Delete.
@@ -78,7 +81,7 @@ message AccessTokenDeleteResponse {
   // The access token cannot delete the master access token or itself.
   // It also cannot delete access tokens with a higher scopes than itself.
   repeated scuffle.types.Ulid ids = 1;
-  
+
   // The access tokens which failed to be deleted.
   repeated types.FailedResource failed_deletes = 2;
 }

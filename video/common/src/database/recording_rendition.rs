@@ -1,12 +1,23 @@
-use common::database::{Protobuf, Ulid};
+use common::database::Ulid;
 
 use super::{DatabaseTable, Rendition};
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct RecordingRendition {
+	/// The organization this recording rendition belongs to (primary key)
+	pub organization_id: Ulid,
+	/// A recording id (primary key)
 	pub recording_id: Ulid,
+	/// The rendition (primary key)
 	pub rendition: Rendition,
-	pub config: Protobuf<Vec<u8>>,
+
+	/// The config for the recording rendition pair
+	/// This is a serialized protobuf, however it can be one of two types:
+	/// - `pb::scuffle::video::v1::types::VideoConfig`
+	/// - `pb::scuffle::video::v1::types::AudioConfig`
+	/// Because of this, we store it as a `Vec<u8>` and deserialize it when
+	/// needed.
+	pub config: Vec<u8>,
 }
 
 impl DatabaseTable for RecordingRendition {

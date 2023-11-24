@@ -5,8 +5,9 @@ use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::Resource;
 use pb::scuffle::video::v1::{RoomModifyRequest, RoomModifyResponse};
 use tonic::Status;
-use video_common::database::{AccessToken, DatabaseTable};
+use video_common::database::{AccessToken, DatabaseTable, Visibility};
 
+use crate::api::errors::MODIFY_NO_FIELDS;
 use crate::api::utils::tags::validate_tags;
 use crate::api::utils::{impl_request_scopes, QbRequest, QbResponse, TonicRequest};
 use crate::global::ApiGlobal;
@@ -34,14 +35,14 @@ impl QbRequest for RoomModifyRequest {
 
 		qb.push("UPDATE ").push(Self::Table::NAME).push(" SET ");
 
-		let mut seperated = qb.separated(", ");
+		let mut seperated = qb.separated(",");
 
 		if let Some(transcoding_config_id) = &self.transcoding_config_id {
-			let transcoding_config_id = transcoding_config_id.to_ulid();
+			let transcoding_config_id = transcoding_config_id.into_ulid();
 			if transcoding_config_id.is_nil() {
 				seperated.push("transcoding_config_id = NULL");
 			} else {
-				let _: i32 = sqlx::query_scalar("SELECT 1 FROM transcoding_configs WHERE id = $1 AND organization_id = $2")
+				let _: i64 = sqlx::query_scalar("SELECT 1 FROM transcoding_configs WHERE id = $1 AND organization_id = $2")
 					.bind(common::database::Ulid(transcoding_config_id))
 					.bind(access_token.organization_id)
 					.fetch_optional(global.db().as_ref())
@@ -54,16 +55,16 @@ impl QbRequest for RoomModifyRequest {
 
 				seperated
 					.push("transcoding_config_id = ")
-					.push_bind(common::database::Ulid(transcoding_config_id));
+					.push_bind_unseparated(common::database::Ulid(transcoding_config_id));
 			}
 		}
 
 		if let Some(recording_config_id) = &self.recording_config_id {
-			let recording_config_id = recording_config_id.to_ulid();
+			let recording_config_id = recording_config_id.into_ulid();
 			if recording_config_id.is_nil() {
 				seperated.push("recording_config_id = NULL");
 			} else {
-				let _: i32 = sqlx::query_scalar("SELECT 1 FROM recording_configs WHERE id = $1 AND organization_id = $2")
+				let _: i64 = sqlx::query_scalar("SELECT 1 FROM recording_configs WHERE id = $1 AND organization_id = $2")
 					.bind(common::database::Ulid(recording_config_id))
 					.bind(access_token.organization_id)
 					.fetch_optional(global.db().as_ref())
@@ -76,21 +77,34 @@ impl QbRequest for RoomModifyRequest {
 
 				seperated
 					.push("recording_config_id = ")
-					.push_bind(common::database::Ulid(recording_config_id));
+					.push_bind_unseparated(common::database::Ulid(recording_config_id));
 			}
 		}
 
-		if let Some(private) = &self.private {
-			seperated.push("private = ").push_bind_unseparated(private);
+		if let Some(visibility) = self.visibility {
+			let visibility = pb::scuffle::video::v1::types::Visibility::try_from(visibility)
+				.map_err(|_| Status::invalid_argument("invalid visibility value"))?;
+
+			seperated
+				.push("visibility = ")
+				.push_bind_unseparated(Visibility::from(visibility));
 		}
 
 		if let Some(tags) = &self.tags {
 			seperated.push("tags = ").push_bind_unseparated(sqlx::types::Json(&tags.tags));
 		}
 
+		if self.tags.is_none()
+			&& self.transcoding_config_id.is_none()
+			&& self.recording_config_id.is_none()
+			&& self.visibility.is_none()
+		{
+			return Err(Status::invalid_argument(MODIFY_NO_FIELDS));
+		}
+
 		seperated.push("updated_at = NOW()");
 
-		qb.push(" WHERE id = ").push_bind(common::database::Ulid(self.id.to_ulid()));
+		qb.push(" WHERE id = ").push_bind(common::database::Ulid(self.id.into_ulid()));
 		qb.push(" AND organization_id = ").push_bind(access_token.organization_id);
 		qb.push(" RETURNING *");
 

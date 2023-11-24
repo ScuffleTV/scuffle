@@ -16,6 +16,7 @@ mod room_status;
 mod s3_bucket;
 mod session_token_revoke;
 mod transcoding_config;
+mod visibility;
 
 pub use access_token::*;
 pub use organization::*;
@@ -35,6 +36,7 @@ pub use room_status::*;
 pub use s3_bucket::*;
 pub use session_token_revoke::*;
 pub use transcoding_config::*;
+pub use visibility::*;
 
 pub trait DatabaseTable {
 	/// The name of the table in the database.

@@ -94,7 +94,7 @@ pub async fn perform_sql_operations<G: TranscoderGlobal>(
 	};
 
 	let recording_config = if let Some(recording) = recording_config {
-		let s3_bucket_id = recording.s3_bucket_id.to_ulid();
+		let s3_bucket_id = recording.s3_bucket_id.into_ulid();
 
 		Some((
 			recording,
@@ -196,7 +196,7 @@ pub async fn perform_sql_operations<G: TranscoderGlobal>(
 				room.active_recording_id.map(Ulid::from).unwrap_or_else(Ulid::new),
 				organization_id,
 				room_id,
-				!room.private,
+				room.visibility,
 				&audio_output,
 				&video_output,
 				s3_bucket,

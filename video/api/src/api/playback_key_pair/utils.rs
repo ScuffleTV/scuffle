@@ -1,3 +1,4 @@
+use hex::ToHex;
 use sha2::Digest;
 use tonic::Status;
 
@@ -8,10 +9,9 @@ pub fn validate_public_key(public_key: &str) -> tonic::Result<(String, String)> 
 	match public_key {
 		jwt::asymmetric::PublicKey::RSA(_) => Err(Status::invalid_argument("RSA keys are not supported, use EC384")),
 		jwt::asymmetric::PublicKey::EC256(_) => Err(Status::invalid_argument("EC256 keys are not supported, use EC384")),
-		jwt::asymmetric::PublicKey::EC384(key) => {
-			let mut hasher = sha2::Sha256::new();
-			hasher.update(key.to_sec1_bytes());
-			Ok((key.to_string(), hex::encode(hasher.finalize())))
-		}
+		jwt::asymmetric::PublicKey::EC384(key) => Ok((
+			key.to_string(),
+			sha2::Sha256::digest(key.to_sec1_bytes()).to_vec().encode_hex(),
+		)),
 	}
 }

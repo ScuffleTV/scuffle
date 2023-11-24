@@ -7,6 +7,7 @@ use pb::scuffle::video::v1::{PlaybackKeyPairModifyRequest, PlaybackKeyPairModify
 use video_common::database::{AccessToken, DatabaseTable};
 
 use super::utils::validate_public_key;
+use crate::api::errors::MODIFY_NO_FIELDS;
 use crate::api::utils::tags::validate_tags;
 use crate::api::utils::{impl_request_scopes, QbRequest, QbResponse, TonicRequest};
 use crate::global::ApiGlobal;
@@ -49,9 +50,13 @@ impl QbRequest for PlaybackKeyPairModifyRequest {
 			seperated.push("fingerprint = ").push_bind_unseparated(fingerprint);
 		}
 
-		seperated.push("updated_at = ").push_bind(chrono::Utc::now());
+		if self.tags.is_none() && self.public_key.is_none() {
+			return Err(tonic::Status::invalid_argument(MODIFY_NO_FIELDS));
+		}
 
-		qb.push(" WHERE id = ").push_bind(self.id.to_uuid());
+		seperated.push("updated_at = ").push_bind_unseparated(chrono::Utc::now());
+
+		qb.push(" WHERE id = ").push_bind(common::database::Ulid(self.id.into_ulid()));
 		qb.push(" AND organization_id = ").push_bind(access_token.organization_id);
 		qb.push(" RETURNING *");
 

@@ -30,6 +30,16 @@ impl Rendition {
 			Self::AudioSource => true,
 		}
 	}
+
+	pub const fn variants() -> [Rendition; 5] {
+		[
+			Self::VideoSource,
+			Self::VideoHd,
+			Self::VideoSd,
+			Self::VideoLd,
+			Self::AudioSource,
+		]
+	}
 }
 
 impl PgHasArrayType for Rendition {

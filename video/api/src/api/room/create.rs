@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
-use pb::ext::UlidExt;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::Resource;
 use pb::scuffle::video::v1::{RoomCreateRequest, RoomCreateResponse};
 use tonic::Status;
 use ulid::Ulid;
-use video_common::database::{AccessToken, DatabaseTable, RecordingConfig, TranscodingConfig};
+use video_common::database::{AccessToken, DatabaseTable, RecordingConfig, TranscodingConfig, Visibility};
 
 use super::utils::create_stream_key;
 use crate::api::utils::tags::validate_tags;
@@ -42,7 +41,7 @@ impl QbRequest for RoomCreateRequest {
 		seperated.push("organization_id");
 		seperated.push("transcoding_config_id");
 		seperated.push("recording_config_id");
-		seperated.push("private");
+		seperated.push("visibility");
 		seperated.push("stream_key");
 		seperated.push("tags");
 
@@ -52,7 +51,7 @@ impl QbRequest for RoomCreateRequest {
 		{
 			Some(
 				sqlx::query_as("SELECT * FROM transcoding_configs WHERE id = $1 AND organization_id = $2")
-					.bind(common::database::Ulid(transcoding_config_id.to_ulid()))
+					.bind(common::database::Ulid(transcoding_config_id.into_ulid()))
 					.bind(access_token.organization_id)
 					.fetch_optional(global.db().as_ref())
 					.await
@@ -69,7 +68,7 @@ impl QbRequest for RoomCreateRequest {
 		let recording_config: Option<RecordingConfig> = if let Some(recording_config_id) = &self.recording_config_id {
 			Some(
 				sqlx::query_as("SELECT * FROM recording_configs WHERE id = $1 AND organization_id = $2")
-					.bind(common::database::Ulid(recording_config_id.to_ulid()))
+					.bind(common::database::Ulid(recording_config_id.into_ulid()))
 					.bind(access_token.organization_id)
 					.fetch_optional(global.db().as_ref())
 					.await
@@ -83,6 +82,9 @@ impl QbRequest for RoomCreateRequest {
 			None
 		};
 
+		let visibility = pb::scuffle::video::v1::types::Visibility::try_from(self.visibility)
+			.map_err(|_| Status::invalid_argument("invalid visibility value"))?;
+
 		// The stream key is 32 characters long randomly generated string.
 		let mut seperated = qb.separated(",");
 
@@ -90,7 +92,7 @@ impl QbRequest for RoomCreateRequest {
 		seperated.push_bind(access_token.organization_id);
 		seperated.push_bind(transcoding_config.map(|t| t.id));
 		seperated.push_bind(recording_config.map(|r| r.id));
-		seperated.push_bind(self.private);
+		seperated.push_bind(Visibility::from(visibility));
 		seperated.push_bind(create_stream_key());
 		seperated.push_bind(sqlx::types::Json(self.tags.clone().unwrap_or_default().tags));
 
@@ -111,8 +113,11 @@ impl QbResponse for RoomCreateResponse {
 			)));
 		}
 
+		let query_object = query_object.into_iter().next().unwrap();
+
 		Ok(Self {
-			room: Some(query_object.into_iter().next().unwrap().into_proto()),
+			stream_key: query_object.stream_key.clone(),
+			room: Some(query_object.into_proto()),
 		})
 	}
 }

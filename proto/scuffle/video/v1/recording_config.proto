@@ -56,7 +56,8 @@ message RecordingConfigGetResponse {
 
 // The request payload for RecordingConfig.Create.
 message RecordingConfigCreateRequest {
-  // The renditions to store. Must contain at least one audio and one video rendition.
+  // The renditions to store. Must contain at least one audio and one video
+  // rendition.
   repeated types.Rendition stored_renditions = 1;
 
   // The lifecycle policies to apply to the recording config.
@@ -88,7 +89,8 @@ message RecordingConfigModifyRequest {
   scuffle.types.Ulid id = 1;
   optional RenditionList stored_renditions = 2;
   optional LifecyclePolicyList lifecycle_policies = 3;
-  optional types.Tags tags = 4;
+  optional scuffle.types.Ulid s3_bucket_id = 4;
+  optional types.Tags tags = 5;
 }
 
 // The response payload for RecordingConfig.Modify.

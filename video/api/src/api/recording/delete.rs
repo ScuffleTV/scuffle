@@ -26,34 +26,47 @@ impl_request_scopes!(
 #[derive(sqlx::FromRow)]
 struct ThumbnailResp {
 	recording_id: common::database::Ulid,
-	thumbnail_id: common::database::Ulid,
+	id: common::database::Ulid,
 	idx: i32,
 }
 
 #[derive(sqlx::FromRow)]
 struct SegmentResp {
 	recording_id: common::database::Ulid,
-	segment_id: common::database::Ulid,
+	id: common::database::Ulid,
 	idx: i32,
 	rendition: Rendition,
 }
 
+#[derive(sqlx::FromRow)]
+struct RecordingResp {
+	id: common::database::Ulid,
+	s3_bucket_id: common::database::Ulid,
+}
+
 trait UpdateBatch {
+	const NAME: &'static str;
+
 	fn is_same_batch(&self, batch: &RecordingDeleteBatchTask) -> bool;
 	fn update_batch(&self, deleted_recordings: &HashMap<Ulid, Ulid>, batch: &mut RecordingDeleteBatchTask);
 	fn to_object(&self) -> recording_delete_batch_task::Object;
 }
 
 impl UpdateBatch for ThumbnailResp {
+	const NAME: &'static str = "thumbnail";
+
 	fn is_same_batch(&self, batch: &RecordingDeleteBatchTask) -> bool {
-		batch.recording_id.to_ulid() == self.recording_id.0
-			&& matches!(batch.object_types, Some(recording_delete_batch_task::ObjectTypes::Thumbnails(_)))
+		batch.recording_id.into_ulid() == self.recording_id.0
+			&& matches!(
+				batch.objects_type,
+				Some(recording_delete_batch_task::ObjectsType::Thumbnails(_))
+			)
 	}
 
 	fn update_batch(&self, deleted_recordings: &HashMap<Ulid, Ulid>, batch: &mut RecordingDeleteBatchTask) {
 		batch.recording_id = Some(self.recording_id.0.into());
 		batch.s3_bucket_id = Some(deleted_recordings[&self.recording_id.0].into());
-		batch.object_types = Some(recording_delete_batch_task::ObjectTypes::Thumbnails(
+		batch.objects_type = Some(recording_delete_batch_task::ObjectsType::Thumbnails(
 			recording_delete_batch_task::ThumbnailType {},
 		));
 		batch.objects.clear();
@@ -62,16 +75,18 @@ impl UpdateBatch for ThumbnailResp {
 	fn to_object(&self) -> recording_delete_batch_task::Object {
 		recording_delete_batch_task::Object {
 			index: self.idx,
-			object_id: Some(self.thumbnail_id.0.into()),
+			object_id: Some(self.id.0.into()),
 		}
 	}
 }
 
 impl UpdateBatch for SegmentResp {
+	const NAME: &'static str = "segment";
+
 	fn is_same_batch(&self, batch: &RecordingDeleteBatchTask) -> bool {
-		batch.recording_id.to_ulid() == self.recording_id.0
-			&& batch.object_types
-				== Some(recording_delete_batch_task::ObjectTypes::Segments(
+		batch.recording_id.into_ulid() == self.recording_id.0
+			&& batch.objects_type
+				== Some(recording_delete_batch_task::ObjectsType::Segments(
 					pb::scuffle::video::v1::types::Rendition::from(self.rendition) as i32,
 				))
 	}
@@ -79,7 +94,7 @@ impl UpdateBatch for SegmentResp {
 	fn update_batch(&self, deleted_recordings: &HashMap<Ulid, Ulid>, batch: &mut RecordingDeleteBatchTask) {
 		batch.recording_id = Some(self.recording_id.0.into());
 		batch.s3_bucket_id = Some(deleted_recordings[&self.recording_id.0].into());
-		batch.object_types = Some(recording_delete_batch_task::ObjectTypes::Segments(
+		batch.objects_type = Some(recording_delete_batch_task::ObjectsType::Segments(
 			pb::scuffle::video::v1::types::Rendition::from(self.rendition) as i32,
 		));
 		batch.objects.clear();
@@ -88,7 +103,7 @@ impl UpdateBatch for SegmentResp {
 	fn to_object(&self) -> recording_delete_batch_task::Object {
 		recording_delete_batch_task::Object {
 			index: self.idx,
-			object_id: Some(self.segment_id.0.into()),
+			object_id: Some(self.id.0.into()),
 		}
 	}
 }
@@ -98,19 +113,18 @@ async fn handle_resp(
 	deleted_recordings: &HashMap<Ulid, Ulid>,
 	resp: impl UpdateBatch,
 	batch: &mut RecordingDeleteBatchTask,
-) -> Result<(), ()> {
-	if resp.is_same_batch(batch) {
-		batch.objects.push(resp.to_object());
-	} else {
+) -> Option<()> {
+	if !resp.is_same_batch(batch) || batch.objects.len() >= global.config::<ApiConfig>().recording_delete_batch_size {
 		publish_batch(global, batch).await?;
 		resp.update_batch(deleted_recordings, batch);
-		batch.objects.push(resp.to_object());
 	}
 
-	Ok(())
+	batch.objects.push(resp.to_object());
+
+	Some(())
 }
 
-async fn publish_batch(global: &Arc<impl ApiGlobal>, batch: &RecordingDeleteBatchTask) -> Result<(), ()> {
+async fn publish_batch(global: &Arc<impl ApiGlobal>, batch: &RecordingDeleteBatchTask) -> Option<()> {
 	if !batch.objects.is_empty() {
 		global
 			.nats()
@@ -121,22 +135,51 @@ async fn publish_batch(global: &Arc<impl ApiGlobal>, batch: &RecordingDeleteBatc
 			.await
 			.map_err(|err| {
 				tracing::error!(err = %err, "failed to publish recording delete batch");
-			})?;
+			})
+			.ok()?;
 	}
 
-	Ok(())
+	Some(())
 }
 
-async fn handle_end_of_stream(global: &Arc<impl ApiGlobal>, batch: &mut RecordingDeleteBatchTask) -> Result<(), ()> {
+async fn handle_end_of_stream(global: &Arc<impl ApiGlobal>, batch: &mut RecordingDeleteBatchTask) -> Option<()> {
 	publish_batch(global, batch).await?;
 
 	// Reset the batch
 	batch.recording_id = None;
 	batch.s3_bucket_id = None;
-	batch.object_types = None;
+	batch.objects_type = None;
 	batch.objects.clear();
 
-	Ok(())
+	Some(())
+}
+
+async fn handle_query<B: UpdateBatch>(
+	global: &Arc<impl ApiGlobal>,
+	deleted_recordings: &HashMap<Ulid, Ulid>,
+	batch: &mut RecordingDeleteBatchTask,
+	mut qb: sqlx::query_builder::QueryBuilder<'_, sqlx::Postgres>,
+) -> Option<()>
+where
+	for<'r> B: sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
+{
+	let mut qb = qb.build_query_as::<B>().fetch_many(global.db().as_ref());
+
+	while let Some(result) = qb.next().await {
+		let result = result
+			.map_err(|err| {
+				tracing::error!(err = %err, "failed to fetch recording {}s", B::NAME);
+			})
+			.ok()?;
+
+		let Some(result) = result.right() else {
+			break;
+		};
+
+		handle_resp(global, deleted_recordings, result, batch).await?;
+	}
+
+	Some(())
 }
 
 #[async_trait::async_trait]
@@ -151,14 +194,21 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 		let req = self.get_ref();
 
 		if req.ids.len() > 100 {
-			return Err(tonic::Status::invalid_argument("too many ids provided for delete: max 100".to_string()));
+			return Err(tonic::Status::invalid_argument(
+				"too many ids provided for delete: max 100".to_string(),
+			));
 		}
 
 		if req.ids.is_empty() {
 			return Err(tonic::Status::invalid_argument("no ids provided for delete"));
 		}
 
-		let mut ids_to_delete = req.ids.iter().map(pb::ext::UlidExt::to_ulid).collect::<HashSet<_>>();
+		let mut ids_to_delete = req
+			.ids
+			.iter()
+			.copied()
+			.map(pb::scuffle::types::Ulid::into_ulid)
+			.collect::<HashSet<_>>();
 
 		let mut tx = global.db().begin().await.map_err(|err| {
 			tracing::error!(err = %err, "failed to begin transaction");
@@ -177,20 +227,19 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 			.push(" AND deleted_at IS NULL")
 			.push(" RETURNING id, s3_bucket_id");
 
-		let deleted_recordings: Vec<(common::database::Ulid, common::database::Ulid)> =
-			qb.build_query_scalar().fetch_all(tx.as_mut()).await.map_err(|err| {
-				tracing::error!(err = %err, "failed to update {}s", <RecordingDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME);
-				tonic::Status::internal(format!(
-					"failed to delete {}s",
-					<RecordingDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME
-				))
-			})?;
+		let deleted_recordings: Vec<RecordingResp> = qb.build_query_as().fetch_all(tx.as_mut()).await.map_err(|err| {
+			tracing::error!(err = %err, "failed to update {}s", <RecordingDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME);
+			tonic::Status::internal(format!(
+				"failed to delete {}s",
+				<RecordingDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME
+			))
+		})?;
 
-		let deleted_ids = deleted_recordings.iter().map(|(id, _)| *id).collect::<Vec<_>>();
+		let deleted_ids = deleted_recordings.iter().map(|resp| resp.id).collect::<Vec<_>>();
 
 		let deleted_recordings = deleted_recordings
 			.into_iter()
-			.map(|(id, bucket_id)| (id.0, bucket_id.0))
+			.map(|resp| (resp.id.0, resp.s3_bucket_id.0))
 			.collect::<HashMap<_, _>>();
 
 		deleted_ids.iter().for_each(|id| {
@@ -217,7 +266,8 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 			.push(<video_common::database::RecordingRendition as DatabaseTable>::NAME)
 			.push(" WHERE recording_id = ANY(")
 			.push_bind(&deleted_ids)
-			.push(")");
+			.push(") AND organization_id = ")
+			.push_bind(access_token.organization_id);
 
 		qb.build().execute(tx.as_mut()).await.map_err(|err| {
 			tracing::error!(err = %err, "failed to delete {}s", <video_common::database::PlaybackSession as DatabaseTable>::FRIENDLY_NAME);
@@ -237,34 +287,21 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 			let mut batch = RecordingDeleteBatchTask {
 				recording_id: None,
 				s3_bucket_id: None,
-				object_types: None,
+				objects_type: None,
 				objects: Vec::with_capacity(global.config::<ApiConfig>().recording_delete_batch_size),
 			};
 
 			let mut qb = sqlx::query_builder::QueryBuilder::default();
 
-			qb.push("SELECT id, recording_id, idx, FROM ")
+			qb.push("SELECT id, recording_id, idx FROM ")
 				.push(<video_common::database::RecordingThumbnail as DatabaseTable>::NAME)
 				.push(" WHERE recording_id = ANY(")
 				.push_bind(&deleted_ids)
-				.push(") ORDER BY recording_id");
+				.push(") AND organization_id = ")
+				.push_bind(access_token.organization_id)
+				.push(" ORDER BY recording_id");
 
-			while let Some(result) = qb
-				.build_query_as::<ThumbnailResp>()
-				.fetch_many(global.db().as_ref())
-				.next()
-				.await
-			{
-				let result = result.map_err(|err| {
-					tracing::error!(err = %err, "failed to select recording thumbnails");
-				})?;
-
-				let Some(result) = result.right() else {
-					break;
-				};
-
-				handle_resp(global, &deleted_recordings, result, &mut batch).await?;
-			}
+			handle_query::<ThumbnailResp>(global, &deleted_recordings, &mut batch, qb).await?;
 
 			handle_end_of_stream(global, &mut batch).await?;
 
@@ -274,33 +311,17 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 				.push(<video_common::database::RecordingRenditionSegment as DatabaseTable>::NAME)
 				.push(" WHERE recording_id = ANY(")
 				.push_bind(&deleted_ids)
-				.push(") ORDER BY recording_id, rendition");
+				.push(") ")
+				.push(" AND organization_id = ")
+				.push_bind(access_token.organization_id)
+				.push(" ORDER BY recording_id, rendition");
 
-			while let Some(result) = qb
-				.build_query_as::<SegmentResp>()
-				.fetch_many(global.db().as_ref())
-				.next()
-				.await
-			{
-				let result = result.map_err(|err| {
-					tracing::error!(err = %err, "failed to delete recording segments");
-				})?;
+			handle_query::<SegmentResp>(global, &deleted_recordings, &mut batch, qb).await?;
 
-				let Some(result) = result.right() else {
-					break;
-				};
-
-				handle_resp(global, &deleted_recordings, result, &mut batch).await?;
-			}
-
-			handle_end_of_stream(global, &mut batch).await?;
-
-			Result::<(), ()>::Ok(())
+			handle_end_of_stream(global, &mut batch).await
 		};
 
-		// We don't care about this error because even if the publish fails, we can
-		// detect the failure at the database state level and retry the cleanup later.
-		let _ = allowed_to_fail().await;
+		allowed_to_fail().await;
 
 		Ok(tonic::Response::new(RecordingDeleteResponse {
 			ids: deleted_ids.into_iter().map(|id| id.0.into()).collect(),

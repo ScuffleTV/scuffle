@@ -32,7 +32,7 @@ async-nats = "0.33.0"
 sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
 sqlx-postgres = "0.7.2"
 thiserror = "1.0.50"
-rust-s3 = { version = "0.33.0", default-features = false, features = ["tags", "tokio-rustls-tls", "fail-on-err"] }
+rust-s3 = { git = "https://github.com/durch/rust-s3.git", default-features = false, features = ["tags", "tokio-rustls-tls", "fail-on-err"] }
 
 aac = { workspace = true }
 mp4 = { workspace = true }

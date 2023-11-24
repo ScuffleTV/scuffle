@@ -1,5 +1,3 @@
-use std::sync::{Arc, Weak};
-
 use pb::scuffle::video::v1::transcoding_config_server::{
 	TranscodingConfig as TranscodingConfigTrait, TranscodingConfigServer as TranscodingConfigService,
 };
@@ -23,14 +21,18 @@ mod tag;
 mod untag;
 
 pub struct TranscodingConfigServer<G: ApiGlobal> {
-	global: Weak<G>,
+	_phantom: std::marker::PhantomData<G>,
 }
 
 impl<G: ApiGlobal> TranscodingConfigServer<G> {
-	pub fn new(global: &Arc<G>) -> TranscodingConfigService<Self> {
-		TranscodingConfigService::new(Self {
-			global: Arc::downgrade(global),
-		})
+	pub fn build() -> TranscodingConfigService<Self> {
+		TranscodingConfigService::new(Self::new())
+	}
+
+	pub(crate) const fn new() -> Self {
+		Self {
+			_phantom: std::marker::PhantomData,
+		}
 	}
 }
 
@@ -41,7 +43,7 @@ impl<G: ApiGlobal> TranscodingConfigTrait for TranscodingConfigServer<G> {
 		request: Request<TranscodingConfigGetRequest>,
 	) -> tonic::Result<Response<TranscodingConfigGetResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -50,7 +52,7 @@ impl<G: ApiGlobal> TranscodingConfigTrait for TranscodingConfigServer<G> {
 		request: Request<TranscodingConfigCreateRequest>,
 	) -> tonic::Result<Response<TranscodingConfigCreateResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -59,7 +61,7 @@ impl<G: ApiGlobal> TranscodingConfigTrait for TranscodingConfigServer<G> {
 		request: Request<TranscodingConfigModifyRequest>,
 	) -> tonic::Result<Response<TranscodingConfigModifyResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -68,7 +70,7 @@ impl<G: ApiGlobal> TranscodingConfigTrait for TranscodingConfigServer<G> {
 		request: Request<TranscodingConfigDeleteRequest>,
 	) -> tonic::Result<Response<TranscodingConfigDeleteResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -77,7 +79,7 @@ impl<G: ApiGlobal> TranscodingConfigTrait for TranscodingConfigServer<G> {
 		request: Request<TranscodingConfigTagRequest>,
 	) -> tonic::Result<Response<TranscodingConfigTagResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 
@@ -86,7 +88,7 @@ impl<G: ApiGlobal> TranscodingConfigTrait for TranscodingConfigServer<G> {
 		request: Request<TranscodingConfigUntagRequest>,
 	) -> tonic::Result<Response<TranscodingConfigUntagResponse>> {
 		scope_ratelimit!(self, request, global, access_token, || async {
-			request.process(&global, &access_token).await
+			request.process(global, access_token).await
 		});
 	}
 }

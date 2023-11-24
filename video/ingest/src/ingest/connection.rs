@@ -226,11 +226,7 @@ impl Connection {
 		};
 
 		if let Some(old_id) = result.id {
-			if let Err(err) = global
-				.nats()
-				.publish(keys::ingest_disconnect(old_id.0), Bytes::new())
-				.await
-			{
+			if let Err(err) = global.nats().publish(keys::ingest_disconnect(old_id.0), Bytes::new()).await {
 				tracing::error!(error = %err, "failed to publish disconnect event");
 			}
 		}

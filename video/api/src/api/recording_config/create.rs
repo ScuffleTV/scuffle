@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use pb::ext::UlidExt;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::Resource;
 use pb::scuffle::video::v1::{RecordingConfigCreateRequest, RecordingConfigCreateResponse};
@@ -62,7 +61,7 @@ impl QbRequest for RecordingConfigCreateRequest {
 
 		let bucket: S3Bucket = if let Some(s3_bucket_id) = &self.s3_bucket_id {
 			sqlx::query_as("SELECT * FROM s3_buckets WHERE id = $1 AND organization_id = $2")
-				.bind(common::database::Ulid(s3_bucket_id.to_ulid()))
+				.bind(common::database::Ulid(s3_bucket_id.into_ulid()))
 				.bind(access_token.organization_id)
 				.fetch_optional(global.db().as_ref())
 				.await

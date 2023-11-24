@@ -35,11 +35,16 @@ impl ApiRequest<AccessTokenDeleteResponse> for tonic::Request<AccessTokenDeleteR
 			return Err(tonic::Status::invalid_argument("no ids provided for delete"));
 		}
 
-		let mut ids_to_delete = req.ids.iter().map(pb::ext::UlidExt::to_ulid).collect::<HashSet<_>>();
+		let mut ids_to_delete = req
+			.ids
+			.iter()
+			.copied()
+			.map(pb::scuffle::types::Ulid::into_ulid)
+			.collect::<HashSet<_>>();
 
 		let tokens_to_delete = global
 			.access_token_loader()
-			.load_many(ids_to_delete.iter().copied())
+			.load_many(ids_to_delete.iter().copied().map(|id| (access_token.organization_id.0, id)))
 			.await
 			.map_err(|_| Status::internal("failed to load access tokens for delete"))?
 			.into_values()
@@ -50,8 +55,15 @@ impl ApiRequest<AccessTokenDeleteResponse> for tonic::Request<AccessTokenDeleteR
 			.iter()
 			.filter(|delete_token| {
 				access_token
-					.has_scope(delete_token.scopes.iter().map(|scope| scope.0.clone()).collect::<Vec<_>>())
-					.is_ok()
+					.has_scope(
+						&delete_token
+							.scopes
+							.iter()
+							.map(|scope| scope.0.clone())
+							.collect::<Vec<_>>()
+							.into(),
+					)
+					.is_err()
 			})
 			.map(|token| (token.id.0, "cannot delete access token with more permissions then requester"))
 			.collect::<HashMap<_, _>>();

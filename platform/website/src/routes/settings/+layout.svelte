@@ -1,7 +1,7 @@
 <script lang="ts">
 	import UserBanner from "$/components/settings/user-banner.svelte";
 	import TabSelector from "$/components/tab-selector.svelte";
-	import { authDialog, AuthDialog, user, sessionToken } from "$/store/auth";
+	import { authDialog, AuthMode, user, sessionToken } from "$/store/auth";
 	import { PUBLIC_ASSET_BASE_URL } from "$env/static/public";
 	import { faArrowUpRightFromSquare, faRoadBarrier } from "@fortawesome/free-solid-svg-icons";
 	import Fa from "svelte-fa";
@@ -16,7 +16,10 @@
 	];
 
 	$: if ($sessionToken === null) {
-		$authDialog = AuthDialog.Login;
+		$authDialog = {
+			opened: true,
+			mode: AuthMode.Login,
+		};
 	}
 </script>
 

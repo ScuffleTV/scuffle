@@ -28,6 +28,13 @@ button {
 	border-radius: 0.4rem;
 	text-decoration: none;
 
+	white-space: nowrap;
+
+	&:not(.overflow) {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
 	&:disabled {
 		cursor: not-allowed;
 	}
@@ -89,6 +96,8 @@ input[type="password"] {
 	}
 }
 
+// Screen reader only
+// Hide but still render
 .sr-only:not(:focus):not(:active) {
 	clip: rect(0 0 0 0);
 	clip-path: inset(50%);
@@ -97,4 +106,16 @@ input[type="password"] {
 	position: absolute;
 	white-space: nowrap;
 	width: 1px;
+}
+
+@media screen and (max-width: $mobileBreakpoint) {
+	.hide-on-mobile {
+		display: none !important;
+	}
+}
+
+@media screen and (min-width: $mobileBreakpoint) {
+	.hide-on-desktop {
+		display: none !important;
+	}
 }

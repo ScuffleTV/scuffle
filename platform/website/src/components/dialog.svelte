@@ -1,13 +1,16 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from "svelte";
-	import MouseTrap from "./mouse-trap.svelte";
 	import { fade } from "svelte/transition";
+	import { isMobile, mouseTrap } from "$/lib/utils";
+	import Fa from "svelte-fa";
+	import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 	const dispatch = createEventDispatcher();
 
 	let dialog: HTMLDialogElement;
 
-	export let width: number = 30;
+	export let width: number = 25;
+	export let showClose: boolean = true;
 
 	onMount(() => {
 		dialog.showModal();
@@ -18,36 +21,69 @@
 			dispatch("close");
 		}
 	}
+
+	function onClose() {
+		if (!isMobile()) {
+			dispatch("close");
+		}
+	}
 </script>
 
 <svelte:window on:keydown={handleKeyDown} />
 
 <dialog
 	bind:this={dialog}
+	use:mouseTrap={onClose}
 	aria-modal="true"
 	transition:fade={{ duration: 100 }}
-	style="width: min({width}rem, 90vw);"
+	style="--width-prop: {width}rem"
 >
-	<MouseTrap on:close={() => dispatch("close")}>
+	<div use:mouseTrap={onClose}>
 		<slot />
-	</MouseTrap>
+		{#if showClose}
+			<button class="close-button" on:click={() => dispatch("close")}>
+				<Fa icon={faXmark} />
+			</button>
+		{/if}
+	</div>
 </dialog>
 
 <style lang="scss">
 	@import "../assets/styles/variables.scss";
 
 	dialog {
-		background: linear-gradient(to bottom, #18191a, #101415);
-		color: $textColor;
-		box-shadow: 0 0 0.5rem 0.5rem rgba(0, 0, 0, 0.3);
-
-		padding: 2.5rem;
+		margin: auto;
 		border: none;
-		border-radius: 0.25rem;
-		font-weight: 500;
+		padding: 0;
+		background: none;
+
+		max-width: 90vw;
+		width: var(--width-prop);
+
+		div {
+			color: $textColor;
+			font-weight: 500;
+
+			width: 100%;
+			padding: 2rem;
+			border: 1px solid $borderColor;
+			border-radius: 0.5rem;
+			background-color: rgba($bgColorLight, 0.8);
+		}
+
+		backdrop-filter: blur(2rem);
 
 		&::backdrop {
 			background-color: rgba(0, 0, 0, 0.5);
 		}
+	}
+
+	.close-button {
+		position: absolute;
+		top: 0.5rem;
+		right: 0.5rem;
+
+		color: $textColorLight;
+		font-size: 1.5rem;
 	}
 </style>

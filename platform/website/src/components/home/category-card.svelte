@@ -39,19 +39,6 @@
 
 		position: relative;
 
-		&:hover,
-		&:focus-visible {
-			& > img {
-				transform: scale(1.25);
-				filter: drop-shadow(0 0 0.5rem black);
-			}
-
-			& > .info-container {
-				opacity: 1;
-				transition: opacity 0.25s 0.05s;
-			}
-		}
-
 		& > img {
 			aspect-ratio: 3/4;
 			transition: transform 0.25s;
@@ -64,6 +51,21 @@
 			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
+		}
+	}
+
+	@media (hover: hover) {
+		.category:hover,
+		.category:focus-visible {
+			& > img {
+				transform: scale(1.25);
+				filter: drop-shadow(0 0 0.5rem black);
+			}
+
+			& > .info-container {
+				opacity: 1;
+				transition: opacity 0.25s 0.05s;
+			}
 		}
 	}
 

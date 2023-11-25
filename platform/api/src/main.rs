@@ -183,9 +183,12 @@ pub async fn main() {
 
 		let api_future = platform_api::api::run(global.clone());
 
+		let subscription_manager = global.subscription_manager.run(global.ctx.clone(), global.nats.clone());
+
 		select! {
 			r = grpc_future => r.context("grpc server stopped unexpectedly")?,
 			r = api_future => r.context("api server stopped unexpectedly")?,
+			r = subscription_manager => r.context("subscription manager stopped unexpectedly")?,
 		}
 
 		Ok(())

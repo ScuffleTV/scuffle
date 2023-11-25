@@ -32,13 +32,6 @@
 
 	$: sendEnabled = inputValid && !inputEmpty && $chatStatus === ChatStatus.Connected && $user;
 
-	$: chatError =
-		$user === null
-			? "Please create an account to chat"
-			: chatMessage.length > MAX_MESSAGE_LENGTH
-			? `Your message is longer than ${MAX_MESSAGE_LENGTH} characters`
-			: null;
-
 	function onScroll() {
 		atBottom = messagesEl.scrollTop + messagesEl.offsetHeight >= messagesEl.scrollHeight - 30;
 	}
@@ -150,30 +143,31 @@
 				<button class="bottom-scroller" on:click={scrollToBottom}> Scroll to bottom </button>
 			</div>
 		{/if}
-		<form class="chatbox" on:submit|preventDefault={sendMessage}>
-			<div class="chatbox-input">
-				<div
-					class="input"
-					role="textbox"
-					tabindex="0"
-					bind:innerText={chatMessage}
-					on:keydown|stopPropagation={onChatmessageKeydown}
-					on:paste={onChatmessagePaste}
-					contenteditable="true"
-					class:invalid={!inputValid}
-				/>
-				<span class="placeholder" class:hidden={!inputEmpty}>SEND A MESSAGE</span>
-				<button type="button">
-					<Fa icon={faFaceSmile} size="1.4x" />
-				</button>
-			</div>
-			<div class="below-input">
-				<span class="error" class:shown={chatError && !inputEmpty}>{chatError}</span>
-				<button class="button primary chatbox-send" type="submit" disabled={!sendEnabled}>
+		{#if $user}
+			<form class="chatbox" on:submit|preventDefault={sendMessage}>
+				<div class="chatbox-input">
+					<div
+						class="input"
+						role="textbox"
+						tabindex="0"
+						bind:innerText={chatMessage}
+						on:keydown|stopPropagation={onChatmessageKeydown}
+						on:paste={onChatmessagePaste}
+						contenteditable="true"
+						class:invalid={!inputValid}
+					/>
+					<span class="placeholder" class:hidden={!inputEmpty}>Send a message</span>
+					<button type="button">
+						<Fa icon={faFaceSmile} size="1.4x" />
+					</button>
+				</div>
+				<button class="button primary overflow chatbox-send" type="submit" disabled={!sendEnabled}>
 					<span>Send</span><Send />
 				</button>
-			</div>
-		</form>
+			</form>
+		{:else}
+			<span class="not-logged-in">Sign in to chat</span>
+		{/if}
 	</div>
 {/if}
 
@@ -182,18 +176,18 @@
 
 	.uncollapse {
 		position: absolute;
-		top: 0;
 		right: 0;
-		transform: rotate(0deg) translateY(calc($topNavHeight + 1rem)) translateX(-1rem);
+		transform: rotate(0deg) translateY(1rem) translateX(-1rem);
 	}
 
 	.chatroom {
-		grid-area: chat;
+		// 30% as long as above 15rem and below $chatroomWidth
+		flex-basis: clamp(15rem, 30%, $chatroomWidth);
+
 		overflow-y: auto;
 
 		background-color: $bgColor2;
-		min-width: $chatroomWidth;
-		width: $chatroomWidth;
+		max-width: 100%;
 
 		display: flex;
 		flex-direction: column;
@@ -284,6 +278,8 @@
 		flex-grow: 1;
 		overflow-y: scroll;
 		overflow-x: hidden;
+		// Overflow only works with a set height
+		height: 0;
 
 		display: flex;
 		flex-direction: column;
@@ -296,11 +292,11 @@
 		background-color: $bgColor2;
 		display: flex;
 		flex-direction: column;
-		align-items: stretch;
 		gap: 0.5rem;
 	}
 
 	.chatbox-input {
+		flex-grow: 1;
 		position: relative;
 
 		display: flex;
@@ -373,32 +369,23 @@
 		}
 	}
 
-	.below-input {
+	.chatbox-send {
+		align-self: flex-end;
+		padding: 0.5rem 1rem;
+		font: inherit;
+		font-weight: 500;
+
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
 		gap: 0.5rem;
+	}
 
-		.error {
-			font: inherit;
-			font-weight: 500;
-			color: $errorColor;
-			visibility: hidden;
+	.not-logged-in {
+		font-weight: 500;
+		color: $textColorLight;
+		text-align: center;
 
-			&.shown {
-				visibility: visible;
-			}
-		}
-
-		.chatbox-send {
-			padding: 0.5rem 1rem;
-			font: inherit;
-			font-weight: 500;
-
-			display: flex;
-			align-items: center;
-			gap: 0.5rem;
-		}
+		margin: 1rem;
 	}
 
 	.bottom-scroller-container {
@@ -424,6 +411,22 @@
 		&:hover,
 		&:focus-visible {
 			background-color: $primaryColor;
+		}
+	}
+
+	@media screen and (max-width: $mobileBreakpoint) {
+		.chatroom {
+			flex-grow: 1;
+			border-left: none;
+			border-bottom: 0.125rem solid $borderColor;
+		}
+
+		.chatbox {
+			flex-direction: row;
+		}
+
+		.chatbox-send {
+			align-self: unset;
 		}
 	}
 </style>

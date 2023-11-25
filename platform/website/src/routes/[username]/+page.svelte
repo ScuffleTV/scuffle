@@ -4,7 +4,7 @@
 	import Tag from "$/components/tag.svelte";
 	import Player from "$/components/player.svelte";
 	import { formatDuration, viewersToString } from "$/lib/utils";
-	import { browser } from "$app/environment";
+	import { browser, dev } from "$app/environment";
 	import DefaultAvatar from "$/components/user/default-avatar.svelte";
 	import { user } from "$/store/auth";
 	import { onDestroy } from "svelte";
@@ -49,9 +49,9 @@
 </script>
 
 <div class="content">
-	<div class="user-container">
-		<Player streamId={"0"} />
-		<div class="under-player">
+	<div class="user-container" class:dev>
+		<Player {channelId} />
+		<div class="under-player" class:hide-on-mobile={!chatCollapsed}>
 			<div class="row title-row">
 				<h1 class="title">{data.user.channel.title ?? ""}</h1>
 				<div class="stream-info">
@@ -109,18 +109,34 @@
 
 		display: flex;
 
-		overflow-y: auto;
-
 		& > .user-container {
 			flex-grow: 1;
 
+			// I tried very long to figure out why we need a fixed height here to make it scrollable
+			// I didn't find out why yet
+			max-height: calc(100svh - $topNavHeight);
 			overflow-y: auto;
+
+			&.dev {
+				max-height: calc(100svh - $topNavHeight - $devBannerHeight);
+			}
+		}
+	}
+
+	@media screen and (max-width: $mobileBreakpoint) {
+		.content {
+			flex-direction: column;
+
+			overflow-y: auto;
+
+			& > .user-container {
+				flex-grow: 0;
+				overflow-y: unset;
+			}
 		}
 	}
 
 	.under-player {
-		grid-area: under-player;
-
 		padding: 1rem;
 		font-family: $sansFont;
 		font-weight: 500;
@@ -134,6 +150,7 @@
 			align-items: center;
 			justify-content: space-between;
 			gap: 0.5rem;
+			flex-wrap: wrap;
 
 			& > div {
 				display: flex;

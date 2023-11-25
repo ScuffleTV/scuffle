@@ -224,11 +224,18 @@
 
 		display: flex;
 		gap: 2rem;
+		justify-content: center;
 
 		& > div {
 			display: flex;
 			flex-direction: column;
 			gap: 1rem;
+		}
+	}
+
+	@media screen and (max-width: $mobileBreakpoint) {
+		.step-2 {
+			flex-wrap: wrap;
 		}
 	}
 

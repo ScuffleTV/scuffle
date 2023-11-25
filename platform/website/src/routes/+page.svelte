@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Fa from "svelte-fa";
-	import { faChevronDown, faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
+	import { faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
 	import CategoryCard from "$/components/home/category-card.svelte";
 	import SmallStreamPreview from "$/components/home/small-stream-preview.svelte";
 	import BigStreamPreview from "$/components/home/big-stream-preview.svelte";
@@ -302,9 +302,13 @@
 	let scrollLeft: number = 0;
 	let scrollWidth: number = 0;
 
+	const categoryWidth = (9.5 + 2) * 16;
 	function slideCategories(direction: number) {
 		if (categoriesSlider) {
-			categoriesSlider.scrollBy({ left: direction * (9.5 + 2) * 16, behavior: "smooth" });
+			// Calculate how many categories fit on the screen
+			// Don't scroll more than 3
+			const num = Math.min(Math.floor(window.innerWidth / categoryWidth), 3);
+			categoriesSlider.scrollBy({ left: direction * num * categoryWidth, behavior: "smooth" });
 		}
 	}
 
@@ -365,7 +369,7 @@
 				class:hidden={!placeholderSpan}
 				style="grid-column: auto / span {placeholderSpan};"
 			>
-				<Logo width={64} />
+				<Logo height={44} />
 				<span>Go live to appear here</span>
 			</article>
 		</section>
@@ -388,12 +392,12 @@
 			{/each}
 		</section>
 		{#if scrollLeft > 16 * 9.5}
-			<button on:click={() => slideCategories(-3)} class="slide-button left">
+			<button on:click={() => slideCategories(-1)} class="slide-button left">
 				<Fa icon={faChevronLeft} />
 			</button>
 		{/if}
 		{#if categoriesSlider && scrollWidth - (scrollLeft + categoriesSlider.offsetWidth) > 16 * 9.5}
-			<button on:click={() => slideCategories(3)} class="slide-button right">
+			<button on:click={() => slideCategories(1)} class="slide-button right">
 				<Fa icon={faChevronRight} />
 			</button>
 		{/if}
@@ -542,6 +546,12 @@
 				right: 0;
 				background: linear-gradient(90deg, rgba($bgColor, 0) 0%, rgba($bgColor, 1) 100%);
 			}
+		}
+	}
+
+	@media screen and (max-width: $mobileBreakpoint) {
+		.hbt {
+			gap: 1rem;
 		}
 	}
 </style>

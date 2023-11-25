@@ -31,6 +31,8 @@
 			pathname: `/${data.user.username}/about`,
 		},
 	];
+
+	let chatCollapsed = true;
 </script>
 
 <div class="content">
@@ -68,7 +70,7 @@
 				{/if}
 			</div>
 		</div>
-		<div class="page">
+		<div class="page" class:hide-on-mobile={!chatCollapsed}>
 			<div class="row">
 				<TabSelector tabs={offlineTabs} />
 				<div class="buttons">
@@ -81,7 +83,7 @@
 			<slot />
 		</div>
 	</div>
-	<Chatroom {channelId} collapsed />
+	<Chatroom {channelId} bind:collapsed={chatCollapsed} />
 </div>
 
 <style lang="scss">
@@ -195,10 +197,23 @@
 			justify-content: space-between;
 			align-items: center;
 			gap: 1rem;
+			flex-wrap: wrap-reverse;
 
 			& > .buttons {
+				flex-grow: 1;
 				display: flex;
 				gap: 1rem;
+				justify-content: flex-end;
+			}
+		}
+	}
+
+	@media screen and (max-width: $mobileBreakpoint) {
+		.content {
+			flex-direction: column;
+
+			& > .offline-page {
+				flex-grow: 0;
 			}
 		}
 	}

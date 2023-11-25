@@ -102,7 +102,8 @@
 	</h1>
 	<!-- TODO: Replace forget password link -->
 	<p class="text">
-		Please confirm your current password before changing it. <a href="#">Forgot your password?</a>
+		Please confirm your current password before changing it.
+		<a href="/forgot-password">Forgot your password?</a>
 	</p>
 	<form id="change-password-form" on:submit|preventDefault={changePassword}>
 		<PasswordField
@@ -175,7 +176,15 @@
 		}
 	}
 
+	form {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
 	.buttons {
+		margin-top: 1rem;
+
 		display: flex;
 		align-items: center;
 		gap: 1rem;

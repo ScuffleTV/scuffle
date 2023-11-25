@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-	import MouseTrap from "./mouse-trap.svelte";
+	import { mouseTrap } from "$/lib/utils";
 
 	let index = dropDownIndex;
 	dropDownIndex += 1;
@@ -19,16 +19,19 @@
 	}
 </script>
 
-<MouseTrap on:close={close}>
-	<button on:click={toggle} aria-expanded={expanded} aria-controls="dropdown-list-{index}">
-		<slot />
-		{#if expanded}
-			<ul class="list" id="dropdown-list-{index}">
-				<slot name="dropdown" />
-			</ul>
-		{/if}
-	</button>
-</MouseTrap>
+<button
+	on:click={toggle}
+	aria-expanded={expanded}
+	aria-controls="dropdown-list-{index}"
+	use:mouseTrap={close}
+>
+	<slot />
+	{#if expanded}
+		<ul class="list" id="dropdown-list-{index}">
+			<slot name="dropdown" />
+		</ul>
+	{/if}
+</button>
 
 <style lang="scss">
 	@import "../assets/styles/variables.scss";

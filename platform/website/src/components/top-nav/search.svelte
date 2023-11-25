@@ -2,12 +2,12 @@
 	import Fa from "svelte-fa";
 	import { faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 	import { getContextClient } from "@urql/svelte";
-	import MouseTrap from "../mouse-trap.svelte";
 	import { goto } from "$app/navigation";
 	import Category from "../search/category.svelte";
 	import User from "../search/user.svelte";
 	import type { SearchResult } from "$/gql/graphql";
 	import { searchQuery } from "$/lib/search";
+	import { mouseTrap } from "$/lib/utils";
 
 	function onSubmit(e: Event) {
 		if (query) {
@@ -67,38 +67,36 @@
 	$: resultsVisible = !closed && results?.length && results?.length > 0;
 </script>
 
-<search class:results-visible={resultsVisible}>
-	<MouseTrap on:close={() => (closed = true)}>
-		<form method="get" action="/search" on:submit={onSubmit}>
-			<input
-				name="q"
-				type="text"
-				placeholder="Search"
-				autocomplete="off"
-				bind:this={queryInput}
-				bind:value={query}
-				on:focus={() => (closed = false)}
-				on:keydown|stopPropagation
-			/>
-			<button class="search-button" type="submit">
-				<span class="sr-only">Search</span>
-				<Fa icon={faMagnifyingGlass} size="1.2x" />
-			</button>
-		</form>
-		{#if resultsVisible && results}
-			<ul class="results">
-				{#each results as result}
-					<li>
-						{#if result.object.__typename === "User"}
-							<User user={result.object} on:close={() => (closed = true)} />
-						{:else if result.object.__typename === "Category"}
-							<Category category={result.object} on:close={() => (closed = true)} />
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</MouseTrap>
+<search class:results-visible={resultsVisible} use:mouseTrap={() => (closed = true)}>
+	<form method="get" action="/search" on:submit={onSubmit}>
+		<input
+			name="q"
+			type="text"
+			placeholder="Search"
+			autocomplete="off"
+			bind:this={queryInput}
+			bind:value={query}
+			on:focus={() => (closed = false)}
+			on:keydown|stopPropagation
+		/>
+		<button class="search-button" type="submit">
+			<span class="sr-only">Search</span>
+			<Fa icon={faMagnifyingGlass} size="1.2x" />
+		</button>
+	</form>
+	{#if resultsVisible && results}
+		<ul class="results">
+			{#each results as result}
+				<li>
+					{#if result.object.__typename === "User"}
+						<User user={result.object} on:close={() => (closed = true)} />
+					{:else if result.object.__typename === "Category"}
+						<Category category={result.object} on:close={() => (closed = true)} />
+					{/if}
+				</li>
+			{/each}
+		</ul>
+	{/if}
 </search>
 
 <style lang="scss">

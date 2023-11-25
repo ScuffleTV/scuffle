@@ -109,15 +109,15 @@
 >
 	<div class="link-container">
 		<a href="/" class="item" class:selected={$page.url.pathname === "/"}>
-			<Fa icon={faHouse} fw size="1.2x" /><span>home</span>
+			<Fa icon={faHouse} fw size="1.2x" /><span class="hide-on-mobile">home</span>
 		</a>
 		<a href="/following" class="item" class:selected={$page.url.pathname === "/following"}>
-			<Fa icon={faUser} fw size="1.2x" /><span>following</span>
+			<Fa icon={faUser} fw size="1.2x" /><span class="hide-on-mobile">following</span>
 		</a>
 	</div>
 
 	{#if following}
-		<div class="container">
+		<div class="container hide-on-mobile">
 			<h3 class="heading">following</h3>
 			<div class="streamer-cards">
 				{#each following as user}
@@ -129,7 +129,7 @@
 			{/if}
 		</div>
 	{:else if following === undefined}
-		<div class="container">
+		<div class="container hide-on-mobile">
 			<div class="loading heading"></div>
 			<div class="streamer-cards">
 				{#each Array(followingLimit) as _}
@@ -175,6 +175,11 @@
 	}
 
 	.link-container {
+		display: flex;
+		flex-direction: column;
+
+		width: 100%;
+
 		border-bottom: 1px solid $bgColorLight;
 
 		& > .item {
@@ -248,6 +253,31 @@
 			&:hover,
 			&:focus-visible {
 				color: $primaryColorLight;
+			}
+		}
+	}
+
+	@media screen and (max-width: $mobileBreakpoint) {
+		nav {
+			border: none;
+			align-items: center;
+
+			&:not(.collapsed) {
+				width: 100%;
+			}
+		}
+
+		.link-container {
+			border-bottom: none;
+			flex-direction: row;
+
+			& > .item {
+				flex-grow: 1;
+				justify-content: center;
+
+				padding: 1rem;
+				border-left: none;
+				border-bottom: 0.125rem solid transparent;
 			}
 		}
 	}

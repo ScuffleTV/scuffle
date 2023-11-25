@@ -122,8 +122,16 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 1rem;
 		padding: 0.25rem 0.5rem;
+		width: 100vw;
+		height: 2rem;
+
+		span {
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
 
 		a {
 			color: $textColor;

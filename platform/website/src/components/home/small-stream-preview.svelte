@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { User } from "$/gql/graphql";
-	import { viewersToString } from "$/lib/utils";
+	import { isHover, viewersToString } from "$/lib/utils";
 	import Player from "../player.svelte";
 
 	// export let streamer: string;
@@ -17,6 +17,7 @@
 	let focused: boolean = false;
 
 	function onFocus() {
+		if (!isHover()) return;
 		if (focused) return;
 		timeout = setTimeout(() => {
 			focused = true;
@@ -40,7 +41,7 @@
 >
 	{#if focused}
 		<div class="video">
-			<Player streamId="00000000-0000-0000-0000-000000000000" controls={false} muted />
+			<Player channelId="00000000-0000-0000-0000-000000000000" controls={false} muted />
 		</div>
 	{:else}
 		<img src={preview} alt="Stream Thumbnail" class="thumbnail" />

@@ -48,7 +48,9 @@
 
 	.selector {
 		display: flex;
-		gap: 1rem;
+		flex-wrap: wrap;
+		column-gap: 1rem;
+		row-gap: 0.25rem;
 
 		user-select: none;
 

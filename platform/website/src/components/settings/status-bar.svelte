@@ -105,6 +105,15 @@
 		}
 	}
 
+	@media screen and (max-width: $mobileBreakpoint) {
+		.bar {
+			&.shown {
+				// Space for bottom nav bar on mobile
+				transform: translateY(-3rem);
+			}
+		}
+	}
+
 	.status {
 		display: flex;
 		align-items: center;

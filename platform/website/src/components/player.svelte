@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from "svelte";
-	import init, { Player } from "@scuffle/player";
-	import type { EventError, Variant } from "@scuffle/player";
+	import init, { Player, type Variant } from "@scuffle/player";
 	import Play from "$/components/icons/player/play.svelte";
 	import Pause from "$/components/icons/player/pause.svelte";
 	import Volume from "$/components/icons/player/volume.svelte";
@@ -16,14 +15,13 @@
 	import Spinner from "./player/spinner.svelte";
 	import { sideNavHidden, topNavHidden } from "$/store/layout";
 	import { authDialog } from "$/store/auth";
+	import { dev } from "$app/environment";
 
-	export let streamId: string;
+	export let channelId: string;
 	export let controls = true;
 	export let showPip = true;
 	export let showTheater = true;
 	export let muted = false;
-
-	const _streamUrl = `https://troy-edge.scuffle.tv/${streamId}/master.m3u8`;
 
 	let playerEl: HTMLDivElement;
 	let videoEl: HTMLVideoElement;
@@ -66,63 +64,63 @@
 		}
 	}
 
-	function onManifestLoaded() {
-		console.log(player.variants);
-		manifest = player.variants;
-	}
-
-	function onVariantChange() {
-		let variant = manifest.at(player.variantId);
-		if (variant) {
-			currentVariantId = player.variantId;
-			console.log(`Switched to ${variant.video_track?.name ?? "audio only"}`);
-			audioOnly = !variant.video_track;
-		} else {
-			console.error("switched to unkonwn variant");
-		}
-	}
-
-	function onError(evt: EventError) {
-		state = PlayerState.Error;
-		console.log(`⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠋⠉⣉⣉⠙⠿⠋⣠⢴⣊⣙⢿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠋⠁⠀⢀⠔⡩⠔⠒⠛⠧⣾⠊⢁⣀⣀⣀⡙⣿
-⣿⣿⣿⣿⣿⣿⣿⠟⠛⠁⠀⠀⠀⠀⠀⡡⠊⠀⠀⣀⣠⣤⣌⣾⣿⠏⠀⡈⢿⡜
-⣿⣿⣿⠿⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠡⣤⣶⠏⢁⠈⢻⡏⠙⠛⠀⣀⣁⣤⢢
-⣿⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠰⣄⡀⠣⣌⡙⠀⣘⡁⠜⠈⠑⢮⡭⠴⠚⠉⠀
-⠁⠀⢀⠔⠁⣀⣤⣤⣤⣤⣤⣄⣀⠀⠉⠉⠉⠉⠉⠁⠀⠀⠀⠀⠀⠁⠀⢀⣠⢠
-⡀⠀⢸⠀⢼⣿⣿⣶⣭⣭⣭⣟⣛⣛⡿⠷⠶⠶⢶⣶⣤⣤⣤⣶⣶⣾⡿⠿⣫⣾
-⠇⠀⠀⠀⠈⠉⠉⠉⠉⠉⠙⠛⠛⠻⠿⠿⠿⠷⣶⣶⣶⣶⣶⣶⣶⣶⡾⢗⣿⣿
-⣦⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⣿⣶⣾⣿⣿⣿
-⣿⣿⣿⣷⣶⣤⣄⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣝⡻⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡹⣿⣿⣿⣿⣿⣿ Player Error`);
-		console.error(evt);
-	}
-
-	function onShutdown() {
-		console.log("shutdown");
-		videoEl.pause();
-	}
-
-	// onMount(() => {
-	// 	init().then(() => {
-	// 		player = new Player(videoEl, {
-	// 			organization_id: "...",
-	// 		});
-
-	// 		player.on("manifestloaded", onManifestLoaded);
-	// 		player.on("variant", onVariantChange);
-	// 		player.on("error", onError);
-	// 		player.on("destroyed", onShutdown);
-
-	// 		videoEl.play();
-	// 	});
-	// });
-
-	// onDestroy(() => {
-	// 	if (player) {
-	// 		player.destroy();
+	// 	function onManifestLoaded() {
+	// 		console.log(player.variants);
+	// 		manifest = player.variants;
 	// 	}
-	// });
+
+	// 	function onVariantChange() {
+	// 		let variant = manifest.at(player.variantId);
+	// 		if (variant) {
+	// 			currentVariantId = player.variantId;
+	// 			console.log(`Switched to ${variant.video_track?.name ?? "audio only"}`);
+	// 			audioOnly = !variant.video_track;
+	// 		} else {
+	// 			console.error("switched to unkonwn variant");
+	// 		}
+	// 	}
+
+	// 	function onError(evt: EventError) {
+	// 		state = PlayerState.Error;
+	// 		console.log(`⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠋⠉⣉⣉⠙⠿⠋⣠⢴⣊⣙⢿⣿⣿
+	// ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠋⠁⠀⢀⠔⡩⠔⠒⠛⠧⣾⠊⢁⣀⣀⣀⡙⣿
+	// ⣿⣿⣿⣿⣿⣿⣿⠟⠛⠁⠀⠀⠀⠀⠀⡡⠊⠀⠀⣀⣠⣤⣌⣾⣿⠏⠀⡈⢿⡜
+	// ⣿⣿⣿⠿⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠡⣤⣶⠏⢁⠈⢻⡏⠙⠛⠀⣀⣁⣤⢢
+	// ⣿⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠰⣄⡀⠣⣌⡙⠀⣘⡁⠜⠈⠑⢮⡭⠴⠚⠉⠀
+	// ⠁⠀⢀⠔⠁⣀⣤⣤⣤⣤⣤⣄⣀⠀⠉⠉⠉⠉⠉⠁⠀⠀⠀⠀⠀⠁⠀⢀⣠⢠
+	// ⡀⠀⢸⠀⢼⣿⣿⣶⣭⣭⣭⣟⣛⣛⡿⠷⠶⠶⢶⣶⣤⣤⣤⣶⣶⣾⡿⠿⣫⣾
+	// ⠇⠀⠀⠀⠈⠉⠉⠉⠉⠉⠙⠛⠛⠻⠿⠿⠿⠷⣶⣶⣶⣶⣶⣶⣶⣶⡾⢗⣿⣿
+	// ⣦⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⣿⣶⣾⣿⣿⣿
+	// ⣿⣿⣿⣷⣶⣤⣄⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣝⡻⣿⣿⣿⣿⣿⣿⣿⣿
+	// ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡹⣿⣿⣿⣿⣿⣿ Player Error`);
+	// 		console.error(evt);
+	// 	}
+
+	// 	function onShutdown() {
+	// 		console.log("shutdown");
+	// 		videoEl.pause();
+	// 	}
+
+	onMount(() => {
+		init().then(() => {
+			// player = new Player(videoEl, {
+			// 	organization_id: "TODO",
+			// });
+
+			// player.on("manifestloaded", onManifestLoaded);
+			// player.on("variant", onVariantChange);
+			// player.on("error", onError);
+			// player.on("destroyed", onShutdown);
+
+			videoEl.play();
+		});
+	});
+
+	onDestroy(() => {
+		if (player) {
+			player.destroy();
+		}
+	});
 
 	function onPlayClick() {
 		switch (state) {
@@ -186,7 +184,7 @@
 	// Attention: This is a global event handler since it is addded on body!
 	function onKeyDown(e: KeyboardEvent) {
 		// Ignore if in any kind of login window
-		if ($authDialog) return;
+		if ($authDialog.opened) return;
 		// Ignore if the key is held down
 		if (e.repeat) return;
 		// Ignore if controls disabled
@@ -229,6 +227,7 @@
 	on:mousemove={onMouseMove}
 	on:fullscreenchange={() => (fullscreen = document.fullscreenElement !== null)}
 	role="none"
+	class:dev
 >
 	<video
 		bind:this={videoEl}
@@ -350,8 +349,6 @@
 	@import "../assets/styles/variables.scss";
 
 	.player {
-		grid-area: player;
-
 		position: relative;
 		/* For some reason I don't get, this needs to be flex. Otherwise the player div is too high. */
 		display: flex;
@@ -361,8 +358,14 @@
 		&.theater-mode {
 			height: 100%;
 		}
+
 		&:not(.theater-mode) {
-			max-height: calc(100vh - $topNavHeight - 5.75rem);
+			max-height: calc(100svh - $topNavHeight - 6.5rem);
+		}
+
+		// In dev mode we need to save space for the dev bar too
+		&:not(.theater-mode).dev {
+			max-height: calc(100svh - $topNavHeight - 6.5rem - $devBannerHeight);
 		}
 	}
 

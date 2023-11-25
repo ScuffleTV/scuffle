@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Turnstile } from "svelte-turnstile";
-	import { AuthDialog, authDialog, currentTwoFaRequest, sessionToken } from "$/store/auth";
+	import { AuthMode, authDialog, currentTwoFaRequest, sessionToken } from "$/store/auth";
 	import { z } from "zod";
 	import { getContextClient } from "@urql/svelte";
 	import { graphql } from "$gql";
@@ -10,6 +10,7 @@
 	import Field from "$/components/form/field.svelte";
 	import PasswordField from "../form/password-field.svelte";
 	import { fieldsValid, passwordValidate } from "$/lib/utils";
+	import LogoText from "../icons/logo-text.svelte";
 
 	const client = getContextClient();
 
@@ -53,7 +54,7 @@
 	let turnstileToken = "";
 	let loggingIn = false;
 
-	$: $authDialog, resetAllFields();
+	$: $authDialog.mode, resetAllFields();
 
 	let usernameValue: string;
 	let usernameStatus: FieldStatus;
@@ -61,7 +62,7 @@
 	let rejectValidation: () => void;
 	async function usernameValidate(v: string) {
 		globalMessage = "";
-		if ($authDialog === AuthDialog.Login) {
+		if ($authDialog.mode === AuthMode.Login) {
 			return { type: FieldStatusType.Success };
 		}
 
@@ -134,13 +135,24 @@
 	let passwordValue: string;
 	async function authPasswordValidate(v: string) {
 		globalMessage = "";
+		confirmPasswordStatus = await confirmPasswordValidate(confirmPasswordValue);
+		confirmPasswordStatus = calcConfirmStatus(v, confirmPasswordValue);
 		return await passwordValidate(v);
 	}
 
 	let confirmPasswordStatus: FieldStatus;
+	let confirmPasswordValue: string;
 	async function confirmPasswordValidate(v: string) {
 		globalMessage = "";
-		if (passwordValue !== v) {
+		return calcConfirmStatus(passwordValue, v);
+	}
+
+	function calcConfirmStatus(password: string, confirm: string): FieldStatus {
+		// Return None when confirm is empty
+		if (!confirm) {
+			return { type: FieldStatusType.None };
+		}
+		if (password !== confirm) {
 			return { type: FieldStatusType.Error, message: "Passwords do not match" };
 		}
 
@@ -149,19 +161,19 @@
 
 	$: formValid =
 		turnstileToken.length > 0 &&
-		($authDialog === AuthDialog.Login
+		($authDialog.mode === AuthMode.Login
 			? fieldsValid([usernameStatus, passwordStatus])
 			: fieldsValid([usernameStatus, emailStatus, passwordStatus, confirmPasswordStatus]));
 
-	function closeDialog() {
-		$authDialog = AuthDialog.Closed;
+	function close() {
+		$authDialog.opened = false;
 	}
 
 	function toggleMode() {
-		if ($authDialog === AuthDialog.Login) {
-			$authDialog = AuthDialog.Register;
+		if ($authDialog.mode === AuthMode.Login) {
+			$authDialog.mode = AuthMode.Register;
 		} else {
-			$authDialog = AuthDialog.Login;
+			$authDialog.mode = AuthMode.Login;
 		}
 	}
 
@@ -173,10 +185,16 @@
 		turnstileToken = event.detail.token;
 	}
 
+	function onTurnstileError() {
+		clearTurnstileToken();
+		globalMessage = "Captcha failed";
+		globalIsError = true;
+	}
+
 	/// This function is only ever called from the onSubmit event of the form.
 	async function handleSubmit() {
 		const request =
-			$authDialog === AuthDialog.Login
+			$authDialog.mode === AuthMode.Login
 				? {
 						query: loginQuery,
 						variables: {
@@ -235,7 +253,7 @@
 
 		if (response.data?.auth.resp.__typename === "TwoFaRequest") {
 			$currentTwoFaRequest = response.data?.auth.resp.id;
-			closeDialog();
+			close();
 		} else if (
 			response.data?.auth.resp.__typename === "Session" &&
 			response.data?.auth.resp.token
@@ -243,7 +261,7 @@
 			globalIsError = false;
 			globalMessage = "Success!";
 			$sessionToken = response.data?.auth.resp.token;
-			closeDialog();
+			close();
 		} else {
 			globalIsError = true;
 			globalMessage = "An unknown error occured, if the problem persists please contact support";
@@ -278,19 +296,17 @@
 	}
 </script>
 
-<Dialog on:close={closeDialog}>
-	<div class="login-title">
-		<h2 class="text-left signup-title">
-			{$authDialog === AuthDialog.Login ? "Login" : "Sign up"}
-		</h2>
-		<h2 class="text-left signup-subtitle">
-			{$authDialog === AuthDialog.Login ? "Don't have an account?" : "Already have an account?"}
-			<span>
-				<button class="link-button" on:click={toggleMode} role="link">
-					{$authDialog === AuthDialog.Login ? "Sign up" : "Sign in"}
-				</button>
-			</span>
-		</h2>
+<div class="background-container hide-on-desktop">
+	<div class="background">
+		<div class="bar white"></div>
+		<div class="circle big"></div>
+		<div class="circle small"></div>
+		<div class="bar blue"></div>
+	</div>
+</div>
+<Dialog on:close={close}>
+	<div class="header">
+		<LogoText />
 	</div>
 	<form on:submit|preventDefault={onSubmit}>
 		<Field
@@ -302,7 +318,7 @@
 			bind:value={usernameValue}
 			validate={usernameValidate}
 		/>
-		{#if $authDialog === AuthDialog.Register}
+		{#if $authDialog.mode === AuthMode.Register}
 			<Field
 				type="email"
 				autocomplete="email"
@@ -314,19 +330,20 @@
 			/>
 		{/if}
 		<PasswordField
-			autocomplete={$authDialog === AuthDialog.Login ? "current-password" : "new-password"}
+			autocomplete={$authDialog.mode === AuthMode.Login ? "current-password" : "new-password"}
 			required
 			label="Password"
 			bind:status={passwordStatus}
 			bind:value={passwordValue}
 			validate={authPasswordValidate}
 		/>
-		{#if $authDialog === AuthDialog.Register}
+		{#if $authDialog.mode === AuthMode.Register}
 			<PasswordField
 				autocomplete="new-password"
 				required
 				label="Confirm Password"
 				bind:status={confirmPasswordStatus}
+				bind:value={confirmPasswordValue}
 				validate={confirmPasswordValidate}
 			/>
 		{/if}
@@ -335,20 +352,24 @@
 				<span>{globalMessage}</span>
 			</div>
 		{/if}
-		<div id="login-turnstile-container">
+		<div id="login-turnstile-container" class="sr-only">
 			<Turnstile
+				appearance="interaction-only"
 				siteKey={PUBLIC_CF_TURNSTILE_KEY}
 				on:turnstile-callback={onTurnstileCallback}
-				on:turnstile-error={clearTurnstileToken}
+				on:turnstile-error={onTurnstileError}
 				on:turnstile-expired={clearTurnstileToken}
 				on:turnstile-timeout={clearTurnstileToken}
 			/>
 		</div>
 		<div class="button-group">
+			<button class="link-button" type="button" on:click={toggleMode} role="link">
+				{$authDialog.mode === AuthMode.Login ? "Sign up" : "Log in"}
+			</button>
 			<input
-				class="button-submit"
+				class="button primary button-submit"
 				type="submit"
-				value={loggingIn ? "Loading..." : $authDialog === AuthDialog.Login ? "Login" : "Sign up"}
+				value={loggingIn ? "Loading..." : $authDialog.mode === AuthMode.Login ? "Login" : "Sign up"}
 				disabled={!formValid || loggingIn}
 				aria-disabled={!formValid || loggingIn}
 			/>
@@ -359,8 +380,93 @@
 <style lang="scss">
 	@import "../../assets/styles/variables.scss";
 
+	.background-container {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		overflow: hidden;
+		background: $bgColor;
+
+		display: flex;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.background {
+		position: absolute;
+		width: 35rem;
+		height: 25rem;
+		filter: blur(8rem);
+
+		& > * {
+			position: absolute;
+		}
+
+		.bar {
+			width: 20rem;
+			height: 4rem;
+
+			&.white {
+				transform: rotate(-4.5deg);
+				background-color: white;
+				top: 0;
+				left: 10%;
+			}
+
+			&.blue {
+				transform: rotate(-15deg);
+				background-color: #5786ff;
+				bottom: 0;
+				right: 0;
+			}
+		}
+
+		.circle {
+			border-radius: 50%;
+			top: 50%;
+			left: 50%;
+			transform: translateX(-50%) translateY(-50%);
+
+			&.big {
+				background-color: $primaryColor;
+				width: 20rem;
+				height: 20rem;
+			}
+
+			&.small {
+				background-color: white;
+				width: 10rem;
+				height: 10rem;
+			}
+		}
+	}
+
+	.header {
+		font-size: 2rem;
+		display: flex;
+		justify-content: center;
+		margin-bottom: 2rem;
+	}
+
 	form {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
 		text-align: center;
+	}
+
+	.button-group {
+		margin-top: 1rem;
+
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+
+		& > .button {
+			padding: 0.5rem 0.8rem;
+		}
 	}
 
 	.link-button {
@@ -379,80 +485,11 @@
 		}
 	}
 
-	.text-left {
-		text-align: left !important;
-	}
-
-	.signup-title {
-		font-weight: 600;
-		font-size: 2rem;
-	}
-
-	.login-title {
-		margin-bottom: 2.2rem;
-	}
-
-	.signup-subtitle {
-		font-weight: 400;
-		margin-top: 0.5rem;
-		font-size: 0.95rem;
-		color: $textColorDark;
-	}
-
-	form {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-
-	.button-group {
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-	}
-
-	.button-submit {
-		border: none;
-		cursor: pointer;
-		border-radius: 0.5rem;
-		color: $textColor;
-		font: inherit;
-
-		width: 45%;
-		font-size: 1rem;
-		font-weight: 400;
-		padding: 0.8rem;
-		background-color: $primaryColor;
-		transition:
-			background-color 0.5s,
-			color 0.5s,
-			box-shadow 0.5s;
-		box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.1);
-
-		&:hover:not(:disabled),
-		&:focus-visible:not(:disabled) {
-			background-color: $primaryColorLight;
-			box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.2);
-		}
-
-		&:disabled {
-			background-color: $primaryColorDark;
-			box-shadow: 0px 6px 20px 7px rgba(255, 115, 87, 0.05);
-			cursor: not-allowed;
-			color: $textColorLight;
-		}
-	}
-
 	.message-holder {
 		margin-bottom: 0.5rem;
 		color: $successColor;
 		&.error {
 			color: $errorColor;
 		}
-	}
-
-	#login-turnstile-container {
-		height: 4.5rem;
 	}
 </style>

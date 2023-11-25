@@ -1,13 +1,16 @@
 <script lang="ts">
 	import Fa from "svelte-fa";
 	import { faFireFlameCurved } from "@fortawesome/free-solid-svg-icons";
-	import { AuthDialog, authDialog, user } from "$/store/auth";
+	import { AuthMode, authDialog, user } from "$/store/auth";
 
 	function onClick() {
 		if ($user) {
 			console.log("subscribe");
 		} else {
-			$authDialog = AuthDialog.Login;
+			$authDialog = {
+				opened: true,
+				mode: AuthMode.Login,
+			};
 		}
 	}
 </script>

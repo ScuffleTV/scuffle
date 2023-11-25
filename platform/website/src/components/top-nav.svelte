@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AuthDialog, authDialog, sessionToken, user } from "$/store/auth";
+	import { AuthMode, authDialog, sessionToken, user } from "$/store/auth";
 	import { sideNavCollapsed, topNavHidden } from "$store/layout";
 	import LogoText from "./icons/logo-text.svelte";
 	import Fa from "svelte-fa";
@@ -15,15 +15,23 @@
 	import DefaultAvatar from "./user/default-avatar.svelte";
 	import { getContextClient } from "@urql/svelte";
 	import Search from "./top-nav/search.svelte";
+	import Logo from "./icons/logo.svelte";
+	import ResponsiveContainer from "../components/responsive-container.svelte";
 
 	const client = getContextClient();
 
 	function openLogin() {
-		$authDialog = AuthDialog.Login;
+		$authDialog = {
+			opened: true,
+			mode: AuthMode.Login,
+		};
 	}
 
 	function openSignup() {
-		$authDialog = AuthDialog.Register;
+		$authDialog = {
+			opened: true,
+			mode: AuthMode.Register,
+		};
 	}
 
 	function onLogoutClick() {
@@ -38,7 +46,7 @@
 <nav class:hidden={$topNavHidden} aria-label="Top navigation">
 	<div class="logo-container">
 		<button
-			class="toggle-side-nav"
+			class="toggle-side-nav hide-on-mobile"
 			class:toggled={$sideNavCollapsed}
 			on:click={toggleSideNav}
 			aria-controls="side-nav"
@@ -49,7 +57,10 @@
 		</button>
 		<a href="/" class="logo-link">
 			<span class="sr-only">Home</span>
-			<LogoText />
+			<ResponsiveContainer>
+				<LogoText slot="desktop" />
+				<Logo height={1.75 * 16} slot="mobile" />
+			</ResponsiveContainer>
 		</a>
 	</div>
 	<Search />
@@ -89,7 +100,7 @@
 					</span>
 					<span>Log in</span>
 				</button>
-				<button class="signup button primary" on:click={openSignup}>
+				<button class="signup button primary hide-on-mobile" on:click={openSignup}>
 					<span>Sign up</span>
 				</button>
 			</div>
@@ -123,6 +134,7 @@
 
 		display: flex;
 		align-items: center;
+		gap: 0.5rem;
 
 		.toggle-side-nav {
 			background-color: unset;

@@ -207,6 +207,7 @@
 
 	.input.display-color {
 		& > .display-name {
+			text-align: center;
 			font-weight: 500;
 			font-size: 1.25rem;
 			flex-grow: 1;

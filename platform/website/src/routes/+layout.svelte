@@ -8,7 +8,7 @@
 	import SideNav from "$components/side-nav.svelte";
 	import { onMount } from "svelte";
 	import type { LayoutData } from "./$types";
-	import { building, dev } from "$app/environment";
+	import { building } from "$app/environment";
 	import Spinner from "$/components/spinner.svelte";
 	import DevBanner from "$/components/dev-banner.svelte";
 	import SolveTwoFaDialog from "$/components/auth/solve-two-fa-dialog.svelte";
@@ -67,7 +67,7 @@
 	{:else}
 		<slot />
 
-		{#if $authDialog}
+		{#if $authDialog.opened}
 			<AuthDialog />
 		{/if}
 

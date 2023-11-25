@@ -39,7 +39,7 @@
 	<a class="video" href="/{user.username}">
 		{#if playing}
 			<Player
-				streamId={"00000000-0000-0000-0000-000000000000"}
+				channelId={"00000000-0000-0000-0000-000000000000"}
 				showPip={false}
 				showTheater={false}
 			/>
@@ -65,9 +65,10 @@
 		justify-content: center;
 		align-items: stretch;
 		flex-wrap: wrap;
-		gap: 5rem;
+		column-gap: 5rem;
+		row-gap: 2rem;
 
-		padding: 2rem 0;
+		padding: 2rem;
 	}
 
 	.stream-info {
@@ -82,6 +83,7 @@
 			display: flex;
 			align-items: center;
 			gap: 0.5rem;
+			flex-wrap: wrap;
 
 			color: $textColor;
 			text-decoration: none;
@@ -108,6 +110,7 @@
 				font-size: 2.25rem;
 				font-weight: 500;
 				position: relative;
+				white-space: nowrap;
 
 				&::after {
 					content: "";
@@ -156,7 +159,8 @@
 
 	.video {
 		position: relative;
-		height: 18rem;
+		max-width: 28rem;
+		width: 85vw;
 		aspect-ratio: 16 / 9;
 
 		& > .thumbnail {

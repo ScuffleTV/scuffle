@@ -5,7 +5,7 @@
 	import { getContextClient } from "@urql/svelte";
 	import { pipe, subscribe, type Subscription } from "wonka";
 	import { websocketOpen } from "$/store/websocket";
-	import { AuthDialog, authDialog, user } from "$/store/auth";
+	import { AuthMode, authDialog, user } from "$/store/auth";
 	import { onDestroy } from "svelte";
 
 	export let channelId: string;
@@ -69,7 +69,10 @@
 				following = res.data.user.following;
 			}
 		} else {
-			$authDialog = AuthDialog.Login;
+			$authDialog = {
+				opened: true,
+				mode: AuthMode.Login,
+			};
 		}
 	}
 

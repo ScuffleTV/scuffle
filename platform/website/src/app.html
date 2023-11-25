@@ -40,6 +40,17 @@
 				overflow: hidden;
 			}
 
+			@media screen and (max-width: 768px) {
+				.page-body {
+					grid-template-areas:
+						"top-nav"
+						"content"
+						"side-nav";
+					grid-template-rows: auto 1fr auto;
+					grid-template-columns: auto;
+				}
+			}
+
 			* {
 				scrollbar-color: #606364 #0f1314;
 				scrollbar-width: thin;
@@ -197,15 +208,18 @@
 				}
 
 				@keyframes __dash__ {
-					0% {
+					from {
 						stroke-dashoffset: 11;
 					}
-					100% {
+					to {
 						stroke-dashoffset: 44;
 					}
 				}
 			</style>
 		</div>
+		<!-- Svelte recommends us to wrap the body in an element
+			https://kit.svelte.dev/docs/project-structure#project-files-src
+		That's also why the page-body css is in this file. I'm sure there is a better solution but I didn't find it yet. -->
 		<div class="page-body">%sveltekit.body%</div>
 	</body>
 </html>

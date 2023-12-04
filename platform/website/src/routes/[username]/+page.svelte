@@ -11,6 +11,7 @@
 	import DisplayName from "$/components/user/display-name.svelte";
 	import FollowButton from "$/components/user/follow-button.svelte";
 	import SubscribeButton from "$/components/user/subscribe-button.svelte";
+	import { topNavHidden } from "$/store/layout";
 
 	export let data: PageData;
 	$: channelId = data.user.id;
@@ -49,7 +50,7 @@
 </script>
 
 <div class="content">
-	<div class="user-container" class:dev>
+	<div class="user-container" class:dev class:top-nav-hidden={$topNavHidden}>
 		<Player {channelId} />
 		<div class="under-player" class:hide-on-mobile={!chatCollapsed}>
 			<div class="row title-row">
@@ -115,10 +116,16 @@
 			// I tried very long to figure out why we need a fixed height here to make it scrollable
 			// I didn't find out why yet
 			max-height: calc(100svh - $topNavHeight);
+			&.top-nav-hidden {
+				max-height: 100svh;
+			}
 			overflow-y: auto;
 
 			&.dev {
 				max-height: calc(100svh - $topNavHeight - $devBannerHeight);
+				&.top-nav-hidden {
+					max-height: calc(100svh - $devBannerHeight);
+				}
 			}
 		}
 	}

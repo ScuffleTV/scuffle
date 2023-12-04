@@ -49,8 +49,8 @@
 	let selectedVariant: number;
 
 	$: {
-		topNavHidden.set(theaterMode);
-		sideNavHidden.set(theaterMode);
+		$topNavHidden = theaterMode;
+		$sideNavHidden = theaterMode;
 	}
 
 	$: {

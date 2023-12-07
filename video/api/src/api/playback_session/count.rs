@@ -5,7 +5,7 @@ use pb::scuffle::video::v1::types::{playback_session_target, Resource};
 use pb::scuffle::video::v1::{playback_session_count_request, PlaybackSessionCountRequest, PlaybackSessionCountResponse};
 use video_common::database::{AccessToken, DatabaseTable};
 
-use crate::api::utils::{impl_request_scopes, QbRequest, QbResponse, TonicRequest};
+use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 
@@ -22,82 +22,84 @@ pub struct PlaybackSessionCountQueryResp {
 	deduped: i64,
 }
 
-#[async_trait::async_trait]
-impl QbRequest for PlaybackSessionCountRequest {
-	type QueryObject = PlaybackSessionCountQueryResp;
+pub fn build_query<'a>(
+	req: &'a PlaybackSessionCountRequest,
+	access_token: &AccessToken,
+) -> tonic::Result<sqlx::query_builder::QueryBuilder<'a, sqlx::Postgres>> {
+	let mut qb = sqlx::query_builder::QueryBuilder::default();
 
-	async fn build_query<G: ApiGlobal>(
-		&self,
-		_: &Arc<G>,
-		access_token: &AccessToken,
-	) -> tonic::Result<sqlx::query_builder::QueryBuilder<'_, sqlx::Postgres>> {
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
+	let filter = req
+		.filter
+		.as_ref()
+		.ok_or_else(|| tonic::Status::invalid_argument("filter is required"))?;
 
-		let filter = self
-			.filter
-			.as_ref()
-			.ok_or_else(|| tonic::Status::invalid_argument("filter is required"))?;
+	qb.push("SELECT COUNT(*) AS total_count, COUNT(DISTINCT ");
 
-		qb.push("SELECT COUNT(*) AS total_count, COUNT(DISTINCT ");
+	match filter {
+		playback_session_count_request::Filter::UserId(user_id) => {
+			qb.push("(recording_id, room_id)) AS deduped FROM playback_sessions WHERE user_id = ")
+				.push_bind(user_id)
+				.push(" AND organization_id = ")
+				.push_bind(access_token.organization_id);
+		}
+		playback_session_count_request::Filter::Target(target) => {
+			let target = target
+				.target
+				.ok_or_else(|| tonic::Status::invalid_argument("filter is required"))?;
 
-		match filter {
-			playback_session_count_request::Filter::UserId(user_id) => {
-				qb.push("(recording_id, room_id)) AS deduped FROM playback_sessions WHERE user_id = ")
-					.push_bind(user_id)
-					.push(" AND organization_id = ")
-					.push_bind(access_token.organization_id);
-			}
-			playback_session_count_request::Filter::Target(target) => {
-				let target = target
-					.target
-					.ok_or_else(|| tonic::Status::invalid_argument("filter is required"))?;
+			qb.push("COALESCE(user_id, ip_address::text)) AS deduped FROM playback_sessions WHERE organization_id = ")
+				.push_bind(access_token.organization_id);
+			qb.push(" AND ");
 
-				qb.push("COALESCE(user_id, ip_address::text)) AS deduped FROM playback_sessions WHERE organization_id = ")
-					.push_bind(access_token.organization_id);
-				qb.push(" AND ");
-
-				match target {
-					playback_session_target::Target::RecordingId(recording_id) => {
-						qb.push("recording_id = ")
-							.push_bind(common::database::Ulid(recording_id.into_ulid()));
-						qb.push(" AND room_id IS NULL");
-					}
-					playback_session_target::Target::RoomId(room_id) => {
-						qb.push("room_id = ").push_bind(common::database::Ulid(room_id.into_ulid()));
-						qb.push(" AND recording_id IS NULL");
-					}
+			match target {
+				playback_session_target::Target::RecordingId(recording_id) => {
+					qb.push("recording_id = ")
+						.push_bind(common::database::Ulid(recording_id.into_ulid()));
+					qb.push(" AND room_id IS NULL");
+				}
+				playback_session_target::Target::RoomId(room_id) => {
+					qb.push("room_id = ").push_bind(common::database::Ulid(room_id.into_ulid()));
+					qb.push(" AND recording_id IS NULL");
 				}
 			}
 		}
-
-		Ok(qb)
 	}
+
+	Ok(qb)
 }
 
-impl QbResponse for PlaybackSessionCountResponse {
-	type Request = PlaybackSessionCountRequest;
+#[async_trait::async_trait]
+impl ApiRequest<PlaybackSessionCountResponse> for tonic::Request<PlaybackSessionCountRequest> {
+	async fn process<G: ApiGlobal>(
+		&self,
+		global: &Arc<G>,
+		access_token: &AccessToken,
+	) -> tonic::Result<tonic::Response<PlaybackSessionCountResponse>> {
+		let req = self.get_ref();
 
-	fn from_query_object(query_object: Vec<<Self::Request as QbRequest>::QueryObject>) -> tonic::Result<Self> {
-		if query_object.is_empty() {
-			return Ok(Self {
+		let mut query = build_query(req, access_token)?;
+
+		let result: Option<PlaybackSessionCountQueryResp> = query
+			.build_query_as()
+			.fetch_optional(global.db().as_ref())
+			.await
+			.map_err(|err| {
+				tracing::error!(err = %err, "failed to fetch {}s", <PlaybackSessionCountRequest as TonicRequest>::Table::FRIENDLY_NAME);
+				tonic::Status::internal(format!(
+					"failed to fetch {}s",
+					<PlaybackSessionCountRequest as TonicRequest>::Table::FRIENDLY_NAME
+				))
+			})?;
+
+		match result {
+			Some(result) => Ok(tonic::Response::new(PlaybackSessionCountResponse {
+				count: result.total_count as u64,
+				deduplicated_count: result.deduped as u64,
+			})),
+			None => Ok(tonic::Response::new(PlaybackSessionCountResponse {
 				count: 0,
 				deduplicated_count: 0,
-			});
+			})),
 		}
-
-		if query_object.len() > 1 {
-			return Err(tonic::Status::internal(format!(
-				"failed to query {}, {} rows returned",
-				<Self::Request as TonicRequest>::Table::FRIENDLY_NAME,
-				query_object.len(),
-			)));
-		}
-
-		let query_object = query_object.into_iter().next().unwrap();
-
-		Ok(Self {
-			count: query_object.total_count as u64,
-			deduplicated_count: query_object.deduped as u64,
-		})
 	}
 }

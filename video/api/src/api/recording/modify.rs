@@ -1,15 +1,16 @@
 use std::sync::Arc;
 
 use pb::ext::UlidExt;
+use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
-use pb::scuffle::video::v1::types::Resource;
+use pb::scuffle::video::v1::types::{event, Resource};
 use pb::scuffle::video::v1::{RecordingModifyRequest, RecordingModifyResponse};
 use tonic::Status;
 use video_common::database::{AccessToken, DatabaseTable, Visibility};
 
 use crate::api::errors::MODIFY_NO_FIELDS;
 use crate::api::utils::tags::validate_tags;
-use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
+use crate::api::utils::{events, impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 
@@ -96,7 +97,7 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 		qb.push(" AND organization_id = ").push_bind(access_token.organization_id);
 		qb.push(" RETURNING *");
 
-		let recording = qb
+		let result = qb
 			.build_query_as::<<RecordingModifyRequest as TonicRequest>::Table>()
 			.fetch_optional(global.db().as_ref())
 			.await
@@ -108,13 +109,24 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 
 		let state = global
 			.recording_state_loader()
-			.load((recording.organization_id.0, recording.id.0))
+			.load((result.organization_id.0, result.id.0))
 			.await
 			.map_err(|_| Status::internal("failed to load recording state"))?
 			.unwrap_or_default();
 
+		events::emit(
+			global,
+			access_token.organization_id.0,
+			Target::Recording,
+			event::Event::Recording(event::Recording {
+				recording_id: Some(result.id.0.into()),
+				event: Some(event::recording::Event::Modified(event::recording::Modified {})),
+			}),
+		)
+		.await;
+
 		Ok(tonic::Response::new(RecordingModifyResponse {
-			recording: Some(state.recording_to_proto(recording)),
+			recording: Some(state.recording_to_proto(result)),
 		}))
 	}
 }

@@ -1,13 +1,14 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
-use pb::scuffle::video::v1::types::{FailedResource, Resource};
+use pb::scuffle::video::v1::types::{event, FailedResource, Resource};
 use pb::scuffle::video::v1::{TranscodingConfigDeleteRequest, TranscodingConfigDeleteResponse};
 use tonic::Status;
 use video_common::database::{AccessToken, DatabaseTable};
 
-use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
+use crate::api::utils::{events, impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 
@@ -92,6 +93,21 @@ impl ApiRequest<TranscodingConfigDeleteResponse> for tonic::Request<TranscodingC
 		} else {
 			Default::default()
 		};
+
+		for id in deleted_ids.iter().copied() {
+			events::emit(
+				global,
+				access_token.organization_id.0,
+				Target::TranscodingConfig,
+				event::Event::TranscodingConfig(event::TranscodingConfig {
+					transcoding_config_id: Some(id.0.into()),
+					event: Some(event::transcoding_config::Event::Deleted(
+						event::transcoding_config::Deleted {},
+					)),
+				}),
+			)
+			.await;
+		}
 
 		ids_to_delete.into_iter().for_each(|id| {
 			failed_deletes.insert(id, "transcoding config not found");

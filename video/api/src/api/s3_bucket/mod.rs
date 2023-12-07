@@ -10,13 +10,13 @@ use super::utils::ratelimit::scope_ratelimit;
 use super::utils::ApiRequest;
 use crate::global::ApiGlobal;
 
-mod create;
-mod delete;
-mod get;
-mod modify;
-mod tag;
-mod untag;
-mod utils;
+pub(crate) mod create;
+pub(crate) mod delete;
+pub(crate) mod get;
+pub(crate) mod modify;
+pub(crate) mod tag;
+pub(crate) mod untag;
+pub(crate) mod utils;
 
 pub struct S3BucketServer<G: ApiGlobal> {
 	_phantom: std::marker::PhantomData<G>,

@@ -12,11 +12,11 @@ use super::utils::ratelimit::scope_ratelimit;
 use super::utils::ApiRequest;
 use crate::global::ApiGlobal;
 
-mod create;
-mod delete;
-mod get;
-mod tag;
-mod untag;
+pub(crate) mod create;
+pub(crate) mod delete;
+pub(crate) mod get;
+pub(crate) mod tag;
+pub(crate) mod untag;
 
 pub struct AccessTokenServer<G: ApiGlobal> {
 	_phantom: std::marker::PhantomData<G>,

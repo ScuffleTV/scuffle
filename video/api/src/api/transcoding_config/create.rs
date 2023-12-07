@@ -1,15 +1,16 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
-use pb::scuffle::video::v1::types::Resource;
+use pb::scuffle::video::v1::types::{event, Resource};
 use pb::scuffle::video::v1::{TranscodingConfigCreateRequest, TranscodingConfigCreateResponse};
 use tonic::Status;
 use ulid::Ulid;
 use video_common::database::{AccessToken, DatabaseTable, Rendition};
 
 use crate::api::utils::tags::validate_tags;
-use crate::api::utils::{impl_request_scopes, QbRequest, QbResponse, TonicRequest};
+use crate::api::utils::{events, impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 
@@ -20,66 +21,88 @@ impl_request_scopes!(
 	RateLimitResource::TranscodingConfigCreate
 );
 
-#[async_trait::async_trait]
-impl QbRequest for TranscodingConfigCreateRequest {
-	type QueryObject = Self::Table;
-
-	async fn build_query<G: ApiGlobal>(
-		&self,
-		_: &Arc<G>,
-		access_token: &AccessToken,
-	) -> tonic::Result<sqlx::QueryBuilder<'_, sqlx::Postgres>> {
-		validate_tags(self.tags.as_ref())?;
-
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
-
-		qb.push("INSERT INTO ").push(Self::Table::NAME).push(" (");
-
-		let mut seperated = qb.separated(",");
-
-		seperated.push("id");
-		seperated.push("organization_id");
-		seperated.push("renditions");
-		seperated.push("tags");
-
-		qb.push(") VALUES (");
-
-		let mut seperated = qb.separated(",");
-
-		let renditions = self.renditions().map(Rendition::from).collect::<HashSet<_>>();
-
-		if !renditions.iter().any(|r| r.is_audio()) {
-			return Err(Status::invalid_argument("must specify at least one audio rendition"));
-		}
-
-		if !renditions.iter().any(|r| r.is_video()) {
-			return Err(Status::invalid_argument("must specify at least one video rendition"));
-		}
-
-		seperated.push_bind(common::database::Ulid(Ulid::new()));
-		seperated.push_bind(access_token.organization_id);
-		seperated.push_bind(renditions.into_iter().collect::<Vec<_>>());
-		seperated.push_bind(sqlx::types::Json(self.tags.clone().unwrap_or_default().tags));
-
-		qb.push(") RETURNING *");
-
-		Ok(qb)
-	}
+pub fn validate(req: &TranscodingConfigCreateRequest) -> tonic::Result<()> {
+	validate_tags(req.tags.as_ref())
 }
 
-impl QbResponse for TranscodingConfigCreateResponse {
-	type Request = TranscodingConfigCreateRequest;
+pub fn build_query(
+	req: &TranscodingConfigCreateRequest,
+	access_token: &AccessToken,
+) -> tonic::Result<sqlx::QueryBuilder<'static, sqlx::Postgres>> {
+	let mut qb = sqlx::query_builder::QueryBuilder::default();
 
-	fn from_query_object(query_object: Vec<<Self::Request as QbRequest>::QueryObject>) -> tonic::Result<Self> {
-		if query_object.is_empty() {
-			return Err(Status::internal(format!(
-				"failed to create {}, no rows returned",
-				<Self::Request as TonicRequest>::Table::FRIENDLY_NAME
-			)));
-		}
+	qb.push("INSERT INTO ")
+		.push(<TranscodingConfigCreateRequest as TonicRequest>::Table::NAME)
+		.push(" (");
 
-		Ok(Self {
-			transcoding_config: Some(query_object.into_iter().next().unwrap().into_proto()),
-		})
+	let mut seperated = qb.separated(",");
+
+	seperated.push("id");
+	seperated.push("organization_id");
+	seperated.push("renditions");
+	seperated.push("tags");
+
+	qb.push(") VALUES (");
+
+	let mut seperated = qb.separated(",");
+
+	let renditions = req.renditions().map(Rendition::from).collect::<HashSet<_>>();
+
+	if !renditions.iter().any(|r| r.is_audio()) {
+		return Err(Status::invalid_argument("must specify at least one audio rendition"));
+	}
+
+	if !renditions.iter().any(|r| r.is_video()) {
+		return Err(Status::invalid_argument("must specify at least one video rendition"));
+	}
+
+	seperated.push_bind(common::database::Ulid(Ulid::new()));
+	seperated.push_bind(access_token.organization_id);
+	seperated.push_bind(renditions.into_iter().collect::<Vec<_>>());
+	seperated.push_bind(sqlx::types::Json(req.tags.clone().unwrap_or_default().tags));
+
+	qb.push(") RETURNING *");
+
+	Ok(qb)
+}
+
+#[async_trait::async_trait]
+impl ApiRequest<TranscodingConfigCreateResponse> for tonic::Request<TranscodingConfigCreateRequest> {
+	async fn process<G: ApiGlobal>(
+		&self,
+		global: &Arc<G>,
+		access_token: &AccessToken,
+	) -> tonic::Result<tonic::Response<TranscodingConfigCreateResponse>> {
+		let req = self.get_ref();
+
+		validate(req)?;
+
+		let mut query = build_query(req, access_token)?;
+
+		let result: video_common::database::TranscodingConfig =
+			query.build_query_as().fetch_one(global.db().as_ref()).await.map_err(|err| {
+				tracing::error!(err = %err, "failed to create {}", <TranscodingConfigCreateRequest as TonicRequest>::Table::FRIENDLY_NAME);
+				tonic::Status::internal(format!(
+					"failed to create {}",
+					<TranscodingConfigCreateRequest as TonicRequest>::Table::FRIENDLY_NAME
+				))
+			})?;
+
+		events::emit(
+			global,
+			access_token.organization_id.0,
+			Target::TranscodingConfig,
+			event::Event::TranscodingConfig(event::TranscodingConfig {
+				transcoding_config_id: Some(result.id.0.into()),
+				event: Some(event::transcoding_config::Event::Created(
+					event::transcoding_config::Created {},
+				)),
+			}),
+		)
+		.await;
+
+		Ok(tonic::Response::new(TranscodingConfigCreateResponse {
+			transcoding_config: Some(result.into_proto()),
+		}))
 	}
 }

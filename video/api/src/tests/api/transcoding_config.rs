@@ -12,8 +12,7 @@ use pb::scuffle::video::v1::{
 };
 use video_common::database::AccessToken;
 
-use crate::api::transcoding_config::TranscodingConfigServer;
-use crate::api::utils::QbRequest;
+use crate::api::transcoding_config::{self, TranscodingConfigServer};
 use crate::tests::api::utils::{assert_query_matches, create_transcoding_config, process_request};
 use crate::tests::global::GlobalState;
 use crate::tests::utils;
@@ -51,7 +50,7 @@ async fn test_transcoding_config_get_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		let result = transcoding_config::get::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -74,7 +73,8 @@ async fn test_transcoding_config_create_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(transcoding_config::create::validate(&req).is_ok());
+		let result = transcoding_config::create::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -145,7 +145,8 @@ async fn test_transcoding_config_modify_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(transcoding_config::modify::validate(&req).is_ok());
+		let result = transcoding_config::modify::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -171,7 +172,8 @@ async fn test_transcoding_config_tag_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(transcoding_config::tag::validate(&req).is_ok());
+		let result = transcoding_config::tag::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -193,7 +195,8 @@ async fn test_transcoding_config_untag_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(transcoding_config::untag::validate(&req).is_ok());
+		let result = transcoding_config::untag::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 

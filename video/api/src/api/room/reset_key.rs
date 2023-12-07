@@ -1,13 +1,15 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use pb::scuffle::video::v1::events_fetch_request::Target;
+use pb::scuffle::video::v1::room_reset_key_response::RoomKeyPair;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
-use pb::scuffle::video::v1::types::{FailedResource, Resource};
+use pb::scuffle::video::v1::types::{event, FailedResource, Resource};
 use pb::scuffle::video::v1::{room_reset_key_response, RoomResetKeyRequest, RoomResetKeyResponse};
 use video_common::database::{AccessToken, DatabaseTable};
 
 use super::utils::create_stream_key;
-use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
+use crate::api::utils::{events, impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 
@@ -88,6 +90,21 @@ impl ApiRequest<RoomResetKeyResponse> for tonic::Request<RoomResetKeyRequest> {
 				reason: "room not found".into(),
 			})
 			.collect::<Vec<_>>();
+
+		for RoomKeyPair { id, .. } in rooms.iter() {
+			if let Some(id) = id {
+				events::emit(
+					global,
+					access_token.organization_id.0,
+					Target::Room,
+					event::Event::Room(event::Room {
+						room_id: Some(*id),
+						event: Some(event::room::Event::Modified(event::room::Modified {})),
+					}),
+				)
+				.await;
+			}
+		}
 
 		Ok(tonic::Response::new(RoomResetKeyResponse { rooms, failed_resets }))
 	}

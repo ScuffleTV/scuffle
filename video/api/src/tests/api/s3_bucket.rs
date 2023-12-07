@@ -10,8 +10,7 @@ use pb::scuffle::video::v1::{
 };
 use video_common::database::AccessToken;
 
-use crate::api::s3_bucket::S3BucketServer;
-use crate::api::utils::QbRequest;
+use crate::api::s3_bucket::{self, S3BucketServer};
 use crate::tests::api::utils::{assert_query_matches, create_s3_bucket, process_request};
 use crate::tests::global::GlobalState;
 use crate::tests::utils;
@@ -47,7 +46,7 @@ async fn test_s3_bucket_get_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		let result = s3_bucket::get::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -74,7 +73,8 @@ async fn test_s3_bucket_create_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(s3_bucket::create::validate(&req).is_ok());
+		let result = s3_bucket::create::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -115,7 +115,7 @@ async fn test_s3_bucket_modify_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		let result = s3_bucket::modify::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -141,7 +141,8 @@ async fn test_s3_bucket_tag_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(s3_bucket::tag::validate(&req).is_ok());
+		let result = s3_bucket::tag::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -163,7 +164,8 @@ async fn test_s3_bucket_untag_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(s3_bucket::untag::validate(&req).is_ok());
+		let result = s3_bucket::untag::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 

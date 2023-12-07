@@ -13,8 +13,7 @@ use pb::scuffle::video::v1::{
 use ulid::Ulid;
 use video_common::database::{AccessToken, RoomStatus, Visibility};
 
-use crate::api::room::RoomServer;
-use crate::api::utils::QbRequest;
+use crate::api::room::{self, RoomServer};
 use crate::tests::api::utils::{
 	assert_query_matches, create_recording_config, create_room, create_s3_bucket, create_transcoding_config, process_request,
 };
@@ -113,7 +112,7 @@ async fn test_room_get_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		let result = room::get::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -155,7 +154,8 @@ async fn test_room_create_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(room::create::validate(&req).is_ok());
+		let result = room::create::build_query(&req, &global, &access_token).await;
 		assert_query_matches(result, expected);
 	}
 
@@ -204,7 +204,8 @@ async fn test_room_modify_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(room::modify::validate(&req).is_ok());
+		let result = room::modify::build_query(&req, &global, &access_token).await;
 		assert_query_matches(result, expected);
 	}
 
@@ -230,7 +231,8 @@ async fn test_room_pair_tag_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(room::tag::validate(&req).is_ok());
+		let result = room::tag::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -252,7 +254,8 @@ async fn test_room_pair_untag_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(room::untag::validate(&req).is_ok());
+		let result = room::untag::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 

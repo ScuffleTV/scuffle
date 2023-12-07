@@ -43,3 +43,7 @@ pub fn s3_init(organization_id: Ulid, recording_id: Ulid, rendition: Rendition) 
 pub fn ingest_disconnect(session_id: Ulid) -> String {
 	format!("ingest.{session_id}.disconnect")
 }
+
+pub fn event_subject(organization_id: Ulid, target: pb::scuffle::video::v1::events_fetch_request::Target) -> String {
+	format!("events.{organization_id}.{}", target.as_str_name())
+}

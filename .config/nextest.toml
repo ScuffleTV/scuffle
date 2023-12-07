@@ -1,6 +1,7 @@
 [profile.default]
 test-threads = "num-cpus"
 slow-timeout = { period = "10s", terminate-after = 3 }
+retries = { backoff = "fixed", count = 2, delay = "1s" }
 
 [profile.ci]
 test-threads = "num-cpus"

@@ -12,8 +12,7 @@ use pb::scuffle::video::v1::{
 };
 use video_common::database::AccessToken;
 
-use crate::api::recording_config::RecordingConfigServer;
-use crate::api::utils::QbRequest;
+use crate::api::recording_config::{self, RecordingConfigServer};
 use crate::tests::api::utils::{assert_query_matches, create_recording_config, create_s3_bucket, process_request};
 use crate::tests::global::GlobalState;
 use crate::tests::utils;
@@ -51,7 +50,7 @@ async fn test_recording_config_get_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		let result = recording_config::get::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -80,7 +79,8 @@ async fn test_recording_config_create_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(recording_config::create::validate(&req).is_ok());
+		let result = recording_config::create::build_query(&req, &global, &access_token).await;
 		assert_query_matches(result, expected);
 	}
 
@@ -168,7 +168,8 @@ async fn test_recording_config_modify_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(recording_config::modify::validate(&req).is_ok());
+		let result = recording_config::modify::build_query(&req, &global, &access_token).await;
 		assert_query_matches(result, expected);
 	}
 
@@ -194,7 +195,8 @@ async fn test_recording_config_tag_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(recording_config::tag::validate(&req).is_ok());
+		let result = recording_config::tag::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -216,7 +218,8 @@ async fn test_recording_config_untag_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(recording_config::untag::validate(&req).is_ok());
+		let result = recording_config::untag::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 

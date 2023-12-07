@@ -12,8 +12,7 @@ use pb::scuffle::video::v1::{
 use video_common::database::AccessToken;
 
 use crate::api::playback_key_pair::utils::validate_public_key;
-use crate::api::playback_key_pair::PlaybackKeyPairServer;
-use crate::api::utils::QbRequest;
+use crate::api::playback_key_pair::{self, PlaybackKeyPairServer};
 use crate::tests::api::utils::{assert_query_matches, create_playback_keypair, process_request};
 use crate::tests::global::GlobalState;
 use crate::tests::utils;
@@ -54,7 +53,7 @@ async fn test_playback_key_pair_get_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		let result = playback_key_pair::get::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -76,7 +75,8 @@ async fn test_playback_key_pair_create_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		let result =
+			playback_key_pair::create::build_query(&req, &access_token, playback_key_pair::create::validate(&req).unwrap());
 		assert_query_matches(result, expected);
 	}
 
@@ -130,7 +130,8 @@ async fn test_playback_key_pair_modify_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(playback_key_pair::modify::validate(&req).is_ok());
+		let result = playback_key_pair::modify::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -163,7 +164,8 @@ async fn test_playback_key_pair_tag_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(playback_key_pair::tag::validate(&req).is_ok());
+		let result = playback_key_pair::tag::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -192,7 +194,8 @@ async fn test_playback_key_pair_untag_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(playback_key_pair::untag::validate(&req).is_ok());
+		let result = playback_key_pair::untag::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 

@@ -1,13 +1,14 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
-use pb::scuffle::video::v1::types::{FailedResource, Resource};
+use pb::scuffle::video::v1::types::{event, FailedResource, Resource};
 use pb::scuffle::video::v1::{S3BucketDeleteRequest, S3BucketDeleteResponse};
 use tonic::Status;
 use video_common::database::{AccessToken, DatabaseTable};
 
-use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
+use crate::api::utils::{events, impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 
@@ -99,6 +100,19 @@ impl ApiRequest<S3BucketDeleteResponse> for tonic::Request<S3BucketDeleteRequest
 		} else {
 			Default::default()
 		};
+
+		for id in deleted_ids.iter().copied() {
+			events::emit(
+				global,
+				access_token.organization_id.0,
+				Target::S3Bucket,
+				event::Event::S3Bucket(event::S3Bucket {
+					s3_buckets_id: Some(id.0.into()),
+					event: Some(event::s3_bucket::Event::Deleted(event::s3_bucket::Deleted {})),
+				}),
+			)
+			.await;
+		}
 
 		ids_to_delete.into_iter().for_each(|id| {
 			failed_deletes.insert(id, "s3 bucket not found");

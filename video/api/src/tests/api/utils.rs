@@ -16,7 +16,7 @@ use crate::tests::global::GlobalState;
 pub async fn process_request<T, R>(global: &Arc<GlobalState>, access_token: &AccessToken, request: T) -> tonic::Result<R>
 where
 	tonic::Request<T>: ApiRequest<R> + Send + Sync + 'static,
-	R: std::fmt::Debug + Send + Sync + 'static,
+	R: Send + 'static,
 {
 	tonic::Request::new(request)
 		.process(global, access_token)

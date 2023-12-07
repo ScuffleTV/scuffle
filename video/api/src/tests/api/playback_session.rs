@@ -13,8 +13,7 @@ use rand::{Rng, SeedableRng};
 use ulid::Ulid;
 use video_common::database::AccessToken;
 
-use crate::api::playback_session::PlaybackSessionServer;
-use crate::api::utils::QbRequest;
+use crate::api::playback_session::{self, PlaybackSessionServer};
 use crate::tests::api::utils::{
 	assert_query_matches, create_playback_session, create_recording, create_room, create_s3_bucket, process_request,
 };
@@ -57,7 +56,7 @@ async fn test_playback_session_count_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		let result = playback_session::count::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -201,7 +200,7 @@ async fn test_playback_session_get_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		let result = playback_session::get::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 

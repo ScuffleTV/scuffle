@@ -152,41 +152,39 @@ pub fn remove_tag_query<D: DatabaseTable>(
 }
 
 macro_rules! impl_tag_req {
-	($req:ty, $resp:ty) => {
-		#[async_trait::async_trait]
-		impl crate::api::utils::QbRequest for $req {
-			type QueryObject = crate::api::utils::tags::TagExt;
-
-			async fn build_query<G: crate::global::ApiGlobal>(
-				&self,
-				_: &std::sync::Arc<G>,
-				access_token: &video_common::database::AccessToken,
-			) -> tonic::Result<sqlx::QueryBuilder<'_, sqlx::Postgres>> {
-				crate::api::utils::tags::validate_tags(self.tags.as_ref())?;
-
-				let tags = self.tags.as_ref().ok_or_else(|| {
-					tonic::Status::invalid_argument("tags must be provided to add a tag")
-				})?;
-
-				Ok(crate::api::utils::tags::add_tag_query::<Self::Table>(&tags.tags, pb::ext::UlidExt::into_ulid(self.id), Some(access_token.organization_id.0)))
-			}
+	($req:ty, $resp:ident, $event_target:expr, [$id:ident] $event:expr) => {
+		pub fn validate(req: &$req) -> tonic::Result<()> {
+			crate::api::utils::tags::validate_tags(req.tags.as_ref())
 		}
 
-		impl crate::api::utils::QbResponse for $resp {
-			type Request = $req;
+		pub fn build_query<'a>(req: &'a $req, access_token: &video_common::database::AccessToken) -> tonic::Result<sqlx::query_builder::QueryBuilder<'a, sqlx::Postgres>> {
+			let tags = req.tags.as_ref().ok_or_else(|| {
+				tonic::Status::invalid_argument("tags must be provided to add a tag")
+			})?;
 
-			fn from_query_object(query_object: Vec<<Self::Request as crate::api::utils::QbRequest>::QueryObject>) -> tonic::Result<Self> {
-				if query_object.len() != 1 {
-					return Err(tonic::Status::internal(format!(
-						"failed to create {}, {} rows returned",
-						<<Self::Request as crate::api::utils::TonicRequest>::Table as video_common::database::DatabaseTable>::FRIENDLY_NAME,
-						query_object.len(),
-					)));
-				}
+			Ok(crate::api::utils::tags::add_tag_query::<<$req as crate::api::utils::TonicRequest>::Table>(&tags.tags, pb::ext::UlidExt::into_ulid(req.id), Some(access_token.organization_id.0)))
+		}
 
-				Ok(Self {
-					tags: Some(query_object.into_iter().next().unwrap().into_tags()?),
-				})
+		#[async_trait::async_trait]
+		impl crate::api::utils::ApiRequest<$resp> for tonic::Request<$req> {
+			async fn process<G: crate::global::ApiGlobal>(&self, global: &std::sync::Arc<G>, access_token: &video_common::database::AccessToken) -> tonic::Result<tonic::Response<$resp>> {
+				let req = self.get_ref();
+
+				validate(req)?;
+
+				let mut query = build_query(req, access_token)?;
+
+				let result: crate::api::utils::tags::TagExt = query.build_query_as().fetch_one(global.db().as_ref()).await.map_err(|err| {
+					tracing::error!(err = %err, "failed to update {}", <<$req as crate::api::utils::TonicRequest>::Table as video_common::database::DatabaseTable>::FRIENDLY_NAME);
+					tonic::Status::internal(format!("failed to update {}", <<$req as crate::api::utils::TonicRequest>::Table as video_common::database::DatabaseTable>::FRIENDLY_NAME))
+				})?;
+
+				let $id = pb::ext::UlidExt::into_ulid(req.id);
+				crate::api::utils::events::emit(global, access_token.organization_id.0, $event_target, $event).await;
+
+				Ok(tonic::Response::new($resp {
+					tags: Some(result.into_tags()?)
+				}))
 			}
 		}
 	};
@@ -195,41 +193,38 @@ macro_rules! impl_tag_req {
 pub(crate) use impl_tag_req;
 
 macro_rules! impl_untag_req {
-	($req:ty, $resp:ty) => {
-		#[async_trait::async_trait]
-		impl crate::api::utils::QbRequest for $req {
-			type QueryObject = crate::api::utils::tags::TagExt;
-
-			async fn build_query<G: crate::global::ApiGlobal>(
-				&self,
-				_: &std::sync::Arc<G>,
-				access_token: &video_common::database::AccessToken,
-			) -> tonic::Result<sqlx::QueryBuilder<'_, sqlx::Postgres>> {
-				if self.tags.is_empty() {
-					return Err(tonic::Status::invalid_argument("tags must be provided to remove a tag"));
-				}
-
-				crate::api::utils::tags::validate_tags_array(&self.tags)?;
-
-				Ok(crate::api::utils::tags::remove_tag_query::<Self::Table>(&self.tags, pb::ext::UlidExt::into_ulid(self.id), Some(access_token.organization_id.0)))
+	($req:ty, $resp:ident, $event_target:expr, [$id:ident] $event:expr) => {
+		pub fn validate(req: &$req) -> tonic::Result<()> {
+			if req.tags.is_empty() {
+				return Err(tonic::Status::invalid_argument("tags must be provided to remove a tag"));
 			}
+			crate::api::utils::tags::validate_tags_array(&req.tags)
 		}
 
-		impl crate::api::utils::QbResponse for $resp {
-			type Request = $req;
+		pub fn build_query<'a>(req: &'a $req, access_token: &video_common::database::AccessToken) -> tonic::Result<sqlx::query_builder::QueryBuilder<'a, sqlx::Postgres>> {
+			Ok(crate::api::utils::tags::remove_tag_query::<<$req as crate::api::utils::TonicRequest>::Table>(&req.tags, pb::ext::UlidExt::into_ulid(req.id), Some(access_token.organization_id.0)))
+		}
 
-			fn from_query_object(query_object: Vec<<Self::Request as crate::api::utils::QbRequest>::QueryObject>) -> tonic::Result<Self> {
-				if query_object.len() != 1 {
-					return Err(tonic::Status::internal(format!(
-						"failed to create {}, {} rows returned",
-						<<Self::Request as crate::api::utils::TonicRequest>::Table as video_common::database::DatabaseTable>::FRIENDLY_NAME,
-						query_object.len(),
-					)));
-				}
+		#[async_trait::async_trait]
+		impl crate::api::utils::ApiRequest<$resp> for tonic::Request<$req> {
+			async fn process<G: crate::global::ApiGlobal>(&self, global: &std::sync::Arc<G>, access_token: &video_common::database::AccessToken) -> tonic::Result<tonic::Response<$resp>> {
+				let req = self.get_ref();
 
-				Ok(Self {
-					tags: Some(query_object.into_iter().next().unwrap().into_tags()?),
-				})
+				validate(req)?;
+
+				let mut query = build_query(req, access_token)?;
+
+				let result: crate::api::utils::tags::TagExt = query.build_query_as().fetch_one(global.db().as_ref()).await.map_err(|err| {
+					tracing::error!(err = %err, "failed to update {}", <<$req as crate::api::utils::TonicRequest>::Table as video_common::database::DatabaseTable>::FRIENDLY_NAME);
+					tonic::Status::internal(format!("failed to update {}", <<$req as crate::api::utils::TonicRequest>::Table as video_common::database::DatabaseTable>::FRIENDLY_NAME))
+				})?;
+
+				let $id = pb::ext::UlidExt::into_ulid(req.id);
+				crate::api::utils::events::emit(global, access_token.organization_id.0, $event_target, $event).await;
+
+				Ok(tonic::Response::new($resp {
+					tags: Some(result.into_tags()?)
+				}))
 			}
 		}
 	};

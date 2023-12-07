@@ -1,5 +1,6 @@
+use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
-use pb::scuffle::video::v1::types::Resource;
+use pb::scuffle::video::v1::types::{event, Resource};
 use pb::scuffle::video::v1::{RecordingConfigUntagRequest, RecordingConfigUntagResponse};
 
 use crate::api::utils::impl_request_scopes;
@@ -13,4 +14,9 @@ impl_request_scopes!(
 	RateLimitResource::RecordingConfigUntag
 );
 
-impl_untag_req!(RecordingConfigUntagRequest, RecordingConfigUntagResponse);
+impl_untag_req!(RecordingConfigUntagRequest, RecordingConfigUntagResponse, Target::RecordingConfig, [id] {
+	event::Event::RecordingConfig(event::RecordingConfig {
+		recording_config_id: Some(id.into()),
+		event: Some(event::recording_config::Event::Modified(event::recording_config::Modified {})),
+	})
+});

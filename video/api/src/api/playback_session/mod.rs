@@ -11,9 +11,9 @@ use super::utils::ratelimit::scope_ratelimit;
 use super::utils::ApiRequest;
 use crate::global::ApiGlobal;
 
-mod count;
-mod get;
-mod revoke;
+pub(crate) mod count;
+pub(crate) mod get;
+pub(crate) mod revoke;
 
 pub struct PlaybackSessionServer<G: ApiGlobal> {
 	_phantom: std::marker::PhantomData<G>,

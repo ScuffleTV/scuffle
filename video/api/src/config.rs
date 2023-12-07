@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::time::Duration;
 
 use common::config::TlsConfig;
 
@@ -11,20 +12,55 @@ pub struct ApiConfig {
 	/// Bind Address
 	pub bind_address: SocketAddr,
 
-	/// The event stream to use
-	pub event_stream: String,
-
 	/// The stream to use for recording delete events
 	pub recording_delete_stream: String,
 
 	/// The batch size for deleting recordings
 	pub recording_delete_batch_size: usize,
 
+	/// The events config
+	pub events: EventsConfig,
+
 	/// If we should use TLS
 	pub tls: Option<TlsConfig>,
 
 	/// The ratelimit rules
 	pub rate_limit_rules: RatelimitRules,
+}
+
+#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
+#[serde(default)]
+pub struct EventsConfig {
+	/// The maximum age of an event before it is deleted
+	pub nats_stream_message_max_age: Duration,
+
+	/// The duration to hold a lease on an event
+	pub nats_stream_message_lease_duration: Duration,
+
+	/// The maximum delay to wait for events on the fetch api request
+	pub fetch_request_max_delay: Duration,
+
+	/// The minimum delay to wait for events on the fetch api request
+	pub fetch_request_min_delay: Duration,
+
+	/// The maximum number of events to return on the fetch api request
+	pub fetch_request_max_messages: usize,
+
+	/// The minimum number of events to return on the fetch api request
+	pub fetch_request_min_messages: usize,
+}
+
+impl Default for EventsConfig {
+	fn default() -> Self {
+		Self {
+			nats_stream_message_max_age: Duration::from_secs(60 * 60 * 24 * 7), // 7 days
+			nats_stream_message_lease_duration: Duration::from_secs(60),        // 60 seconds
+			fetch_request_max_delay: Duration::from_secs(60),                   // 60 seconds
+			fetch_request_min_delay: Duration::from_secs(5),                    // 5 seconds
+			fetch_request_max_messages: 1000,
+			fetch_request_min_messages: 1,
+		}
+	}
 }
 
 #[derive(Debug, Default, Clone, PartialEq, config::Config, serde::Deserialize)]
@@ -90,8 +126,8 @@ impl Default for ApiConfig {
 	fn default() -> Self {
 		Self {
 			bind_address: "[::]:9080".to_string().parse().unwrap(),
-			event_stream: "scuffle_video_events".to_string(),
 			tls: None,
+			events: EventsConfig::default(),
 			recording_delete_stream: "scuffle_video_recording_delete".to_string(),
 			recording_delete_batch_size: 1000,
 			rate_limit_rules: RatelimitRules::default(),

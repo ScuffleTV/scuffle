@@ -10,8 +10,7 @@ use pb::scuffle::video::v1::{
 };
 use video_common::database::AccessToken;
 
-use crate::api::access_token::AccessTokenServer;
-use crate::api::utils::QbRequest;
+use crate::api::access_token::{self, AccessTokenServer};
 use crate::tests::api::utils::{assert_query_matches, process_request};
 use crate::tests::global::GlobalState;
 use crate::tests::utils;
@@ -45,7 +44,7 @@ async fn test_access_token_get_qb() {
 	];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		let result = access_token::get::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -71,7 +70,11 @@ async fn test_access_token_create_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		let result = access_token::create::build_query(
+			&req,
+			&access_token,
+			access_token::create::validate(&req, &access_token).unwrap(),
+		);
 		assert_query_matches(result, expected);
 	}
 
@@ -97,7 +100,8 @@ async fn test_access_token_tag_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(access_token::tag::validate(&req).is_ok());
+		let result = access_token::tag::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 
@@ -119,7 +123,8 @@ async fn test_access_token_untag_qb() {
 	)];
 
 	for (req, expected) in test_cases {
-		let result = req.build_query(&global, &access_token).await;
+		assert!(access_token::untag::validate(&req).is_ok());
+		let result = access_token::untag::build_query(&req, &access_token);
 		assert_query_matches(result, expected);
 	}
 

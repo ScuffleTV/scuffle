@@ -109,6 +109,10 @@ pub async fn mock_global_state(config: ApiConfig) -> (Arc<GlobalState>, Handler)
 		.expect("failed to connect to redis")
 		.expect("failed to connect to redis");
 
+	common::ratelimiter::load_rate_limiter_script(&*redis)
+		.await
+		.expect("failed to load rate limiter script");
+
 	let access_token_loader = dataloaders::AccessTokenLoader::new(db.clone());
 	let recording_state_loader = dataloaders::RecordingStateLoader::new(db.clone());
 	let room_loader = dataloaders::RoomLoader::new(db.clone());

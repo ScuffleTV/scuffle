@@ -1,13 +1,14 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
-use pb::scuffle::video::v1::types::{FailedResource, Resource};
+use pb::scuffle::video::v1::types::{event, FailedResource, Resource};
 use pb::scuffle::video::v1::{PlaybackKeyPairDeleteRequest, PlaybackKeyPairDeleteResponse};
 use tonic::Status;
 use video_common::database::{AccessToken, DatabaseTable};
 
-use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
+use crate::api::utils::{events, impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 
@@ -60,6 +61,19 @@ impl ApiRequest<PlaybackKeyPairDeleteResponse> for tonic::Request<PlaybackKeyPai
 					<PlaybackKeyPairDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME
 				))
 			})?;
+
+		for id in deleted_ids.iter().copied() {
+			events::emit(
+				global,
+				access_token.organization_id.0,
+				Target::PlaybackKeyPair,
+				event::Event::PlaybackKeyPair(event::PlaybackKeyPair {
+					playback_key_pair_id: Some(id.0.into()),
+					event: Some(event::playback_key_pair::Event::Deleted(event::playback_key_pair::Deleted {})),
+				}),
+			)
+			.await;
+		}
 
 		deleted_ids.iter().for_each(|id| {
 			ids_to_delete.remove(&id.0);

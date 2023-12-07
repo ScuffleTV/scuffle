@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::ops::Add;
 use std::sync::Arc;
+use std::time::Duration;
 
 use common::context::Handler;
+use common::prelude::FutureTimeout;
 use pb::scuffle::video::v1::types::{access_token_scope, AccessTokenScope};
 use ulid::Ulid;
 use video_common::database::AccessToken;
@@ -63,5 +65,9 @@ pub async fn setup(config: ApiConfig) -> (Arc<GlobalState>, Handler, AccessToken
 // Shared teardown function
 pub async fn teardown(global: Arc<GlobalState>, handler: Handler) {
 	drop(global);
-	handler.cancel().await;
+	handler
+		.cancel()
+		.timeout(Duration::from_secs(2))
+		.await
+		.expect("Failed to cancel handler");
 }

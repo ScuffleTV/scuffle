@@ -111,7 +111,7 @@ async fn ratelimit<G: ApiGlobal>(global: &Arc<G>, options: &RateLimiterOptions) 
 
 	let resp = common::ratelimiter::ratelimit(redis.as_ref(), options).await.map_err(|err| {
 		tracing::error!(err = %err, "failed to rate limit");
-		Status::internal("Unable to process request")
+		Status::internal("Unable to process request, failed to rate limit")
 	})?;
 
 	if resp.banned || resp.remaining == -1 {

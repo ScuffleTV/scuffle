@@ -11,41 +11,66 @@ message Event {
     // The ULID of the recording that this event is for.
     scuffle.types.Ulid recording_id = 1;
 
-    // If the recording was created.
-    message Created {}
+    // A recording was started.
+    message Started {
+      // The room id that the recording is for.
+      scuffle.types.Ulid room_id = 1;
+      // The recording config that the recording is using.
+      scuffle.types.Ulid recording_config_id = 2;
+    }
+
     // If the recording was completed.
-    message Completed {}
+    // Emitted when the recording has finished after the room has disconnected.
+    message Finished {}
+
+    // If the recording was modified.
+    // Emitted when the recording has been modified, this is when an API request
+    // modifies the recording.
+    message Modified {}
 
     // If the recording has started to be deleted.
-    message DeleteStarted {}
+    // Emitted when the recording has been deleted, this is when an API request
+    // deletes the recording or the recording has been deleted due to a
+    // lifecycle policy.
+    message Deleted {
+      message Started {
+        // If the delete was automatically started due to a recording_config
+        // lifecycle policy. The recording config id will be populated if this
+        // is true.
+        optional scuffle.types.Ulid recording_config_id = 1;
+      }
 
-    // If the recording has been deleted.
-    message DeleteComplete {}
+      message Finished {}
 
-    // If the recording failed to be deleted.
-    message DeleteFailed {
-      // The error that occurred.
-      string error = 1;
+      message Failed {
+        // The error that occurred.
+        // Typically this is because the S3 bucket credentials are invalid.
+        string error = 1;
+      }
+
+      // The event that occurred.
+      oneof event {
+        Started started = 2;
+        Finished finished = 3;
+        Failed failed = 4;
+      }
     }
 
     // If the recording failed to be created.
+    // Emitted when the recording has failed to be created. This is usually when
+    // s3 bucket credentials are invalid.
     message Failed {
       // The error that occurred.
       string error = 1;
     }
 
-    // If the recording was modified.
-    message Modified {}
-
     // The event that occurred.
     oneof event {
-      Created created = 2;
-      Completed completed = 3;
+      Started started = 2;
+      Finished finished = 3;
       Modified modified = 4;
-      DeleteStarted delete_started = 5;
-      DeleteComplete delete_complete = 6;
-      DeleteFailed delete_failed = 7;
-      Failed failed = 8;
+      Deleted deleted = 5;
+      Failed failed = 6;
     }
   }
 
@@ -53,6 +78,8 @@ message Event {
   message Room {
     // The ULID of the room that this event is for.
     scuffle.types.Ulid room_id = 1;
+
+    message Created {}
 
     // If the room was connected to.
     // ie. the room went live.
@@ -69,10 +96,25 @@ message Event {
       // If the disconnection was clean. Meaning the client disconnected and it
       // was handled gracefully.
       bool clean = 2;
-      // If the disconnection was forced. Meaning the client was disconnected by
-      // the server. This is usually due to bitrate / bandwidth issues or a
-      // different client connecting.
-      bool forced = 3;
+
+      // The cause of the disconnection.
+      enum Cause {
+        // The cause is unknown.
+        DISCONNECTED_CAUSE_UNKNOWN = 0;
+        // The server requested the disconnection. This is usually because an
+        // API request on Room.Disconnect was made. Or because another client
+        // connected to the room, or the room was deleted.
+        DISCONNECTED_CAUSE_DISCONNECT_REQUEST = 1;
+        // The ingest bitrate was too high.
+        DISCONNECTED_CAUSE_HIGH_BITRATE = 2;
+        // The ingest resolution was too high.
+        DISCONNECTED_CAUSE_HIGH_RESOLUTION = 3;
+        // The ingest FPS was too high.
+        DISCONNECTED_CAUSE_HIGH_FPS = 4;
+      }
+
+      // The cause of the disconnection.
+      Cause cause = 3;
     }
 
     // If the room is ready to be watched.
@@ -95,12 +137,13 @@ message Event {
 
     // The event that occurred.
     oneof event {
-      Connected connected = 2;
-      Disconnected disconnected = 3;
-      Ready ready = 4;
-      Deleted deleted = 5;
-      Modified modified = 6;
-      Failed failed = 7;
+      Created created = 2;
+      Connected connected = 3;
+      Disconnected disconnected = 4;
+      Ready ready = 5;
+      Deleted deleted = 6;
+      Modified modified = 7;
+      Failed failed = 8;
     }
   }
 

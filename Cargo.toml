@@ -2,6 +2,7 @@
 
 members = [
     "platform/api",
+    "platform/image_processor",
     "video/edge",
     "video/ingest",
     "video/transcoder",
@@ -67,3 +68,6 @@ async-graphql = { git = "https://github.com/ScuffleTV/async-graphql.git", branch
 
 [patch."https://github.com/aembke/fred.rs.git"]
 fred = { git = "https://github.com/ScuffleTV/fred.rs.git", branch = "troy/rustls-bump" }
+
+[patch."https://github.com/durch/rust-s3.git"]
+rust-s3 = { git = "https://github.com/ScuffleTV/rust-s3.git", branch = "troy/rustls" }

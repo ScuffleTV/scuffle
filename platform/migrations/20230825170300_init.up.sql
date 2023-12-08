@@ -207,3 +207,17 @@ CREATE INDEX channel_user_channel_id_roles_idx ON channel_user (channel_id, role
 
 -- Default global state
 INSERT INTO global_state (default_permissions) VALUES (0);
+
+-- Image Processor
+
+CREATE TABLE image_jobs (
+    id UUID NOT NULL PRIMARY KEY,
+    priority INTEGER NOT NULL DEFAULT 1,
+    claimed_by UUID,
+    hold_until TIMESTAMPTZ,
+    task BYTES NOT NULL
+);
+
+CREATE INDEX image_jobs_idx_hold_until ON image_jobs (hold_until);
+
+CREATE INDEX image_jobs_idx_priority_id ON image_jobs (priority DESC, id DESC);

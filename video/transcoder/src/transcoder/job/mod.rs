@@ -420,9 +420,9 @@ impl<G: TranscoderGlobal> Job<G> {
 
 			let mut child = spawn_ffmpeg_screenshot(config.ffmpeg_gid, config.ffmpeg_uid, width, height)?;
 
-			let mut stdin = child.stdin.take();
-			stdin.as_mut().unwrap().write_all(init_segment).await?;
-			stdin.as_mut().unwrap().write_all(data).await?;
+			let mut stdin = child.stdin.take().unwrap();
+			stdin.write_all(init_segment).await?;
+			stdin.write_all(data).await?;
 
 			self.last_screenshot = Instant::now();
 

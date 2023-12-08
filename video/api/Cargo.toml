@@ -40,7 +40,7 @@ itertools = "0.12.0"
 tower = "0.4.13"
 http = "=0.2.11"
 hyper = "=0.14.27"
-rust-s3 = { git = "https://github.com/durch/rust-s3.git", default-features = false, features = ["with-tokio", "http-credentials"]}
+rust-s3 = { git = "https://github.com/durch/rust-s3.git", default-features = false, features = ["tags", "tokio-rustls-tls", "fail-on-err"] }
 
 common = { workspace = true, features = ["default"] }
 config = { workspace = true }

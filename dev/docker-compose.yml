@@ -38,8 +38,13 @@ services:
       set -eux;
       /usr/bin/mc config host add myminio http://minio:9000 root scuffle123;
       /usr/bin/mc rb --force myminio/scuffle-video || true;
+      /usr/bin/mc rb --force myminio/scuffle-image-processor || true;
+      /usr/bin/mc rb --force myminio/scuffle-image-processor-public || true;
       /usr/bin/mc mb myminio/scuffle-video;
+      /usr/bin/mc mb myminio/scuffle-image-processor;
+      /usr/bin/mc mb myminio/scuffle-image-processor-public;
       /usr/bin/mc anonymous set download myminio/scuffle-video;
+      /usr/bin/mc anonymous set download myminio/scuffle-image-processor-public;
       exit 0;
       "
 

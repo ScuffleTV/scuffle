@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package scuffle.platform.internal.image_processor;
+
+import "scuffle/types/ulid.proto";
+
+message Task {
+  enum Format {
+    WEBP = 0;
+    AVIF = 1;
+    GIF = 2;
+    WEBP_STATIC = 3;
+    AVIF_STATIC = 4;
+    PNG_STATIC = 5;
+  }
+
+  enum ResizeMethod {
+    Fit = 0;
+    Exact = 1;
+    PadBottomLeft = 2;
+    PadBottomRight = 3;
+    PadTopLeft = 4;
+    PadTopRight = 5;
+    PadCenter = 6;
+    PadCenterRight = 7;
+    PadCenterLeft = 8;
+    PadTopCenter = 9;
+    PadBottomCenter = 10;
+    PadTop = 11;
+    PadBottom = 12;
+    PadLeft = 13;
+    PadRight = 14;
+  }
+
+  enum ResizeAlgorithm {
+    Nearest = 0;
+    Linear = 1;
+    Cubic = 2;
+    Area = 3;
+    Lanczos4 = 4;
+  }
+
+  uint32 smallest_max_width = 1;
+  uint32 smallest_max_height = 2;
+
+  repeated Format formats = 3;
+  ResizeMethod resize_method = 4;
+  ResizeAlgorithm resize_algorithm = 5;
+  repeated uint32 scales = 6;
+
+  bool upscale = 7;
+
+  string output_prefix = 8;
+
+  message Limits {
+    uint32 max_processing_time_ms = 1;
+    uint32 max_input_frame_count = 2;
+    uint32 max_input_width = 3;
+    uint32 max_input_height = 4;
+    uint32 max_input_duration_ms = 5;
+  }
+
+  optional Limits limits = 9;
+}

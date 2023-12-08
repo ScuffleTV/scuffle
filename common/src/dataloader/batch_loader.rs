@@ -18,8 +18,12 @@ pub(super) struct BatchLoader<L: Loader<S>, S = RandomState> {
 impl<L: Loader<S>, S> BatchLoader<L, S> {
 	pub async fn load(self, sephamore: Arc<tokio::sync::Semaphore>) {
 		let _ticket = sephamore.acquire().await.unwrap();
-		let _drop = self.token.drop_guard();
+		let completed = self.token.drop_guard();
 		let keys = self.keys.iter().cloned().collect::<Vec<_>>();
-		*(self.result.write().await) = Some(self.loader.load(&keys).await);
+		let result = self.loader.load(&keys).await;
+		let mut storage = self.result.write().await;
+
+		*storage = Some(result);
+		drop(completed);
 	}
 }

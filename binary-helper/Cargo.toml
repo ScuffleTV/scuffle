@@ -22,5 +22,5 @@ rustls-pemfile = "2.0"
 fred = { git = "https://github.com/aembke/fred.rs.git", features = ["enable-rustls", "sentinel-client", "dns"] }
 
 config = { workspace = true }
-common = { workspace = true }
+common = { workspace = true, features = ["default"] }
 pb = { workspace = true }

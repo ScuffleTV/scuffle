@@ -165,7 +165,7 @@
 {/if}
 
 <style lang="scss">
-	@import "../../../assets/styles/settings.scss";
+	@import "../../../../assets/styles/settings.scss";
 
 	.message {
 		font-size: 0.9rem;

@@ -88,7 +88,7 @@
 </div>
 
 <style lang="scss">
-	@import "../../../assets/styles/variables.scss";
+	@import "../../../../assets/styles/variables.scss";
 
 	.content {
 		grid-area: content;

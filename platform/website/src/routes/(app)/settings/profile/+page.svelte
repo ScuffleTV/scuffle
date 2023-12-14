@@ -328,8 +328,8 @@
 {/if}
 
 <style lang="scss">
-	@import "../../../assets/styles/variables.scss";
-	@import "../../../assets/styles/settings.scss";
+	@import "../../../../assets/styles/variables.scss";
+	@import "../../../../assets/styles/settings.scss";
 
 	.profile-picture-pending {
 		display: flex;

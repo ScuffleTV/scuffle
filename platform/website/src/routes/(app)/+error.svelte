@@ -31,7 +31,7 @@
 </div>
 
 <style lang="scss">
-	@import "../assets/styles/variables.scss";
+	@import "../../assets/styles/variables.scss";
 
 	.container {
 		grid-area: content;

@@ -427,7 +427,7 @@
 </div>
 
 <style lang="scss">
-	@import "../assets/styles/variables.scss";
+	@import "../../assets/styles/variables.scss";
 
 	@keyframes scale-up {
 		from {

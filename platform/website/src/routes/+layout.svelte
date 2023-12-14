@@ -8,8 +8,6 @@
 	import SideNav from "$components/side-nav.svelte";
 	import { onMount } from "svelte";
 	import type { LayoutData } from "./$types";
-	import { building } from "$app/environment";
-	import Spinner from "$/components/spinner.svelte";
 	import DevBanner from "$/components/dev-banner.svelte";
 	import SolveTwoFaDialog from "$/components/auth/solve-two-fa-dialog.svelte";
 	import { PUBLIC_TWITTER_HANDLE } from "$env/static/public";
@@ -56,29 +54,23 @@
 		<DevBanner />
 		<TopNav />
 	</div>
-	{#if !building}
-		<SideNav />
-	{/if}
+	<SideNav />
 </header>
 
 <main id="main">
-	{#if building}
-		<Spinner />
-	{:else}
-		<slot />
+	<slot />
 
-		{#if $authDialog.opened}
-			<AuthDialog />
-		{/if}
-
-		{#if $currentTwoFaRequest}
-			<SolveTwoFaDialog requestId={$currentTwoFaRequest} />
-		{/if}
-
-		<img class="based" src="/BASED.webp" alt="BASED" class:animate={based} />
-
-		<footer />
+	{#if $authDialog.opened}
+		<AuthDialog />
 	{/if}
+
+	{#if $currentTwoFaRequest}
+		<SolveTwoFaDialog requestId={$currentTwoFaRequest} />
+	{/if}
+
+	<img class="based" src="/BASED.webp" alt="BASED" class:animate={based} />
+
+	<footer />
 </main>
 
 <style lang="scss">

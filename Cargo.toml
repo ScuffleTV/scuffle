@@ -61,3 +61,9 @@ tracing-log = { git = "https://github.com/ScuffleTV/tracing" }
 
 [patch.crates-io]
 jwt = { git = "https://github.com/ScuffleTV/rust-jwt", branch = "troy/fixes" }
+
+[patch."https://github.com/async-graphql/async-graphql.git"]
+async-graphql = { git = "https://github.com/ScuffleTV/async-graphql.git", branch = "troy/union-generics" }
+
+[patch."https://github.com/aembke/fred.rs.git"]
+fred = { git = "https://github.com/ScuffleTV/fred.rs.git", branch = "troy/rustls-bump" }

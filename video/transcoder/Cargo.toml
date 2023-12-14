@@ -10,12 +10,12 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0.75"
 tracing = "0.1.40"
-tokio = { version = "1.34.0", features = ["full"] }
-serde = { version = "1.0.192", features = ["derive"] }
-hyper = { version = "0.14.27", features = ["full"] }
+tokio = { version = "1.35.0", features = ["full"] }
+serde = { version = "1.0.193", features = ["derive"] }
+hyper = { version = "=0.14.27", features = ["full"] }
 tonic = { version = "0.10.2", features = ["tls"] }
 chrono = { version = "0.4.31", default-features = false, features = ["clock"] }
-prost = "0.12.1"
+prost = "0.12.3"
 async-stream = "0.3.5"
 futures = "0.3.29"
 futures-util = "0.3.29"
@@ -27,10 +27,10 @@ sha2 = "0.10.8"
 tokio-util = { version = "0.7.10", features = ["compat"] }
 tokio-stream = "0.1.14"
 ulid = { version = "1.1.0", features = ["uuid"] }
-uuid = { version = "1.5.0", features = ["serde", "v4"] }
+uuid = { version = "1.6.1", features = ["serde", "v4"] }
 async-nats = "0.33.0"
-sqlx = { version = "0.7.2", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
-sqlx-postgres = "0.7.2"
+sqlx = { version = "0.7.3", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
+sqlx-postgres = "0.7.3"
 thiserror = "1.0.50"
 rust-s3 = { git = "https://github.com/durch/rust-s3.git", default-features = false, features = ["tags", "tokio-rustls-tls", "fail-on-err"] }
 

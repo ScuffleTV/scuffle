@@ -24,7 +24,7 @@
 			? `${displayName} streaming ${channel.category?.name ?? ""} with ${viewersToString(
 					channel.liveViewerCount,
 					true,
-			  )}`
+				)}`
 			: `${displayName} is offline`;
 
 	$: selected =

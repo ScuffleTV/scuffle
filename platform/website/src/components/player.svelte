@@ -17,7 +17,7 @@
 	import { authDialog } from "$/store/auth";
 	import { dev } from "$app/environment";
 
-	export let channelId: string;
+	export const channelId: string = "";
 	export let controls = true;
 	export let showPip = true;
 	export let showTheater = true;

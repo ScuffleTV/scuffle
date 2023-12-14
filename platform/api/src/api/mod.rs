@@ -65,17 +65,15 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 			.await
 			.context("failed to read platform ssl private key")?;
 
-		let key =
-			rustls::PrivateKey(rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(io::Cursor::new(key)))?.remove(0));
+		let key = rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(io::Cursor::new(key)))
+			.next()
+			.ok_or_else(|| anyhow::anyhow!("failed to find private key in platform private key file"))??
+			.into();
 
-		let certs = rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(cert)))?
-			.into_iter()
-			.map(rustls::Certificate)
-			.collect();
+		let certs = rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(cert))).collect::<Result<Vec<_>, _>>()?;
 
 		Some(Arc::new(tokio_rustls::TlsAcceptor::from(Arc::new(
 			rustls::ServerConfig::builder()
-				.with_safe_defaults()
 				.with_no_client_auth()
 				.with_single_cert(certs, key)?,
 		))))

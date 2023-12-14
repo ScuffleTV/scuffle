@@ -85,8 +85,7 @@ export async function load({ params, parent }: LayoutLoadEvent) {
 		following = resFollowing.data.user.following;
 	}
 
-	const chatroomCollapsed =
-		window.localStorage.getItem("layout_chatroomCollapsed") === "true" ?? false;
+	const chatroomCollapsed = window.localStorage.getItem("layout_chatroomCollapsed") === "true";
 	return {
 		chatroomCollapsed,
 		user: res.data.user.user,

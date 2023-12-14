@@ -1,8 +1,7 @@
 use std::fmt::{Debug, Display};
 use std::panic::Location;
 
-use http::Response;
-use hyper::{Body, StatusCode};
+use http::StatusCode;
 use routerify::RequestInfo;
 use serde_json::json;
 
@@ -12,7 +11,7 @@ macro_rules! make_response {
 		hyper::Response::builder()
 			.status($status)
 			.header("Content-Type", "application/json")
-			.body(Body::from($body.to_string()))
+			.body(hyper::Body::from($body.to_string()))
 			.expect("failed to build response")
 	};
 }
@@ -20,7 +19,7 @@ macro_rules! make_response {
 pub async fn error_handler<E: std::error::Error + 'static>(
 	err: Box<(dyn std::error::Error + Send + Sync + 'static)>,
 	info: RequestInfo,
-) -> Response<Body> {
+) -> hyper::Response<hyper::Body> {
 	match err.downcast::<RouteError<E>>() {
 		Ok(err) => {
 			let location = err.location();
@@ -51,7 +50,7 @@ pub struct RouteError<E> {
 	source: Option<E>,
 	location: &'static Location<'static>,
 	span: tracing::Span,
-	response: hyper::Response<Body>,
+	response: hyper::Response<hyper::Body>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,7 +69,7 @@ impl<E> RouteError<E> {
 		self.location
 	}
 
-	pub fn response(self) -> hyper::Response<Body> {
+	pub fn response(self) -> hyper::Response<hyper::Body> {
 		self.response
 	}
 
@@ -95,9 +94,9 @@ impl<E> RouteError<E> {
 	}
 }
 
-impl<E> From<hyper::Response<Body>> for RouteError<E> {
+impl<E> From<hyper::Response<hyper::Body>> for RouteError<E> {
 	#[track_caller]
-	fn from(res: hyper::Response<Body>) -> Self {
+	fn from(res: hyper::Response<hyper::Body>) -> Self {
 		Self {
 			source: None,
 			span: tracing::Span::current(),

@@ -135,26 +135,22 @@ pub async fn setup_redis(config: &RedisConfig) -> anyhow::Result<Arc<fred::clien
 			.await
 			.context("failed to read redis client private key")?;
 
-		let ca_certs = rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(ca_cert)))?
-			.into_iter()
-			.map(rustls::Certificate)
-			.collect::<Vec<_>>();
+		let ca_certs =
+			rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(ca_cert))).collect::<Result<Vec<_>, _>>()?;
 
-		let key =
-			rustls::PrivateKey(rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(io::Cursor::new(key)))?.remove(0));
+		let key = rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(io::Cursor::new(key)))
+			.next()
+			.ok_or_else(|| anyhow::anyhow!("failed to find private key in redis client private key file"))??
+			.into();
 
-		let certs = rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(cert)))?
-			.into_iter()
-			.map(rustls::Certificate)
-			.collect();
+		let certs = rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(cert))).collect::<Result<Vec<_>, _>>()?;
 
-		for cert in &ca_certs {
+		for cert in ca_certs {
 			cert_store.add(cert).context("failed to add redis ca cert")?;
 		}
 
 		Some(fred::types::TlsConfig::from(fred::types::TlsConnector::from(
 			rustls::ClientConfig::builder()
-				.with_safe_defaults()
 				.with_root_certificates(cert_store)
 				.with_client_auth_cert(certs, key)
 				.context("failed to create redis tls config")?,

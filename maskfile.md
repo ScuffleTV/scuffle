@@ -154,7 +154,6 @@ fi
   - type: bool
   - desc: Drops the database before migrating
 
-
 ```bash
 set -e
 if [[ "$verbose" == "true" ]]; then

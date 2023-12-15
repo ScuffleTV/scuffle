@@ -1,5 +1,4 @@
 <script lang="ts">
-	import "$assets/styles/global.scss";
 	import TopNav from "$components/top-nav.svelte";
 	import { authDialog, currentTwoFaRequest } from "$/store/auth";
 	import AuthDialog from "$/components/auth/auth-dialog.svelte";

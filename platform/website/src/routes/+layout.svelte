@@ -1,4 +1,5 @@
 <script lang="ts">
+	import "$assets/styles/global.scss";
 	import { PUBLIC_TWITTER_HANDLE } from "$env/static/public";
 	import { onMount } from "svelte";
 

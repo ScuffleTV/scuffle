@@ -17,9 +17,17 @@
 		</div>
 		<div class="link-list">
 			<h3>Help</h3>
-			<a href="https://github.com/ScuffleTV/scuffle/issues/new?assignees=ScuffleTV%2Freviewers&labels=feature+request&projects=&template=feature-request.yml&title=%5BFeature%5D%3A+Scuffle+needs+%5B...%5D">Suggest a feature</a>
-			<a href="https://github.com/ScuffleTV/scuffle/issues/new?assignees=ScuffleTV%2Freviewers&labels=bug&projects=&template=bugreport.yml&title=%5BBug%5D%3A+Scuffle+has+a+bug+here+%5B...%5D">Report a bug</a>
-			<a href="https://github.com/ScuffleTV/scuffle/security/advisories/new">Report a vulnerabilty</a>
+			<a
+				href="https://github.com/ScuffleTV/scuffle/issues/new?assignees=ScuffleTV%2Freviewers&labels=feature+request&projects=&template=feature-request.yml&title=%5BFeature%5D%3A+Scuffle+needs+%5B...%5D"
+				>Suggest a feature</a
+			>
+			<a
+				href="https://github.com/ScuffleTV/scuffle/issues/new?assignees=ScuffleTV%2Freviewers&labels=bug&projects=&template=bugreport.yml&title=%5BBug%5D%3A+Scuffle+has+a+bug+here+%5B...%5D"
+				>Report a bug</a
+			>
+			<a href="https://github.com/ScuffleTV/scuffle/security/advisories/new"
+				>Report a vulnerabilty</a
+			>
 		</div>
 		<div class="link-list">
 			<h3>Support us</h3>

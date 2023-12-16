@@ -5,7 +5,13 @@
 	import LogoText from "$/components/icons/logo-text.svelte";
 	import { PUBLIC_BLOG_API_KEY } from "$env/static/public";
 	import { faGithub } from "@fortawesome/free-brands-svg-icons";
-	import { faCode, faHandHoldingDollar, faHeart, faPenNib, faVideo } from "@fortawesome/free-solid-svg-icons";
+	import {
+		faCode,
+		faHandHoldingDollar,
+		faHeart,
+		faPenNib,
+		faVideo,
+	} from "@fortawesome/free-solid-svg-icons";
 	import Fa from "svelte-fa";
 
 	// https://ghost.org/docs/content-api
@@ -14,7 +20,7 @@
 	async function fetchPosts() {
 		const res = await fetch(BLOG_ENDPOINT, {
 			headers: {
-				"Accept": "application/json"
+				Accept: "application/json",
 			},
 		});
 		return await res.json();
@@ -40,7 +46,10 @@
 					<Fa icon={faHeart} />
 				</div>
 				<h2>Emotes for everyone</h2>
-				<span>Effortless emotes for all users out of the box. No need to setup any complicated third-party apps.</span>
+				<span>
+					Effortless emotes for all users out of the box. No need to setup any complicated
+					third-party apps.
+				</span>
 			</section>
 			<section class="community">
 				<div class="caption">
@@ -48,7 +57,10 @@
 					<Fa icon={faVideo} />
 				</div>
 				<h2>By viewers, for viewers</h2>
-				<span>Built by the community, for the community. We're always listening to feedback and suggestions.</span>
+				<span>
+					Built by the community, for the community. We're always listening to feedback and
+					suggestions.
+				</span>
 			</section>
 			<section class="blog">
 				<div class="heading">
@@ -59,7 +71,7 @@
 					{#await fetchPosts()}
 						<p>Loading...</p>
 					{:then posts}
-					{#each posts.posts as post}
+						{#each posts.posts as post}
 							<BlogPost
 								title={post.title}
 								excerpt={post.excerpt}
@@ -152,7 +164,8 @@
 
 		filter: drop-shadow(0 0 1rem rgba(255, 255, 255, 0.25));
 
-		&:hover, &:focus-visible {
+		&:hover,
+		&:focus-visible {
 			filter: drop-shadow(0 0 2rem rgba(255, 255, 255, 0.25));
 		}
 	}
@@ -223,7 +236,8 @@
 			padding: 2rem;
 			color: $textColor;
 
-			.caption, h2 {
+			.caption,
+			h2 {
 				color: $primaryColor;
 			}
 		}
@@ -272,7 +286,8 @@
 					transition: transform 0.2s;
 				}
 
-				&:hover, &:focus-visible {
+				&:hover,
+				&:focus-visible {
 					& > .arrow {
 						transform: translateX(0.25rem);
 					}
@@ -306,10 +321,11 @@
 				-webkit-mask-image: linear-gradient(30deg, transparent 40%, rgba(0, 0, 0, 1) 100%);
 				mask-image: linear-gradient(30deg, transparent 40%, rgba(0, 0, 0, 1) 100%);
 				-webkit-mask-repeat: no-repeat;
-  				mask-repeat: no-repeat;
+				mask-repeat: no-repeat;
 			}
 
-			.caption, h2 {
+			.caption,
+			h2 {
 				color: $primaryColor;
 			}
 		}

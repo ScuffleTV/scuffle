@@ -286,7 +286,8 @@
 		border-top: 1px solid $borderColor;
 		padding: 0.5rem 0.75rem;
 
-		&:hover, &:focus-visible {
+		&:hover,
+		&:focus-visible {
 			color: $textColor;
 		}
 	}

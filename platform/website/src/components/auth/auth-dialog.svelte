@@ -202,7 +202,7 @@
 							password: passwordValue,
 							captchaToken: turnstileToken,
 						},
-					}
+				  }
 				: {
 						query: registerQuery,
 						variables: {
@@ -211,7 +211,7 @@
 							email: emailValue,
 							captchaToken: turnstileToken,
 						},
-					};
+				  };
 
 		const response = await client
 			.mutation(request.query, request.variables, {

@@ -5,16 +5,12 @@
 </script>
 
 <div class="hero-section">
-	<svg class="background-noise" xmlns='http://www.w3.org/2000/svg'>
-		<filter id='noiseFilter'>
-			<feTurbulence
-				type='fractalNoise'
-				baseFrequency='0.5'
-				numOctaves='3'
-				stitchTiles='stitch'/>
+	<svg class="background-noise" xmlns="http://www.w3.org/2000/svg">
+		<filter id="noiseFilter">
+			<feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="3" stitchTiles="stitch" />
 		</filter>
 
-		<rect width='100vw' height='100vh' filter='url(#noiseFilter)'/>
+		<rect width="100vw" height="100vh" filter="url(#noiseFilter)" />
 	</svg>
 	<div class="text-cta">
 		<span class="announcement">
@@ -23,9 +19,9 @@
 		</span>
 		<h1 class="big-text">
 			<span class="bold">Low latency</span>
-			<br>
+			<br />
 			<span class="bold">community first</span>
-			<br>
+			<br />
 			<span>Live-streaming</span>
 		</h1>
 		<div class="buttons">
@@ -81,7 +77,8 @@
 
 		filter: drop-shadow(0 0 1rem rgba(255, 255, 255, 0.25));
 
-		&:hover, &:focus-visible {
+		&:hover,
+		&:focus-visible {
 			filter: drop-shadow(0 0 2rem rgba(255, 255, 255, 0.25));
 		}
 	}
@@ -92,7 +89,7 @@
 
 		--border-width: 2px;
 
-		&:hover{
+		&:hover {
 			&::after {
 				opacity: 1;
 				transform: rotate(359deg);
@@ -130,10 +127,12 @@
 				hsl(200deg 100% 67%),
 				hsl(240deg 100% 67%),
 				hsl(280deg 100% 67%),
-				hsl(320deg 100% 67%),
+				hsl(320deg 100% 67%)
 			);
 
-			transition: opacity 0.2s, transform 0.5s;
+			transition:
+				opacity 0.2s,
+				transform 0.5s;
 			opacity: 0;
 			transform: rotate(0deg);
 		}
@@ -170,7 +169,7 @@
 			-webkit-mask-image: linear-gradient(120deg, rgba(255, 255, 255, 0.15) 0%, transparent 80%);
 			mask-image: linear-gradient(120deg, rgba(255, 255, 255, 0.15) 0%, transparent 80%);
 			-webkit-mask-repeat: no-repeat;
-  			mask-repeat: no-repeat;
+			mask-repeat: no-repeat;
 		}
 	}
 
@@ -237,10 +236,7 @@
 			right: -25%;
 			z-index: -1;
 
-			background: conic-gradient(
-				transparent,
-				$primaryColor,
-			);
+			background: conic-gradient(transparent, $primaryColor);
 
 			@keyframes spin {
 				from {

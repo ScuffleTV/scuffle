@@ -21,11 +21,13 @@
 			<img src={author.profile_image} alt={author.name} />
 			<span>{author.name}</span>
 		</div>
-		<span class="date">{published_at.toLocaleDateString("en-US", {
-			year: "numeric",
-			month: "short",
-			day: "numeric",
-		})}</span>
+		<span class="date"
+			>{published_at.toLocaleDateString("en-US", {
+				year: "numeric",
+				month: "short",
+				day: "numeric",
+			})}</span
+		>
 	</a>
 </article>
 
@@ -48,7 +50,8 @@
 
 		border: 1px solid transparent;
 		transition: border-color 0.2s;
-		&:hover, &:focus-visible {
+		&:hover,
+		&:focus-visible {
 			border-color: $textColorLight;
 		}
 

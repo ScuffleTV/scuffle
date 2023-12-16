@@ -105,6 +105,7 @@
 
 		.date {
 			justify-self: end;
+			text-align: end;
 			color: $textColorLight;
 		}
 	}

@@ -1,12 +1,14 @@
 <script lang="ts">
 	import BlogPost from "$/components/about/blog-post.svelte";
 	import Footer from "$/components/about/footer.svelte";
-import LogoText from "$/components/icons/logo-text.svelte";
-	import { PUBLIC_BLOG_API_KEY, PUBLIC_TWITTER_HANDLE } from "$env/static/public";
+	import HeroSection from "$/components/about/hero-section.svelte";
+	import LogoText from "$/components/icons/logo-text.svelte";
+	import { PUBLIC_BLOG_API_KEY } from "$env/static/public";
 	import { faDiscord, faGithub } from "@fortawesome/free-brands-svg-icons";
 	import { faCode, faHandHoldingDollar, faHeart, faPenNib, faRightToBracket, faVideo } from "@fortawesome/free-solid-svg-icons";
 	import Fa from "svelte-fa";
 
+	// https://ghost.org/docs/content-api
 	const BLOG_ENDPOINT = `https://bytes.scuffle.tv/ghost/api/content/posts/?key=${PUBLIC_BLOG_API_KEY}&include=authors&limit=2&fields=title,primary_author,url,excerpt,published_at`;
 
 	async function fetchPosts() {
@@ -26,46 +28,9 @@ import LogoText from "$/components/icons/logo-text.svelte";
 		</a>
 	</header>
 	<main>
-		<div class="hero-section">
-			<div class="text-cta">
-				<!-- Background Noise -->
-				<svg class="background-noise" xmlns='http://www.w3.org/2000/svg'>
-					<filter id='noiseFilter'>
-						<feTurbulence
-							type='fractalNoise'
-							baseFrequency='0.5'
-							numOctaves='3'
-							stitchTiles='stitch'/>
-					</filter>
-
-					<rect width='100vw' height='100vh' filter='url(#noiseFilter)'/>
-				</svg>
-				<span class="announcement">
-					<span class="new">New</span>
-					<span>Introducing Scuffle Beta</span>
-				</span>
-				<h1 class="big-text">
-					<span class="bold">Low latency</span>
-					<br>
-					<span class="bold">community first</span>
-					<br>
-					<span>Live-streaming</span>
-				</h1>
-				<div class="buttons">
-					<a href="/sign-up" class="button primary sign-up">
-						<Fa icon={faRightToBracket} />
-						Sign up
-					</a>
-					<a href="https://discord.gg/scuffle" class="button secondary">
-						<Fa icon={faDiscord} />
-						Join
-					</a>
-				</div>
-			</div>
-			<div class="image glow"></div>
-		</div>
+		<HeroSection />
 		<div class="features">
-			<section class="community glow">
+			<section class="community">
 				<div class="caption">
 					<span>COMMUNITY FIRST</span>
 					<Fa icon={faVideo} />
@@ -143,11 +108,6 @@ import LogoText from "$/components/icons/logo-text.svelte";
 		position: relative;
 	}
 
-	.glow {
-		--spread: 6rem;
-		box-shadow: 0 0 8rem var(--spread) rgba($primaryColor, 0.1);
-	}
-
 	.logo {
 		position: absolute;
 		top: 2rem;
@@ -169,25 +129,6 @@ import LogoText from "$/components/icons/logo-text.svelte";
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		padding: 0 4rem;
-	}
-
-	.announcement {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		font-size: 1.1rem;
-		color: $primaryColor;
-
-		.new {
-			font-size: 1rem;
-			font-weight: 700;
-
-			background-color: $primaryColor;
-			color: white;
-			padding: 0.25rem 0.5rem;
-			border-radius: 0.5rem;
-		}
 	}
 
 	.button {
@@ -210,186 +151,10 @@ import LogoText from "$/components/icons/logo-text.svelte";
 		&:hover, &:focus-visible {
 			filter: drop-shadow(0 0 2rem rgba(255, 255, 255, 0.25));
 		}
-
-		&.sign-up {
-			position: relative;
-			border: none;
-
-			--border-width: 2px;
-
-			&:hover{
-				&::after {
-					opacity: 1;
-					transform: rotate(359deg);
-				}
-			}
-
-			&::before {
-				content: "";
-				position: absolute;
-				top: var(--border-width);
-				left: var(--border-width);
-				bottom: var(--border-width);
-				right: var(--border-width);
-				z-index: -1;
-				border-radius: calc(0.75rem - var(--border-width));
-				background-color: white;
-			}
-
-			overflow: hidden;
-
-			&::after {
-				content: "";
-				position: absolute;
-				top: -100%;
-				left: -25%;
-				bottom: -100%;
-				right: -25%;
-				z-index: -2;
-				background: conic-gradient(
-					hsl(0deg 100% 67%),
-					hsl(40deg 100% 67%),
-					hsl(80deg 100% 67%),
-					hsl(120deg 100% 67%),
-					hsl(160deg 100% 67%),
-					hsl(200deg 100% 67%),
-					hsl(240deg 100% 67%),
-					hsl(280deg 100% 67%),
-					hsl(320deg 100% 67%),
-				);
-
-				transition: opacity 0.2s, transform 0.5s;
-				opacity: 0;
-				transform: rotate(0deg);
-			}
-		}
-	}
-
-	.hero-section {
-		width: 100%;
-		max-width: 80rem;
-		min-height: 100svh;
-		min-height: 100vh;
-
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 4rem;
-		flex-wrap: wrap;
-	}
-
-	.text-cta {
-		grid-column: 1 / 4;
-		grid-row: 1;
-
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 1rem;
-
-		white-space: nowrap;
-
-		& > .background-noise {
-			position: absolute;
-			top: 0;
-			left: 0;
-			bottom: 0;
-			right: 0;
-			max-width: 100vw;
-			width: 100%;
-			height: 100vh;
-			height: 100svh;
-			z-index: -1;
-
-			-webkit-mask-image: linear-gradient(120deg, rgba(255, 255, 255, 0.15) 0%, transparent 80%);
-			mask-image: linear-gradient(120deg, rgba(255, 255, 255, 0.15) 0%, transparent 80%);
-			-webkit-mask-repeat: no-repeat;
-  			mask-repeat: no-repeat;
-		}
-
-		& > .big-text {
-			font-size: 4.5rem;
-			font-weight: 300;
-			color: $textColor;
-			line-height: 1.1;
-
-			& > .bold {
-				font-weight: 800;
-			}
-		}
-
-		.buttons {
-			display: flex;
-			gap: 1rem;
-
-			margin-top: 1rem;
-			font-size: 1.5rem;
-		}
-	}
-
-	@property --border-angle {
-		syntax: "<angle>";
-		inherits: true;
-		initial-value: 0deg;
-	}
-
-	.image {
-		grid-column: 5 / 8;
-		grid-row: 1;
-
-		width: 100%;
-		max-width: 30rem;
-		aspect-ratio: 1 / 1;
-		border-radius: 1rem;
-		position: relative;
-
-		// When you want to see how this magic works, remove the background-color from the ::before pseudo-element
-
-		// This covers the whole element except for a border of 1px on each side
-		&::before {
-			content: "";
-			position: absolute;
-			top: 1px;
-			left: 1px;
-			bottom: 1px;
-			right: 1px;
-			z-index: 1;
-			border-radius: 1rem;
-			background-color: black;
-		}
-
-		overflow: hidden;
-
-		// This lies behind the cover and is used to create the border
-		&::after {
-			content: "";
-			position: absolute;
-			top: -25%;
-			left: -25%;
-			bottom: -25%;
-			right: -25%;
-			z-index: -1;
-
-			background: conic-gradient(
-				transparent,
-				$primaryColor,
-			);
-
-			@keyframes spin {
-				from {
-					transform: rotate(0deg);
-				}
-				to {
-					transform: rotate(360deg);
-				}
-			}
-
-			animation: spin 10s linear infinite;
-		}
 	}
 
 	.features {
-		margin: 8rem 0;
+		margin: 8rem 4rem;
 
 		display: grid;
 		grid-template-areas: "community emotes" "blog blog" "code code";
@@ -400,8 +165,9 @@ import LogoText from "$/components/icons/logo-text.svelte";
 
 	@media screen and (max-width: $mobileBreakpoint) {
 		.features {
-			grid-template-areas: "community" "emotes" "code";
+			grid-template-areas: "community" "emotes" "blog" "code";
 			gap: 4rem;
+			margin: 4rem 2rem;
 		}
 	}
 
@@ -428,18 +194,20 @@ import LogoText from "$/components/icons/logo-text.svelte";
 			font-weight: 700;
 			margin: 1rem 0;
 			line-height: 1.1em;
+			overflow-wrap: anywhere;
 		}
 
 		.buttons {
 			margin-top: 2rem;
 			display: flex;
+			flex-wrap: wrap;
 			gap: 1rem;
 		}
 
 		&.community {
-			--spread: 2rem;
 			grid-area: community;
 
+			box-shadow: 0 0 8rem 2rem rgba($primaryColor, 0.1);
 			padding: 2rem;
 			color: black;
 			background-color: $primaryColor;
@@ -484,8 +252,9 @@ import LogoText from "$/components/icons/logo-text.svelte";
 			}
 
 			.posts {
-				display: flex;
+				display: grid;
 				gap: 2rem;
+				grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
 			}
 
 			.read-more {

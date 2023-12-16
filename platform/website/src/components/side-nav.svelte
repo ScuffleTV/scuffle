@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Fa from "svelte-fa";
+	import { faCircleQuestion } from "@fortawesome/free-regular-svg-icons";
 	import { faHouse, faUser } from "@fortawesome/free-solid-svg-icons";
 
 	import { sideNavCollapsed, sideNavHidden } from "$store/layout";
@@ -162,6 +163,11 @@
 		</div>
 		<button class="show-more">show more</button>
 	</div> -->
+
+	<a href="/about" class="about hide-on-mobile">
+		<Fa icon={faCircleQuestion} />
+		What is Scuffle?
+	</a>
 </nav>
 
 <style lang="scss">
@@ -230,7 +236,8 @@
 		}
 
 		.heading,
-		.show-more {
+		.show-more,
+		.about {
 			display: none;
 		}
 	}
@@ -268,6 +275,19 @@
 			&:focus-visible {
 				color: $primaryColorLight;
 			}
+		}
+	}
+
+	.about {
+		margin-top: auto;
+		color: $textColorLight;
+		text-decoration: none;
+		font-size: 0.9rem;
+		border-top: 1px solid $borderColor;
+		padding: 0.5rem 0.75rem;
+
+		&:hover, &:focus-visible {
+			color: $textColor;
 		}
 	}
 

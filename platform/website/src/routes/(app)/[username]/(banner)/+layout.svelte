@@ -146,7 +146,7 @@
 
 					font-size: 1.25rem;
 					font-weight: 600;
-					line-height: 0.9;
+					line-height: 0.9em;
 
 					color: $textColor;
 				}

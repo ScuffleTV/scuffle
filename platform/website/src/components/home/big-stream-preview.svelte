@@ -125,7 +125,7 @@
 			color: $textColor;
 			text-decoration: none;
 			font-weight: 500;
-			line-height: 1.4rem;
+			line-height: 1.4em;
 		}
 
 		& > .tags {

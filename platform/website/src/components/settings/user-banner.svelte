@@ -42,11 +42,11 @@
 			& > .display-name {
 				font-weight: 500;
 				font-size: 1.75rem;
-				line-height: 0.8;
+				line-height: 0.8em;
 			}
 
 			& > .username {
-				line-height: 0.8;
+				line-height: 0.8em;
 				font-weight: 500;
 				font-size: 1.25rem;
 				color: $textColorLight;

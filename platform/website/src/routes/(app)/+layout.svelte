@@ -2,17 +2,11 @@
 	import TopNav from "$components/top-nav.svelte";
 	import { authDialog, currentTwoFaRequest } from "$/store/auth";
 	import AuthDialog from "$/components/auth/auth-dialog.svelte";
-	import { setContextClient } from "@urql/svelte";
 	import "$/lib/auth";
 	import SideNav from "$components/side-nav.svelte";
 	import { onMount } from "svelte";
-	import type { LayoutData } from "./$types";
 	import DevBanner from "$/components/dev-banner.svelte";
 	import SolveTwoFaDialog from "$/components/auth/solve-two-fa-dialog.svelte";
-
-	export let data: LayoutData;
-
-	setContextClient(data.client);
 
 	let based = false;
 

@@ -4,15 +4,19 @@
 	import HeroSection from "$/components/about/hero-section.svelte";
 	import LogoText from "$/components/icons/logo-text.svelte";
 	import { PUBLIC_BLOG_API_KEY } from "$env/static/public";
-	import { faDiscord, faGithub } from "@fortawesome/free-brands-svg-icons";
-	import { faCode, faHandHoldingDollar, faHeart, faPenNib, faRightToBracket, faVideo } from "@fortawesome/free-solid-svg-icons";
+	import { faGithub } from "@fortawesome/free-brands-svg-icons";
+	import { faCode, faHandHoldingDollar, faHeart, faPenNib, faVideo } from "@fortawesome/free-solid-svg-icons";
 	import Fa from "svelte-fa";
 
 	// https://ghost.org/docs/content-api
 	const BLOG_ENDPOINT = `https://bytes.scuffle.tv/ghost/api/content/posts/?key=${PUBLIC_BLOG_API_KEY}&include=authors&limit=2&fields=title,primary_author,url,excerpt,published_at`;
 
 	async function fetchPosts() {
-		const res = await fetch(BLOG_ENDPOINT);
+		const res = await fetch(BLOG_ENDPOINT, {
+			headers: {
+				"Accept": "application/json"
+			},
+		});
 		return await res.json();
 	}
 </script>
@@ -30,14 +34,6 @@
 	<main>
 		<HeroSection />
 		<div class="features">
-			<section class="community">
-				<div class="caption">
-					<span>COMMUNITY FIRST</span>
-					<Fa icon={faVideo} />
-				</div>
-				<h2>By viewers, for viewers</h2>
-				<span>Made by a community of people who actually care about their work.</span>
-			</section>
 			<section class="emotes">
 				<div class="caption">
 					<span>EMOTES</span>
@@ -45,6 +41,14 @@
 				</div>
 				<h2>Emotes for everyone</h2>
 				<span>Effortless emotes for all users out of the box. No need to setup any complicated third-party apps.</span>
+			</section>
+			<section class="community">
+				<div class="caption">
+					<span>COMMUNITY FIRST</span>
+					<Fa icon={faVideo} />
+				</div>
+				<h2>By viewers, for viewers</h2>
+				<span>Built by the community, for the community. We're always listening to feedback and suggestions.</span>
 			</section>
 			<section class="blog">
 				<div class="heading">
@@ -157,7 +161,7 @@
 		margin: 8rem 4rem;
 
 		display: grid;
-		grid-template-areas: "community emotes" "blog blog" "code code";
+		grid-template-areas: "emotes community" "blog blog" "code code";
 		gap: 8rem;
 
 		max-width: 60rem;
@@ -165,7 +169,7 @@
 
 	@media screen and (max-width: $mobileBreakpoint) {
 		.features {
-			grid-template-areas: "community" "emotes" "blog" "code";
+			grid-template-areas: "emotes" "community" "blog" "code";
 			gap: 4rem;
 			margin: 4rem 2rem;
 		}
@@ -204,8 +208,8 @@
 			gap: 1rem;
 		}
 
-		&.community {
-			grid-area: community;
+		&.emotes {
+			grid-area: emotes;
 
 			box-shadow: 0 0 8rem 2rem rgba($primaryColor, 0.1);
 			padding: 2rem;
@@ -213,8 +217,8 @@
 			background-color: $primaryColor;
 		}
 
-		&.emotes {
-			grid-area: emotes;
+		&.community {
+			grid-area: community;
 
 			padding: 2rem;
 			color: $textColor;

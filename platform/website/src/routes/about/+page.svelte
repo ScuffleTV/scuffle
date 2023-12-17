@@ -126,6 +126,7 @@
 
 	.logo {
 		position: absolute;
+		z-index: 1;
 		top: 2rem;
 		left: 4rem;
 		font-size: 2rem;

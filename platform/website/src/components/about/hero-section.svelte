@@ -87,16 +87,13 @@
 		min-height: 100vh;
 		min-height: 100svh;
 
-		padding: 4rem;
+		padding: 5rem;
 
 		display: flex;
 		align-items: center;
 		gap: 4rem;
 		flex-wrap: wrap;
-
-		& > * {
-			margin: 0 auto;
-		}
+		justify-content: space-evenly;
 
 		position: relative;
 
@@ -144,9 +141,8 @@
 
 	.image {
 		box-shadow: 0 0 8rem 6rem rgba($primaryColor, 0.1);
-		// width: 100%;
-		// max-width: 30rem;
-		width: 10rem;
+		width: 100%;
+		max-width: 30rem;
 		aspect-ratio: 1 / 1;
 		border-radius: 1rem;
 		position: relative;
@@ -163,7 +159,7 @@
 			right: 1px;
 			z-index: 1;
 			border-radius: 1rem;
-			background-color: black;
+			background-color: $bgColor2;
 		}
 
 		overflow: hidden;

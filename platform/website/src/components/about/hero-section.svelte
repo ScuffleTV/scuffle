@@ -25,11 +25,11 @@
 			<span>Live-streaming</span>
 		</h1>
 		<div class="buttons">
-			<a href="/sign-up" class="button primary sign-up">
+			<a href="/sign-up" class="button primary rainbow">
 				<Fa icon={faRightToBracket} />
 				Sign up
 			</a>
-			<a href="https://discord.gg/scuffle" class="button secondary">
+			<a href="https://discord.gg/scuffle" class="button secondary rainbow">
 				<Fa icon={faDiscord} />
 				Join
 			</a>
@@ -72,7 +72,6 @@
 
 		&.secondary {
 			color: $textColor;
-			border-color: $textColor;
 		}
 
 		filter: drop-shadow(0 0 1rem rgba(255, 255, 255, 0.25));
@@ -83,64 +82,8 @@
 		}
 	}
 
-	.button.sign-up {
-		position: relative;
-		border: none;
-
-		--border-width: 2px;
-
-		&:hover {
-			&::after {
-				opacity: 1;
-				transform: rotate(359deg);
-			}
-		}
-
-		&::before {
-			content: "";
-			position: absolute;
-			top: var(--border-width);
-			left: var(--border-width);
-			bottom: var(--border-width);
-			right: var(--border-width);
-			z-index: -1;
-			border-radius: calc(0.75rem - var(--border-width));
-			background-color: white;
-		}
-
-		overflow: hidden;
-
-		&::after {
-			content: "";
-			position: absolute;
-			top: -100%;
-			left: -25%;
-			bottom: -100%;
-			right: -25%;
-			z-index: -2;
-			background: conic-gradient(
-				hsl(0deg 100% 67%),
-				hsl(40deg 100% 67%),
-				hsl(80deg 100% 67%),
-				hsl(120deg 100% 67%),
-				hsl(160deg 100% 67%),
-				hsl(200deg 100% 67%),
-				hsl(240deg 100% 67%),
-				hsl(280deg 100% 67%),
-				hsl(320deg 100% 67%)
-			);
-
-			transition:
-				opacity 0.2s,
-				transform 0.5s;
-			opacity: 0;
-			transform: rotate(0deg);
-		}
-	}
-
 	.hero-section {
 		width: 100%;
-		// max-width: 80rem;
 		min-height: 100vh;
 		min-height: 100svh;
 
@@ -148,7 +91,6 @@
 
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
 		gap: 4rem;
 		flex-wrap: wrap;
 
@@ -164,7 +106,7 @@
 			left: 0;
 			width: 100%;
 			height: 100%;
-			z-index: -1;
+			z-index: -2;
 
 			-webkit-mask-image: linear-gradient(120deg, rgba(255, 255, 255, 0.15) 0%, transparent 80%);
 			mask-image: linear-gradient(120deg, rgba(255, 255, 255, 0.15) 0%, transparent 80%);

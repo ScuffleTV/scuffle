@@ -63,6 +63,71 @@ button {
 			}
 		}
 	}
+
+	&.rainbow {
+		position: relative;
+		--border-width: 2px;
+		--background-color: white;
+		--border-radius: 0.75rem;
+
+		&:hover {
+			&::after {
+				opacity: 1;
+				transform: rotate(359deg);
+			}
+		}
+
+		&::before {
+			content: "";
+			position: absolute;
+			top: var(--border-width);
+			left: var(--border-width);
+			bottom: var(--border-width);
+			right: var(--border-width);
+			z-index: -1;
+			border-radius: calc(var(--border-radius) - var(--border-width));
+			background-color: var(--background-color);
+		}
+
+		overflow: hidden;
+
+		&::after {
+			content: "";
+			position: absolute;
+			top: -100%;
+			left: -25%;
+			bottom: -100%;
+			right: -25%;
+			z-index: -2;
+			background: conic-gradient(
+				hsl(0deg 100% 67%),
+				hsl(40deg 100% 67%),
+				hsl(80deg 100% 67%),
+				hsl(120deg 100% 67%),
+				hsl(160deg 100% 67%),
+				hsl(200deg 100% 67%),
+				hsl(240deg 100% 67%),
+				hsl(280deg 100% 67%),
+				hsl(320deg 100% 67%)
+			);
+
+			transition:
+				opacity 0.2s,
+				transform 0.5s;
+			opacity: 0;
+			transform: rotate(0deg);
+		}
+
+		border: none;
+		&.primary {
+			--border-width: 2px;
+		}
+		&.secondary {
+			--border-width: 1px;
+			--background-color: #151515;
+			background-color: white;
+		}
+	}
 }
 
 input {

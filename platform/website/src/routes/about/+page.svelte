@@ -97,11 +97,11 @@
 				<h2>Contributions welcome</h2>
 				<span>Scuffle is open source, meaning anyone can contribute to the project.</span>
 				<div class="buttons">
-					<a href="https://github.com/ScuffleTV" class="button primary">
+					<a href="https://github.com/ScuffleTV" class="button primary rainbow">
 						<Fa icon={faGithub} />
 						GitHub
 					</a>
-					<a href="https://opencollective.com/scuffle" class="button secondary">
+					<a href="https://opencollective.com/scuffle" class="button secondary rainbow">
 						<Fa icon={faHandHoldingDollar} />
 						Donate
 					</a>
@@ -309,14 +309,12 @@
 				position: absolute;
 				top: 0;
 				right: 0;
-				bottom: 0;
-				left: 0;
+				width: 75%;
+				height: 100%;
 				z-index: -1;
 
-				background-image: url("scuffle_code.png");
-				background-size: 50%;
+				background-image: url("scuffle_code.webp");
 				background-repeat: no-repeat;
-				background-position: right;
 
 				-webkit-mask-image: linear-gradient(30deg, transparent 40%, rgba(0, 0, 0, 1) 100%);
 				mask-image: linear-gradient(30deg, transparent 40%, rgba(0, 0, 0, 1) 100%);

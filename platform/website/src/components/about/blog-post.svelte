@@ -18,11 +18,13 @@
 
 	export let data: Post | undefined = undefined;
 
-	$: publishedAtFormatted = data ? new Date(data.published_at).toLocaleDateString("en-US", {
-		year: "numeric",
-		month: "short",
-		day: "numeric",
-	}) : undefined;
+	$: publishedAtFormatted = data
+		? new Date(data.published_at).toLocaleDateString("en-US", {
+				year: "numeric",
+				month: "short",
+				day: "numeric",
+		  })
+		: undefined;
 </script>
 
 <article>

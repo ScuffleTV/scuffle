@@ -10,9 +10,9 @@
 	function mouseMove(e: MouseEvent) {
 		let box = live.getBoundingClientRect();
 		console.log(box);
-		transform.calcX = -(e.clientY - box.y - (box.height / 2)) / constrain;
-		transform.calcY = (e.clientX - box.x - (box.width / 2)) / constrain;
-	};
+		transform.calcX = -(e.clientY - box.y - box.height / 2) / constrain;
+		transform.calcY = (e.clientX - box.x - box.width / 2) / constrain;
+	}
 </script>
 
 <svelte:window on:mousemove={mouseMove} />
@@ -48,7 +48,11 @@
 			</a>
 		</div>
 	</div>
-	<div class="live" bind:this={live} style="--calcX: {transform.calcX}deg; --calcY: {transform.calcY}deg">
+	<div
+		class="live"
+		bind:this={live}
+		style="--calcX: {transform.calcX}deg; --calcY: {transform.calcY}deg"
+	>
 		<span>LIVE</span>
 	</div>
 </div>

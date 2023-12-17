@@ -6,6 +6,7 @@
 	import { PUBLIC_BLOG_API_KEY } from "$env/static/public";
 	import { faGithub } from "@fortawesome/free-brands-svg-icons";
 	import {
+		faCircleExclamation,
 		faCode,
 		faHandHoldingDollar,
 		faHeart,
@@ -69,19 +70,17 @@
 				</div>
 				<div class="posts">
 					{#await fetchPosts()}
-						<p>Loading...</p>
+						<BlogPost />
+						<BlogPost />
 					{:then posts}
 						{#each posts.posts as post}
-							<BlogPost
-								title={post.title}
-								excerpt={post.excerpt}
-								author={post.primary_author}
-								url={post.url}
-								published_at={new Date(post.published_at)}
-							/>
+							<BlogPost data={post} />
 						{/each}
 					{:catch error}
-						<p>{error}</p>
+						<div class="error">
+							<Fa icon={faCircleExclamation} />
+							Failed to fetch posts: {error}
+						</div>
 					{/await}
 				</div>
 				<a class="read-more" href="https://bytes.scuffle.tv/">
@@ -274,6 +273,13 @@
 				display: grid;
 				gap: 2rem;
 				grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+			}
+
+			.error {
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+				color: $textColorLight;
 			}
 
 			.read-more {

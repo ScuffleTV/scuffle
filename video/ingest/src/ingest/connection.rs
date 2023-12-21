@@ -152,7 +152,7 @@ impl Connection {
 			None => return Ok(None),
 		};
 
-		let (room_id, room_secret) = match parts.next().and_then(|name| {
+		let parse_room_secret = |name: &str| {
 			if name.len() > 512 {
 				return None;
 			}
@@ -171,7 +171,9 @@ impl Connection {
 			}
 
 			Some((room_id, room_secret.to_string()))
-		}) {
+		};
+
+		let (room_id, room_secret) = match parts.next().and_then(parse_room_secret) {
 			Some(name) => name,
 			None => return Ok(None),
 		};

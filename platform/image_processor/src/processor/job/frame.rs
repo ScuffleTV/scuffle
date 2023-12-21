@@ -37,7 +37,7 @@ impl<'a> FrameCow<'a> {
 	}
 
 	#[inline]
-	pub fn to_owned(self) -> FrameOwned {
+	pub fn into_owned(self) -> FrameOwned {
 		match self {
 			Self::Ref(frame) => frame.to_owned(),
 			Self::Owned(frame) => frame,

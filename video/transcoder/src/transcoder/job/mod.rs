@@ -625,7 +625,7 @@ impl<G: TranscoderGlobal> Job<G> {
 
 		let mut ffmpeg_done = false;
 
-		match async {
+		let result = async {
 			loop {
 				select! {
 					Some(r) = async {
@@ -684,8 +684,9 @@ impl<G: TranscoderGlobal> Job<G> {
 			Ok::<_, anyhow::Error>(())
 		}
 		.timeout(Duration::from_secs(5))
-		.await
-		{
+		.await;
+
+		match result {
 			Ok(Ok(_)) => {}
 			Ok(Err(e)) => {
 				tracing::error!(error = %e, "failed to shutdown transcoder");

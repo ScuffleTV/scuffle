@@ -65,8 +65,8 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 if [ "$no_rust" != "true" ]; then
-    cargo clippy -- -D warnings
-    cargo fmt --all --check
+    cargo +nightly clippy -- -D warnings
+    cargo +nightly fmt --all --check
     $MASK gql check
 fi
 
@@ -115,18 +115,10 @@ fi
 
 **OPTIONS**
 
-- no_rust
-  - flags: --no-rust
+- html
+  - flags: --html
   - type: bool
-  - desc: Disables Rust testing
-- no_js
-  - flags: --no-js
-  - type: bool
-  - desc: Disables JS testing
-- no_player_build
-  - flags: --no-player-build
-  - type: bool
-  - desc: Disables Player Building
+  - desc: Outputs HTML coverage report
 
 ```bash
 set -e
@@ -134,8 +126,9 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-if [ "$no_rust" != "true" ]; then
-  cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace --fail-fast --exclude video-player
+cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace --fail-fast --exclude video-player
+if [ "$html" == "true" ]; then
+    cargo llvm-cov report --html
 fi
 ```
 

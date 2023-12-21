@@ -12,8 +12,8 @@
 		"build": "pnpm run clean && pnpm run wasm:build && tsc && vite build",
 		"dev": "pnpm run wasm:watch & vite",
 		"preview": "vite preview",
-		"lint": "prettier --check \"**/*\" -u && eslint . --ext .js,.ts && cargo fmt --check && cargo clippy -- -D warnings",
-		"format": "prettier --write \"**/*\" -u && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged",
+		"lint": "prettier --check \"**/*\" -u && eslint . --ext .js,.ts && cargo +nightly fmt --check && cargo +nightly clippy -- -D warnings",
+		"format": "prettier --write \"**/*\" -u && cargo +nightly fmt && cargo +nightly clippy --fix --allow-dirty --allow-staged",
 		"clean": "rimraf dist pkg"
 	},
 	"module": "./pkg/video_player.js",

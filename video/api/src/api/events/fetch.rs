@@ -124,13 +124,11 @@ impl ApiRequest<Stream> for tonic::Request<EventsFetchRequest> {
 
 		Ok(tonic::Response::new(Box::pin(async_stream::stream! {
 			while let Some(message) = messages.next().await {
-				let message = match message.map_err(|err| {
-					tracing::error!(err = %err, "failed to receive message from events consumer");
-					tonic::Status::internal("failed to receive message from events consumer")
-				}) {
+				let message = match message {
 					Ok(message) => message.message,
 					Err(err) => {
-						yield Err(err);
+						tracing::error!(err = %err, "failed to receive message from events consumer");
+						yield Err(tonic::Status::internal("failed to receive message from events consumer"));
 						continue;
 					}
 				};

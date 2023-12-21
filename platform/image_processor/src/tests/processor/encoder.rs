@@ -61,7 +61,17 @@ fn encode(asset_name: &str, backend: DecoderBackend, frontend: EncoderFrontend) 
 			let info = encoder.info();
 			dbg!(&info);
 			let output = encoder.finish().expect("failed to finish");
-			let output_path = format!("/tmp/{}x{}.{}", info.width, info.height, info.frontend.extension());
+			let output_path = format!(
+				"/tmp/{}x{}.{}",
+				info.width,
+				info.height,
+				match info.frontend {
+					EncoderFrontend::Gifski => "gif",
+					EncoderFrontend::LibAvif => "avif",
+					EncoderFrontend::LibWebp => "webp",
+					EncoderFrontend::Png => "png",
+				}
+			);
 			std::fs::write(&output_path, output)
 				.map_err(ProcessorError::FileCreate)
 				.expect("failed to write output");

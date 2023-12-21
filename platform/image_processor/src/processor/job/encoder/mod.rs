@@ -43,15 +43,6 @@ impl EncoderFrontend {
 			Self::LibWebp => Ok(AnyEncoder::LibWebp(libwebp::WebpEncoder::new(settings)?)),
 		}
 	}
-
-	pub const fn extension(&self) -> &'static str {
-		match self {
-			Self::Png => "png",
-			Self::Gifski => "gif",
-			Self::LibAvif => "avif",
-			Self::LibWebp => "webp",
-		}
-	}
 }
 
 pub enum AnyEncoder {

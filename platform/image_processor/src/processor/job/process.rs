@@ -150,7 +150,7 @@ pub fn process_job(backend: DecoderBackend, input_path: &Path, job: &Job) -> Res
 					encoder.add_frame(frame.as_ref())?;
 				}
 
-				stack.first_frame = Some(frame.to_owned());
+				stack.first_frame = Some(frame.into_owned());
 			}
 		}
 	}

@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use common::context::{Context, Handler};
-use common::logging;
+use common::context::Context;
 
 use crate::config::ImageProcessorConfig;
 
@@ -55,36 +54,41 @@ impl crate::global::ImageProcessorState for GlobalState {
 	}
 }
 
-pub async fn mock_global_state(config: ImageProcessorConfig) -> (Arc<GlobalState>, Handler) {
-	let (ctx, handler) = Context::new();
+// pub async fn mock_global_state(config: ImageProcessorConfig) ->
+// (Arc<GlobalState>, Handler) { 	let (ctx, handler) = Context::new();
 
-	dotenvy::dotenv().ok();
+// 	dotenvy::dotenv().ok();
 
-	let logging_level = std::env::var("LOGGING_LEVEL").unwrap_or_else(|_| "info".to_string());
+// 	let logging_level = std::env::var("LOGGING_LEVEL").unwrap_or_else(|_|
+// "info".to_string());
 
-	logging::init(&logging_level, Default::default()).expect("failed to initialize logging");
+// 	logging::init(&logging_level, Default::default()).expect("failed to
+// initialize logging");
 
-	let database_uri = std::env::var("PLATFORM_DATABASE_URL_TEST").expect("PLATFORM_DATABASE_URL_TEST must be set");
-	let nats_addr = std::env::var("NATS_ADDR").expect("NATS_URL must be set");
+// 	let database_uri =
+// std::env::var("PLATFORM_DATABASE_URL_TEST").expect("
+// PLATFORM_DATABASE_URL_TEST must be set"); 	let nats_addr =
+// std::env::var("NATS_ADDR").expect("NATS_URL must be set");
 
-	let nats = async_nats::connect(&nats_addr).await.expect("failed to connect to nats");
-	let jetstream = async_nats::jetstream::new(nats.clone());
+// 	let nats = async_nats::connect(&nats_addr).await.expect("failed to connect to
+// nats"); 	let jetstream = async_nats::jetstream::new(nats.clone());
 
-	let db = Arc::new(
-		sqlx::PgPool::connect(&database_uri)
-			.await
-			.expect("failed to connect to database"),
-	);
+// 	let db = Arc::new(
+// 		sqlx::PgPool::connect(&database_uri)
+// 			.await
+// 			.expect("failed to connect to database"),
+// 	);
 
-	let global = Arc::new(GlobalState {
-		s3_source_bucket: config.source_bucket.setup().await.expect("failed to setup source bucket"),
-		s3_target_bucket: config.target_bucket.setup().await.expect("failed to setup target bucket"),
-		config,
-		ctx,
-		nats,
-		jetstream,
-		db,
-	});
+// 	let global = Arc::new(GlobalState {
+// 		s3_source_bucket: config.source_bucket.setup().await.expect("failed to setup
+// source bucket"), 		s3_target_bucket:
+// config.target_bucket.setup().await.expect("failed to setup target bucket"),
+// 		config,
+// 		ctx,
+// 		nats,
+// 		jetstream,
+// 		db,
+// 	});
 
-	(global, handler)
-}
+// 	(global, handler)
+// }

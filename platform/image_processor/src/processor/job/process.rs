@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use pb::scuffle::platform::internal::image_processor::task::Format;
+use pb::scuffle::platform::internal::types::Format;
 
 use super::decoder::{Decoder, DecoderBackend, LoopCount};
 use super::encoder::{AnyEncoder, Encoder, EncoderFrontend, EncoderSettings};
@@ -21,6 +21,40 @@ pub struct Image {
 	pub data: Vec<u8>,
 	pub loop_count: LoopCount,
 	pub request: (usize, Format),
+}
+
+impl Image {
+	pub fn file_extension(&self) -> &'static str {
+		match self.request.1 {
+			Format::Avif | Format::AvifStatic => "avif",
+			Format::Webp | Format::WebpStatic => "webp",
+			Format::Gif => "gif",
+			Format::PngStatic => "png",
+		}
+	}
+
+	pub fn content_type(&self) -> &'static str {
+		match self.request.1 {
+			Format::Avif | Format::AvifStatic => "image/avif",
+			Format::Webp | Format::WebpStatic => "image/webp",
+			Format::Gif => "image/gif",
+			Format::PngStatic => "image/png",
+		}
+	}
+
+	pub fn is_static(&self) -> bool {
+		matches!(self.request.1, Format::AvifStatic | Format::WebpStatic | Format::PngStatic)
+	}
+
+	pub fn url(&self, prefix: &str) -> String {
+		format!(
+			"{}/{}{}x.{}",
+			prefix,
+			self.is_static().then_some("static_").unwrap_or_default(),
+			self.request.0,
+			self.file_extension()
+		)
+	}
 }
 
 #[derive(Debug)]
@@ -89,13 +123,28 @@ pub fn process_job(backend: DecoderBackend, input_path: &Path, job: &Job) -> Res
 		static_image: true,
 	};
 
+	let (base_width, base_height) = if job.task.upscale {
+		(job.task.base_width as f64, job.task.base_height as f64)
+	} else {
+		let largest_scale = scales.iter().max().copied().unwrap_or(1);
+
+		let width = info.width as f64 / largest_scale as f64;
+		let height = info.height as f64 / largest_scale as f64;
+
+		if width > job.task.base_width as f64 && height > job.task.base_height as f64 {
+			(width, height)
+		} else {
+			(job.task.base_width as f64, job.task.base_height as f64)
+		}
+	};
+
 	let mut resizers = scales
 		.into_iter()
 		.map(|scale| {
 			Ok::<_, ProcessorError>(ResizerStack {
 				resizer: ImageResizer::new(ImageResizerTarget {
-					height: job.task.smallest_max_height as usize * scale,
-					width: job.task.smallest_max_width as usize * scale,
+					height: base_height.ceil() as usize * scale,
+					width: base_width.ceil() as usize * scale,
 					algorithm: job.task.resize_algorithm(),
 					method: job.task.resize_method(),
 				}),

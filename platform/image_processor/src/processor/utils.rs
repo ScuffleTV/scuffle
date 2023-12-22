@@ -45,3 +45,12 @@ pub async fn refresh_job(global: &Arc<impl ImageProcessorGlobal>, job_id: Ulid) 
 		Ok(())
 	}
 }
+
+pub async fn delete_job(global: &Arc<impl ImageProcessorGlobal>, job_id: Ulid) -> Result<()> {
+	sqlx::query("DELETE FROM image_jobs WHERE id = $1")
+		.bind(common::database::Ulid(job_id))
+		.execute(global.db().as_ref())
+		.await?;
+
+	Ok(())
+}

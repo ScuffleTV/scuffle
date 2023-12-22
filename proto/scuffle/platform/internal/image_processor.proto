@@ -3,17 +3,9 @@ syntax = "proto3";
 package scuffle.platform.internal.image_processor;
 
 import "scuffle/types/ulid.proto";
+import "scuffle/platform/internal/types/image_processor.proto";
 
 message Task {
-  enum Format {
-    WEBP = 0;
-    AVIF = 1;
-    GIF = 2;
-    WEBP_STATIC = 3;
-    AVIF_STATIC = 4;
-    PNG_STATIC = 5;
-  }
-
   enum ResizeMethod {
     Fit = 0;
     Exact = 1;
@@ -40,10 +32,10 @@ message Task {
     Lanczos4 = 4;
   }
 
-  uint32 smallest_max_width = 1;
-  uint32 smallest_max_height = 2;
+  uint32 base_width = 1;
+  uint32 base_height = 2;
 
-  repeated Format formats = 3;
+  repeated scuffle.platform.internal.types.Format formats = 3;
   ResizeMethod resize_method = 4;
   ResizeAlgorithm resize_algorithm = 5;
   repeated uint32 scales = 6;
@@ -61,4 +53,6 @@ message Task {
   }
 
   optional Limits limits = 9;
+
+  string callback_subject = 10;
 }

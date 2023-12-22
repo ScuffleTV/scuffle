@@ -83,7 +83,14 @@ impl Default for S3BucketConfig {
 
 impl S3BucketConfig {
 	pub async fn setup(&self) -> anyhow::Result<s3::Bucket> {
-		let region: s3::Region = self.region.parse()?;
+		let region = if let Some(endpoint) = &self.endpoint {
+			s3::Region::Custom {
+				region: self.region.clone(),
+				endpoint: endpoint.to_string(),
+			}
+		} else {
+			self.region.parse()?
+		};
 		Ok(s3::Bucket::new(&self.name, region, self.credentials.clone().into())
 			.context("failed to create S3 bucket")?
 			.with_path_style())

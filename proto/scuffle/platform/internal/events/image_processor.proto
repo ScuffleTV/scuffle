@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package scuffle.platform.internal.events;
+
+import "scuffle/types/ulid.proto";
+import "scuffle/platform/internal/types/image_processor.proto";
+
+message JobFinished {
+	scuffle.types.Ulid job_id = 1;
+
+	message Output {
+		string image_url = 1;
+		scuffle.platform.internal.types.Format format = 2;
+		uint32 width = 3;
+		uint32 height = 4;
+	}
+
+	repeated Output outputs = 2;
+}

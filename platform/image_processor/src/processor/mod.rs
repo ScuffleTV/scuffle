@@ -14,8 +14,6 @@ pub(crate) mod job;
 pub(crate) mod utils;
 
 pub async fn run(global: Arc<impl ImageProcessorGlobal>) -> Result<()> {
-	tracing::info!("Starting image processor");
-
 	let config = global.config::<ImageProcessorConfig>();
 
 	let semaphore = tokio::sync::Semaphore::new(config.concurrency);

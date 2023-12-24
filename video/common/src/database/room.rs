@@ -55,7 +55,7 @@ pub struct Room {
 	pub active_recording_id: Option<Ulid>,
 
 	/// The ingest bitrate
-	pub ingest_bitrate: Option<i32>,
+	pub ingest_bitrate: Option<i64>,
 
 	/// The video output configs after transcoding
 	pub video_output: Option<Vec<Protobuf<VideoConfig>>>,

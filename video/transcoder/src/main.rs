@@ -1,6 +1,8 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context as _;
+use async_nats::jetstream::stream::StorageType;
 use binary_helper::global::{setup_database, setup_nats};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
 use common::context::Context;
@@ -65,14 +67,41 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 		let (nats, jetstream) = setup_nats(&config.name, &config.nats).await?;
 		let db = setup_database(&config.database).await?;
 
-		let metadata_store = jetstream
-			.get_key_value(&config.extra.transcoder.metadata_kv_store)
-			.await
-			.context("failed to get metadata store")?;
-		let media_store = jetstream
-			.get_object_store(&config.extra.transcoder.media_ob_store)
-			.await
-			.context("failed to get media store")?;
+		let metadata_store = match jetstream.get_key_value(&config.extra.transcoder.metadata_kv_store).await {
+			Ok(metadata_store) => metadata_store,
+			Err(err) => {
+				tracing::warn!("failed to get metadata kv store: {}", err);
+				let metadata_store = jetstream
+					.create_key_value(async_nats::jetstream::kv::Config {
+						bucket: config.extra.transcoder.metadata_kv_store.clone(),
+						max_age: Duration::from_secs(60), // 1 minutes max age
+						storage: StorageType::Memory,
+						..Default::default()
+					})
+					.await
+					.context("failed to create metadata kv store")?;
+
+				metadata_store
+			}
+		};
+
+		let media_store = match jetstream.get_object_store(&config.extra.transcoder.media_ob_store).await {
+			Ok(media_store) => media_store,
+			Err(err) => {
+				tracing::warn!("failed to get media object store: {}", err);
+				let media_store = jetstream
+					.create_object_store(async_nats::jetstream::object_store::Config {
+						bucket: config.extra.transcoder.media_ob_store.clone(),
+						max_age: Duration::from_secs(60), // 1 minutes max age
+						storage: StorageType::File,
+						..Default::default()
+					})
+					.await
+					.context("failed to create media object store")?;
+
+				media_store
+			}
+		};
 
 		let ingest_tls = if let Some(tls) = &config.extra.transcoder.ingest_tls {
 			let cert = tokio::fs::read(&tls.cert).await.context("failed to read ingest tls cert")?;

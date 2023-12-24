@@ -7,14 +7,75 @@ use video_common::database::AccessToken;
 
 pub struct RequiredScope(pub Vec<AccessTokenScope>);
 
-pub type ResourcePermission = (Resource, Permission);
+pub struct ResourcePermission(Option<Resource>, Permission);
+
+impl From<(Option<Resource>, Permission)> for ResourcePermission {
+	fn from((resource, permission): (Option<Resource>, Permission)) -> Self {
+		Self(resource, permission)
+	}
+}
+
+impl From<(Resource, Permission)> for ResourcePermission {
+	fn from((resource, permission): (Resource, Permission)) -> Self {
+		Self(Some(resource), permission)
+	}
+}
 
 impl From<ResourcePermission> for RequiredScope {
-	fn from((resource, permission): ResourcePermission) -> Self {
-		Self(vec![AccessTokenScope {
-			resource: Some(resource.into()),
-			permission: vec![permission.into()],
-		}])
+	fn from(rp: ResourcePermission) -> Self {
+		Self(vec![rp.into()])
+	}
+}
+
+impl From<ResourcePermission> for AccessTokenScope {
+	fn from(rp: ResourcePermission) -> Self {
+		Self {
+			resource: rp.0.map(|r| r.into()),
+			permission: vec![rp.1.into()],
+		}
+	}
+}
+
+impl From<Vec<ResourcePermission>> for RequiredScope {
+	fn from(rp: Vec<ResourcePermission>) -> Self {
+		Self(rp.into_iter().map(|rp| rp.into()).collect())
+	}
+}
+
+impl std::str::FromStr for ResourcePermission {
+	type Err = ();
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let mut split = s.splitn(2, ':');
+
+		let resource = split.next().ok_or(())?.to_lowercase();
+		let permission = split.next().ok_or(())?.to_lowercase();
+
+		let resource = match resource.as_str() {
+			"all" => None,
+			"access_token" => Some(Resource::AccessToken),
+			"events" => Some(Resource::Event),
+			"playback_key_pair" => Some(Resource::PlaybackKeyPair),
+			"playback_session" => Some(Resource::PlaybackSession),
+			"recording" => Some(Resource::Recording),
+			"room" => Some(Resource::Room),
+			"s3_bucket" => Some(Resource::S3Bucket),
+			"transcoding_config" => Some(Resource::TranscodingConfig),
+			_ => return Err(()),
+		};
+
+		let permission = match permission.as_str() {
+			"read" => Permission::Read,
+			"write" => Permission::Write,
+			"modify" => Permission::Modify,
+			"delete" => Permission::Delete,
+			"create" => Permission::Create,
+			"events" => Permission::Events,
+			"admin" => Permission::Admin,
+			_ => return Err(()),
+		};
+
+		Ok(Self(resource, permission))
 	}
 }
 
@@ -75,16 +136,8 @@ impl RequiredScope {
 
 		Self(scopes)
 	}
-}
 
-impl From<Vec<AccessTokenScope>> for RequiredScope {
-	fn from(scopes: Vec<AccessTokenScope>) -> Self {
-		Self(scopes)
-	}
-}
-
-impl std::fmt::Display for RequiredScope {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+	pub fn string_vec(&self) -> Vec<String> {
 		let mut permissions = Vec::new();
 
 		for ps in &self.0 {
@@ -103,7 +156,19 @@ impl std::fmt::Display for RequiredScope {
 
 		permissions.sort();
 
-		permissions.join(" + ").fmt(f)
+		permissions
+	}
+}
+
+impl From<Vec<AccessTokenScope>> for RequiredScope {
+	fn from(scopes: Vec<AccessTokenScope>) -> Self {
+		Self(scopes)
+	}
+}
+
+impl std::fmt::Display for RequiredScope {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		self.string_vec().join(" + ").fmt(f)
 	}
 }
 

@@ -14,9 +14,17 @@ use crate::transcoder::job::handle_message;
 pub(crate) mod job;
 
 pub async fn run<G: TranscoderGlobal>(global: Arc<G>) -> Result<()> {
+	let config = global.config::<TranscoderConfig>();
+
 	let stream = global
 		.jetstream()
-		.get_stream(&global.config::<TranscoderConfig>().transcoder_request_subject)
+		.get_or_create_stream(async_nats::jetstream::stream::Config {
+			name: config.transcoder_request_subject.clone(),
+			max_age: Duration::from_secs(60 * 2), // 2 minutes max age
+			subjects: vec![config.transcoder_request_subject.clone()],
+			storage: async_nats::jetstream::stream::StorageType::Memory,
+			..Default::default()
+		})
 		.await?;
 
 	let consumer = stream

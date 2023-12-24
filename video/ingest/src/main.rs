@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::net::IpAddr;
 use std::sync::Arc;
 
 use anyhow::Context as _;
@@ -52,9 +53,41 @@ impl video_ingest::global::IngestState for GlobalState {
 
 #[async_trait::async_trait]
 impl binary_helper::Global<AppConfig> for GlobalState {
-	async fn new(ctx: Context, config: AppConfig) -> anyhow::Result<Self> {
+	async fn new(ctx: Context, mut config: AppConfig) -> anyhow::Result<Self> {
 		let (nats, jetstream) = setup_nats(&config.name, &config.nats).await?;
 		let db = setup_database(&config.database).await?;
+
+		if config.grpc.bind_address.port() == 0 {
+			// Get a random port
+			let port = std::net::TcpListener::bind((config.grpc.bind_address.ip(), 0))?
+				.local_addr()?
+				.port();
+
+			config.grpc.bind_address.set_port(port);
+		}
+
+		if config.extra.ingest.grpc_advertise_address.is_empty() {
+			config.extra.ingest.grpc_advertise_address = format!(
+				"http{}://{}:{}",
+				if config.grpc.tls.is_some() { "s" } else { "" },
+				if config.grpc.bind_address.ip().is_unspecified() {
+					default_net::interface::get_local_ipaddr().unwrap_or(IpAddr::from([127, 0, 0, 1]))
+				} else {
+					config.grpc.bind_address.ip()
+				},
+				config.grpc.bind_address.port(),
+			);
+		} else if !config.extra.ingest.grpc_advertise_address.starts_with("http://")
+			&& !config.extra.ingest.grpc_advertise_address.starts_with("https://")
+		{
+			config.extra.ingest.grpc_advertise_address = format!(
+				"http{}://{}",
+				if config.grpc.tls.is_some() { "s" } else { "" },
+				config.extra.ingest.grpc_advertise_address
+			);
+		}
+
+		tracing::info!("grpc advertise address: {}", config.extra.ingest.grpc_advertise_address);
 
 		Ok(Self {
 			ctx,

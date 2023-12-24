@@ -7,7 +7,7 @@ pub mod tags;
 
 use std::sync::Arc;
 
-pub use access_tokens::{AccessTokenExt, RequiredScope};
+pub use access_tokens::{AccessTokenExt, RequiredScope, ResourcePermission};
 pub use ratelimit::TonicRequest;
 use video_common::database::AccessToken;
 
@@ -20,7 +20,7 @@ macro_rules! impl_request_scopes {
 
 			#[inline(always)]
 			fn permission_scope(&self) -> crate::api::utils::RequiredScope {
-				($permission).into()
+				crate::api::utils::ResourcePermission::from($permission).into()
 			}
 
 			#[inline(always)]

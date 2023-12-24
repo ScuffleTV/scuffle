@@ -1,12 +1,15 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context as _;
+use async_nats::jetstream::stream::StorageType;
 use binary_helper::global::{setup_database, setup_nats};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
 use common::context::Context;
 use common::global::{GlobalCtx, GlobalDb, GlobalNats};
 use tokio::select;
 use video_edge::config::EdgeConfig;
+use video_edge::global::EdgeState;
 use video_edge::subscription;
 
 #[derive(Debug, Clone, Default, serde::Deserialize, config::Config)]
@@ -65,14 +68,41 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 		let (nats, jetstream) = setup_nats(&config.name, &config.nats).await?;
 		let db = setup_database(&config.database).await?;
 
-		let metadata_store = jetstream
-			.get_key_value(&config.extra.edge.metadata_kv_store)
-			.await
-			.context("failed to get metadata store")?;
-		let media_store = jetstream
-			.get_object_store(&config.extra.edge.media_ob_store)
-			.await
-			.context("failed to get media store")?;
+		let metadata_store = match jetstream.get_key_value(&config.extra.edge.metadata_kv_store).await {
+			Ok(metadata_store) => metadata_store,
+			Err(err) => {
+				tracing::warn!("failed to get metadata kv store: {}", err);
+				let metadata_store = jetstream
+					.create_key_value(async_nats::jetstream::kv::Config {
+						bucket: config.extra.edge.metadata_kv_store.clone(),
+						max_age: Duration::from_secs(60), // 1 minutes max age
+						storage: StorageType::Memory,
+						..Default::default()
+					})
+					.await
+					.context("failed to create metadata kv store")?;
+
+				metadata_store
+			}
+		};
+
+		let media_store = match jetstream.get_object_store(&config.extra.edge.media_ob_store).await {
+			Ok(media_store) => media_store,
+			Err(err) => {
+				tracing::warn!("failed to get media object store: {}", err);
+				let media_store = jetstream
+					.create_object_store(async_nats::jetstream::object_store::Config {
+						bucket: config.extra.edge.media_ob_store.clone(),
+						max_age: Duration::from_secs(60), // 1 minutes max age
+						storage: StorageType::File,
+						..Default::default()
+					})
+					.await
+					.context("failed to create media object store")?;
+
+				media_store
+			}
+		};
 
 		Ok(Self {
 			ctx,
@@ -107,9 +137,12 @@ pub async fn main() {
 
 		let edge_future = video_edge::edge::run(global.clone());
 
+		let subscription_manager_future = global.subscriber().run(global.ctx(), global.metadata_store());
+
 		select! {
 			r = grpc_future => r.context("grpc server stopped unexpectedly")?,
 			r = edge_future => r.context("edge server stopped unexpectedly")?,
+			r = subscription_manager_future => r.context("subscription manager stopped unexpectedly")?,
 		}
 
 		Ok(())

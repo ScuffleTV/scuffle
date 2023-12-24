@@ -21,6 +21,8 @@ pub(crate) mod s3_bucket;
 pub(crate) mod transcoding_config;
 pub(crate) mod utils;
 
+pub use utils::{ApiRequest, RequiredScope, ResourcePermission};
+
 fn global_middleware<G: ApiGlobal>(
 	global: &Arc<G>,
 ) -> impl Fn(tonic::Request<()>) -> tonic::Result<tonic::Request<()>> + Clone {

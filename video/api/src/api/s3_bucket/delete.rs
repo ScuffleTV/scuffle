@@ -107,7 +107,7 @@ impl ApiRequest<S3BucketDeleteResponse> for tonic::Request<S3BucketDeleteRequest
 				access_token.organization_id.0,
 				Target::S3Bucket,
 				event::Event::S3Bucket(event::S3Bucket {
-					s3_buckets_id: Some(id.0.into()),
+					s3_bucket_id: Some(id.0.into()),
 					event: Some(event::s3_bucket::Event::Deleted(event::s3_bucket::Deleted {})),
 				}),
 			)

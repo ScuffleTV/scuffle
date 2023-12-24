@@ -16,7 +16,7 @@ impl_request_scopes!(
 
 impl_untag_req!(S3BucketUntagRequest, S3BucketUntagResponse, Target::S3Bucket, [id] {
 	event::Event::S3Bucket(event::S3Bucket {
-		s3_buckets_id: Some(id.into()),
+		s3_bucket_id: Some(id.into()),
 		event: Some(event::s3_bucket::Event::Modified(event::s3_bucket::Modified {})),
 	})
 });

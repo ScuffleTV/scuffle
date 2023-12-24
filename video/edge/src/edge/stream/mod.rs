@@ -104,7 +104,7 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Bod
 
 	let video_output = room.video_output.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
-	if room.visibility == Visibility::Public && token.is_none() {
+	if room.visibility != Visibility::Public && token.is_none() {
 		return Err((StatusCode::UNAUTHORIZED, "room is private, token is required").into());
 	}
 
@@ -390,7 +390,9 @@ async fn session_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<
 	.bind(Uuid::from(session.id))
 	.bind(Uuid::from(session.organization_id))
 	.execute(global.db().as_ref())
+	.timeout(Duration::from_secs(2))
 	.await
+	.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to update session: timedout"))?
 	.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to update session"))?;
 
 	if resp.rows_affected() == 0 {
@@ -401,7 +403,9 @@ async fn session_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<
 		let mut subscription = global
 			.subscriber()
 			.subscribe_kv(keys::rendition_manifest(organization_id, room_id, connection_id, rendition))
+			.timeout(Duration::from_secs(2))
 			.await
+			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to get manifest: timedout"))?
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to get manifest"))?;
 
 		let mut manifest: LiveRenditionManifest;

@@ -23,7 +23,7 @@ function saveBandwidthEstimate(bandwidth: number) {
 }
 
 const player = new Player(video, {
-	organization_id: "01H8VSWA9CFECP82P8NQJWE1WX",
+	organization_id: "01HJES00BPBT13KS5BQM2V7EWS",
 	server: "https://troy-edge.scuffle.tv",
 	abr_default_bandwidth: bandwidthEstimate(),
 	logging_level: "info",

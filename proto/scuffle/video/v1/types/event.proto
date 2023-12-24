@@ -238,7 +238,7 @@ message Event {
   // S3 Bucket event.
   message S3Bucket {
     // The ULID of the S3 Buckets that this event is for.
-    scuffle.types.Ulid s3_buckets_id = 1;
+    scuffle.types.Ulid s3_bucket_id = 1;
 
     // If the S3 Buckets was created.
     message Created {}

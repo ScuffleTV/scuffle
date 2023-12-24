@@ -11,6 +11,7 @@ members = [
     "video/player",
     "video/player_types",
     "video/common",
+    "video/cli",
     "binary-helper",
     "common",
     "proto",

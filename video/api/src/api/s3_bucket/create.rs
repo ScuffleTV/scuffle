@@ -116,7 +116,7 @@ impl ApiRequest<S3BucketCreateResponse> for tonic::Request<S3BucketCreateRequest
 			access_token.organization_id.0,
 			Target::S3Bucket,
 			event::Event::S3Bucket(event::S3Bucket {
-				s3_buckets_id: Some(result.id.0.into()),
+				s3_bucket_id: Some(result.id.0.into()),
 				event: Some(event::s3_bucket::Event::Created(event::s3_bucket::Created {})),
 			}),
 		)

@@ -136,7 +136,7 @@ impl ApiRequest<S3BucketModifyResponse> for tonic::Request<S3BucketModifyRequest
 					access_token.organization_id.0,
 					Target::S3Bucket,
 					event::Event::S3Bucket(event::S3Bucket {
-						s3_buckets_id: Some(result.id.0.into()),
+						s3_bucket_id: Some(result.id.0.into()),
 						event: Some(event::s3_bucket::Event::Modified(event::s3_bucket::Modified {})),
 					}),
 				)

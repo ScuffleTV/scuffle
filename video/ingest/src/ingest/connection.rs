@@ -331,6 +331,8 @@ impl Connection {
 					Ok(Data::Closed(c)) => {
 						clean_shutdown = c;
 
+						tracing::debug!("session closed: {c}");
+
 						false
 					}
 				}
@@ -752,6 +754,13 @@ impl Connection {
 				config.max_bytes_between_keyframes,
 			));
 
+			tracing::debug!(
+				"keyframe bitrate distance exceeded: {:?} - {} > {}",
+				Instant::now() - self.last_keyframe,
+				self.bytes_tracker.since_keyframe(),
+				config.max_bytes_between_keyframes
+			);
+
 			return false;
 		}
 
@@ -760,6 +769,12 @@ impl Connection {
 				self.bytes_tracker.total() / config.bitrate_update_interval.as_secs() * 8,
 				config.max_bitrate,
 			));
+
+			tracing::debug!(
+				"bitrate limit exceeded: {} > {}",
+				self.bytes_tracker.total() * 8 / config.bitrate_update_interval.as_secs(),
+				config.max_bitrate
+			);
 
 			return false;
 		}
@@ -832,6 +847,8 @@ impl Connection {
 				if bitrate >= config.max_bitrate {
 					self.error = Some(IngestError::BitrateLimit(bitrate, config.max_bitrate));
 
+					tracing::debug!("bitrate limit exceeded: {} > {}", bitrate, config.max_bitrate);
+
 					return false;
 				}
 
@@ -850,6 +867,28 @@ impl Connection {
 	}
 
 	pub async fn on_media_segment<G: IngestGlobal>(&mut self, global: &Arc<G>, segment: MediaSegment) -> bool {
+		let config = global.config::<IngestConfig>();
+
+		if Instant::now() - self.last_keyframe >= config.max_time_between_keyframes {
+			self.error = Some(IngestError::KeyframeTimeLimit(config.max_time_between_keyframes.as_secs()));
+
+			tracing::debug!(
+				"keyframe time limit exceeded: {:?} > {:?}",
+				Instant::now() - self.last_keyframe,
+				config.max_time_between_keyframes
+			);
+
+			return false;
+		}
+
+		if Instant::now() - self.last_transcoder_publish >= config.transcoder_timeout {
+			tracing::error!("no transcoder available to publish to");
+
+			self.error = Some(IngestError::NoTranscoderAvailable);
+
+			return false;
+		}
+
 		if segment.keyframe {
 			self.last_keyframe = Instant::now();
 
@@ -954,22 +993,6 @@ impl Connection {
 			}
 		}
 
-		let config = global.config::<IngestConfig>();
-
-		if Instant::now() - self.last_keyframe >= config.max_time_between_keyframes {
-			self.error = Some(IngestError::KeyframeTimeLimit(config.max_time_between_keyframes.as_secs()));
-
-			return false;
-		}
-
-		if Instant::now() - self.last_transcoder_publish >= config.transcoder_timeout {
-			tracing::error!("no transcoder available to publish to");
-
-			self.error = Some(IngestError::NoTranscoderAvailable);
-
-			return false;
-		}
-
 		if segment.keyframe && segment.ty == transmuxer::MediaType::Video {
 			self.fragment_list.clear();
 			self.fragment_list.push(segment);
@@ -987,6 +1010,7 @@ impl Connection {
 
 		if !self.send_update(Update { bitrate: bitrate as i32 }) {
 			self.error = Some(IngestError::FailedToUpdateBitrate);
+			tracing::error!("failed to send bitrate update");
 			false
 		} else {
 			true

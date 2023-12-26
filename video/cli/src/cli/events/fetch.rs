@@ -70,7 +70,6 @@ struct EventPayload {
 	cause: Option<String>,
 }
 
-#[async_trait::async_trait]
 impl Invokable for Fetch {
 	async fn invoke(&self, invoker: &mut Invoker, cli: &Cli) -> anyhow::Result<()> {
 		loop {

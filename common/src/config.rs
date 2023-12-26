@@ -17,7 +17,7 @@ pub struct TlsConfig {
 	pub key: String,
 
 	/// The path to the TLS CA certificate
-	pub ca_cert: String,
+	pub ca_cert: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]

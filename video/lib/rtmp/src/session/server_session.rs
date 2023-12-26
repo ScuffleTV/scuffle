@@ -6,6 +6,7 @@ use bytes::Bytes;
 use bytesio::bytes_writer::BytesWriter;
 use bytesio::bytesio::{AsyncReadWrite, BytesIO};
 use bytesio::bytesio_errors::BytesIOError;
+use common::prelude::FutureTimeout;
 use tokio::sync::oneshot;
 
 use super::define::RtmpCommand;
@@ -245,7 +246,11 @@ impl<S: AsyncReadWrite> Session<S> {
 			return Err(SessionError::UnknownStreamID(stream_id));
 		};
 
-		if self.data_producer.send(data).await.is_err() {
+		if matches!(
+			self.data_producer.send(data).timeout(Duration::from_secs(2)).await,
+			Err(_) | Ok(Err(_))
+		) {
+			tracing::debug!("Publisher dropped");
 			return Err(SessionError::PublisherDropped);
 		}
 

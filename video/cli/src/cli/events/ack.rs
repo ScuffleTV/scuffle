@@ -44,7 +44,6 @@ pub struct EventAck {
 	action: String,
 }
 
-#[async_trait::async_trait]
 impl Invokable for Ack {
 	async fn invoke(&self, invoker: &mut Invoker, _: &Cli) -> anyhow::Result<()> {
 		invoker

@@ -16,7 +16,6 @@ impl UserByUsernameLoader {
 	}
 }
 
-#[async_trait::async_trait]
 impl Loader for UserByUsernameLoader {
 	type Error = ();
 	type Key = String;
@@ -45,7 +44,6 @@ impl UserByIdLoader {
 	}
 }
 
-#[async_trait::async_trait]
 impl Loader for UserByIdLoader {
 	type Error = ();
 	type Key = Ulid;

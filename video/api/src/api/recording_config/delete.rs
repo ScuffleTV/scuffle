@@ -19,7 +19,6 @@ impl_request_scopes!(
 	RateLimitResource::RecordingConfigDelete
 );
 
-#[async_trait::async_trait]
 impl ApiRequest<RecordingConfigDeleteResponse> for tonic::Request<RecordingConfigDeleteRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

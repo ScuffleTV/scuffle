@@ -19,7 +19,6 @@ impl_request_scopes!(
 	RateLimitResource::TranscodingConfigDelete
 );
 
-#[async_trait::async_trait]
 impl ApiRequest<TranscodingConfigDeleteResponse> for tonic::Request<TranscodingConfigDeleteRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

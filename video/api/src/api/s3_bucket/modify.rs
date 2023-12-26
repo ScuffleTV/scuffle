@@ -104,7 +104,6 @@ pub fn build_query<'a>(
 	Ok(qb)
 }
 
-#[async_trait::async_trait]
 impl ApiRequest<S3BucketModifyResponse> for tonic::Request<S3BucketModifyRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

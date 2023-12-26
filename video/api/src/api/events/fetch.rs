@@ -32,7 +32,6 @@ impl_request_scopes!(
 
 pub type Stream = Pin<Box<dyn futures_util::Stream<Item = tonic::Result<EventsFetchResponse>> + Send>>;
 
-#[async_trait::async_trait]
 impl ApiRequest<Stream> for tonic::Request<EventsFetchRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,
@@ -147,7 +146,7 @@ impl ApiRequest<Stream> for tonic::Request<EventsFetchRequest> {
 					continue;
 				};
 
-				let _: () = global.redis().set(&ack_key(organization_id, id), reply.as_ref(), Some(Expiration::EX(lease_duration)), None, false).await.map_err(|err| {
+				global.redis().set(&ack_key(organization_id, id), reply.as_ref(), Some(Expiration::EX(lease_duration)), None, false).await.map_err(|err| {
 					tracing::error!(err = %err, "failed to set event id in redis");
 					tonic::Status::internal("failed to set event id in redis")
 				})?;

@@ -19,7 +19,6 @@ impl_request_scopes!(
 	RateLimitResource::PlaybackSessionRevoke
 );
 
-#[async_trait::async_trait]
 impl ApiRequest<PlaybackSessionRevokeResponse> for tonic::Request<PlaybackSessionRevokeRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

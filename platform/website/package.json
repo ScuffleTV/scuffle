@@ -3,9 +3,9 @@
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
-		"dev:pre": "pnpm run codegen",
+		"dev:pre": "pnpm run codegen && pnpm -F=@scuffle/player run wasm:build:dev",
 		"dev": "pnpm run dev:pre && vite dev",
-		"build": "pnpm run codegen && NODE_ENV=production vite build",
+		"build": "pnpm run codegen && pnpm -F=@scuffle/player run wasm:build && NODE_ENV=production vite build",
 		"preview": "vite preview",
 		"test": "playwright test",
 		"test:unit": "vitest",

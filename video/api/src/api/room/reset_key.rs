@@ -26,7 +26,6 @@ struct RoomResetKeyRow {
 	stream_key: String,
 }
 
-#[async_trait::async_trait]
 impl ApiRequest<RoomResetKeyResponse> for tonic::Request<RoomResetKeyRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

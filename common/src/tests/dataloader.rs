@@ -9,7 +9,6 @@ struct LoaderTest {
 	results: DynBoxLoader,
 }
 
-#[async_trait::async_trait]
 impl crate::dataloader::Loader for LoaderTest {
 	type Error = ();
 	type Key = u64;

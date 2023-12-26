@@ -64,8 +64,11 @@ pub async fn setup_nats(
 		if let Some(tls) = &config.tls {
 			options = options
 				.require_tls(true)
-				.add_root_certificates((&tls.ca_cert).into())
 				.add_client_certificate((&tls.cert).into(), (&tls.key).into());
+
+			if let Some(ca_cert) = &tls.ca_cert {
+				options = options.add_root_certificates(ca_cert.into())
+			}
 		}
 
 		options
@@ -127,16 +130,10 @@ pub async fn setup_redis(config: &RedisConfig) -> anyhow::Result<Arc<fred::clien
 	};
 
 	let tls = if let Some(tls) = &config.tls {
-		let mut cert_store = RootCertStore::empty();
-
-		let ca_cert = tokio::fs::read(&tls.ca_cert).await.context("failed to read redis ca cert")?;
 		let cert = tokio::fs::read(&tls.cert).await.context("failed to read redis client cert")?;
 		let key = tokio::fs::read(&tls.key)
 			.await
 			.context("failed to read redis client private key")?;
-
-		let ca_certs =
-			rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(ca_cert))).collect::<Result<Vec<_>, _>>()?;
 
 		let key = rustls_pemfile::pkcs8_private_keys(&mut io::BufReader::new(io::Cursor::new(key)))
 			.next()
@@ -145,8 +142,14 @@ pub async fn setup_redis(config: &RedisConfig) -> anyhow::Result<Arc<fred::clien
 
 		let certs = rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(cert))).collect::<Result<Vec<_>, _>>()?;
 
-		for cert in ca_certs {
-			cert_store.add(cert).context("failed to add redis ca cert")?;
+		let mut cert_store = RootCertStore::empty();
+		if let Some(ca_cert) = &tls.ca_cert {
+			let ca_cert = tokio::fs::read(ca_cert).await.context("failed to read redis ca cert")?;
+			let ca_certs =
+				rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(ca_cert))).collect::<Result<Vec<_>, _>>()?;
+			for cert in ca_certs {
+				cert_store.add(cert).context("failed to add redis ca cert")?;
+			}
 		}
 
 		Some(fred::types::TlsConfig::from(fred::types::TlsConnector::from(

@@ -64,7 +64,6 @@ pub fn build_query(
 	Ok(qb)
 }
 
-#[async_trait::async_trait]
 impl ApiRequest<PlaybackKeyPairCreateResponse> for tonic::Request<PlaybackKeyPairCreateRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

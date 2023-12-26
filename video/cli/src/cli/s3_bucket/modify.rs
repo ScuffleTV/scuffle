@@ -40,7 +40,6 @@ pub struct Modify {
 	tags: Option<String>,
 }
 
-#[async_trait::async_trait]
 impl Invokable for Modify {
 	async fn invoke(&self, invoker: &mut Invoker, _: &Cli) -> anyhow::Result<()> {
 		if self.access_key_id.is_none()

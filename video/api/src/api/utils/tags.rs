@@ -165,7 +165,6 @@ macro_rules! impl_tag_req {
 			Ok(crate::api::utils::tags::add_tag_query::<<$req as crate::api::utils::TonicRequest>::Table>(&tags.tags, pb::ext::UlidExt::into_ulid(req.id), Some(access_token.organization_id.0)))
 		}
 
-		#[async_trait::async_trait]
 		impl crate::api::utils::ApiRequest<$resp> for tonic::Request<$req> {
 			async fn process<G: crate::global::ApiGlobal>(&self, global: &std::sync::Arc<G>, access_token: &video_common::database::AccessToken) -> tonic::Result<tonic::Response<$resp>> {
 				let req = self.get_ref();
@@ -205,7 +204,6 @@ macro_rules! impl_untag_req {
 			Ok(crate::api::utils::tags::remove_tag_query::<<$req as crate::api::utils::TonicRequest>::Table>(&req.tags, pb::ext::UlidExt::into_ulid(req.id), Some(access_token.organization_id.0)))
 		}
 
-		#[async_trait::async_trait]
 		impl crate::api::utils::ApiRequest<$resp> for tonic::Request<$req> {
 			async fn process<G: crate::global::ApiGlobal>(&self, global: &std::sync::Arc<G>, access_token: &video_common::database::AccessToken) -> tonic::Result<tonic::Response<$resp>> {
 				let req = self.get_ref();

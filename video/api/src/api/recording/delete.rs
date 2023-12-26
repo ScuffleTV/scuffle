@@ -182,7 +182,6 @@ where
 	Some(())
 }
 
-#[async_trait::async_trait]
 impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

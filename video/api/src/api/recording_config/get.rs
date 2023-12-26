@@ -33,7 +33,6 @@ pub fn build_query(
 	Ok(qb)
 }
 
-#[async_trait::async_trait]
 impl ApiRequest<RecordingConfigGetResponse> for tonic::Request<RecordingConfigGetRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

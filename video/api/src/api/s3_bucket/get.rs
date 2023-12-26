@@ -33,7 +33,6 @@ pub fn build_query(
 	Ok(qb)
 }
 
-#[async_trait::async_trait]
 impl ApiRequest<S3BucketGetResponse> for tonic::Request<S3BucketGetRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

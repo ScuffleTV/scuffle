@@ -13,7 +13,6 @@ impl RoomLoader {
 	}
 }
 
-#[async_trait::async_trait]
 impl Loader for RoomLoader {
 	type Error = ();
 	type Key = (Ulid, Ulid);

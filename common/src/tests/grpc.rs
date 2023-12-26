@@ -2,7 +2,6 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use tokio::sync::Mutex;
 use tonic::transport::Server;
 use trust_dns_resolver::error::ResolveError;
@@ -22,7 +21,7 @@ struct TestImpl {
 	name: String,
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl pb::test_server::Test for TestImpl {
 	async fn test(
 		&self,
@@ -229,7 +228,6 @@ async fn test_dns_resolve_v6() {
 async fn test_dns_resolve_cname() {
 	struct Dns;
 
-	#[async_trait]
 	impl DnsResolver for Dns {
 		async fn lookup(&self, hostname: &str, record_type: RecordType) -> Result<Lookup, ResolveError> {
 			assert_eq!(hostname, "localhost");
@@ -288,7 +286,6 @@ async fn test_headless_dns_resolve() {
 		addresses: Vec<SocketAddr>,
 	}
 
-	#[async_trait]
 	impl DnsResolver for Dns {
 		async fn lookup(&self, hostname: &str, record_type: RecordType) -> Result<Lookup, ResolveError> {
 			assert_eq!(hostname, "localhost");
@@ -390,7 +387,6 @@ async fn test_dns_resolve_change() {
 		addresses: Arc<Mutex<Vec<SocketAddr>>>,
 	}
 
-	#[async_trait]
 	impl DnsResolver for Dns {
 		async fn lookup(&self, hostname: &str, record_type: RecordType) -> Result<Lookup, ResolveError> {
 			assert_eq!(hostname, "localhost");

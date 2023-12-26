@@ -110,12 +110,15 @@ pub async fn mock_global_state(config: TranscoderConfig) -> (Arc<GlobalState>, H
 		ingest_tls: config.ingest_tls.as_ref().map(|tls| {
 			let cert = std::fs::read(&tls.cert).expect("failed to read redis cert");
 			let key = std::fs::read(&tls.key).expect("failed to read redis key");
-			let ca_cert = std::fs::read(&tls.ca_cert).expect("failed to read redis ca");
+
+			let ca_cert = tls.ca_cert.as_ref().map(|ca_cert| {
+				tonic::transport::Certificate::from_pem(std::fs::read(ca_cert).expect("failed to read ingest tls ca"))
+			});
 
 			TlsSettings {
 				domain: tls.domain.clone(),
-				ca_cert: tonic::transport::Certificate::from_pem(ca_cert),
 				identity: tonic::transport::Identity::from_pem(cert, key),
+				ca_cert,
 			}
 		}),
 		config,

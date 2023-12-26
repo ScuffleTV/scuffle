@@ -12,7 +12,6 @@ pub enum Commands {
 	Ack(ack::Ack),
 }
 
-#[async_trait::async_trait]
 impl Invokable for Commands {
 	async fn invoke(&self, invoker: &mut Invoker, args: &Cli) -> anyhow::Result<()> {
 		match self {

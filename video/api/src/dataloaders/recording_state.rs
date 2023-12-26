@@ -47,7 +47,6 @@ pub struct RecordingRenditionState {
 	pub start_time: f32,
 }
 
-#[async_trait::async_trait]
 impl Loader for RecordingStateLoader {
 	type Error = ();
 	type Key = (Ulid, Ulid);

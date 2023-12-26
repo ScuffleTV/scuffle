@@ -119,6 +119,10 @@ fi
   - flags: --html
   - type: bool
   - desc: Outputs HTML coverage report
+- ci
+  - flags: --ci
+  - type: bool
+  - desc: Runs tests in CI mode
 
 ```bash
 set -e
@@ -126,7 +130,14 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace --fail-fast --exclude video-player
+profile="default"
+extra_args=()
+if [ "$ci" == "true" ]; then
+    profile="ci"
+    extra_args+=(-E 'not test(/_v6/)')
+fi
+
+cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace --fail-fast --exclude video-player --profile $profile "${extra_args[@]}"
 if [ "$html" == "true" ]; then
     cargo llvm-cov report --html
 fi
@@ -154,7 +165,9 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 # We load the .env file
-export $(cat .env | xargs)
+if [ -f .env ]; then
+  export $(cat .env | xargs)
+fi
 
 action="setup"
 
@@ -388,4 +401,59 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 cloc $(git ls-files)
+```
+
+## docker
+
+> Builds docker images
+
+**OPTIONS**
+
+- version
+  - flags: --version
+  - type: string
+  - desc: Version to use
+
+```bash
+set -e
+if [[ "$verbose" == "true" ]]; then
+    set -x
+fi
+
+if [ "$version" == "" ]; then
+    version="latest"
+fi
+
+$MASK docker build --file ./docker/platform/api.Dockerfile --tag ghcr.io/scuffletv/platform/api:$version
+$MASK docker build --file ./docker/platform/image-processor.Dockerfile --tag ghcr.io/scuffletv/platform/image-processor:$version
+$MASK docker build --file ./docker/platform/website.Dockerfile --tag ghcr.io/scuffletv/platform/website:$version
+
+$MASK docker build --file ./docker/video/api.Dockerfile --tag ghcr.io/scuffletv/video/api:$version
+$MASK docker build --file ./docker/video/edge.Dockerfile --tag ghcr.io/scuffletv/video/edge:$version
+$MASK docker build --file ./docker/video/ingest.Dockerfile --tag ghcr.io/scuffletv/video/ingest:$version
+$MASK docker build --file ./docker/video/player-demo.Dockerfile --tag ghcr.io/scuffletv/video/player-demo:$version
+$MASK docker build --file ./docker/video/transcoder.Dockerfile --tag ghcr.io/scuffletv/video/transcoder:$version
+
+```
+
+### build
+
+**OPTIONS**
+
+- file
+  - flags: --file
+  - type: string
+  - desc: Dockerfile to use
+- tag
+  - flags: --tag
+  - type: string
+  - desc: Tag to use
+
+```bash
+set -e
+if [[ "$verbose" == "true" ]]; then
+    set -x
+fi
+
+docker build -f $file --tag $tag .
 ```

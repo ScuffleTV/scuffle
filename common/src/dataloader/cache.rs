@@ -309,7 +309,6 @@ impl<C: Cache<L, S>, L: Loader<S>, S> Cache<L, S> for SharedCache<C> {
 const _: () = {
 	struct DummyLoader;
 
-	#[async_trait::async_trait]
 	impl<S> Loader<S> for DummyLoader {
 		type Error = ();
 		type Key = ();

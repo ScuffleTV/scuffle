@@ -24,7 +24,6 @@ struct KeyReset {
 	key: String,
 }
 
-#[async_trait::async_trait]
 impl Invokable for ResetKey {
 	async fn invoke(&self, invoker: &mut Invoker, _: &Cli) -> anyhow::Result<()> {
 		if self.ids.is_empty() {

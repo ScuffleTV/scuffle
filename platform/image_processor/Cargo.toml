@@ -25,7 +25,7 @@ itertools = "0.12.0"
 scopeguard = "1.2.0"
 rgb = "0.8.37"
 imgref = "1.10.0"
-opencv = { version = "0.88.4", default-features = false, features = ["clang-runtime", "imgproc"]}
+opencv = { version = "0.88.5", default-features = false, features = ["clang-runtime", "imgproc"] }
 ffmpeg-next = "6.1.0"
 libavif-sys = { version = "0.15.0" }
 libwebp-sys2 = { version = "0.1.9", features = ["1_2", "demux", "mux", "static"] }

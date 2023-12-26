@@ -22,8 +22,8 @@ bytesio = { workspace = true, features = ["default"] }
 flv = { workspace = true }
 h264 = { workspace = true }
 amf0 = { workspace = true }
+common = { workspace = true }
 
 [dev-dependencies]
 tokio = { version = "1.35", features = ["full"] }
 serde_json = "1.0"
-common = { workspace = true }

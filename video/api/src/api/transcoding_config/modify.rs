@@ -71,7 +71,6 @@ pub fn build_query<'a>(
 	Ok(qb)
 }
 
-#[async_trait::async_trait]
 impl ApiRequest<TranscodingConfigModifyResponse> for tonic::Request<TranscodingConfigModifyRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

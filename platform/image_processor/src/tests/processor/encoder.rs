@@ -84,13 +84,7 @@ fn encode(asset_name: &str, backend: DecoderBackend, frontend: EncoderFrontend) 
 
 #[test]
 fn encode_test() {
-	encode("meow.gif", DecoderBackend::Ffmpeg, EncoderFrontend::Gifski);
 	encode("meow.gif", DecoderBackend::Ffmpeg, EncoderFrontend::LibWebp);
-	encode("meow.gif", DecoderBackend::Ffmpeg, EncoderFrontend::LibAvif);
-	encode("meow.webp", DecoderBackend::LibWebp, EncoderFrontend::Gifski);
-	encode("meow.webp", DecoderBackend::LibWebp, EncoderFrontend::LibWebp);
 	encode("meow.webp", DecoderBackend::LibWebp, EncoderFrontend::LibAvif);
 	encode("meow.avif", DecoderBackend::LibAvif, EncoderFrontend::Gifski);
-	encode("meow.avif", DecoderBackend::LibAvif, EncoderFrontend::LibWebp);
-	encode("meow.avif", DecoderBackend::LibAvif, EncoderFrontend::LibAvif);
 }

@@ -14,7 +14,7 @@ pub trait Config {
 	}
 }
 
-#[async_trait::async_trait]
+#[allow(async_fn_in_trait)]
 pub trait Global<C: Config> {
 	async fn new(ctx: Context, config: C) -> anyhow::Result<Self>
 	where

@@ -16,7 +16,6 @@ pub struct Tag {
 	tags: String,
 }
 
-#[async_trait::async_trait]
 impl Invokable for Tag {
 	async fn invoke(&self, invoker: &mut Invoker, _: &Cli) -> anyhow::Result<()> {
 		let resp = invoker

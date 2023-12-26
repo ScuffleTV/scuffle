@@ -15,7 +15,6 @@ impl GlobalStateLoader {
 	}
 }
 
-#[async_trait::async_trait]
 impl Loader for GlobalStateLoader {
 	type Error = ();
 	type Key = ();

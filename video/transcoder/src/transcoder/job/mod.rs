@@ -68,7 +68,7 @@ pub async fn handle_message<G: TranscoderGlobal>(global: Arc<G>, msg: Message, s
 	let mut streams = futures::stream::select_all(
 		job.tracks
 			.drain(..)
-			.map(|(t, rendition)| Box::pin(track_parser(unix_stream(t, 256 * 1024))).map(move |r| (r, rendition))),
+			.map(|(t, rendition)| Box::pin(track_parser(unix_stream(t, 1024 * 1024))).map(move |r| (r, rendition))),
 	);
 
 	if let Err(err) = job.run(&global, shutdown_token, &mut streams).await {
@@ -280,7 +280,31 @@ impl<G: TranscoderGlobal> Job<G> {
 						))
 					})?;
 				},
-				msg = self.recv.next() => self.handle_msg(global, msg).await?,
+				msg = self.recv.next() => {
+					let mut items = Vec::new();
+
+					{
+						let mut msg_handle_fut = self.handle_msg(global, msg);
+						let mut msg_handle_fut = pin!(msg_handle_fut);
+						loop {
+							select! {
+								r = &mut msg_handle_fut => {
+									r?;
+									break;
+								},
+								Some(item) = streams.next() => {
+									tracing::debug!(count = %items.len() + 1, "got item while handling message");
+									items.push(item);
+								}
+							}
+						}
+					}
+
+					for item in items {
+						let (result, rendition) = item;
+						self.handle_track(global, rendition, result)?;
+					}
+				},
 				r = self.ffmpeg.process.wait() => {
 					r?;
 					break;
@@ -311,6 +335,7 @@ impl<G: TranscoderGlobal> Job<G> {
 					}
 				} => {
 					let (screenshot, start_time) = screenshot?;
+
 					self.screenshot_idx += 1;
 
 					let id = Ulid::new();
@@ -367,7 +392,12 @@ impl<G: TranscoderGlobal> Job<G> {
 		match msg {
 			ingest_watch_response::Message::Media(media) => {
 				if let Some(stdin) = &mut self.ffmpeg.stdin {
-					stdin.write_all(&media.data).await?;
+					stdin
+						.write_all(&media.data)
+						.timeout(Duration::from_secs(1))
+						.await
+						.context("ffmped is blocked")?
+						.context("ffmpeg stdin closed")?;
 				} else {
 					anyhow::bail!("ffmpeg stdin was not open");
 				}
@@ -381,8 +411,7 @@ impl<G: TranscoderGlobal> Job<G> {
 							&& self.last_screenshot.elapsed() > Duration::from_secs(5)
 							&& self.screenshot_task.is_none()
 						{
-							self.take_screenshot(global, &media.data, media.timestamp as f64 / media.timescale as f64)
-								.await?;
+							self.take_screenshot(global, &media.data, media.timestamp as f64 / media.timescale as f64)?;
 						}
 					}
 					ingest_watch_response::media::Type::Audio => {}
@@ -408,27 +437,30 @@ impl<G: TranscoderGlobal> Job<G> {
 		Ok(())
 	}
 
-	async fn take_screenshot(&mut self, global: &Arc<G>, data: &Bytes, start_time: f64) -> Result<()> {
+	fn take_screenshot(&mut self, global: &Arc<G>, data: &Bytes, start_time: f64) -> Result<()> {
 		if !self.ready {
 			return Ok(());
 		}
 
-		if let Some(init_segment) = &self.init_segment {
+		if let Some(init_segment) = self.init_segment.clone() {
 			let (width, height) = screenshot_size(&self.video_input);
 
 			let config = global.config::<TranscoderConfig>();
 
 			let mut child = spawn_ffmpeg_screenshot(config.ffmpeg_gid, config.ffmpeg_uid, width, height)?;
 
-			let mut stdin = child.stdin.take().unwrap();
-			stdin.write_all(init_segment).await?;
-			stdin.write_all(data).await?;
-
 			self.last_screenshot = Instant::now();
 
 			tracing::debug!("taking screenshot");
 
+			let data = data.clone();
+
 			self.screenshot_task = Some(Box::pin(async move {
+				let stdin = child.stdin.as_mut().unwrap();
+				stdin.write_all(&init_segment).await?;
+				stdin.write_all(&data).await?;
+				stdin.flush().await?;
+
 				let start = Instant::now();
 				let output = child.wait_with_output().await?;
 				if !output.status.success() {

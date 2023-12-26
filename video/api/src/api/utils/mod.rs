@@ -33,7 +33,7 @@ macro_rules! impl_request_scopes {
 
 pub(crate) use impl_request_scopes;
 
-#[async_trait::async_trait]
+#[allow(async_fn_in_trait)]
 pub trait ApiRequest<R> {
 	async fn process<G: ApiGlobal>(&self, global: &Arc<G>, access_token: &AccessToken) -> tonic::Result<tonic::Response<R>>;
 }

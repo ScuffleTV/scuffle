@@ -13,7 +13,6 @@ impl AccessTokenLoader {
 	}
 }
 
-#[async_trait::async_trait]
 impl Loader for AccessTokenLoader {
 	type Error = ();
 	type Key = (Ulid, Ulid);

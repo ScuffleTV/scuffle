@@ -61,7 +61,6 @@ impl video_transcoder::global::TranscoderState for GlobalState {
 	}
 }
 
-#[async_trait::async_trait]
 impl binary_helper::Global<AppConfig> for GlobalState {
 	async fn new(ctx: Context, config: AppConfig) -> anyhow::Result<Self> {
 		let (nats, jetstream) = setup_nats(&config.name, &config.nats).await?;
@@ -71,7 +70,8 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			Ok(metadata_store) => metadata_store,
 			Err(err) => {
 				tracing::warn!("failed to get metadata kv store: {}", err);
-				let metadata_store = jetstream
+
+				jetstream
 					.create_key_value(async_nats::jetstream::kv::Config {
 						bucket: config.extra.transcoder.metadata_kv_store.clone(),
 						max_age: Duration::from_secs(60), // 1 minutes max age
@@ -79,9 +79,7 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 						..Default::default()
 					})
 					.await
-					.context("failed to create metadata kv store")?;
-
-				metadata_store
+					.context("failed to create metadata kv store")?
 			}
 		};
 
@@ -89,7 +87,8 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			Ok(media_store) => media_store,
 			Err(err) => {
 				tracing::warn!("failed to get media object store: {}", err);
-				let media_store = jetstream
+
+				jetstream
 					.create_object_store(async_nats::jetstream::object_store::Config {
 						bucket: config.extra.transcoder.media_ob_store.clone(),
 						max_age: Duration::from_secs(60), // 1 minutes max age
@@ -97,20 +96,25 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 						..Default::default()
 					})
 					.await
-					.context("failed to create media object store")?;
-
-				media_store
+					.context("failed to create media object store")?
 			}
 		};
 
 		let ingest_tls = if let Some(tls) = &config.extra.transcoder.ingest_tls {
 			let cert = tokio::fs::read(&tls.cert).await.context("failed to read ingest tls cert")?;
 			let key = tokio::fs::read(&tls.key).await.context("failed to read ingest tls key")?;
-			let ca_cert = tokio::fs::read(&tls.ca_cert).await.context("failed to read ingest tls ca")?;
+
+			let ca_cert = if let Some(ca_cert) = &tls.ca_cert {
+				Some(tonic::transport::Certificate::from_pem(
+					tokio::fs::read(&ca_cert).await.context("failed to read ingest tls ca")?,
+				))
+			} else {
+				None
+			};
 
 			Some(TlsSettings {
 				domain: tls.domain.clone(),
-				ca_cert: tonic::transport::Certificate::from_pem(ca_cert),
+				ca_cert,
 				identity: tonic::transport::Identity::from_pem(cert, key),
 			})
 		} else {

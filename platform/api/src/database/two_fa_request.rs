@@ -16,14 +16,13 @@ pub struct TwoFaRequest {
 	pub action: Protobuf<TwoFaRequestAction>,
 }
 
-#[async_trait::async_trait]
+#[allow(async_fn_in_trait)]
 pub trait TwoFaRequestActionTrait<G: ApiGlobal> {
 	type Result;
 
 	async fn execute(self, global: &Arc<G>, user_id: Ulid) -> Self::Result;
 }
 
-#[async_trait::async_trait]
 impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
 	type Result = sqlx::Result<Session>;
 
@@ -70,7 +69,6 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
 	}
 }
 
-#[async_trait::async_trait]
 impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for ChangePassword {
 	type Result = sqlx::Result<()>;
 

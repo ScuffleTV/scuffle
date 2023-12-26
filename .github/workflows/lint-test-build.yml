@@ -1,0 +1,221 @@
+name: Lint Test Build
+
+on:
+  pull_request:
+    branches:
+      - main
+      - feature/**
+  push:
+    branches:
+      - main
+      - feature/**
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+
+concurrency:
+  group: lint-test-build-{{ github.head_ref ||  github.ref }}
+
+jobs:
+  pre_job:
+    name: Pre Job
+    runs-on: ubuntu-latest
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v3.4.0
+        with:
+          skip_after_successful_duplicate: 'true'
+          do_not_skip: '["workflow_dispatch", "schedule"]'
+
+      - name: Set output
+        run: echo "should_skip=${{ steps.skip_check.outputs.should_skip }}" >> $GITHUB_OUTPUT
+
+  lint:
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
+    runs-on: scuffle-ci-i5-13500
+    container: ghcr.io/scuffletv/ci/build:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: pnpm install -r
+
+      - name: Lint
+        run: mask lint
+
+  test:
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
+    runs-on: scuffle-ci-i5-13500
+    container: ghcr.io/scuffletv/ci/build:latest
+    services:
+      cockroach:
+        image: ghcr.io/scuffletv/ci/cockroach:latest
+        env:
+          ARGS: start-single-node --insecure --advertise-addr=0.0.0.0
+        ports:
+          - 26257:26257
+          - 8080:8080
+
+      nats:
+        image: ghcr.io/scuffletv/ci/nats:latest
+        env:
+          ARGS: -js
+        ports:
+          - 4222:4222
+          - 8222:8222
+          - 6222:6222
+      
+      redis:
+        image: ghcr.io/scuffletv/ci/redis:latest
+        ports:
+          - 6379:6379
+
+      minio:
+        image: ghcr.io/scuffletv/ci/minio:latest
+        env:
+          ARGS: server /export --console-address ":9001"
+          MINIO_ACCESS_KEY: root
+          MINIO_SECRET_KEY: scuffle123
+        ports:
+          - 9000:9000
+          - 9001:9001
+
+    env:
+      PLATFORM_DATABASE_URL: postgres://root@cockroach:26257/scuffle_platform
+      VIDEO_DATABASE_URL: postgres://root@cockroach:26257/scuffle_video
+      PLATFORM_DATABASE_URL_TEST: postgres://root@cockroach:26257/scuffle_platform_test
+      VIDEO_DATABASE_URL_TEST: postgres://root@cockroach:26257/scuffle_video_test
+      NATS_ADDR: nats:4222
+      REDIS_ADDR: redis:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: pnpm install -r
+
+      - name: Migrate database
+        run: mask dev migrate
+
+      - name: Install MinIO client
+        run: curl -sL https://dl.min.io/client/mc/release/linux-amd64/mc > /usr/local/bin/mc && chmod +x /usr/local/bin/mc
+
+      - name: Setup Minio
+        run: |
+          mc config host add myminio http://minio:9000 root scuffle123;
+          mc rb --force myminio/scuffle-video || true;
+          mc rb --force myminio/scuffle-image-processor || true;
+          mc rb --force myminio/scuffle-image-processor-public || true;
+          mc mb myminio/scuffle-video;
+          mc mb myminio/scuffle-image-processor;
+          mc mb myminio/scuffle-image-processor-public;
+          mc anonymous set download myminio/scuffle-video;
+          mc anonymous set download myminio/scuffle-image-processor-public;
+
+      - name: Test
+        run: mask test --ci
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: true
+
+  build:
+    needs: [pre_job, lint, test]
+    if: needs.pre_job.outputs.should_skip != 'true'
+    runs-on: ubuntu-latest
+    container: ghcr.io/scuffletv/ci/build:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # This is needed to prevent git from complaining about the
+      # `fatal: detected dubious ownership in repository at` error
+      # when trying to build the website.
+      - name: Configure git
+        run: |
+          git config --global --add safe.directory '*'
+
+      - name: Install dependencies
+        run: pnpm install -r
+
+      - name: Build Player Demo
+        run: pnpm -F="@scuffle/player" build
+
+      - name: Upload Artifact (Player Demo)
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-player-demo
+          if-no-files-found: error
+          path: video/player/dist/*
+
+      - name: Build Website
+        run: pnpm -F="website" build
+
+      - name: Upload Artifact (Website)
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-website
+          if-no-files-found: error
+          path: platform/website/dist/*
+
+      - name: Build (release fat-lto)
+        if: github.ref == 'refs/heads/main'
+        run: cargo build --profile release-fat
+      
+      - name: Build (release thin-lto)
+        if: github.ref != 'refs/heads/main'
+        run: cargo build --profile release
+
+      - name: Upload Artifact (platform-api)
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-api
+          if-no-files-found: error
+          path: target/release/platform-api
+
+      - name: Upload Artifact (platform-image-processor)
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-processor
+          if-no-files-found: error
+          path: target/release/platform-image-processor
+
+      - name: Upload Artifact (video-api)
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-api
+          if-no-files-found: error
+          path: target/release/video-api
+
+      - name: Upload Artifact (video-ingest)
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-ingest
+          if-no-files-found: error
+          path: target/release/video-ingest
+
+      - name: Upload Artifact (video-transcoder)
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-transcoder
+          if-no-files-found: error
+          path: target/release/video-transcoder
+
+      - name: Upload Artifact (video-edge)
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-edge
+          if-no-files-found: error
+          path: target/release/video-edge
+
+      - name: Upload Artifact (video-cli)
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-cli
+          if-no-files-found: error
+          path: target/release/video-cli

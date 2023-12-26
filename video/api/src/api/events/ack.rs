@@ -22,7 +22,6 @@ impl_request_scopes!(
 	RateLimitResource::EventsSubscribe
 );
 
-#[async_trait::async_trait]
 impl ApiRequest<EventsAckResponse> for tonic::Request<EventsAckRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,
@@ -70,7 +69,7 @@ impl ApiRequest<EventsAckResponse> for tonic::Request<EventsAckRequest> {
 
 		let lease_duration = config.nats_stream_message_lease_duration.as_secs().max(1) as i64;
 
-		let _: () = if matches!(ack_kind, AckKind::Progress) {
+		if matches!(ack_kind, AckKind::Progress) {
 			global.redis().expire(&key, lease_duration)
 		} else {
 			global.redis().del(&key)

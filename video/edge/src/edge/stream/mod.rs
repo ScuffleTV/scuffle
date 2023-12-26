@@ -675,7 +675,7 @@ async fn room_screenshot<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<B
 			.ok_or((StatusCode::NOT_FOUND, "room not found"))?,
 	);
 
-	if room.visibility == Visibility::Public && token.is_none() {
+	if room.visibility != Visibility::Public && token.is_none() {
 		return Err((StatusCode::UNAUTHORIZED, "room is private, token is required").into());
 	}
 

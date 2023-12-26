@@ -19,7 +19,6 @@ impl_request_scopes!(
 	RateLimitResource::S3BucketDelete
 );
 
-#[async_trait::async_trait]
 impl ApiRequest<S3BucketDeleteResponse> for tonic::Request<S3BucketDeleteRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

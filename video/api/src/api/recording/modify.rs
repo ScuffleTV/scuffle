@@ -21,7 +21,6 @@ impl_request_scopes!(
 	RateLimitResource::RecordingModify
 );
 
-#[async_trait::async_trait]
 impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

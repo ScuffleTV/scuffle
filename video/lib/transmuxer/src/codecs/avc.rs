@@ -39,14 +39,12 @@ pub fn stsd_entry(config: AVCDecoderConfigurationRecord) -> Result<(DynBox, Sps)
 
 pub fn trun_sample(
 	frame_type: FrameType,
-	timestamp: u32,
-	last_video_timestamp: u32,
 	composition_time: u32,
 	duration: u32,
 	data: &Bytes,
 ) -> Result<TrunSample, TransmuxError> {
 	Ok(TrunSample {
-		composition_time_offset: Some((timestamp + composition_time - last_video_timestamp) as i64),
+		composition_time_offset: Some(composition_time as i64),
 		duration: Some(duration),
 		flags: Some(TrunSampleFlag {
 			reserved: 0,

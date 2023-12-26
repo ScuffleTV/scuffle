@@ -52,6 +52,7 @@ pub fn spawn_ffmpeg(
     let mut args = vec_of_strings![
         "-v", "error",
         "-i", "-",
+		"-timeout", "1000000",
         "-probesize", "250M",
         "-analyzeduration", "250M",
         "-max_muxing_queue_size", "1024",

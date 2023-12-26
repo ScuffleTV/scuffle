@@ -68,7 +68,6 @@ pub fn build_query<'a>(
 	Ok(qb)
 }
 
-#[async_trait::async_trait]
 impl ApiRequest<PlaybackSessionCountResponse> for tonic::Request<PlaybackSessionCountRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

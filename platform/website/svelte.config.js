@@ -8,7 +8,9 @@ const config = {
 	kit: {
 		adapter: adapter({
 			envPrefix: "SCUF_",
-			fallback: "fallback.html",
+			pages: "dist",
+			assets: "dist",
+			fallback: "index.html",
 		}),
 		alias: {
 			$: "./src",

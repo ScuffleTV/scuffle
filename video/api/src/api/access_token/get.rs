@@ -34,7 +34,6 @@ pub fn build_query(
 	Ok(qb)
 }
 
-#[async_trait::async_trait]
 impl ApiRequest<AccessTokenGetResponse> for tonic::Request<AccessTokenGetRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

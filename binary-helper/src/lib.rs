@@ -71,12 +71,17 @@ pub async fn grpc_server(config: &GrpcConfig) -> anyhow::Result<tonic::transport
 	Ok(if let Some(tls) = &config.tls {
 		let key = tokio::fs::read(&tls.key).await.context("failed to read grpc private key")?;
 		let cert = tokio::fs::read(&tls.cert).await.context("failed to read grpc cert")?;
-		let ca_cert = tokio::fs::read(&tls.ca_cert).await.context("failed to read grpc ca cert")?;
-		Server::builder().tls_config(
-			ServerTlsConfig::new()
-				.identity(Identity::from_pem(cert, key))
-				.client_ca_root(Certificate::from_pem(ca_cert)),
-		)?
+
+		let tls_config = ServerTlsConfig::new().identity(Identity::from_pem(cert, key));
+
+		let tls_config = if let Some(ca_cert) = &tls.ca_cert {
+			let ca_cert = tokio::fs::read(ca_cert).await.context("failed to read grpc ca cert")?;
+			tls_config.client_ca_root(Certificate::from_pem(ca_cert))
+		} else {
+			tls_config
+		};
+
+		Server::builder().tls_config(tls_config)?
 	} else {
 		Server::builder()
 	})

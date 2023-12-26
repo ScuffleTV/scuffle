@@ -16,7 +16,6 @@ impl RoleByIdLoader {
 	}
 }
 
-#[async_trait::async_trait]
 impl Loader for RoleByIdLoader {
 	type Error = ();
 	type Key = Ulid;

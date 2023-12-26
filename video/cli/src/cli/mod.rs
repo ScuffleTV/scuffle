@@ -63,7 +63,6 @@ pub struct SubCommand<T: clap::Subcommand> {
 	pub command: T,
 }
 
-#[async_trait::async_trait]
 pub trait Invokable {
 	async fn invoke(&self, invoker: &mut Invoker, args: &Cli) -> anyhow::Result<()>;
 }
@@ -101,7 +100,6 @@ pub enum Commands {
 	TranscodingConfig(SubCommand<transcoding_config::Commands>),
 }
 
-#[async_trait::async_trait]
 impl Invokable for Commands {
 	async fn invoke(&self, invoker: &mut Invoker, args: &Cli) -> anyhow::Result<()> {
 		match self {

@@ -19,7 +19,6 @@ impl_request_scopes!(
 	RateLimitResource::RoomDisconnect
 );
 
-#[async_trait::async_trait]
 impl ApiRequest<RoomDisconnectResponse> for tonic::Request<RoomDisconnectRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

@@ -101,7 +101,6 @@ pub async fn build_query<G: ApiGlobal>(
 	Ok(qb)
 }
 
-#[async_trait::async_trait]
 impl ApiRequest<RoomCreateResponse> for tonic::Request<RoomCreateRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

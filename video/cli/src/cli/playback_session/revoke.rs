@@ -38,7 +38,6 @@ struct PlaybackSessionRevoke {
 	count: usize,
 }
 
-#[async_trait::async_trait]
 impl Invokable for Revoke {
 	async fn invoke(&self, invoker: &mut Invoker, _: &Cli) -> anyhow::Result<()> {
 		let result = invoker

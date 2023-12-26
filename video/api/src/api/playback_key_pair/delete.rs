@@ -19,7 +19,6 @@ impl_request_scopes!(
 	RateLimitResource::PlaybackKeyPairDelete
 );
 
-#[async_trait::async_trait]
 impl ApiRequest<PlaybackKeyPairDeleteResponse> for tonic::Request<PlaybackKeyPairDeleteRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

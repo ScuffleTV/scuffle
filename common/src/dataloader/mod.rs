@@ -19,13 +19,12 @@ use types::{BatchState, DataLoaderInnerHolder};
 use self::types::DataLoaderInner;
 use self::utils::new_auto_loader;
 
-#[async_trait::async_trait]
 pub trait Loader<S = RandomState>: Send + Sync + 'static {
 	type Key: Eq + std::hash::Hash + Clone + Sync + Send;
 	type Value: Clone + Sync + Send;
 	type Error: Clone + Sync + Send;
 
-	async fn load(&self, key: &[Self::Key]) -> LoaderOutput<Self, S>;
+	fn load(&self, key: &[Self::Key]) -> impl std::future::Future<Output = LoaderOutput<Self, S>> + Send;
 }
 
 pub struct DataLoader<L: Loader<S>, S = RandomState> {

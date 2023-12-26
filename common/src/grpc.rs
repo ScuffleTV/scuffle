@@ -3,7 +3,6 @@ use std::fmt;
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use futures::future;
 use http::Uri;
 use tokio::sync::mpsc::Sender;
@@ -57,7 +56,7 @@ pub struct TlsSettings {
 	/// The client certificate.
 	pub identity: Identity,
 	/// The CA certificate to verify the server.
-	pub ca_cert: Certificate,
+	pub ca_cert: Option<Certificate>,
 }
 
 /// Internal struct for controlling the channel.
@@ -92,12 +91,16 @@ impl fmt::Display for EndpointType {
 	}
 }
 
-#[async_trait]
+#[allow(async_fn_in_trait)]
 pub trait DnsResolver: Send + Sync + 'static {
-	async fn lookup(&self, hostname: &str, record_type: RecordType) -> Result<Lookup, ResolveError>;
+	fn lookup(
+		&self,
+		hostname: &str,
+		record_type: RecordType,
+	) -> impl std::future::Future<Output = Result<Lookup, ResolveError>> + Send;
 }
 
-#[async_trait]
+#[allow(async_fn_in_trait)]
 impl DnsResolver for TokioAsyncResolver {
 	#[inline(always)]
 	async fn lookup(&self, hostname: &str, record_type: RecordType) -> Result<Lookup, ResolveError> {
@@ -249,15 +252,20 @@ impl<R: DnsResolver> ChannelController<R> {
 				// If TLS is enabled, we need to add the TLS config to the Endpoint.
 				let endpoint = if self.tls.is_some() {
 					let tls = self.tls.as_ref().unwrap();
-					let tls = if let Some(domain) = &tls.domain {
+					let tls_config = if let Some(domain) = &tls.domain {
 						ClientTlsConfig::new().domain_name(domain)
 					} else {
 						ClientTlsConfig::new()
 					}
-					.ca_certificate(tls.ca_cert.clone())
 					.identity(tls.identity.clone());
 
-					match endpoint.tls_config(tls) {
+					let tls_config = if let Some(ca_cert) = &tls.ca_cert {
+						tls_config.ca_certificate(ca_cert.clone())
+					} else {
+						tls_config
+					};
+
+					match endpoint.tls_config(tls_config) {
 						Ok(endpoint) => endpoint,
 						Err(e) => {
 							tracing::warn!("invalid tls config: {}: {}", addr, e);

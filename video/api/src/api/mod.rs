@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use tokio::select;
 use tonic::service::interceptor;
 use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
@@ -43,15 +43,21 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> Result<()> {
 	tracing::info!("API Listening on {}", config.bind_address);
 
 	let server = if let Some(tls) = &config.tls {
-		let cert = tokio::fs::read(&tls.cert).await?;
-		let key = tokio::fs::read(&tls.key).await?;
-		let ca_cert = tokio::fs::read(&tls.ca_cert).await?;
-		tracing::info!("API TLS enabled");
-		Server::builder().tls_config(
-			ServerTlsConfig::new()
-				.identity(Identity::from_pem(cert, key))
-				.client_ca_root(Certificate::from_pem(ca_cert)),
-		)?
+		let cert = tokio::fs::read(&tls.cert).await.context("Failed to read TLS cert")?;
+		let key = tokio::fs::read(&tls.key).await.context("Failed to read TLS key")?;
+
+		let ssl = ServerTlsConfig::new().identity(Identity::from_pem(cert, key));
+
+		let ssl = if let Some(ca_cert) = &tls.ca_cert {
+			let ca_cert = tokio::fs::read(ca_cert).await.context("Failed to read CA cert")?;
+			tracing::info!("API TLS enabled with client verification");
+			ssl.client_ca_root(Certificate::from_pem(ca_cert))
+		} else {
+			tracing::info!("API TLS enabled");
+			ssl
+		};
+
+		Server::builder().tls_config(ssl).context("Failed to configure TLS")?
 	} else {
 		tracing::info!("API TLS disabled");
 		Server::builder()

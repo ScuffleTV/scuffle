@@ -166,7 +166,7 @@ impl TestState {
 	async fn setup_with_tls(tls_dir: &Path) -> Self {
 		Self::setup_new(Some(TlsConfig {
 			cert: tls_dir.join("server.crt").to_str().unwrap().to_string(),
-			ca_cert: tls_dir.join("ca.crt").to_str().unwrap().to_string(),
+			ca_cert: Some(tls_dir.join("ca.crt").to_str().unwrap().to_string()),
 			key: tls_dir.join("server.key").to_str().unwrap().to_string(),
 			domain: Some("localhost".to_string()),
 		}))

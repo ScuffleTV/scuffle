@@ -61,7 +61,7 @@ impl Default for IngestConfig {
 			events_subject: "events".to_string(),
 			bitrate_update_interval: Duration::from_secs(5),
 			max_bitrate: 12000 * 1024,
-			max_bytes_between_keyframes: 12000 * 1024 * 5 / 8,
+			max_bytes_between_keyframes: 5 * 12000 * 1024 / 8,
 			max_time_between_keyframes: Duration::from_secs(10),
 			transcoder_timeout: Duration::from_secs(60),
 			rtmp: Default::default(),

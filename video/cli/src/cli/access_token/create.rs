@@ -26,7 +26,6 @@ pub struct Create {
 	tags: String,
 }
 
-#[async_trait::async_trait]
 impl Invokable for Create {
 	async fn invoke(&self, invoker: &mut Invoker, _: &Cli) -> anyhow::Result<()> {
 		let resp = invoker

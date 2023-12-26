@@ -1,4 +1,3 @@
-#[async_trait::async_trait]
 pub trait RequestHandler<R> {
 	type Response;
 
@@ -8,7 +7,6 @@ pub trait RequestHandler<R> {
 macro_rules! impl_request {
     ($e:ident; $(|$self:ident, $req:ident: $req_ty:ty| -> $resp_ty:ty $action:block),* $(,)*) => {
         $(
-            #[async_trait::async_trait]
             impl crate::invoker::request::RequestHandler<$req_ty> for $e {
                 type Response = $resp_ty;
 

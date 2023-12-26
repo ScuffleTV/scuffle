@@ -16,7 +16,6 @@ impl SessionByIdLoader {
 	}
 }
 
-#[async_trait::async_trait]
 impl Loader for SessionByIdLoader {
 	type Error = ();
 	type Key = Ulid;

@@ -44,14 +44,12 @@ pub fn stsd_entry(config: HEVCDecoderConfigurationRecord) -> Result<(DynBox, Sps
 
 pub fn trun_sample(
 	frame_type: FrameType,
-	timestamp: u32,
-	last_video_timestamp: u32,
 	composition_time: i32,
 	duration: u32,
 	data: &Bytes,
 ) -> Result<TrunSample, TransmuxError> {
 	Ok(TrunSample {
-		composition_time_offset: Some(timestamp as i64 + composition_time as i64 - last_video_timestamp as i64),
+		composition_time_offset: Some(composition_time as i64),
 		duration: Some(duration),
 		flags: Some(TrunSampleFlag {
 			reserved: 0,

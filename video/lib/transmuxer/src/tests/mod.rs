@@ -331,7 +331,7 @@ fn test_transmuxer_hevc_aac() {
 	let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
 
 	assert_eq!(json["format"]["format_name"], "mov,mp4,m4a,3gp,3g2,mj2");
-	assert_eq!(json["format"]["duration"], "3.083423");
+	assert_eq!(json["format"]["duration"], "3.090277");
 	assert_eq!(json["format"]["tags"]["major_brand"], "iso5");
 	assert_eq!(json["format"]["tags"]["minor_version"], "512");
 	assert_eq!(json["format"]["tags"]["compatible_brands"], "iso5iso6hev1mp41");

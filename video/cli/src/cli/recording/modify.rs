@@ -29,7 +29,6 @@ pub struct Modify {
 	tags: Option<String>,
 }
 
-#[async_trait::async_trait]
 impl Invokable for Modify {
 	async fn invoke(&self, invoker: &mut Invoker, _: &Cli) -> anyhow::Result<()> {
 		if self.room_id.is_none() && self.recording_config_id.is_none() && self.visibility.is_none() && self.tags.is_none() {

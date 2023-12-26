@@ -4,14 +4,16 @@ name: "db-scuffle-dev"
 
 services:
   cockroach:
-    image: ghcr.io/scuffletv/cockroach:latest
+    image: ghcr.io/scuffletv/ci/cockroach:latest
+    pull_policy: "always"
     command: start-single-node --insecure --store=type=mem,size=0.25 --advertise-addr=0.0.0.0
     ports:
       - "5432:26257"
       - "8080:8080"
 
   nats:
-    image: nats:latest
+    image: ghcr.io/scuffletv/ci/nats:latest
+    pull_policy: "always"
     ports:
       - "4222:4222"
       - "8222:8222"
@@ -20,7 +22,8 @@ services:
       - "-js"
 
   minio:
-    image: minio/minio
+    image: ghcr.io/scuffletv/ci/minio:latest
+    pull_policy: "always"
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -30,7 +33,8 @@ services:
     command: server /export --console-address ":9001"
 
   createbuckets:
-    image: minio/mc
+    image: minio/mc:latest
+    pull_policy: "always"
     depends_on:
       - minio
     entrypoint: >
@@ -49,6 +53,7 @@ services:
       "
 
   redis:
-    image: redis:latest
+    image: ghcr.io/scuffletv/ci/redis:latest
+    pull_policy: "always"
     ports:
       - "6379:6379"

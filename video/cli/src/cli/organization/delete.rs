@@ -11,7 +11,6 @@ pub struct Delete {
 	ids: Vec<Ulid>,
 }
 
-#[async_trait::async_trait]
 impl Invokable for Delete {
 	async fn invoke(&self, invoker: &mut Invoker, _: &Cli) -> anyhow::Result<()> {
 		let resp = invoker.invoke(OrganizationDeleteRequest { ids: self.ids.clone() }).await?;

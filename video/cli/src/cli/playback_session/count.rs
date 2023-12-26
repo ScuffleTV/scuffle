@@ -27,7 +27,6 @@ struct PlaybackSessionCount {
 	deduplicated_count: u64,
 }
 
-#[async_trait::async_trait]
 impl Invokable for Count {
 	async fn invoke(&self, invoker: &mut Invoker, _: &Cli) -> anyhow::Result<()> {
 		let resp = invoker

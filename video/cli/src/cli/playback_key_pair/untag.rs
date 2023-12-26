@@ -15,7 +15,6 @@ pub struct Untag {
 	tags: Vec<String>,
 }
 
-#[async_trait::async_trait]
 impl Invokable for Untag {
 	async fn invoke(&self, invoker: &mut Invoker, _: &Cli) -> anyhow::Result<()> {
 		let resp = invoker

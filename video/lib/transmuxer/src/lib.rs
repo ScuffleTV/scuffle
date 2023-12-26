@@ -177,14 +177,9 @@ impl Transmuxer {
 					frame_type,
 					data: FlvTagVideoData::Avc(AvcPacket::Nalu { composition_time, data }),
 				} => {
-					let sample = codecs::avc::trun_sample(
-						frame_type,
-						tag.timestamp,
-						self.last_video_timestamp,
-						composition_time,
-						duration,
-						&data,
-					)?;
+					let composition_time = ((composition_time as f64 * video_settings.framerate) / 1000.0).floor() * 1000.0;
+
+					let sample = codecs::avc::trun_sample(frame_type, composition_time as u32, duration, &data)?;
 
 					trun_sample = sample;
 					total_duration = duration;
@@ -208,14 +203,10 @@ impl Transmuxer {
 					frame_type,
 					data: FlvTagVideoData::Enhanced(EnhancedPacket::Hevc(HevcPacket::Nalu { composition_time, data })),
 				} => {
-					let sample = codecs::hevc::trun_sample(
-						frame_type,
-						tag.timestamp,
-						self.last_video_timestamp,
-						composition_time.unwrap_or_default(),
-						duration,
-						&data,
-					)?;
+					let composition_time =
+						((composition_time.unwrap_or_default() as f64 * video_settings.framerate) / 1000.0).floor() * 1000.0;
+
+					let sample = codecs::hevc::trun_sample(frame_type, composition_time as i32, duration, &data)?;
 
 					trun_sample = sample;
 					total_duration = duration;

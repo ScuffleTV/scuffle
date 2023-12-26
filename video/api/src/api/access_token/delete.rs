@@ -19,7 +19,6 @@ impl_request_scopes!(
 	RateLimitResource::AccessTokenDelete
 );
 
-#[async_trait::async_trait]
 impl ApiRequest<AccessTokenDeleteResponse> for tonic::Request<AccessTokenDeleteRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

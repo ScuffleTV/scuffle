@@ -52,7 +52,6 @@ impl platform_image_processor::global::ImageProcessorState for GlobalState {
 	}
 }
 
-#[async_trait::async_trait]
 impl binary_helper::Global<AppConfig> for GlobalState {
 	async fn new(ctx: Context, config: AppConfig) -> anyhow::Result<Self> {
 		let db = setup_database(&config.database).await?;

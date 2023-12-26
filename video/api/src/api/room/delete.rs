@@ -19,7 +19,6 @@ impl_request_scopes!(
 	RateLimitResource::RoomDelete
 );
 
-#[async_trait::async_trait]
 impl ApiRequest<RoomDeleteResponse> for tonic::Request<RoomDeleteRequest> {
 	async fn process<G: ApiGlobal>(
 		&self,

@@ -27,7 +27,7 @@ However, this approach necessitates a more intricate build system.
 When committing to our `main` branch, please adhere to our conventions:
 
 - Ensure every commit can be compiled successfully and is formatted.
-- Follow the format detailed here: https://karma-runner.github.io/6.4/dev/git-commit-msg.html
+- Follow the format detailed [here](https://karma-runner.github.io/6.4/dev/git-commit-msg.html).
 
 Example:
 
@@ -96,55 +96,16 @@ To begin, ensure the following are installed:
 
 For WSL2 users, setting up systemd is recommended to run services like Docker inside WSL2, bypassing Docker Desktop. Instructions are available [here](https://devblogs.microsoft.com/commandline/systemd-support-is-now-available-in-wsl/).
 
-### For Ubuntu
+### Install Components
 
-To install necessary tools on Ubuntu:
+A guide for installing everyone on Ubuntu:
+
+#### Rust
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y ca-certificates curl gnupg
-
-# Installing Rust
+sudo apt-get install -y curl gnupg ca-certificates git
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# Configuring apt to find nodejs
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-
-NODE_MAJOR=20
-echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
-
-sudo apt-get update
-sudo apt-get install -y nodejs
-
-# install pnpm
-curl -fsSL https://get.pnpm.io/install.sh | bash -
-
-# Running the install for nodejs, make, docker and git
-sudo apt-get update
-sudo apt-get install -y build-essential pkg-config libssl-dev docker.io git software-properties-common
-
-# Add Hashicorp's GPG key
-curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-
-# Add Hashicorp's repository
-echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-
-# Install Terraform
-sudo apt-get update && sudo apt-get install -y terraform
-
-# Installing docker compose v2
-DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}
-mkdir -p $DOCKER_CONFIG/cli-plugins
-curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64 -o $DOCKER_CONFIG/cli-plugins/docker-compose
-chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
-```
-
-To run Docker without sudo:
-
-```bash
-sudo groupadd docker
-sudo usermod -aG docker $(whoami)
 ```
 
 Update your environment variables by adding the following to `~/.bashrc` or `~/.zshrc`:
@@ -158,6 +119,53 @@ To install Mask:
 
 ```bash
 cargo install mask
+```
+
+#### NodeJS
+
+```bash
+NODE_MAJOR=20
+
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
+sudo apt-get update
+sudo apt-get install -y nodejs
+```
+
+#### Pnpm
+
+```bash
+curl -fsSL https://get.pnpm.io/install.sh | bash -
+```
+
+#### Docker
+
+```bash
+sudo apt-get install -y docker.io
+
+DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}
+mkdir -p $DOCKER_CONFIG/cli-plugins
+curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64 -o $DOCKER_CONFIG/cli-plugins/docker-compose
+chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
+```
+
+To run Docker without sudo:
+
+```bash
+sudo groupadd docker
+sudo usermod -aG docker $(whoami)
+```
+
+#### C External Libraries
+
+```bash
+sudo apt-get update
+sudo apt-get install pkg-config software-properties-common meson ninja-build nasm clang cmake make build-essential yasm autoconf automake libtool
+
+git clone https://github.com/ScuffleTV/external.git --depth 1 --recurse-submodule /tmp/scuffle-external
+sudo /tmp/scuffle-external/build.sh --prefix /usr/local
+sudo rm -rf /tmp/scuffle-external
 ```
 
 ## Setting up the project

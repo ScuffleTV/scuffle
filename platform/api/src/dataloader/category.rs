@@ -16,7 +16,6 @@ impl CategoryByIdLoader {
 	}
 }
 
-#[async_trait::async_trait]
 impl Loader for CategoryByIdLoader {
 	type Error = ();
 	type Key = Ulid;

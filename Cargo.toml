@@ -22,7 +22,8 @@ members = [
 
 resolver = "2"
 
-[profile.release]
+[profile.release-fat]
+inherits = "release"
 lto = 'fat'
 
 [profile.wasm]

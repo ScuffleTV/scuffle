@@ -85,3 +85,19 @@ impl Default for ImageUploaderConfig {
 		}
 	}
 }
+
+#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
+#[serde(default)]
+pub struct VideoApiConfig {
+	pub address: String,
+	pub tls: Option<TlsConfig>,
+}
+
+impl Default for VideoApiConfig {
+	fn default() -> Self {
+		Self {
+			address: "localhost:9080".to_string(),
+			tls: None,
+		}
+	}
+}

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use async_graphql::{Context, Object, Union};
 use chrono::{Duration, Utc};
 use common::database::{TraitProtobuf, Ulid};
@@ -324,7 +326,24 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		}
 
 		// TODO: Create a video room
-		let channel_room_id: ulid::Ulid = ulid::Ulid::new();
+		let res = global
+			.video_room_client()
+			.clone()
+			.create(pb::scuffle::video::v1::RoomCreateRequest {
+				transcoding_config_id: None,
+				recording_config_id: None,
+				visibility: pb::scuffle::video::v1::types::Visibility::Public as i32,
+				tags: Some(pb::scuffle::video::v1::types::Tags { tags: HashMap::new() }),
+			})
+			.await
+			.map_err_ignored_gql("failed to create room")?;
+		let channel_room_id = res
+			.into_inner()
+			.room
+			.map_err_gql("failed to create room")?
+			.id
+			.map_err_gql("failed to create room")?
+			.into_ulid();
 
 		let mut tx = global.db().begin().await?;
 

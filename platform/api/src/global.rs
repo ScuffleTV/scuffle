@@ -1,4 +1,5 @@
 use common::dataloader::DataLoader;
+use pb::scuffle::video::v1::room_client::RoomClient;
 
 use crate::config::{ApiConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig};
 use crate::dataloader::category::CategoryByIdLoader;
@@ -21,6 +22,8 @@ pub trait ApiState {
 	fn subscription_manager(&self) -> &SubscriptionManager;
 
 	fn image_uploader_s3(&self) -> &s3::Bucket;
+
+	fn video_room_client(&self) -> &RoomClient<tonic::transport::Channel>;
 }
 
 pub trait ApiGlobal:

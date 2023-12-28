@@ -39,7 +39,7 @@
 	<a class="video" href="/{user.username}">
 		{#if playing}
 			<Player
-				channelId={"00000000-0000-0000-0000-000000000000"}
+			roomId={user.channel.roomId}
 				showPip={false}
 				showTheater={false}
 			/>

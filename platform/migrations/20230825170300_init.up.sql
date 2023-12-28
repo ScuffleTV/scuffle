@@ -28,6 +28,7 @@ CREATE TABLE users (
     roles UUID[] NOT NULL DEFAULT '{}'::UUID[],
 
     -- Channel Settings
+    channel_room_id UUID NOT NULL,
     channel_title VARCHAR(256),
     channel_live_viewer_count INT4,
     channel_live_viewer_count_updated_at TIMESTAMPTZ,

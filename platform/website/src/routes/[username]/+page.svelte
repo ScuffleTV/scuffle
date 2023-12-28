@@ -51,7 +51,7 @@
 
 <div class="content">
 	<div class="user-container" class:dev class:top-nav-hidden={$topNavHidden}>
-		<Player {channelId} />
+		<Player roomId={data.user.channel.roomId} />
 		<div class="under-player" class:hide-on-mobile={!chatCollapsed}>
 			<div class="row title-row">
 				<h1 class="title">{data.user.channel.title ?? ""}</h1>

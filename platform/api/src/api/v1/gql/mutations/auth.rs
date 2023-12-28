@@ -323,6 +323,9 @@ impl<G: ApiGlobal> AuthMutation<G> {
 			.into());
 		}
 
+		// TODO: Create a video room
+		let channel_room_id: ulid::Ulid = ulid::Ulid::new();
+
 		let mut tx = global.db().begin().await?;
 
 		// TODO: maybe look to batch this
@@ -334,14 +337,16 @@ impl<G: ApiGlobal> AuthMutation<G> {
 				display_name,
 				display_color,
 				password_hash,
-				email
+				email,
+				channel_room_id
 			) VALUES (
 				$1,
 				$2,
 				$3,
 				$4,
 				$5,
-				$6
+				$6,
+				$7
 			) RETURNING *
 			"#,
 		)
@@ -351,6 +356,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		.bind(database::User::generate_display_color())
 		.bind(database::User::hash_password(&password))
 		.bind(email)
+		.bind(Ulid::from(channel_room_id))
 		.fetch_one(&mut *tx)
 		.await?;
 

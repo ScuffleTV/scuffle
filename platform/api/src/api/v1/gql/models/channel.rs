@@ -14,6 +14,7 @@ use crate::global::ApiGlobal;
 #[graphql(complex)]
 pub struct Channel<G: ApiGlobal> {
 	pub id: GqlUlid,
+	pub room_id: GqlUlid,
 	pub title: Option<String>,
 	pub live_viewer_count: Option<i32>,
 	pub live_viewer_count_updated_at: Option<DateRFC3339>,
@@ -82,6 +83,7 @@ impl<G: ApiGlobal> From<database::Channel> for Channel<G> {
 		let stream_key_ = value.get_stream_key();
 		Self {
 			id: value.id.0.into(),
+			room_id: value.room_id.0.into(),
 			title: value.title,
 			live_viewer_count: value.live_viewer_count,
 			live_viewer_count_updated_at: value.live_viewer_count_updated_at.map(DateRFC3339),

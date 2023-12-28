@@ -16,8 +16,9 @@
 	import { sideNavHidden, topNavHidden } from "$/store/layout";
 	import { authDialog } from "$/store/auth";
 	import { dev } from "$app/environment";
+	import { PUBLIC_ORG_ID } from "$env/static/public";
 
-	export const channelId: string = "";
+	export let roomId: string;
 	export let controls = true;
 	export let showPip = true;
 	export let showTheater = true;
@@ -103,9 +104,10 @@
 
 	onMount(() => {
 		init().then(() => {
-			// player = new Player(videoEl, {
-			// 	organization_id: "TODO",
-			// });
+			player = new Player(videoEl, {
+				organization_id: PUBLIC_ORG_ID,
+			});
+			player.loadRoom(roomId);
 
 			// player.on("manifestloaded", onManifestLoaded);
 			// player.on("variant", onVariantChange);

@@ -151,6 +151,7 @@ type Channel {
 	liveViewerCount: Int
 	liveViewerCountUpdatedAt: DateRFC3339
 	offlineBannerId: ULID
+	roomId: ULID!
 	streamKey: String
 	title: String
 }

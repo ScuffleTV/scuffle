@@ -91,6 +91,9 @@ impl Default for ImageUploaderConfig {
 pub struct VideoApiConfig {
 	pub address: String,
 	pub tls: Option<TlsConfig>,
+	pub organization_id: ulid::Ulid,
+	pub access_key: ulid::Ulid,
+	pub secret_key: ulid::Ulid,
 }
 
 impl Default for VideoApiConfig {
@@ -98,6 +101,9 @@ impl Default for VideoApiConfig {
 		Self {
 			address: "localhost:9080".to_string(),
 			tls: None,
+			organization_id: ulid::Ulid::nil(),
+			access_key: ulid::Ulid::nil(),
+			secret_key: ulid::Ulid::nil(),
 		}
 	}
 }

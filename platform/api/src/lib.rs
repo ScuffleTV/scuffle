@@ -7,3 +7,4 @@ pub mod grpc;
 pub mod image_upload_callback;
 pub mod subscription;
 pub mod turnstile;
+pub mod video_api;

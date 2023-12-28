@@ -6,7 +6,7 @@
 	import BigStreamPreview from "$/components/home/big-stream-preview.svelte";
 	import Logo from "$/components/icons/logo.svelte";
 	import { onMount } from "svelte";
-	import { PUBLIC_ASSET_BASE_URL } from "$env/static/public";
+	import { PUBLIC_BASE_URL } from "$env/static/public";
 	import type { User } from "$/gql/graphql";
 	import ShowMore from "$/components/show-more.svelte";
 
@@ -328,7 +328,7 @@
 	<!-- Open Graph -->
 	<meta property="og:title" content="Scuffle" />
 	<meta property="og:description" content="Scuffle - open-source live-streaming platform" />
-	<meta property="og:image" content="{PUBLIC_ASSET_BASE_URL}/banner.jpeg" />
+	<meta property="og:image" content="{PUBLIC_BASE_URL}/banner.jpeg" />
 	<meta property="og:image:alt" content="Scuffle Banner" />
 </svelte:head>
 

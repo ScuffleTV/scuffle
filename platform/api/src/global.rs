@@ -1,5 +1,4 @@
 use common::dataloader::DataLoader;
-use pb::scuffle::video::v1::room_client::RoomClient;
 
 use crate::config::{ApiConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig};
 use crate::dataloader::category::CategoryByIdLoader;
@@ -9,6 +8,7 @@ use crate::dataloader::session::SessionByIdLoader;
 use crate::dataloader::uploaded_file::UploadedFileByIdLoader;
 use crate::dataloader::user::{UserByIdLoader, UserByUsernameLoader};
 use crate::subscription::SubscriptionManager;
+use crate::video_api::VideoRoomClient;
 
 pub trait ApiState {
 	fn user_by_username_loader(&self) -> &DataLoader<UserByUsernameLoader>;
@@ -23,7 +23,7 @@ pub trait ApiState {
 
 	fn image_uploader_s3(&self) -> &s3::Bucket;
 
-	fn video_room_client(&self) -> &RoomClient<tonic::transport::Channel>;
+	fn video_room_client(&self) -> &VideoRoomClient;
 }
 
 pub trait ApiGlobal:

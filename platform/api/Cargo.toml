@@ -54,6 +54,7 @@ pin-project = "1.1"
 config = { workspace = true }
 pb = { workspace = true }
 binary-helper = { workspace = true }
+base64 = "0.21.5"
 
 [dev-dependencies]
 tempfile = "3.8"

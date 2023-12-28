@@ -17,8 +17,10 @@
 		PUBLIC_GQL_ENDPOINT,
 		PUBLIC_GQL_WS_ENDPOINT,
 		PUBLIC_GQL_VERSION,
-		PUBLIC_ASSET_BASE_URL,
+		PUBLIC_BASE_URL,
 		PUBLIC_TWITTER_HANDLE,
+		PUBLIC_ORG_ID,
+		PUBLIC_EDGE_ENDPOINT
 	} from "$env/static/public";
 	import { websocketOpen } from "$/store/websocket";
 	import { dev } from "$app/environment";
@@ -104,7 +106,7 @@
 					Environment Variables
 				</span>
 				<ul>
-					{#each Object.entries( { PUBLIC_CF_TURNSTILE_KEY, PUBLIC_GQL_ENDPOINT, PUBLIC_GQL_WS_ENDPOINT, PUBLIC_GQL_VERSION, PUBLIC_ASSET_BASE_URL, PUBLIC_TWITTER_HANDLE }, ) as [key, value]}
+					{#each Object.entries( { PUBLIC_CF_TURNSTILE_KEY, PUBLIC_GQL_ENDPOINT, PUBLIC_GQL_WS_ENDPOINT, PUBLIC_GQL_VERSION, PUBLIC_BASE_URL, PUBLIC_TWITTER_HANDLE, PUBLIC_ORG_ID, PUBLIC_EDGE_ENDPOINT }, ) as [key, value]}
 						<li><code>{key}</code>: <code>{value}</code></li>
 					{/each}
 				</ul>

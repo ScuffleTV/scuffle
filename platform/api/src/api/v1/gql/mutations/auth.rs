@@ -325,7 +325,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 			.into());
 		}
 
-		// TODO: Create a video room
+		// create a video room
 		let res = global
 			.video_room_client()
 			.clone()
@@ -336,14 +336,16 @@ impl<G: ApiGlobal> AuthMutation<G> {
 				tags: Some(pb::scuffle::video::v1::types::Tags { tags: HashMap::new() }),
 			})
 			.await
-			.map_err_ignored_gql("failed to create room")?;
+			.map_err_gql("failed to create room")?;
+		let res = res.into_inner();
 		let channel_room_id = res
-			.into_inner()
 			.room
 			.map_err_gql("failed to create room")?
 			.id
 			.map_err_gql("failed to create room")?
 			.into_ulid();
+
+		// TODO: what do we do when the next step fails? delete the room again?
 
 		let mut tx = global.db().begin().await?;
 
@@ -357,7 +359,8 @@ impl<G: ApiGlobal> AuthMutation<G> {
 				display_color,
 				password_hash,
 				email,
-				channel_room_id
+				channel_room_id,
+				channel_stream_key
 			) VALUES (
 				$1,
 				$2,
@@ -365,7 +368,8 @@ impl<G: ApiGlobal> AuthMutation<G> {
 				$4,
 				$5,
 				$6,
-				$7
+				$7,
+				$8
 			) RETURNING *
 			"#,
 		)
@@ -376,6 +380,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		.bind(database::User::hash_password(&password))
 		.bind(email)
 		.bind(Ulid::from(channel_room_id))
+		.bind(res.stream_key)
 		.fetch_one(&mut *tx)
 		.await?;
 

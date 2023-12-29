@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use base64::Engine;
-use pb::scuffle::video::v1::room_client::RoomClient;
+use pb::scuffle::video::v1::{room_client::RoomClient, events_client::EventsClient};
 use tonic::{transport::Channel, service::interceptor::InterceptedService};
 use ulid::Ulid;
 
@@ -31,12 +31,24 @@ impl tonic::service::Interceptor for AuthInterceptor {
 }
 
 pub type VideoRoomClient = RoomClient<InterceptedService<Channel, AuthInterceptor>>;
+pub type VideoEventsClient = EventsClient<InterceptedService<Channel, AuthInterceptor>>;
 
 pub fn setup_video_room_client(config: &VideoApiConfig) -> anyhow::Result<VideoRoomClient> {
     // TODO: tls
     let video_api = common::grpc::make_channel(vec![config.address.clone()], Duration::from_secs(30), None)?;
 
     Ok(pb::scuffle::video::v1::room_client::RoomClient::with_interceptor(video_api, AuthInterceptor {
+        organization_id: config.organization_id,
+        access_key: config.access_key,
+        secret_key: config.secret_key,
+    }))
+}
+
+pub fn setup_video_events_client(config: &VideoApiConfig) -> anyhow::Result<VideoEventsClient> {
+    // TODO: tls
+    let video_api = common::grpc::make_channel(vec![config.address.clone()], Duration::from_secs(30), None)?;
+
+    Ok(pb::scuffle::video::v1::events_client::EventsClient::with_interceptor(video_api, AuthInterceptor {
         organization_id: config.organization_id,
         access_key: config.access_key,
         secret_key: config.secret_key,

@@ -8,7 +8,7 @@ use crate::dataloader::session::SessionByIdLoader;
 use crate::dataloader::uploaded_file::UploadedFileByIdLoader;
 use crate::dataloader::user::{UserByIdLoader, UserByUsernameLoader};
 use crate::subscription::SubscriptionManager;
-use crate::video_api::VideoRoomClient;
+use crate::video_api::{VideoRoomClient, VideoEventsClient};
 
 pub trait ApiState {
 	fn user_by_username_loader(&self) -> &DataLoader<UserByUsernameLoader>;
@@ -24,6 +24,7 @@ pub trait ApiState {
 	fn image_uploader_s3(&self) -> &s3::Bucket;
 
 	fn video_room_client(&self) -> &VideoRoomClient;
+	fn video_events_client(&self) -> &VideoEventsClient;
 }
 
 pub trait ApiGlobal:

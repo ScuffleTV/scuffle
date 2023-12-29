@@ -8,3 +8,4 @@ pub mod image_upload_callback;
 pub mod subscription;
 pub mod turnstile;
 pub mod video_api;
+pub mod video_event_handler;

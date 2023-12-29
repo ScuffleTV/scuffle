@@ -15,7 +15,8 @@ on:
 
 
 concurrency:
-  group: lint-test-build-{{ github.head_ref ||  github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   pre_job:
@@ -34,7 +35,7 @@ jobs:
   lint:
     needs: pre_job
     if: needs.pre_job.outputs.should_skip != 'true'
-    runs-on: scuffle-ci-i5-13500
+    runs-on: ubuntu-latest
     container: ghcr.io/scuffletv/ci/build:latest
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +49,7 @@ jobs:
   test:
     needs: pre_job
     if: needs.pre_job.outputs.should_skip != 'true'
-    runs-on: scuffle-ci-i5-13500
+    runs-on: ubuntu-latest
     container: ghcr.io/scuffletv/ci/build:latest
     services:
       cockroach:

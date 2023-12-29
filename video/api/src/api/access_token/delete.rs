@@ -8,7 +8,7 @@ use pb::scuffle::video::v1::{AccessTokenDeleteRequest, AccessTokenDeleteResponse
 use tonic::Status;
 use video_common::database::{AccessToken, DatabaseTable};
 
-use crate::api::utils::{events, impl_request_scopes, AccessTokenExt, ApiRequest, TonicRequest};
+use crate::api::utils::{impl_request_scopes, AccessTokenExt, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 

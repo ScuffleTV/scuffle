@@ -9,7 +9,7 @@ use pb::scuffle::video::v1::{room_reset_key_response, RoomResetKeyRequest, RoomR
 use video_common::database::{AccessToken, DatabaseTable};
 
 use super::utils::create_stream_key;
-use crate::api::utils::{events, impl_request_scopes, ApiRequest, TonicRequest};
+use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 

@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, Copy)]
 pub enum IngestError {
 	KeyframeBitrateDistance(u64, u64),
 	BitrateLimit(u64, u64),
@@ -16,6 +17,13 @@ pub enum IngestError {
 	SubscriptionClosedUnexpectedly,
 	FailedToRequestTranscoder,
 	FailedToUpdateRoom,
+}
+
+impl From<IngestError> for pb::scuffle::video::v1::types::event::room::disconnected::Cause {
+	fn from(value: IngestError) -> Self {
+		// TODO: implement
+		Self::DisconnectedCauseUnknown
+	}
 }
 
 impl std::fmt::Display for IngestError {

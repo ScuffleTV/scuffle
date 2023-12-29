@@ -1,6 +1,5 @@
 pub mod access_tokens;
 pub mod auth;
-pub mod events;
 pub mod get;
 pub mod ratelimit;
 pub mod tags;

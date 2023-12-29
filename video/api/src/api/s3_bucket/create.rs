@@ -13,7 +13,7 @@ use super::utils::{
 	validate_secret_access_key,
 };
 use crate::api::utils::tags::validate_tags;
-use crate::api::utils::{events, impl_request_scopes, ApiRequest, TonicRequest};
+use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 

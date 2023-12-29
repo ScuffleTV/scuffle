@@ -11,7 +11,7 @@ use video_common::database::{AccessToken, DatabaseTable, Rendition};
 
 use crate::api::errors::MODIFY_NO_FIELDS;
 use crate::api::utils::tags::validate_tags;
-use crate::api::utils::{events, impl_request_scopes, ApiRequest, TonicRequest};
+use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 

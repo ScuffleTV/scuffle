@@ -13,6 +13,8 @@ use futures::Future;
 use futures_util::StreamExt;
 use pb::scuffle::video::internal::events::{organization_event, OrganizationEvent, TranscoderRequestTask};
 use pb::scuffle::video::internal::{ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse};
+use pb::scuffle::video::v1::events_fetch_request::Target;
+use pb::scuffle::video::v1::types::event;
 use pb::scuffle::video::v1::types::Rendition;
 use prost::Message as _;
 use rtmp::{ChannelData, PublishRequest, Session, SessionError};
@@ -124,7 +126,41 @@ pub async fn handle<G: IngestGlobal, S: AsyncReadWrite>(global: Arc<G>, socket: 
 		}
 	};
 
+	// send room connected event
+	video_common::events::emit(
+		global.jetstream(),
+		connection.organization_id,
+		Target::Room,
+		event::Event::Room(event::Room {
+			room_id: Some(connection.room_id.into()),
+			event: Some(event::room::Event::Connected(event::room::Connected {
+				connection_id: Some(connection.id.into()),
+			})),
+		}),
+	)
+	.await;
+
 	let clean_disconnect = connection.run(&global, session).await;
+
+	// send room disconnected event
+	video_common::events::emit(
+		global.jetstream(),
+		connection.organization_id,
+		Target::Room,
+		event::Event::Room(event::Room {
+			room_id: Some(connection.room_id.into()),
+			event: Some(event::room::Event::Disconnected(event::room::Disconnected {
+				connection_id: Some(connection.id.into()),
+				clean: clean_disconnect,
+				cause: connection
+					.error
+					.clone()
+					.map(|e| e.into())
+					.unwrap_or(event::room::disconnected::Cause::DisconnectedCauseUnknown) as i32,
+			})),
+		}),
+	)
+	.await;
 
 	if let Err(err) = connection.cleanup(&global, clean_disconnect).await {
 		tracing::error!(error = %err, "failed to cleanup connection")

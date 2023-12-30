@@ -21,7 +21,7 @@ use super::ext::RequestExt as _;
 use super::MySchema;
 use crate::api::auth::{AuthData, AuthError};
 use crate::api::error::Result;
-use crate::api::jwt::JwtState;
+use crate::api::jwt::{AuthJwtPayload, JwtState};
 use crate::api::request_context::RequestContext;
 use crate::global::ApiGlobal;
 
@@ -74,7 +74,7 @@ async fn websocket_handler<G: ApiGlobal>(
 					// We silently ignore invalid tokens since we don't want to force the user to
 					// login if the token is invalid when they make a request which requires
 					// authentication, it will fail.
-					let Some(jwt) = JwtState::verify(&global, token) else {
+					let Some(jwt) = AuthJwtPayload::verify(&global, token) else {
 						return Err(GqlError::Auth(AuthError::InvalidToken).into());
 					};
 

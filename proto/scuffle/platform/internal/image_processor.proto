@@ -2,8 +2,7 @@ syntax = "proto3";
 
 package scuffle.platform.internal.image_processor;
 
-import "scuffle/types/ulid.proto";
-import "scuffle/platform/internal/types/image_processor.proto";
+import "scuffle/platform/internal/types/image_format.proto";
 
 message Task {
   enum ResizeMethod {
@@ -32,17 +31,19 @@ message Task {
     Lanczos4 = 4;
   }
 
-  uint32 base_width = 1;
-  uint32 base_height = 2;
+  string input_path = 1;
 
-  repeated scuffle.platform.internal.types.Format formats = 3;
-  ResizeMethod resize_method = 4;
-  ResizeAlgorithm resize_algorithm = 5;
-  repeated uint32 scales = 6;
+  uint32 base_width = 2;
+  uint32 base_height = 3;
 
-  bool upscale = 7;
+  repeated scuffle.platform.internal.types.ImageFormat formats = 4;
+  ResizeMethod resize_method = 5;
+  ResizeAlgorithm resize_algorithm = 6;
+  repeated uint32 scales = 7;
 
-  string output_prefix = 8;
+  bool upscale = 8;
+
+  string output_prefix = 9;
 
   message Limits {
     uint32 max_processing_time_ms = 1;
@@ -52,7 +53,7 @@ message Task {
     uint32 max_input_duration_ms = 5;
   }
 
-  optional Limits limits = 9;
+  optional Limits limits = 10;
 
-  string callback_subject = 10;
+  string callback_subject = 11;
 }

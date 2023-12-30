@@ -83,10 +83,9 @@ impl AuthData {
 		// smallest
 		user_roles.sort_by_key(|r| global_roles_order.get(&r.id));
 
-		let mut user_permissions = global_state.default_permissions;
-		for role in &user_roles {
-			user_permissions = user_permissions.merge_with_role(role);
-		}
+		let user_permissions = user_roles
+			.iter()
+			.fold(global_state.default_permissions, |acc, role| acc.merge_with_role(role));
 
 		Ok(Self {
 			session,

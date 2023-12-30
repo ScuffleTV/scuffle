@@ -4,5 +4,6 @@ pub mod database;
 pub mod dataloader;
 pub mod global;
 pub mod grpc;
+pub mod image_upload_callback;
 pub mod subscription;
 pub mod turnstile;

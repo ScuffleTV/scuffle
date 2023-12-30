@@ -2,6 +2,7 @@ use async_graphql::{Context, Subscription};
 use futures_util::Stream;
 use pb::ext::*;
 use prost::Message;
+use tokio_stream::StreamExt;
 
 use super::FollowStream;
 use crate::api::auth::AuthError;
@@ -10,6 +11,7 @@ use crate::api::v1::gql::error::{GqlError, Result};
 use crate::api::v1::gql::ext::ContextExt;
 use crate::api::v1::gql::models::ulid::GqlUlid;
 use crate::global::ApiGlobal;
+use crate::subscription::SubscriptionTopic;
 
 pub struct ChannelSubscription<G: ApiGlobal>(std::marker::PhantomData<G>);
 
@@ -44,7 +46,7 @@ impl<G: ApiGlobal> ChannelSubscription<G> {
 
 		let mut subscription = global
 			.subscription_manager()
-			.subscribe(format!("channel.{}.follows", channel_id.to_ulid().to_string()))
+			.subscribe(SubscriptionTopic::ChannelFollows(channel_id.to_ulid()))
 			.await
 			.map_err_gql("failed to subscribe to channel follows")?;
 
@@ -71,20 +73,8 @@ impl<G: ApiGlobal> ChannelSubscription<G> {
 		channel_id: GqlUlid,
 	) -> Result<impl Stream<Item = Result<i64>> + 'ctx> {
 		let global = ctx.get_global::<G>();
-		let request_context = ctx.get_req_context();
 
-		let auth = request_context
-			.auth(global)
-			.await?
-			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
-
-		// TODO: allow other users with permissions
-		if auth.session.user_id.0 != channel_id.to_ulid() {
-			return Err(GqlError::Unauthorized {
-				field: "channel_followers_count",
-			}
-			.into());
-		}
+		let stream = self.channel_follows(ctx, channel_id).await?;
 
 		let (mut followers,) = sqlx::query_as(
 			r#"
@@ -101,26 +91,16 @@ impl<G: ApiGlobal> ChannelSubscription<G> {
 		.fetch_one(global.db().as_ref())
 		.await?;
 
-		let mut subscription = global
-			.subscription_manager()
-			.subscribe(format!("channel.{}.follows", channel_id.to_ulid().to_string()))
-			.await
-			.map_err_gql("failed to subscribe to channel follows")?;
+		Ok(stream.map(move |value| {
+			let value = value?;
 
-		Ok(async_stream::stream!({
-			yield Ok(followers);
-			while let Ok(message) = subscription.recv().await {
-				let event = pb::scuffle::platform::internal::events::UserFollowChannel::decode(message.payload)
-					.map_err_ignored_gql("failed to decode user follow")?;
-
-				if event.following {
-					followers += 1;
-				} else {
-					followers -= 1;
-				}
-
-				yield Ok(followers);
+			if value.following {
+				followers += 1;
+			} else {
+				followers -= 1;
 			}
+
+			Ok(followers)
 		}))
 	}
 }

@@ -1,19 +1,25 @@
 mod category;
 mod channel;
 mod chat_message;
+mod file_type;
+mod file_upload_token;
 mod global_state;
 mod role;
 mod search_result;
 mod session;
 mod two_fa_request;
+mod uploaded_file;
 mod user;
 
 pub use category::*;
 pub use channel::*;
 pub use chat_message::*;
+pub use file_type::*;
+pub use file_upload_token::*;
 pub use global_state::*;
 pub use role::*;
 pub use search_result::*;
 pub use session::*;
 pub use two_fa_request::*;
+pub use uploaded_file::*;
 pub use user::*;

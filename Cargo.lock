@@ -866,6 +866,7 @@ dependencies = [
  "portpicker",
  "prost",
  "routerify",
+ "rust-s3",
  "serde",
  "serde_json",
  "serial_test",
@@ -3294,6 +3295,7 @@ dependencies = [
  "config",
  "dotenvy",
  "email_address",
+ "file-format",
  "futures",
  "futures-util",
  "hmac",
@@ -3302,6 +3304,7 @@ dependencies = [
  "hyper-tungstenite",
  "itertools 0.12.0",
  "jwt",
+ "multer",
  "negative-impl",
  "pb",
  "portpicker",
@@ -3309,6 +3312,7 @@ dependencies = [
  "rand",
  "reqwest",
  "routerify",
+ "rust-s3",
  "rustls 0.22.1",
  "rustls-pemfile 2.0.0",
  "serde",
@@ -3326,6 +3330,7 @@ dependencies = [
  "tonic",
  "totp-rs",
  "tracing 0.1.40",
+ "trait-variant",
  "ulid",
  "uuid",
 ]
@@ -5453,6 +5458,17 @@ dependencies = [
  "sharded-slab",
  "thread_local",
  "tracing-core 0.1.32",
+]
+
+[[package]]
+name = "trait-variant"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a9183102ccb002e12e9b0f02bb3c4e85699b8cc5844eaf55496e22eff9a6c01"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.41",
 ]
 
 [[package]]

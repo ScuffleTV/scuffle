@@ -11,6 +11,7 @@ use crate::api::v1::gql::ext::ContextExt;
 use crate::api::v1::gql::models::chat_message::{ChatMessage, MessageType};
 use crate::api::v1::gql::models::ulid::GqlUlid;
 use crate::global::ApiGlobal;
+use crate::subscription::SubscriptionTopic;
 
 pub struct ChatSubscription<G: ApiGlobal>(std::marker::PhantomData<G>);
 
@@ -49,7 +50,7 @@ impl<G: ApiGlobal> ChatSubscription<G> {
 
 		let mut message_stream = global
 			.subscription_manager()
-			.subscribe(format!("channel.{}.chat.messages", *channel_id))
+			.subscribe(SubscriptionTopic::ChannelChatMessages(channel_id.to_ulid()))
 			.await
 			.map_err_gql("failed to subscribe to chat messages")?;
 

@@ -12,6 +12,7 @@ use crate::api::v1::gql::models::chat_message::ChatMessage;
 use crate::api::v1::gql::models::ulid::GqlUlid;
 use crate::database;
 use crate::global::ApiGlobal;
+use crate::subscription::SubscriptionTopic;
 
 pub struct ChatMutation<G>(std::marker::PhantomData<G>);
 
@@ -66,7 +67,7 @@ impl<G: ApiGlobal> ChatMutation<G> {
 		match global
 			.nats()
 			.publish(
-				format!("channel.{}.chat.messages", channel_id.to_ulid()),
+				SubscriptionTopic::ChannelChatMessages(channel_id.to_ulid()),
 				chat_message.to_protobuf().encode_to_vec().into(),
 			)
 			.await

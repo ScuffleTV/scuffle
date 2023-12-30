@@ -14,7 +14,7 @@ signal = ["tokio/signal", "tokio/process"]
 macros = []
 database = ["dep:sqlx", "dep:sqlx-postgres", "dep:prost", "dep:uuid", "dep:ulid"]
 dataloader = ["dep:fnv", "dep:futures-util", "dep:futures-channel", "dep:futures-timer"]
-config = ["dep:config", "dep:serde", "logging"]
+config = ["dep:config", "dep:serde", "logging", "dep:rust-s3"]
 ratelimiter = ["dep:fred"]
 global = ["context", "dep:fred", "dep:sqlx", "dep:async-nats"]
 http = ["dep:hyper", "dep:serde_json", "dep:routerify", "dep:bytes"]
@@ -58,6 +58,8 @@ sqlx-postgres = { version = "0.7", optional = true }
 prost = { version = "0.12", optional = true }
 uuid = { version = "1.6", features = ["v4"], optional = true }
 ulid = { version = "1.1", features = ["uuid"], optional = true}
+
+rust-s3 = { git = "https://github.com/durch/rust-s3.git", default-features = false, features = ["tags", "tokio-rustls-tls", "fail-on-err"], optional = true }
 
 [dev-dependencies]
 ulid = "1.1"

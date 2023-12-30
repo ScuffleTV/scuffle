@@ -55,20 +55,8 @@ impl platform_image_processor::global::ImageProcessorState for GlobalState {
 impl binary_helper::Global<AppConfig> for GlobalState {
 	async fn new(ctx: Context, config: AppConfig) -> anyhow::Result<Self> {
 		let db = setup_database(&config.database).await?;
-		let s3_source_bucket = config
-			.extra
-			.image_processor
-			.source_bucket
-			.setup()
-			.await
-			.context("source bucket")?;
-		let s3_target_bucket = config
-			.extra
-			.image_processor
-			.target_bucket
-			.setup()
-			.await
-			.context("target bucket")?;
+		let s3_source_bucket = config.extra.image_processor.source_bucket.setup().context("source bucket")?;
+		let s3_target_bucket = config.extra.image_processor.target_bucket.setup().context("target bucket")?;
 
 		let (nats, jetstream) = setup_nats(&config.name, &config.nats).await?;
 

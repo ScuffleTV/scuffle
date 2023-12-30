@@ -7,6 +7,7 @@ use tokio::select;
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 use tokio_stream::{StreamExt, StreamMap, StreamNotifyClose};
 use tracing::{debug, error, warn};
+use ulid::Ulid;
 
 #[derive(thiserror::Error, Debug)]
 pub enum SubscriptionManagerError {
@@ -66,6 +67,35 @@ impl Deref for SubscriberReceiver<'_> {
 impl DerefMut for SubscriberReceiver<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.rx
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum SubscriptionTopic {
+	ChannelFollows(Ulid),
+	ChannelChatMessages(Ulid),
+	UserDisplayName(Ulid),
+	UserDisplayColor(Ulid),
+	UserFollows(Ulid),
+	UserProfilePicture(Ulid),
+}
+
+impl std::fmt::Display for SubscriptionTopic {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::ChannelFollows(channel_id) => write!(f, "channel.{channel_id}.follows"),
+			Self::ChannelChatMessages(channel_id) => write!(f, "channel.{channel_id}.chat_messages"),
+			Self::UserDisplayName(user_id) => write!(f, "user.{user_id}.display_name"),
+			Self::UserDisplayColor(user_id) => write!(f, "user.{user_id}.display_color"),
+			Self::UserFollows(user_id) => write!(f, "user.{user_id}.follows"),
+			Self::UserProfilePicture(user_id) => write!(f, "user.{user_id}.profile_picture"),
+		}
+	}
+}
+
+impl async_nats::subject::ToSubject for SubscriptionTopic {
+	fn to_subject(&self) -> async_nats::Subject {
+		self.to_string().into()
 	}
 }
 
@@ -149,7 +179,7 @@ impl SubscriptionManager {
 		Ok(())
 	}
 
-	pub async fn subscribe(&self, topic: impl ToString) -> Result<SubscriberReceiver<'_>, SubscriptionManagerError> {
+	pub async fn subscribe(&self, topic: SubscriptionTopic) -> Result<SubscriberReceiver<'_>, SubscriptionManagerError> {
 		let (tx, rx) = oneshot::channel();
 
 		self.events_tx.send(Event::Subscribe {

@@ -8,7 +8,7 @@ use routerify::Middleware;
 
 use crate::api::auth::{AuthData, AuthError};
 use crate::api::error::ApiError;
-use crate::api::jwt::JwtState;
+use crate::api::jwt::{AuthJwtPayload, JwtState};
 use crate::api::request_context::RequestContext;
 use crate::global::ApiGlobal;
 
@@ -32,7 +32,7 @@ pub fn auth_middleware<G: ApiGlobal>(_: &Arc<G>) -> Middleware<hyper::Body, Rout
 			.ok_or(AuthError::InvalidToken)
 			.into_err_route()?;
 
-		let jwt = JwtState::verify(&global, token)
+		let jwt = AuthJwtPayload::verify(&global, token)
 			.ok_or(AuthError::InvalidToken)
 			.into_err_route()?;
 

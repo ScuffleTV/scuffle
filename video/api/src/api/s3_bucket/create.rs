@@ -110,8 +110,8 @@ impl ApiRequest<S3BucketCreateResponse> for tonic::Request<S3BucketCreateRequest
 				))
 			})?;
 
-		events::emit(
-			global,
+		video_common::events::emit(
+			global.jetstream(),
 			access_token.organization_id.0,
 			Target::S3Bucket,
 			event::Event::S3Bucket(event::S3Bucket {

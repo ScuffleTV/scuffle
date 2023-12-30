@@ -122,8 +122,8 @@ impl ApiRequest<RoomCreateResponse> for tonic::Request<RoomCreateRequest> {
 				))
 			})?;
 
-		events::emit(
-			global,
+		video_common::events::emit(
+			global.jetstream(),
 			access_token.organization_id.0,
 			Target::Room,
 			event::Event::Room(event::Room {

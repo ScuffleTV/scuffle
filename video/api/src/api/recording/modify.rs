@@ -113,8 +113,8 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 			.map_err(|_| Status::internal("failed to load recording state"))?
 			.unwrap_or_default();
 
-		events::emit(
-			global,
+		video_common::events::emit(
+			global.jetstream(),
 			access_token.organization_id.0,
 			Target::Recording,
 			event::Event::Recording(event::Recording {

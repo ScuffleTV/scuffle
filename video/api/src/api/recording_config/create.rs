@@ -118,8 +118,8 @@ impl ApiRequest<RecordingConfigCreateResponse> for tonic::Request<RecordingConfi
 				))
 			})?;
 
-		events::emit(
-			global,
+		video_common::events::emit(
+			global.jetstream(),
 			access_token.organization_id.0,
 			Target::RecordingConfig,
 			event::Event::RecordingConfig(event::RecordingConfig {

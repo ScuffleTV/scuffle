@@ -1,6 +1,7 @@
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::{event, Event};
 use prost::Message;
+
 use crate::keys::event_subject;
 
 pub async fn emit(jetstream: &async_nats::jetstream::Context, org_id: ulid::Ulid, target: Target, event: event::Event) {

@@ -87,8 +87,8 @@ impl ApiRequest<TranscodingConfigCreateResponse> for tonic::Request<TranscodingC
 				))
 			})?;
 
-		events::emit(
-			global,
+		video_common::events::emit(
+			global.jetstream(),
 			access_token.organization_id.0,
 			Target::TranscodingConfig,
 			event::Event::TranscodingConfig(event::TranscodingConfig {

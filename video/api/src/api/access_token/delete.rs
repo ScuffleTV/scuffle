@@ -102,8 +102,8 @@ impl ApiRequest<AccessTokenDeleteResponse> for tonic::Request<AccessTokenDeleteR
 		};
 
 		for id in deleted_ids.iter().copied() {
-			events::emit(
-				global,
+			video_common::events::emit(
+				global.jetstream(),
 				access_token.organization_id.0,
 				Target::AccessToken,
 				event::Event::AccessToken(event::AccessToken {

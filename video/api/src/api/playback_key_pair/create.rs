@@ -85,8 +85,8 @@ impl ApiRequest<PlaybackKeyPairCreateResponse> for tonic::Request<PlaybackKeyPai
 				))
 			})?;
 
-		events::emit(
-			global,
+		video_common::events::emit(
+			global.jetstream(),
 			access_token.organization_id.0,
 			Target::PlaybackKeyPair,
 			event::Event::PlaybackKeyPair(event::PlaybackKeyPair {

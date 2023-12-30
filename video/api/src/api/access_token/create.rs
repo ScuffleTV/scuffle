@@ -106,8 +106,8 @@ impl ApiRequest<AccessTokenCreateResponse> for tonic::Request<AccessTokenCreateR
 				))
 			})?;
 
-		events::emit(
-			global,
+		video_common::events::emit(
+			global.jetstream(),
 			access_token.organization_id.0,
 			Target::AccessToken,
 			event::Event::AccessToken(event::AccessToken {

@@ -18,7 +18,8 @@ use pb::scuffle::video::internal::{
 	ingest_watch_request, ingest_watch_response, live_rendition_manifest, IngestWatchRequest, IngestWatchResponse,
 	LiveManifest, LiveRenditionManifest,
 };
-use pb::scuffle::video::v1::types::VideoConfig;
+use pb::scuffle::video::v1::events_fetch_request::Target;
+use pb::scuffle::video::v1::types::{event, VideoConfig};
 use prost::Message as _;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixListener;
@@ -553,6 +554,19 @@ impl<G: TranscoderGlobal> Job<G> {
 						.execute(global.db().as_ref())
 						.await
 						.map_err(|e| TaskError::Custom(e.into()))?;
+
+						video_common::events::emit(
+							global.jetstream(),
+							organization_id,
+							Target::Room,
+							event::Event::Room(event::Room {
+								room_id: Some(room_id.into()),
+								event: Some(event::room::Event::Ready(event::room::Ready {
+									connection_id: Some(connection_id.into()),
+								})),
+							}),
+						)
+						.await;
 
 						if resp.rows_affected() != 1 {
 							return Err(TaskError::Custom(anyhow::anyhow!("failed to update room status")));

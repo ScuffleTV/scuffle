@@ -126,7 +126,7 @@ pub async fn handle<G: IngestGlobal, S: AsyncReadWrite>(global: Arc<G>, socket: 
 		}
 	};
 
-	// send room connected event
+	// emit room connected event
 	video_common::events::emit(
 		global.jetstream(),
 		connection.organization_id,
@@ -142,7 +142,7 @@ pub async fn handle<G: IngestGlobal, S: AsyncReadWrite>(global: Arc<G>, socket: 
 
 	let clean_disconnect = connection.run(&global, session).await;
 
-	// send room disconnected event
+	// emit room disconnected event
 	video_common::events::emit(
 		global.jetstream(),
 		connection.organization_id,
@@ -439,7 +439,7 @@ impl Connection {
 
 		self.update_sender.take();
 
-		tracing::info!(clean = clean_shutdown, "connection closed",);
+		tracing::info!(clean = clean_shutdown, "connection closed");
 
 		clean_shutdown
 	}

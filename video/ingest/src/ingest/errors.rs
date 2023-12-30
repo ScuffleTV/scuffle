@@ -21,8 +21,14 @@ pub enum IngestError {
 
 impl From<IngestError> for pb::scuffle::video::v1::types::event::room::disconnected::Cause {
 	fn from(value: IngestError) -> Self {
-		// TODO: implement
-		Self::DisconnectedCauseUnknown
+		// TODO: return the correct cause
+		match value {
+			IngestError::KeyframeBitrateDistance(_, _) => Self::DisconnectedCauseHighBitrate,
+			IngestError::BitrateLimit(_, _) => Self::DisconnectedCauseHighBitrate,
+			IngestError::KeyframeTimeLimit(_) => Self::DisconnectedCauseHighBitrate,
+			IngestError::DisconnectRequested => Self::DisconnectedCauseDisconnectRequest,
+			_ => Self::DisconnectedCauseUnknown,
+		}
 	}
 }
 

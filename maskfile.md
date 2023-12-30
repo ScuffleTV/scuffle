@@ -75,7 +75,7 @@ if [ "$no_js" != "true" ]; then
 fi
 
 if [ "$no_proto" != "true" ]; then
-    find . -name '*.proto' -exec clang-format --dry-run --Werror {} \;
+    clang-format --dry-run --Werror **/*.proto
 fi
 ```
 

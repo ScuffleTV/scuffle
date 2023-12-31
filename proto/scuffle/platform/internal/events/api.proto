@@ -31,3 +31,9 @@ message UserFollowChannel {
   scuffle.types.Ulid channel_id = 2;
   bool following = 3;
 }
+
+// For user.{id}.profile_picture event
+message UserProfilePicture {
+  scuffle.types.Ulid user_id = 1;
+  scuffle.types.Ulid profile_picture_id = 2;
+}

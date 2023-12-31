@@ -29,6 +29,8 @@ pub enum RolePermission {
 	StreamTranscoding,
 	/// Has access to recording
 	StreamRecording,
+	/// Upload Profile Pictures
+	UploadProfilePicture,
 }
 
 impl sqlx::Decode<'_, sqlx::Postgres> for RolePermission {
@@ -53,8 +55,8 @@ impl RolePermission {
 	/// Checks if the current permission set has the given permission.
 	/// Admin permissions always return true. Otherwise, the permission is
 	/// checked against the current permission set.
-	pub fn has_permission(&self, other: Self) -> bool {
-		(*self & Self::Admin == Self::Admin) || (*self & other == other)
+	pub fn has_permission(self, other: Self) -> bool {
+		(self & Self::Admin == Self::Admin) || (self & other == other)
 	}
 
 	/// Merge the given permissions.
@@ -68,8 +70,8 @@ impl RolePermission {
 	/// ## Calculation
 	///
 	/// `10011 | 11000 = 11011`
-	pub fn merge(&self, other: &Self) -> Self {
-		*self | *other
+	pub const fn merge(self, other: Self) -> Self {
+		self.or(other)
 	}
 
 	/// Remove the given permissions from the current.
@@ -83,11 +85,11 @@ impl RolePermission {
 	/// ## Calculation
 	///
 	/// `10011 & !10001 = 10011 & 01110 = 00010`
-	pub fn remove(&self, other: &Self) -> Self {
-		*self & !*other
+	pub const fn remove(self, other: Self) -> Self {
+		self.and(other.not())
 	}
 
-	pub fn merge_with_role(&self, role: &Role) -> Self {
-		self.merge(&role.allowed_permissions).remove(&role.denied_permissions)
+	pub const fn merge_with_role(self, role: &Role) -> Self {
+		self.merge(role.allowed_permissions).remove(role.denied_permissions)
 	}
 }

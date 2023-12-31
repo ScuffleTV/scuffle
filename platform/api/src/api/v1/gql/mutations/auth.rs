@@ -6,7 +6,7 @@ use pb::scuffle::platform::internal::two_fa::TwoFaRequestAction;
 use prost::Message;
 
 use crate::api::auth::{AuthData, AuthError};
-use crate::api::jwt::JwtState;
+use crate::api::jwt::{AuthJwtPayload, JwtState};
 use crate::api::v1::gql::error::ext::*;
 use crate::api::v1::gql::error::{GqlError, Result};
 use crate::api::v1::gql::ext::ContextExt;
@@ -115,7 +115,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		} else {
 			let session = login.execute(global, user.id).await?;
 
-			let jwt = JwtState::from(session.clone());
+			let jwt = AuthJwtPayload::from(session.clone());
 			let token = jwt
 				.serialize(global)
 				.ok_or(GqlError::InternalServerError("failed to serialize JWT"))?;
@@ -193,7 +193,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 			Some(Action::Login(action)) => {
 				let update_context = action.update_context;
 				let session = action.execute(global, user.id).await?;
-				let jwt = JwtState::from(session.clone());
+				let jwt = AuthJwtPayload::from(session.clone());
 				let token = jwt
 					.serialize(global)
 					.ok_or(GqlError::InternalServerError("failed to serialize JWT"))?;
@@ -232,7 +232,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		let global = ctx.get_global::<G>();
 		let request_context = ctx.get_req_context();
 
-		let jwt = JwtState::verify(global, &session_token).map_err_gql(GqlError::InvalidInput {
+		let jwt = AuthJwtPayload::verify(global, &session_token).map_err_gql(GqlError::InvalidInput {
 			fields: vec!["sessionToken"],
 			message: "invalid session token",
 		})?;
@@ -377,7 +377,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		.fetch_one(&mut *tx)
 		.await?;
 
-		let jwt = JwtState::from(session.clone());
+		let jwt = AuthJwtPayload::from(session.clone());
 
 		let token = jwt.serialize(global).map_err_gql("failed to serialize JWT")?;
 
@@ -423,7 +423,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		let request_context = ctx.get_req_context();
 
 		let session_id = if let Some(token) = &session_token {
-			let jwt = JwtState::verify(global, token).map_err_gql(GqlError::InvalidInput {
+			let jwt = AuthJwtPayload::verify(global, token).map_err_gql(GqlError::InvalidInput {
 				fields: vec!["sessionToken"],
 				message: "invalid session token",
 			})?;

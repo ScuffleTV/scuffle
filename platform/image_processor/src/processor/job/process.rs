@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use pb::scuffle::platform::internal::types::Format;
+use pb::scuffle::platform::internal::types::ImageFormat;
 
 use super::decoder::{Decoder, DecoderBackend, LoopCount};
 use super::encoder::{AnyEncoder, Encoder, EncoderFrontend, EncoderSettings};
@@ -20,30 +20,33 @@ pub struct Image {
 	pub encoder: EncoderFrontend,
 	pub data: Vec<u8>,
 	pub loop_count: LoopCount,
-	pub request: (usize, Format),
+	pub request: (usize, ImageFormat),
 }
 
 impl Image {
 	pub fn file_extension(&self) -> &'static str {
 		match self.request.1 {
-			Format::Avif | Format::AvifStatic => "avif",
-			Format::Webp | Format::WebpStatic => "webp",
-			Format::Gif => "gif",
-			Format::PngStatic => "png",
+			ImageFormat::Avif | ImageFormat::AvifStatic => "avif",
+			ImageFormat::Webp | ImageFormat::WebpStatic => "webp",
+			ImageFormat::Gif => "gif",
+			ImageFormat::PngStatic => "png",
 		}
 	}
 
 	pub fn content_type(&self) -> &'static str {
 		match self.request.1 {
-			Format::Avif | Format::AvifStatic => "image/avif",
-			Format::Webp | Format::WebpStatic => "image/webp",
-			Format::Gif => "image/gif",
-			Format::PngStatic => "image/png",
+			ImageFormat::Avif | ImageFormat::AvifStatic => "image/avif",
+			ImageFormat::Webp | ImageFormat::WebpStatic => "image/webp",
+			ImageFormat::Gif => "image/gif",
+			ImageFormat::PngStatic => "image/png",
 		}
 	}
 
 	pub fn is_static(&self) -> bool {
-		matches!(self.request.1, Format::AvifStatic | Format::WebpStatic | Format::PngStatic)
+		matches!(
+			self.request.1,
+			ImageFormat::AvifStatic | ImageFormat::WebpStatic | ImageFormat::PngStatic
+		)
 	}
 
 	pub fn url(&self, prefix: &str) -> String {
@@ -87,9 +90,9 @@ pub fn process_job(backend: DecoderBackend, input_path: &Path, job: &Job) -> Res
 	let static_formats = formats
 		.iter()
 		.filter_map(|f| match f {
-			Format::AvifStatic => Some(EncoderFrontend::LibAvif),
-			Format::WebpStatic => Some(EncoderFrontend::LibWebp),
-			Format::PngStatic => Some(EncoderFrontend::Png),
+			ImageFormat::AvifStatic => Some(EncoderFrontend::LibAvif),
+			ImageFormat::WebpStatic => Some(EncoderFrontend::LibWebp),
+			ImageFormat::PngStatic => Some(EncoderFrontend::Png),
 			_ => None,
 		})
 		.collect::<Vec<_>>();
@@ -97,9 +100,9 @@ pub fn process_job(backend: DecoderBackend, input_path: &Path, job: &Job) -> Res
 	let animation_formats = formats
 		.iter()
 		.filter_map(|f| match f {
-			Format::Avif => Some(EncoderFrontend::LibAvif),
-			Format::Webp => Some(EncoderFrontend::LibWebp),
-			Format::Gif => Some(EncoderFrontend::Gifski),
+			ImageFormat::Avif => Some(EncoderFrontend::LibAvif),
+			ImageFormat::Webp => Some(EncoderFrontend::LibWebp),
+			ImageFormat::Gif => Some(EncoderFrontend::Gifski),
 			_ => None,
 		})
 		.collect::<Vec<_>>();
@@ -221,9 +224,9 @@ pub fn process_job(backend: DecoderBackend, input_path: &Path, job: &Job) -> Res
 				request: (
 					stack.scale,
 					match info.frontend {
-						EncoderFrontend::Gifski => Format::Gif,
-						EncoderFrontend::LibAvif => Format::Avif,
-						EncoderFrontend::LibWebp => Format::Webp,
+						EncoderFrontend::Gifski => ImageFormat::Gif,
+						EncoderFrontend::LibAvif => ImageFormat::Avif,
+						EncoderFrontend::LibWebp => ImageFormat::Webp,
 						EncoderFrontend::Png => unreachable!(),
 					},
 				),
@@ -244,9 +247,9 @@ pub fn process_job(backend: DecoderBackend, input_path: &Path, job: &Job) -> Res
 				request: (
 					stack.scale,
 					match info.frontend {
-						EncoderFrontend::LibAvif => Format::AvifStatic,
-						EncoderFrontend::LibWebp => Format::WebpStatic,
-						EncoderFrontend::Png => Format::PngStatic,
+						EncoderFrontend::LibAvif => ImageFormat::AvifStatic,
+						EncoderFrontend::LibWebp => ImageFormat::WebpStatic,
+						EncoderFrontend::Png => ImageFormat::PngStatic,
 						EncoderFrontend::Gifski => unreachable!(),
 					},
 				),

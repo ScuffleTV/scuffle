@@ -30,10 +30,6 @@ pub(crate) struct Job<'a, G: ImageProcessorGlobal> {
 	pub(crate) working_directory: std::path::PathBuf,
 }
 
-async fn handle_error(err: ProcessorError) -> Result<()> {
-	Err(err)
-}
-
 pub async fn handle_job(
 	global: &Arc<impl ImageProcessorGlobal>,
 	parent_directory: &Path,
@@ -72,14 +68,10 @@ pub async fn handle_job(
 				refresh_job(global, job_id).await?;
 			},
 			Err(e) = &mut time_limit => {
-				return handle_error(e).await;
+				return Err(e);
 			},
 			r = &mut process => {
-				return if let Err(e) = r {
-					handle_error(e).await
-				} else {
-					Ok(())
-				};
+				return r;
 			},
 		}
 	}
@@ -106,7 +98,7 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 		let status = self
 			.global
 			.s3_source_bucket()
-			.get_object_to_writer(&self.job.id.to_string(), &mut fs)
+			.get_object_to_writer(&self.job.task.input_path, &mut fs)
 			.await
 			.map_err(ProcessorError::S3Download)?;
 
@@ -156,16 +148,18 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 			.nats()
 			.publish(
 				self.job.task.callback_subject.clone(),
-				pb::scuffle::platform::internal::events::JobFinished {
+				pb::scuffle::platform::internal::events::ProcessedImage {
 					job_id: Some(self.job.id.0.into()),
-					outputs: images
+					variants: images
 						.images
 						.iter()
-						.map(|i| pb::scuffle::platform::internal::events::job_finished::Output {
-							image_url: i.url(&url_prefix),
+						.map(|i| pb::scuffle::platform::internal::types::ProcessedImageVariant {
+							path: i.url(&url_prefix),
 							format: i.request.1.into(),
 							width: i.width as u32,
 							height: i.height as u32,
+							byte_size: i.data.len() as u32,
+							scale: i.request.0 as u32,
 						})
 						.collect(),
 				}

@@ -193,20 +193,33 @@ type DisplayColor {
 	isGray: Boolean!
 }
 
-type DisplayColorStream {
-	displayColor: DisplayColor!
-	userId: ULID!
-}
-
-type DisplayNameStream {
-	displayName: String!
-	userId: ULID!
-}
-
 type FollowStream {
 	channelId: ULID!
 	following: Boolean!
 	userId: ULID!
+}
+
+type ImageUpload {
+	id: ULID!
+	variants: [ImageUploadVariant!]!
+}
+
+enum ImageUploadFormat {
+	AVIF
+	AVIF_STATIC
+	GIF
+	PNG_STATIC
+	WEBP
+	WEBP_STATIC
+}
+
+type ImageUploadVariant {
+	byteSize: Int!
+	format: ImageUploadFormat!
+	height: Int!
+	scale: Int!
+	url: String!
+	width: Int!
 }
 
 union LoginResponse = TwoFaRequest | Session
@@ -293,14 +306,15 @@ type Subscription {
 		channelId: ULID!
 	): ChatMessage!
 	noop: Boolean!
-	userDisplayColor(userId: ULID!): DisplayColorStream!
-	userDisplayName(userId: ULID!): DisplayNameStream!
+	userDisplayColor(userId: ULID!): UserDisplayColorStream!
+	userDisplayName(userId: ULID!): UserDisplayNameStream!
 	userFollowing(
 		"""
 		When specified, this subscription is limited to only this channel.
 		"""
 		channelId: ULID
 	): FollowStream!
+	userProfilePicture(userId: ULID!): UserProfilePictureStream!
 }
 
 type TotpSecret {
@@ -348,8 +362,19 @@ type User {
 	emailVerified: Boolean!
 	id: ULID!
 	lastLoginAt: DateRFC3339!
+	profilePicture: ImageUpload
 	totpEnabled: Boolean!
 	username: String!
+}
+
+type UserDisplayColorStream {
+	displayColor: DisplayColor!
+	userId: ULID!
+}
+
+type UserDisplayNameStream {
+	displayName: String!
+	userId: ULID!
 }
 
 type UserMutation {
@@ -404,6 +429,11 @@ type UserMutation {
 		newPassword: String!
 	): ChangePasswordResponse!
 	twoFa: TwoFaMutation!
+}
+
+type UserProfilePictureStream {
+	profilePicture: ImageUpload
+	userId: ULID!
 }
 
 type UserQuery {

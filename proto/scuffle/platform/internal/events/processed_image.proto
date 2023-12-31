@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package scuffle.platform.internal.events;
+
+import "scuffle/types/ulid.proto";
+import "scuffle/platform/internal/types/processed_image_variant.proto";
+
+message ProcessedImage {
+  scuffle.types.Ulid job_id = 1;
+  repeated scuffle.platform.internal.types.ProcessedImageVariant variants = 2;
+}

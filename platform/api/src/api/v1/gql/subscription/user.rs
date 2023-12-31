@@ -10,8 +10,10 @@ use crate::api::v1::gql::error::ext::*;
 use crate::api::v1::gql::error::{GqlError, Result};
 use crate::api::v1::gql::ext::ContextExt;
 use crate::api::v1::gql::models::color::DisplayColor;
+use crate::api::v1::gql::models::image_upload::ImageUpload;
 use crate::api::v1::gql::models::ulid::GqlUlid;
 use crate::global::ApiGlobal;
+use crate::subscription::SubscriptionTopic;
 
 pub struct UserSubscription<G: ApiGlobal>(std::marker::PhantomData<G>);
 
@@ -22,15 +24,21 @@ impl<G: ApiGlobal> Default for UserSubscription<G> {
 }
 
 #[derive(SimpleObject)]
-struct DisplayNameStream {
+struct UserDisplayNameStream {
 	pub user_id: GqlUlid,
 	pub display_name: String,
 }
 
 #[derive(SimpleObject)]
-struct DisplayColorStream {
+struct UserDisplayColorStream {
 	pub user_id: GqlUlid,
 	pub display_color: DisplayColor,
+}
+
+#[derive(SimpleObject)]
+struct UserProfilePictureStream {
+	pub user_id: GqlUlid,
+	pub profile_picture: Option<ImageUpload>,
 }
 
 #[Subscription]
@@ -39,7 +47,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 		&self,
 		ctx: &'ctx Context<'ctx>,
 		user_id: GqlUlid,
-	) -> Result<impl Stream<Item = Result<DisplayNameStream>> + 'ctx> {
+	) -> Result<impl Stream<Item = Result<UserDisplayNameStream>> + 'ctx> {
 		let global = ctx.get_global::<G>();
 
 		let Some(display_name) = global
@@ -58,12 +66,12 @@ impl<G: ApiGlobal> UserSubscription<G> {
 
 		let mut subscription = global
 			.subscription_manager()
-			.subscribe(format!("user.{}.display_name", user_id.to_ulid()))
+			.subscribe(SubscriptionTopic::UserDisplayName(user_id.to_ulid()))
 			.await
 			.map_err_gql("failed to subscribe to user display name")?;
 
 		Ok(async_stream::stream!({
-			yield Ok(DisplayNameStream { user_id, display_name });
+			yield Ok(UserDisplayNameStream { user_id, display_name });
 
 			while let Ok(message) = subscription.recv().await {
 				let event = pb::scuffle::platform::internal::events::UserDisplayName::decode(message.payload)
@@ -71,7 +79,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 
 				let user_id = event.user_id.into_ulid();
 
-				yield Ok(DisplayNameStream {
+				yield Ok(UserDisplayNameStream {
 					user_id: user_id.into(),
 					display_name: event.display_name,
 				});
@@ -83,7 +91,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 		&self,
 		ctx: &'ctx Context<'ctx>,
 		user_id: GqlUlid,
-	) -> Result<impl Stream<Item = Result<DisplayColorStream>> + 'ctx> {
+	) -> Result<impl Stream<Item = Result<UserDisplayColorStream>> + 'ctx> {
 		let global = ctx.get_global::<G>();
 
 		let Some(display_color) = global
@@ -102,12 +110,12 @@ impl<G: ApiGlobal> UserSubscription<G> {
 
 		let mut subscription = global
 			.subscription_manager()
-			.subscribe(format!("user.{}.display_color", user_id.to_ulid()))
+			.subscribe(SubscriptionTopic::UserDisplayColor(user_id.to_ulid()))
 			.await
 			.map_err_gql("failed to subscribe to user display name")?;
 
 		Ok(async_stream::stream!({
-			yield Ok(DisplayColorStream {
+			yield Ok(UserDisplayColorStream {
 				user_id,
 				display_color: display_color.into(),
 			});
@@ -118,9 +126,83 @@ impl<G: ApiGlobal> UserSubscription<G> {
 
 				let user_id = event.user_id.into_ulid();
 
-				yield Ok(DisplayColorStream {
+				yield Ok(UserDisplayColorStream {
 					user_id: user_id.into(),
 					display_color: event.display_color.into(),
+				});
+			}
+		}))
+	}
+
+	async fn user_profile_picture<'ctx>(
+		&self,
+		ctx: &'ctx Context<'ctx>,
+		user_id: GqlUlid,
+	) -> Result<impl Stream<Item = Result<UserProfilePictureStream>> + 'ctx> {
+		let global = ctx.get_global::<G>();
+
+		let Some(profile_picture_id) = global
+			.user_by_id_loader()
+			.load(user_id.to_ulid())
+			.await
+			.map_err_ignored_gql("failed to fetch user")?
+			.map(|u| u.profile_picture_id)
+		else {
+			return Err(GqlError::InvalidInput {
+				fields: vec!["userId"],
+				message: "user not found",
+			}
+			.into());
+		};
+
+		let mut subscription = global
+			.subscription_manager()
+			.subscribe(SubscriptionTopic::UserProfilePicture(user_id.to_ulid()))
+			.await
+			.map_err_gql("failed to subscribe to user display name")?;
+
+		let profile_picture = if let Some(profile_picture_id) = profile_picture_id {
+			global
+				.uploaded_file_by_id_loader()
+				.load(profile_picture_id.0)
+				.await
+				.map_err_ignored_gql("failed to fetch profile picture")?
+				.map(ImageUpload::from_uploaded_file)
+				.transpose()?
+				.flatten()
+		} else {
+			None
+		};
+
+		Ok(async_stream::stream!({
+			yield Ok(UserProfilePictureStream {
+				user_id,
+				profile_picture,
+			});
+
+			while let Ok(message) = subscription.recv().await {
+				let event = pb::scuffle::platform::internal::events::UserProfilePicture::decode(message.payload)
+					.map_err_ignored_gql("failed to decode user display name")?;
+
+				let user_id = event.user_id.into_ulid();
+				let profile_picture_id = event.profile_picture_id.map(|u| u.into_ulid());
+
+				let profile_picture = if let Some(profile_picture_id) = profile_picture_id {
+					global
+						.uploaded_file_by_id_loader()
+						.load(profile_picture_id)
+						.await
+						.map_err_ignored_gql("failed to fetch profile picture")?
+						.map(ImageUpload::from_uploaded_file)
+						.transpose()?
+						.flatten()
+				} else {
+					None
+				};
+
+				yield Ok(UserProfilePictureStream {
+					user_id: user_id.into(),
+					profile_picture,
 				});
 			}
 		}))
@@ -143,7 +225,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 
 		let mut subscription = global
 			.subscription_manager()
-			.subscribe(format!("user.{}.follows", user_id.to_string()))
+			.subscribe(SubscriptionTopic::UserFollows(user_id))
 			.await
 			.map_err_gql("failed to subscribe to user follows")?;
 

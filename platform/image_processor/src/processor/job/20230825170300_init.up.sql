@@ -132,26 +132,25 @@ CREATE TABLE channel_user (
 );
 
 --- Relationships
-ALTER TABLE users ADD CONSTRAINT users_profile_picture_id_fkey FOREIGN KEY (profile_picture_id) REFERENCES uploaded_files (id) ON DELETE SET NULL;
-ALTER TABLE users ADD CONSTRAINT users_channel_custom_thumbnail_id_fkey FOREIGN KEY (channel_custom_thumbnail_id) REFERENCES uploaded_files (id) ON DELETE SET NULL;
-ALTER TABLE users ADD CONSTRAINT users_channel_offline_banner_id_fkey FOREIGN KEY (channel_offline_banner_id) REFERENCES uploaded_files (id) ON DELETE SET NULL;
+ALTER TABLE users ADD CONSTRAINT users_profile_picture_id_fkey FOREIGN KEY (profile_picture_id) REFERENCES image_uploads (id) ON DELETE SET NULL;
+ALTER TABLE users ADD CONSTRAINT users_channel_custom_thumbnail_id_fkey FOREIGN KEY (channel_custom_thumbnail_id) REFERENCES image_uploads (id) ON DELETE SET NULL;
+ALTER TABLE users ADD CONSTRAINT users_channel_offline_banner_id_fkey FOREIGN KEY (channel_offline_banner_id) REFERENCES image_uploads (id) ON DELETE SET NULL;
 ALTER TABLE users ADD CONSTRAINT users_channel_category_id_fkey FOREIGN KEY (channel_category_id) REFERENCES categories (id) ON DELETE SET NULL;
 
 ALTER TABLE user_sessions ADD CONSTRAINT user_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE;
 
 ALTER TABLE recordings ADD CONSTRAINT recordings_user_id_fkey FOREIGN KEY (channel_id) REFERENCES users (id) ON DELETE CASCADE;
-ALTER TABLE recordings ADD CONSTRAINT recordings_custom_thumbnail_id_fkey FOREIGN KEY (custom_thumbnail_id) REFERENCES uploaded_files (id) ON DELETE SET NULL;
+ALTER TABLE recordings ADD CONSTRAINT recordings_custom_thumbnail_id_fkey FOREIGN KEY (custom_thumbnail_id) REFERENCES image_uploads (id) ON DELETE SET NULL;
 
 ALTER TABLE channel_tags ADD CONSTRAINT channel_tags_user_id_fkey FOREIGN KEY (channel_id) REFERENCES users (id) ON DELETE CASCADE;
 
-ALTER TABLE uploaded_files ADD CONSTRAINT uploaded_files_user_id_fkey FOREIGN KEY (owner_id) REFERENCES users (id);
-ALTER TABLE uploaded_files ADD CONSTRAINT uploaded_files_uploader_id_fkey FOREIGN KEY (uploader_id) REFERENCES users (id);
+ALTER TABLE image_uploads ADD CONSTRAINT image_uploads_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE;
 
 ALTER TABLE chat_messages ADD CONSTRAINT chat_messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE;
 ALTER TABLE chat_messages ADD CONSTRAINT chat_messages_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES users (id) ON DELETE CASCADE;
 
 ALTER TABLE roles ADD CONSTRAINT roles_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES users (id) ON DELETE CASCADE;
-ALTER TABLE roles ADD CONSTRAINT roles_badge_id_fkey FOREIGN KEY (badge_id) REFERENCES uploaded_files (id) ON DELETE SET NULL;
+ALTER TABLE roles ADD CONSTRAINT roles_badge_id_fkey FOREIGN KEY (badge_id) REFERENCES image_uploads (id) ON DELETE SET NULL;
 
 ALTER TABLE channel_user ADD CONSTRAINT channel_user_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE;
 ALTER TABLE channel_user ADD CONSTRAINT channel_user_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES users (id) ON DELETE CASCADE;
@@ -207,7 +206,7 @@ CREATE INVERTED INDEX categories_name_idx ON categories (name gin_trgm_ops);
 -- Image Upload Indexes
 
 -- We want to be able to search for image uploads by user
-CREATE INDEX uploaded_files_user_id_idx ON uploaded_files (owner_id, type);
+CREATE INDEX image_uploads_user_id_idx ON image_uploads (user_id);
 
 -- Chat Message Indexes
 

@@ -25,6 +25,11 @@ pub struct User {
 	pub username: String,
 	/// The display name of the user.
 	pub display_name: String,
+	/// The profile picture of the user.
+	pub profile_picture_id: Option<Ulid>,
+	/// Pending profile picture of the user. This is used when a user uploads a
+	/// new profile picture and its still being processed.
+	pub pending_profile_picture_id: Option<Ulid>,
 	/// The display color of the user.
 	pub display_color: i32,
 	/// The hashed password of the user. (argon2)
@@ -43,8 +48,6 @@ pub struct User {
 	pub last_login_at: DateTime<Utc>,
 	/// The time the user was last updated.
 	pub updated_at: DateTime<Utc>,
-	/// The time the user was created.
-	pub profile_picture_id: Option<Ulid>,
 	/// The roles of the user.
 	pub roles: Vec<Ulid>,
 

@@ -4,7 +4,7 @@ use async_graphql::{Description, InputValueError, InputValueResult, Scalar, Scal
 
 /// A ULID (Universally Unique Lexicographically Sortable Identifier) scalar.
 #[derive(Copy, Clone, Debug, Description)]
-pub struct GqlUlid(ulid::Ulid);
+pub struct GqlUlid(pub ulid::Ulid);
 
 impl GqlUlid {
 	pub fn to_ulid(self) -> ulid::Ulid {

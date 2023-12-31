@@ -1,6 +1,7 @@
 use common::http::RouteError;
 
 use super::auth::AuthError;
+use crate::turnstile::TurnstileError;
 
 pub type Result<T, E = RouteError<ApiError>> = std::result::Result<T, E>;
 
@@ -14,4 +15,8 @@ pub enum ApiError {
 	ParseGql(#[from] async_graphql::ParseRequestError),
 	#[error("failed to authenticate request: {0}")]
 	Auth(AuthError),
+	#[error("failed to query turnstile: {0}")]
+	Turnstile(#[from] TurnstileError),
+	#[error("failed to query database: {0}")]
+	Database(#[from] sqlx::Error),
 }

@@ -17,6 +17,7 @@ use crate::api::v1::gql::validators::PasswordValidator;
 use crate::database;
 use crate::database::TwoFaRequestActionTrait;
 use crate::global::ApiGlobal;
+use crate::subscription::SubscriptionTopic;
 
 mod two_fa;
 
@@ -120,7 +121,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 		global
 			.nats()
 			.publish(
-				format!("user.{}.display_name", user.id.0),
+				SubscriptionTopic::UserDisplayName(user.id.0),
 				pb::scuffle::platform::internal::events::UserDisplayName {
 					user_id: Some(user.id.0.into()),
 					display_name,
@@ -167,7 +168,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 		global
 			.nats()
 			.publish(
-				format!("user.{}.display_color", user.id.0),
+				SubscriptionTopic::UserDisplayColor(user.id.0),
 				pb::scuffle::platform::internal::events::UserDisplayColor {
 					user_id: Some(user.id.0.into()),
 					display_color: *color,
@@ -290,8 +291,8 @@ impl<G: ApiGlobal> UserMutation<G> {
 		.await?;
 
 		let channel_id = channel_id.to_ulid();
-		let user_subject = format!("user.{}.follows", auth.session.user_id.0);
-		let channel_subject = format!("channel.{}.follows", channel_id);
+		let user_subject = SubscriptionTopic::UserFollows(auth.session.user_id.0);
+		let channel_subject = SubscriptionTopic::ChannelFollows(channel_id);
 
 		let msg = Bytes::from(
 			pb::scuffle::platform::internal::events::UserFollowChannel {

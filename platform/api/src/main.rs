@@ -7,11 +7,12 @@ use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
 use common::context::Context;
 use common::dataloader::DataLoader;
 use common::global::*;
-use platform_api::config::{ApiConfig, JwtConfig, TurnstileConfig};
+use platform_api::config::{ApiConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig};
 use platform_api::dataloader::category::CategoryByIdLoader;
 use platform_api::dataloader::global_state::GlobalStateLoader;
 use platform_api::dataloader::role::RoleByIdLoader;
 use platform_api::dataloader::session::SessionByIdLoader;
+use platform_api::dataloader::uploaded_file::UploadedFileByIdLoader;
 use platform_api::dataloader::user::{UserByIdLoader, UserByUsernameLoader};
 use platform_api::subscription::SubscriptionManager;
 use tokio::select;
@@ -32,6 +33,9 @@ struct ExtConfig {
 
 	/// JWT Config
 	jwt: JwtConfig,
+
+	/// Image Uploader Config
+	image_uploader: ImageUploaderConfig,
 }
 
 impl binary_helper::config::ConfigExtention for ExtConfig {
@@ -74,8 +78,11 @@ struct GlobalState {
 	session_by_id_loader: DataLoader<SessionByIdLoader>,
 	user_by_id_loader: DataLoader<UserByIdLoader>,
 	user_by_username_loader: DataLoader<UserByUsernameLoader>,
+	uploader_file_by_id_loader: DataLoader<UploadedFileByIdLoader>,
 
 	subscription_manager: SubscriptionManager,
+
+	image_processor_s3: s3::Bucket,
 }
 
 impl_global_traits!(GlobalState);
@@ -98,6 +105,13 @@ impl common::global::GlobalConfigProvider<JwtConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &JwtConfig {
 		&self.config.extra.jwt
+	}
+}
+
+impl common::global::GlobalConfigProvider<ImageUploaderConfig> for GlobalState {
+	#[inline(always)]
+	fn provide_config(&self) -> &ImageUploaderConfig {
+		&self.config.extra.image_uploader
 	}
 }
 
@@ -126,8 +140,16 @@ impl platform_api::global::ApiState for GlobalState {
 		&self.user_by_username_loader
 	}
 
+	fn uploaded_file_by_id_loader(&self) -> &DataLoader<UploadedFileByIdLoader> {
+		&self.uploader_file_by_id_loader
+	}
+
 	fn subscription_manager(&self) -> &SubscriptionManager {
 		&self.subscription_manager
+	}
+
+	fn image_uploader_s3(&self) -> &s3::Bucket {
+		&self.image_processor_s3
 	}
 }
 
@@ -142,8 +164,16 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 		let session_by_id_loader = SessionByIdLoader::new(db.clone());
 		let user_by_id_loader = UserByIdLoader::new(db.clone());
 		let user_by_username_loader = UserByUsernameLoader::new(db.clone());
+		let uploader_file_by_id_loader = UploadedFileByIdLoader::new(db.clone());
 
 		let subscription_manager = SubscriptionManager::default();
+
+		let image_processor_s3 = config
+			.extra
+			.image_uploader
+			.bucket
+			.setup()
+			.ok_or_else(|| anyhow::anyhow!("failed to setup image processor s3"))?;
 
 		Ok(Self {
 			ctx,
@@ -157,7 +187,9 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			session_by_id_loader,
 			user_by_id_loader,
 			user_by_username_loader,
+			uploader_file_by_id_loader,
 			subscription_manager,
+			image_processor_s3,
 		})
 	}
 }

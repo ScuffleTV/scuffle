@@ -1,18 +1,21 @@
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::TimeZone;
 use common::database::{PgNonNullVec, Protobuf};
 use common::http::ext::*;
+use common::http::router::builder::RouterBuilder;
+use common::http::router::ext::RequestExt;
+use common::http::router::Router;
 use common::http::RouteError;
 use common::make_response;
 use common::prelude::FutureTimeout;
-use hyper::{Body, Request, Response, StatusCode};
+use hyper::body::Incoming;
+use hyper::{Request, Response, StatusCode};
 use pb::scuffle::video::internal::{LiveManifest, LiveRenditionManifest};
 use pb::scuffle::video::v1::types::{AudioConfig, VideoConfig};
 use prost::Message;
-use routerify::prelude::RequestExt as _;
-use routerify::Router;
 use tokio::io::AsyncReadExt;
 use tokio::time::Instant;
 use ulid::Ulid;
@@ -23,7 +26,7 @@ use video_player_types::SessionRefresh;
 
 use self::tokens::{ScreenshotClaims, SessionClaims, SessionClaimsType};
 use super::error::Result;
-use super::EdgeError;
+use super::{Body, EdgeError};
 use crate::edge::stream::hls_config::HlsConfig;
 use crate::edge::stream::tokens::MediaClaims;
 use crate::global::EdgeGlobal;
@@ -33,37 +36,37 @@ mod hls_config;
 mod playlist;
 mod tokens;
 
-fn organization_id(req: &Request<Body>) -> Result<Ulid> {
+fn organization_id(req: &Request<Incoming>) -> Result<Ulid> {
 	Ulid::from_string(req.param("organization_id").unwrap())
 		.map_err(|_| (StatusCode::BAD_REQUEST, "invalid organization_id").into())
 }
 
-fn room_id(req: &Request<Body>) -> Result<Ulid> {
+fn room_id(req: &Request<Incoming>) -> Result<Ulid> {
 	Ulid::from_string(req.param("room_id").unwrap()).map_err(|_| (StatusCode::BAD_REQUEST, "invalid room_id").into())
 }
 
-fn recording_id(req: &Request<Body>) -> Result<Ulid> {
+fn recording_id(req: &Request<Incoming>) -> Result<Ulid> {
 	Ulid::from_string(req.param("recording_id").unwrap())
 		.map_err(|_| (StatusCode::BAD_REQUEST, "invalid recording_id").into())
 }
 
-fn rendition(req: &Request<Body>) -> Result<Rendition> {
+fn rendition(req: &Request<Incoming>) -> Result<Rendition> {
 	req.param("rendition")
 		.unwrap()
 		.parse()
 		.map_err(|_| (StatusCode::BAD_REQUEST, "invalid rendition").into())
 }
 
-fn token(req: &Request<Body>) -> Option<String> {
+fn token(req: &Request<Incoming>) -> Option<String> {
 	req.uri().query().and_then(|v| {
 		url::form_urlencoded::parse(v.as_bytes()).find_map(|(k, v)| if k == "token" { Some(v.to_string()) } else { None })
 	})
 }
 
-async fn room_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
+async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response<Body>> {
 	let config = HlsConfig::new(&req)?;
 
-	let global = req.get_global::<G>()?;
+	let global = req.get_global::<G, _>()?;
 
 	let organization_id = organization_id(&req)?;
 	let room_id = room_id(&req)?;
@@ -110,6 +113,11 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Bod
 
 	let id = Ulid::new();
 
+	let remote_addr = req
+		.data::<SocketAddr>()
+		.copied()
+		.unwrap_or(SocketAddr::from(([0, 0, 0, 0], 0)));
+
 	sqlx::query(
 		r#"
 		INSERT INTO playback_sessions (
@@ -149,7 +157,7 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Bod
 			.as_ref()
 			.and_then(|t| chrono::Utc.timestamp_opt(t.claims().iat.unwrap(), 0).single()),
 	)
-	.bind(req.remote_addr().ip().to_string())
+	.bind(remote_addr.ip().to_string())
 	.bind(req.headers().get("user-agent").map(|v| v.to_str().unwrap_or_default()))
 	.bind(req.headers().get("referer").map(|v| v.to_str().unwrap_or_default()))
 	.bind(req.headers().get("origin").map(|v| v.to_str().unwrap_or_default()))
@@ -201,10 +209,10 @@ struct RecordingExt {
 	configs: PgNonNullVec<Vec<u8>>,
 }
 
-async fn recording_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
+async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response<Body>> {
 	let config = HlsConfig::new(&req)?;
 
-	let global = req.get_global::<G>()?;
+	let global = req.get_global::<G, _>()?;
 
 	let organization_id = organization_id(&req)?;
 	let recording_id = recording_id(&req)?;
@@ -282,6 +290,11 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Respons
 
 	let id = Ulid::new();
 
+	let remote_addr = req
+		.data::<SocketAddr>()
+		.copied()
+		.unwrap_or(SocketAddr::from(([0, 0, 0, 0], 0)));
+
 	sqlx::query(
 		r#"
 		INSERT INTO playback_sessions (
@@ -321,7 +334,7 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Respons
 			.as_ref()
 			.and_then(|t| chrono::Utc.timestamp_opt(t.claims().iat.unwrap(), 0).single()),
 	)
-	.bind(req.remote_addr().ip().to_string())
+	.bind(remote_addr.ip().to_string())
 	.bind(req.headers().get("user-agent").map(|v| v.to_str().unwrap_or_default()))
 	.bind(req.headers().get("referer").map(|v| v.to_str().unwrap_or_default()))
 	.bind(req.headers().get("origin").map(|v| v.to_str().unwrap_or_default()))
@@ -365,9 +378,9 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Respons
 	Ok(resp)
 }
 
-async fn session_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
+async fn session_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response<Body>> {
 	let config = HlsConfig::new(&req)?;
-	let global = req.get_global::<G>()?;
+	let global = req.get_global::<G, _>()?;
 
 	let organization_id = organization_id(&req)?;
 
@@ -474,8 +487,8 @@ async fn session_playlist<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<
 	Ok(resp)
 }
 
-async fn session_refresh<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
-	let global = req.get_global::<G>()?;
+async fn session_refresh<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response<Body>> {
+	let global = req.get_global::<G, _>()?;
 
 	let organization_id = organization_id(&req)?;
 
@@ -510,8 +523,8 @@ async fn session_refresh<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<B
 	Ok(resp)
 }
 
-async fn room_media<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
-	let global = req.get_global::<G>()?;
+async fn room_media<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response<Body>> {
+	let global = req.get_global::<G, _>()?;
 
 	let organization_id = organization_id(&req)?;
 
@@ -638,8 +651,8 @@ async fn room_media<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>>
 	Ok(resp)
 }
 
-async fn room_screenshot<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
-	let global = req.get_global::<G>()?;
+async fn room_screenshot<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response<Body>> {
+	let global = req.get_global::<G, _>()?;
 
 	let organization_id = organization_id(&req)?;
 	let room_id = room_id(&req)?;
@@ -711,8 +724,8 @@ async fn room_screenshot<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<B
 	Ok(response)
 }
 
-async fn room_screenshot_media<G: EdgeGlobal>(req: Request<Body>) -> Result<Response<Body>> {
-	let global = req.get_global::<G>()?;
+async fn room_screenshot_media<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response<Body>> {
+	let global = req.get_global::<G, _>()?;
 
 	let organization_id = Ulid::from_string(req.param("organization_id").unwrap())
 		.map_err(|_| (StatusCode::BAD_REQUEST, "invalid organization_id"))?;
@@ -756,7 +769,7 @@ async fn room_screenshot_media<G: EdgeGlobal>(req: Request<Body>) -> Result<Resp
 	Ok(resp)
 }
 
-pub fn routes<G: EdgeGlobal>(_: &Arc<G>) -> Router<Body, RouteError<EdgeError>> {
+pub fn routes<G: EdgeGlobal>(_: &Arc<G>) -> RouterBuilder<Incoming, Body, RouteError<EdgeError>> {
 	Router::builder()
 		.get("/:organization_id/:room_id.m3u8", room_playlist::<G>)
 		.get("/:organization_id/r/:recording_id.m3u8", recording_playlist::<G>)
@@ -765,6 +778,4 @@ pub fn routes<G: EdgeGlobal>(_: &Arc<G>) -> Router<Body, RouteError<EdgeError>> 
 		.get("/:organization_id/:room_id.jpg", room_screenshot::<G>)
 		.get("/:organization_id/:room_id/:media.mp4", room_media::<G>)
 		.get("/:organization_id/:room_id/:screenshot.jpg", room_screenshot_media::<G>)
-		.build()
-		.expect("failed to build router")
 }

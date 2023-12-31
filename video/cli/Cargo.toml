@@ -4,23 +4,22 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1.35.1", features = ["full"] }
-clap = { version = "4.4.11", features = ["derive", "env"] }
-ulid = "1.1.0"
-chrono = { version = "0.4.31", features = ["serde"] }
-sqlx = { version = "0.7.3", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
+tokio = { version = "1.35", features = ["full"] }
+clap = { version = "4.4", features = ["derive", "env"] }
+ulid = "1.1"
+chrono = { version = "0.4", features = ["serde"] }
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
 fred = { git = "https://github.com/aembke/fred.rs.git", features = ["enable-rustls", "sentinel-client", "dns"] }
-async-nats = "0.33.0"
-serde = { version = "1.0.193", features = ["derive"] }
-serde_json = "1.0.108"
-async-trait = "0.1.75"
-anyhow = { version = "1.0.76", features = ["backtrace"] }
-concat-idents = "1.1.5"
-tonic = "0.10.2"
-futures = "0.3.29"
-futures-util = "0.3.29"
-serde_yaml = "0.9.29"
-base64 = "0.21.5"
+async-nats = "0.33"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+async-trait = "0.1"
+anyhow = { version = "1.0", features = ["backtrace"] }
+tonic = "0.10"
+futures = "0.3"
+futures-util = "0.3"
+serde_yaml = "0.9"
+base64 = "0.21"
 
 pb = { workspace = true }
 config = { workspace = true }

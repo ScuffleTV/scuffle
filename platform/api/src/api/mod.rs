@@ -3,11 +3,17 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
+use bytes::Bytes;
+use common::http::router::Router;
 use common::http::RouteError;
+use common::make_response;
 use common::prelude::FutureTimeout;
-use hyper::server::conn::Http;
-use hyper::Body;
-use routerify::{RequestServiceBuilder, Router};
+use http_body_util::Full;
+use hyper::body::Incoming;
+use hyper::server::conn::http1;
+use hyper::service::service_fn;
+use hyper_util::rt::TokioIo;
+use serde_json::json;
 use tokio::net::TcpSocket;
 use tokio::select;
 
@@ -22,7 +28,9 @@ mod middleware;
 mod request_context;
 pub mod v1;
 
-pub fn routes<G: ApiGlobal>(global: &Arc<G>) -> Router<Body, RouteError<ApiError>> {
+type Body = Full<Bytes>;
+
+pub fn routes<G: ApiGlobal>(global: &Arc<G>) -> Router<Incoming, Body, RouteError<ApiError>> {
 	let weak = Arc::downgrade(global);
 	Router::builder()
 		.data(weak)
@@ -31,7 +39,6 @@ pub fn routes<G: ApiGlobal>(global: &Arc<G>) -> Router<Body, RouteError<ApiError
 		.middleware(middleware::response_headers::pre_flight_middleware(global))
 		.middleware(middleware::response_headers::post_flight_middleware(global))
 		// Our error handler
-		.err_handler_with_info(common::http::error_handler::<ApiError>)
 		// The CORS middleware adds the CORS headers to the response
 		.middleware(middleware::cors::cors_middleware(global))
 		// The auth middleware checks the Authorization header, and if it's valid, it adds the user
@@ -39,8 +46,16 @@ pub fn routes<G: ApiGlobal>(global: &Arc<G>) -> Router<Body, RouteError<ApiError
 		// fail the request if the token is invalid or not present.
 		.middleware(middleware::auth::auth_middleware(global))
 		.scope("/v1", v1::routes(global))
+		.error_handler(common::http::error_handler::<ApiError, _>)
+		.not_found(|_| async move {
+			Ok(make_response!(
+				hyper::StatusCode::NOT_FOUND,
+				json!({
+					"error": "not_found",
+				})
+			))
+		})
 		.build()
-		.expect("failed to build router")
 }
 
 pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
@@ -88,7 +103,11 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 	// the shutdown would never complete By using a Weak reference, we can check if
 	// the global state is still alive, and if it isn't, we can stop accepting new
 	// connections
-	let request_service = RequestServiceBuilder::new(routes(&global)).expect("failed to build request service");
+	let router = Arc::new(routes(&global));
+	let service = service_fn(move |req| {
+		let this = router.clone();
+		async move { this.handle(req).await }
+	});
 
 	loop {
 		select! {
@@ -98,24 +117,26 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 			r = listener.accept() => {
 				let (socket, addr) = r?;
 
+				let service = service.clone();
 				let tls_acceptor = tls_acceptor.clone();
-				let service = request_service.build(addr);
 
 				tracing::debug!("Accepted connection from {}", addr);
 
 				tokio::spawn(async move {
-					 if let Some(tls_acceptor) = tls_acceptor {
+					let http = http1::Builder::new();
+
+					if let Some(tls_acceptor) = tls_acceptor {
 						let Ok(Ok(socket)) = tls_acceptor.accept(socket).timeout(Duration::from_secs(5)).await else {
 							return;
 						};
 						tracing::debug!("TLS handshake complete");
-						Http::new().serve_connection(
-							socket,
+						http.serve_connection(
+							TokioIo::new(socket),
 							service,
 						).with_upgrades().await.ok();
 					} else {
-						 Http::new().serve_connection(
-							socket,
+						http.serve_connection(
+							TokioIo::new(socket),
 							service,
 						).with_upgrades().await.ok();
 					}

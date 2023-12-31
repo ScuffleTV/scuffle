@@ -1,12 +1,13 @@
 use std::sync::{Arc, Mutex};
 
+use common::http::router::ext::RequestExt as _;
+use common::http::router::middleware::Middleware;
 use common::http::RouteError;
 use hyper::header::IntoHeaderName;
-use hyper::{Body, Request};
-use routerify::prelude::RequestExt as _;
-use routerify::Middleware;
+use hyper::Request;
 
 use crate::api::error::ApiError;
+use crate::api::Body;
 use crate::global::ApiGlobal;
 
 #[derive(Clone)]
@@ -19,16 +20,16 @@ impl Default for ResponseHeadersMiddleware {
 }
 
 pub fn pre_flight_middleware<G: ApiGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError<ApiError>> {
-	Middleware::pre(|req| async move {
-		req.set_context(ResponseHeadersMiddleware::default());
+	Middleware::pre(|mut req| async move {
+		req.extensions_mut().insert(ResponseHeadersMiddleware::default());
 
 		Ok(req)
 	})
 }
 
 pub fn post_flight_middleware<G: ApiGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError<ApiError>> {
-	Middleware::post_with_info(|mut resp, info| async move {
-		let headers: Option<ResponseHeadersMiddleware> = info.context();
+	Middleware::post_with_req(|mut resp, req| async move {
+		let headers = req.data::<ResponseHeadersMiddleware>();
 
 		if let Some(headers) = headers {
 			let headers = headers.0.lock().expect("failed to lock headers");
@@ -48,13 +49,13 @@ pub trait RequestExt {
 		V: Into<hyper::header::HeaderValue>;
 }
 
-impl RequestExt for Request<Body> {
+impl<B> RequestExt for Request<B> {
 	fn set_response_header<K, V>(&self, key: K, value: V)
 	where
 		K: IntoHeaderName,
 		V: Into<hyper::header::HeaderValue>,
 	{
-		let headers: ResponseHeadersMiddleware = self.context().unwrap();
+		let headers: &ResponseHeadersMiddleware = self.data().unwrap();
 
 		let mut headers = headers.0.lock().expect("failed to lock headers");
 		key.insert(&mut headers, value.into());

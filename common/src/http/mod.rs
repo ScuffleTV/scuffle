@@ -1,9 +1,12 @@
 use std::fmt::{Debug, Display};
 use std::panic::Location;
 
+use bytes::Bytes;
 use http::StatusCode;
-use routerify::RequestInfo;
+use http_body_util::Full;
 use serde_json::json;
+
+pub mod router;
 
 #[macro_export]
 macro_rules! make_response {
@@ -11,46 +14,35 @@ macro_rules! make_response {
 		hyper::Response::builder()
 			.status($status)
 			.header("Content-Type", "application/json")
-			.body(hyper::Body::from($body.to_string()))
+			.body(::hyper::body::Bytes::from($body.to_string()).into())
 			.expect("failed to build response")
 	};
 }
 
-pub async fn error_handler<E: std::error::Error + 'static>(
-	err: Box<(dyn std::error::Error + Send + Sync + 'static)>,
-	info: RequestInfo,
-) -> hyper::Response<hyper::Body> {
-	match err.downcast::<RouteError<E>>() {
-		Ok(err) => {
-			let location = err.location();
+pub async fn error_handler<E: std::error::Error + 'static, B: From<Bytes>>(
+	req: hyper::Request<()>,
+	err: RouteError<E, B>,
+) -> hyper::Response<B> {
+	let location = err.location();
 
-			err.span().in_scope(|| match err.should_log() {
-				ShouldLog::Yes => {
-					tracing::error!(path = %info.uri(), method = %info.method(), location = location.to_string(), error = ?err, "http error")
-				}
-				ShouldLog::Debug => {
-					tracing::debug!(path = %info.uri(), method = %info.method(), location = location.to_string(), error = ?err, "http error")
-				}
-				ShouldLog::No => (),
-			});
+	err.span().in_scope(|| match err.should_log() {
+		ShouldLog::Yes => {
+			tracing::error!(path = %req.uri(), method = %req.method(), location = location.to_string(), error = ?err, "http error")
+		}
+		ShouldLog::Debug => {
+			tracing::debug!(path = %req.uri(), method = %req.method(), location = location.to_string(), error = ?err, "http error")
+		}
+		ShouldLog::No => (),
+	});
 
-			err.response()
-		}
-		Err(err) => {
-			tracing::error!(path = %info.uri(), method = %info.method(), error = ?err, info = ?info, "unhandled http error");
-			make_response!(
-				StatusCode::INTERNAL_SERVER_ERROR,
-				json!({ "message": "Internal Server Error", "success": false })
-			)
-		}
-	}
+	err.response()
 }
 
-pub struct RouteError<E> {
+pub struct RouteError<E, B: From<Bytes> = Full<Bytes>> {
 	source: Option<E>,
 	location: &'static Location<'static>,
 	span: tracing::Span,
-	response: hyper::Response<hyper::Body>,
+	response: hyper::Response<B>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,7 +52,7 @@ pub enum ShouldLog {
 	No,
 }
 
-impl<E> RouteError<E> {
+impl<E, B: From<Bytes>> RouteError<E, B> {
 	pub fn span(&self) -> &tracing::Span {
 		&self.span
 	}
@@ -69,7 +61,7 @@ impl<E> RouteError<E> {
 		self.location
 	}
 
-	pub fn response(self) -> hyper::Response<hyper::Body> {
+	pub fn response(self) -> hyper::Response<B> {
 		self.response
 	}
 
@@ -94,19 +86,19 @@ impl<E> RouteError<E> {
 	}
 }
 
-impl<E> From<hyper::Response<hyper::Body>> for RouteError<E> {
+impl<E, B: From<Bytes>> From<hyper::Response<Bytes>> for RouteError<E, B> {
 	#[track_caller]
-	fn from(res: hyper::Response<hyper::Body>) -> Self {
+	fn from(res: hyper::Response<Bytes>) -> Self {
 		Self {
 			source: None,
 			span: tracing::Span::current(),
 			location: Location::caller(),
-			response: res,
+			response: res.map(|b| b.into()),
 		}
 	}
 }
 
-impl<E, S: AsRef<str>> From<(StatusCode, S)> for RouteError<E> {
+impl<E, S: AsRef<str>, B: From<Bytes>> From<(StatusCode, S)> for RouteError<E, B> {
 	#[track_caller]
 	fn from(status: (StatusCode, S)) -> Self {
 		Self {
@@ -118,7 +110,7 @@ impl<E, S: AsRef<str>> From<(StatusCode, S)> for RouteError<E> {
 	}
 }
 
-impl<E, S: AsRef<str>, T> From<(StatusCode, S, T)> for RouteError<E>
+impl<E, S: AsRef<str>, T, B: From<Bytes>> From<(StatusCode, S, T)> for RouteError<E, B>
 where
 	T: Into<E>,
 {
@@ -133,7 +125,7 @@ where
 	}
 }
 
-impl<E> From<&'_ str> for RouteError<E> {
+impl<E, B: From<Bytes>> From<&'_ str> for RouteError<E, B> {
 	#[track_caller]
 	fn from(message: &'_ str) -> Self {
 		Self {
@@ -148,7 +140,7 @@ impl<E> From<&'_ str> for RouteError<E> {
 	}
 }
 
-impl<E: Debug> Debug for RouteError<E> {
+impl<E: Debug, B: From<Bytes>> Debug for RouteError<E, B> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match &self.source {
 			Some(err) => write!(f, "RouteError: {:?}", err),
@@ -157,7 +149,7 @@ impl<E: Debug> Debug for RouteError<E> {
 	}
 }
 
-impl<E: Display> Display for RouteError<E> {
+impl<E: Display, B: From<Bytes>> Display for RouteError<E, B> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match &self.source {
 			Some(err) => write!(f, "RouteError: {}", err),
@@ -166,7 +158,7 @@ impl<E: Display> Display for RouteError<E> {
 	}
 }
 
-impl<E: std::error::Error + 'static> std::error::Error for RouteError<E> {
+impl<E: std::error::Error + 'static, B: From<Bytes>> std::error::Error for RouteError<E, B> {
 	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
 		match &self.source {
 			Some(err) => Some(err),
@@ -179,30 +171,31 @@ pub mod ext {
 	use std::panic::Location;
 	use std::sync::{Arc, Weak};
 
+	use bytes::Bytes;
 	use http::StatusCode;
 
 	use super::RouteError;
 
 	pub trait ResultExt<T, E, E2>: Sized {
-		fn map_err_route<C>(self, ctx: C) -> std::result::Result<T, RouteError<E2>>
+		fn map_err_route<C, B: From<Bytes>>(self, ctx: C) -> std::result::Result<T, RouteError<E2, B>>
 		where
-			RouteError<E2>: From<C>,
+			RouteError<E2, B>: From<C>,
 			E2: From<E>;
 
-		fn map_ignore_err_route<C>(self, ctx: C) -> std::result::Result<T, RouteError<E2>>
+		fn map_ignore_err_route<C, B: From<Bytes>>(self, ctx: C) -> std::result::Result<T, RouteError<E2, B>>
 		where
-			RouteError<E2>: From<C>;
+			RouteError<E2, B>: From<C>;
 
-		fn into_err_route(self) -> std::result::Result<T, RouteError<E2>>
+		fn into_err_route<B: From<Bytes>>(self) -> std::result::Result<T, RouteError<E2, B>>
 		where
-			RouteError<E2>: From<E>;
+			RouteError<E2, B>: From<E>;
 	}
 
 	impl<T, E, E2> ResultExt<T, E, E2> for std::result::Result<T, E> {
 		#[track_caller]
-		fn map_err_route<C>(self, ctx: C) -> std::result::Result<T, RouteError<E2>>
+		fn map_err_route<C, B: From<Bytes>>(self, ctx: C) -> std::result::Result<T, RouteError<E2, B>>
 		where
-			RouteError<E2>: From<C>,
+			RouteError<E2, B>: From<C>,
 			E2: From<E>,
 		{
 			match self {
@@ -214,9 +207,9 @@ pub mod ext {
 		}
 
 		#[track_caller]
-		fn map_ignore_err_route<C>(self, ctx: C) -> std::result::Result<T, RouteError<E2>>
+		fn map_ignore_err_route<C, B: From<Bytes>>(self, ctx: C) -> std::result::Result<T, RouteError<E2, B>>
 		where
-			RouteError<E2>: From<C>,
+			RouteError<E2, B>: From<C>,
 		{
 			match self {
 				Ok(val) => Ok(val),
@@ -225,9 +218,9 @@ pub mod ext {
 		}
 
 		#[track_caller]
-		fn into_err_route(self) -> std::result::Result<T, RouteError<E2>>
+		fn into_err_route<B: From<Bytes>>(self) -> std::result::Result<T, RouteError<E2, B>>
 		where
-			RouteError<E2>: From<E>,
+			RouteError<E2, B>: From<E>,
 		{
 			match self {
 				Ok(val) => Ok(val),
@@ -237,16 +230,16 @@ pub mod ext {
 	}
 
 	pub trait OptionExt<T, E>: Sized {
-		fn map_err_route<C>(self, ctx: C) -> std::result::Result<T, RouteError<E>>
+		fn map_err_route<C, B: From<Bytes>>(self, ctx: C) -> std::result::Result<T, RouteError<E, B>>
 		where
-			RouteError<E>: From<C>;
+			RouteError<E, B>: From<C>;
 	}
 
 	impl<T, E> OptionExt<T, E> for std::option::Option<T> {
 		#[track_caller]
-		fn map_err_route<C>(self, ctx: C) -> std::result::Result<T, RouteError<E>>
+		fn map_err_route<C, B: From<Bytes>>(self, ctx: C) -> std::result::Result<T, RouteError<E, B>>
 		where
-			RouteError<E>: From<C>,
+			RouteError<E, B>: From<C>,
 		{
 			match self {
 				Some(val) => Ok(val),
@@ -256,18 +249,14 @@ pub mod ext {
 	}
 
 	pub trait RequestGlobalExt<E> {
-		fn get_global<G: Sync + Send + 'static>(&self) -> std::result::Result<Arc<G>, RouteError<E>>;
+		fn get_global<G: Sync + Send + 'static, B: From<Bytes>>(&self) -> std::result::Result<Arc<G>, RouteError<E, B>>;
 	}
 
-	impl<E, B> RequestGlobalExt<E> for hyper::Request<B>
-	where
-		Self: routerify::ext::RequestExt,
-	{
-		fn get_global<G: Sync + Send + 'static>(&self) -> std::result::Result<Arc<G>, RouteError<E>> {
-			use routerify::ext::RequestExt;
-
+	impl<E, B> RequestGlobalExt<E> for hyper::Request<B> {
+		fn get_global<G: Sync + Send + 'static, B2: From<Bytes>>(&self) -> std::result::Result<Arc<G>, RouteError<E, B2>> {
 			Ok(self
-				.data::<Weak<G>>()
+				.extensions()
+				.get::<Weak<G>>()
 				.expect("global state not set")
 				.upgrade()
 				.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to upgrade global state"))?)

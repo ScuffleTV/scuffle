@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
+use common::http::router::middleware::Middleware;
 use common::http::RouteError;
 use hyper::http::header;
-use hyper::Body;
-use routerify::Middleware;
 
 use crate::api::error::ApiError;
+use crate::api::Body;
 use crate::global::ApiGlobal;
 
 pub fn cors_middleware<G: ApiGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError<ApiError>> {

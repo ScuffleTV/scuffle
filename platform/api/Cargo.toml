@@ -6,59 +6,56 @@ authors = ["Scuffle <opensource@scuffle.tv>"]
 description = "Scuffle API server"
 
 [dependencies]
-tracing = "0.1.40"
-tokio = { version = "1.35.0", features = ["full"] }
-serde = { version = "1.0.193", features = ["derive"] }
-hyper = { version = "=0.14.27", features = ["full"] }
+tracing = "0.1"
+tokio = { version = "1.35", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+hyper = { version = "1.1", features = ["full"] }
 common = { workspace = true, features = ["default"] }
-rustls = "0.22.1"
-rustls-pemfile = "2.0.0"
-tokio-rustls = "0.25.0"
-sqlx = { version = "0.7.3", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
-sqlx-postgres = "0.7.3"
-routerify = "3.0.0"
-serde_json = "1.0.108"
-reqwest = { version = "0.11.22", features = ["json", "rustls-tls"], default-features = false}
-chrono = { version = "0.4.31", default-features = false, features = ["serde", "clock"] }
+rustls = "0.22"
+rustls-pemfile = "2.0"
+tokio-rustls = "0.25"
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
+sqlx-postgres = "0.7"
+path-tree = "0.7"
+serde_json = "1.0"
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false}
+chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
 async-graphql = { git = "https://github.com/async-graphql/async-graphql.git", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "string_number"] }
-hyper-tungstenite = "=0.11.1"
-async-stream = "0.3.5"
-futures = "0.3.29"
-futures-util = "0.3.29"
-arc-swap = "1.6.0"
-jwt = "0.16.0"
-hmac = "0.12.1"
-sha2 = "0.10.8"
-negative-impl  = "0.1.4"
-tonic = { version = "0.10.2", features = ["tls"] }
-prost = "0.12.3"
-uuid = "1.6.1"
-bitmask-enum = "2.2.3"
-argon2 = "0.5.2"
-ulid = { version = "1.1.0", features = ["uuid"] }
-email_address = "0.2.4"
-rand = "0.8.5"
-tokio-stream = { version = "0.1.14", features = ["sync"] }
-async-nats = "0.33.0"
-async-trait = "0.1.74"
-bytes = "1.5.0"
-totp-rs = { version = "5.4.0", features = ["qr"] }
-thiserror = "1.0.50"
-itertools = "0.12.0"
-anyhow = "1.0.75"
-multer = "=2.1.0"
-trait-variant = "0.1.0"
+hyper-tungstenite = "0"
+async-stream = "0.3"
+futures = "0.3"
+futures-util = "0.3"
+arc-swap = "1.6"
+jwt = "0.16"
+hmac = "0.12"
+sha2 = "0.10"
+tonic = { version = "0.10", features = ["tls"] }
+prost = "0.12"
+uuid = "1.6"
+bitmask-enum = "2.2"
+argon2 = "0.5"
+ulid = { version = "1.1", features = ["uuid"] }
+rand = "0.8"
+tokio-stream = { version = "0.1", features = ["sync"] }
+async-nats = "0.33"
+async-trait = "0.1"
+bytes = "1.5"
+totp-rs = { version = "5.4", features = ["qr"] }
+thiserror = "1.0"
+itertools = "0.12"
+anyhow = "1.0"
+multer = "3.0"
 rust-s3 = { git = "https://github.com/durch/rust-s3.git", default-features = false, features = ["tags", "tokio-rustls-tls", "fail-on-err"] }
-file-format = "0.23.0"
+http-body = "1.0"
+http-body-util = "0.1"
+hyper-util = "0.1"
+pin-project = "1.1"
 
 config = { workspace = true }
 pb = { workspace = true }
 binary-helper = { workspace = true }
 
 [dev-dependencies]
-tempfile = "3.8.1"
-dotenvy = "0.15.7"
-http = "=0.2.11"
-tokio-tungstenite = "0.21.0"
-portpicker = "0.1.1"
-serial_test = "2.0.0"
+tempfile = "3.8"
+dotenvy = "0.15"
+http = "1.0"

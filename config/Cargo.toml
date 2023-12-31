@@ -30,7 +30,7 @@ clap = { version = "4.4", features = ["cargo", "string"] }
 convert_case = "0.6"
 
 # Derive macro
-config_derive = { path = "../config_derive" }
+config_derive = { path = "derive" }
 
 [[example]]
 name = "derive"

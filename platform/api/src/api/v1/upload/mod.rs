@@ -1,17 +1,21 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
-use common::http::ext::{OptionExt, ResultExt};
+use common::http::ext::{OptionExt, RequestGlobalExt, ResultExt};
+use common::http::router::builder::RouterBuilder;
+use common::http::router::compat::BodyExt;
+use common::http::router::ext::RequestExt;
+use common::http::router::Router;
 use common::http::RouteError;
-use hyper::{Body, Request, Response, StatusCode};
+use hyper::body::Incoming;
+use hyper::{Request, Response, StatusCode};
 use multer::{Constraints, SizeLimit};
-use routerify::ext::RequestExt;
-use routerify::Router;
 
 use self::profile_picture::ProfilePicture;
 use crate::api::auth::AuthData;
 use crate::api::error::ApiError;
 use crate::api::request_context::RequestContext;
+use crate::api::Body;
 use crate::global::ApiGlobal;
 use crate::turnstile::validate_turnstile_token;
 
@@ -34,20 +38,14 @@ trait UploadType: serde::de::DeserializeOwned + Default {
 	) -> Result<Response<Body>, RouteError<ApiError>>;
 }
 
-pub fn routes<G: ApiGlobal>(_: &Arc<G>) -> Router<Body, RouteError<ApiError>> {
-	Router::builder()
-		.patch("/profile-picture", handler::<G, ProfilePicture>)
-		.build()
-		.expect("failed to build router")
+pub fn routes<G: ApiGlobal>(_: &Arc<G>) -> RouterBuilder<Incoming, Body, RouteError<ApiError>> {
+	Router::builder().patch("/profile-picture", handler::<G, ProfilePicture>)
 }
 
-async fn handler<G: ApiGlobal, U: UploadType>(req: Request<Body>) -> Result<Response<Body>, RouteError<ApiError>> {
-	let global = req
-		.data::<Arc<G>>()
-		.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "missing global state"))?
-		.clone();
+async fn handler<G: ApiGlobal, U: UploadType>(req: Request<Incoming>) -> Result<Response<Body>, RouteError<ApiError>> {
+	let global = req.get_global::<G, _>()?;
 
-	let request_context: RequestContext = req.context().expect("missing request context");
+	let request_context = req.data::<RequestContext>().expect("missing request context");
 
 	let auth = request_context
 		.auth(&global)
@@ -74,7 +72,7 @@ async fn handler<G: ApiGlobal, U: UploadType>(req: Request<Body>) -> Result<Resp
 				.for_field("file", U::get_max_size(&global) as u64),
 		);
 
-	let mut multipart = multer::Multipart::with_constraints(req.into_body(), boundary, constraints);
+	let mut multipart = multer::Multipart::with_constraints(req.into_body().into_stream(), boundary, constraints);
 
 	let mut metadata = None;
 	let mut file = None;

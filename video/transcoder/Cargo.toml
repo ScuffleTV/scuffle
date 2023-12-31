@@ -8,30 +8,29 @@ name = "video-transcoder"
 path = "src/main.rs"
 
 [dependencies]
-anyhow = "1.0.75"
-tracing = "0.1.40"
-tokio = { version = "1.35.0", features = ["full"] }
-serde = { version = "1.0.193", features = ["derive"] }
-hyper = { version = "=0.14.27", features = ["full"] }
-tonic = { version = "0.10.2", features = ["tls"] }
-chrono = { version = "0.4.31", default-features = false, features = ["clock"] }
-prost = "0.12.3"
-async-stream = "0.3.5"
-futures = "0.3.29"
-futures-util = "0.3.29"
-bytes = "1.5.0"
-async-trait = "0.1.74"
-url-parse = "1.0.7"
-nix = { version = "0.27.1", features = ["fs", "user"] }
-sha2 = "0.10.8"
-tokio-util = { version = "0.7.10", features = ["compat"] }
-tokio-stream = "0.1.14"
-ulid = { version = "1.1.0", features = ["uuid"] }
-uuid = { version = "1.6.1", features = ["serde", "v4"] }
-async-nats = "0.33.0"
-sqlx = { version = "0.7.3", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
-sqlx-postgres = "0.7.3"
-thiserror = "1.0.50"
+anyhow = "1.0"
+tracing = "0.1"
+tokio = { version = "1.35", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+hyper = { version = "1.1", features = ["full"] }
+tonic = { version = "0.10", features = ["tls"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+prost = "0.12"
+async-stream = "0.3"
+futures = "0.3"
+futures-util = "0.3"
+bytes = "1.5"
+async-trait = "0.1"
+nix = { version = "0.27", features = ["fs", "user"] }
+sha2 = "0.10"
+tokio-util = { version = "0.7", features = ["compat"] }
+tokio-stream = "0.1"
+ulid = { version = "1.1", features = ["uuid"] }
+uuid = { version = "1.6", features = ["serde", "v4"] }
+async-nats = "0.33"
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
+sqlx-postgres = "0.7"
+thiserror = "1.0"
 rust-s3 = { git = "https://github.com/durch/rust-s3.git", default-features = false, features = ["tags", "tokio-rustls-tls", "fail-on-err"] }
 
 aac = { workspace = true }
@@ -44,10 +43,9 @@ video-common = { workspace = true }
 binary-helper = { workspace = true }
 
 [dev-dependencies]
-dotenvy = "0.15.7"
-portpicker = "0.1.1"
-serial_test = "2.0.0"
-tempfile = "3.8.1"
-serde_json = "1.0.108"
+dotenvy = "0.15"
+portpicker = "0.1"
+tempfile = "3.8"
+serde_json = "1.0"
 transmuxer = { workspace = true }
 flv = { workspace = true }

@@ -1,28 +1,29 @@
 use std::sync::Arc;
 
 use common::http::ext::*;
+use common::http::router::ext::RequestExt;
+use common::http::router::middleware::Middleware;
 use common::http::RouteError;
 use hyper::http::header;
-use routerify::prelude::RequestExt as _;
-use routerify::Middleware;
 
 use crate::api::auth::{AuthData, AuthError};
 use crate::api::error::ApiError;
 use crate::api::jwt::{AuthJwtPayload, JwtState};
 use crate::api::request_context::RequestContext;
+use crate::api::Body;
 use crate::global::ApiGlobal;
 
-pub fn auth_middleware<G: ApiGlobal>(_: &Arc<G>) -> Middleware<hyper::Body, RouteError<ApiError>> {
-	Middleware::pre(|req| async move {
+pub fn auth_middleware<G: ApiGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError<ApiError>> {
+	Middleware::pre(|mut req| async move {
 		let context = RequestContext::default();
-		req.set_context(context.clone());
+		req.provide(context.clone());
 
 		let Some(token) = req.headers().get(header::AUTHORIZATION) else {
 			// No Authorization header
 			return Ok(req);
 		};
 
-		let global = req.get_global::<G>()?;
+		let global = req.get_global::<G, _>()?;
 
 		let token = token
 			.to_str()

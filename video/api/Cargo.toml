@@ -8,38 +8,38 @@ name = "video-api"
 path = "src/main.rs"
 
 [dependencies]
-tokio = { version = "1.35.0", features = ["full"] }
-tracing = "0.1.40"
-anyhow = "1.0.75"
-sqlx = { version = "0.7.3", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
-sqlx-core = "0.7.3"
-sqlx-postgres = "0.7.3"
-tonic = { version = "0.10.2", features = ["tls"] }
-prost = "0.12.3"
-uuid = { version = "1.6.1", features = ["v4"] }
-serde = { version = "1.0.193", features = ["derive"] }
-chrono = { version = "0.4.31", default-features = false, features = ["serde", "clock"] }
-tokio-stream = { version = "0.1.14", features = ["sync"] }
-async-stream = "0.3.5"
-futures = "0.3.29"
-futures-util = "0.3.29"
-bytes = "1.5.0"
-async-trait = "0.1.74"
-jwt = "0.16.0"
-hmac = "0.12.1"
-sha2 = "0.10.8"
-rand = "0.8.5"
-async-nats = "0.33.0"
-ulid = "1.1.0"
-hex = "0.4.3"
-base64 = "0.21.5"
-serde_json = "1.0.108"
+tokio = { version = "1.35", features = ["full"] }
+tracing = "0.1"
+anyhow = "1.0"
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
+sqlx-core = "0.7"
+sqlx-postgres = "0.7"
+tonic = { version = "0.10", features = ["tls"] }
+prost = "0.12"
+uuid = { version = "1.6", features = ["v4"] }
+serde = { version = "1.0", features = ["derive"] }
+chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+async-stream = "0.3"
+futures = "0.3"
+futures-util = "0.3"
+bytes = "1.5"
+async-trait = "0.1"
+jwt = "0.16"
+hmac = "0.12"
+sha2 = "0.10"
+rand = "0.8"
+async-nats = "0.33"
+ulid = "1.1"
+hex = "0.4"
+base64 = "0.21"
+serde_json = "1.0"
 fred = { git = "https://github.com/aembke/fred.rs.git", features = ["enable-rustls", "sentinel-client", "dns"] }
-url = "2.5.0"
-itertools = "0.12.0"
-tower = "0.4.13"
-http = "=0.2.11"
-hyper = "=0.14.27"
+url = "2.5"
+itertools = "0.12"
+tower = "0.4"
+http = "=0.2"
+hyper = "=0.14"
 rust-s3 = { git = "https://github.com/durch/rust-s3.git", default-features = false, features = ["tags", "tokio-rustls-tls", "fail-on-err"] }
 
 common = { workspace = true, features = ["default"] }
@@ -49,5 +49,5 @@ video-common = { workspace = true }
 binary-helper = { workspace = true }
 
 [dev-dependencies]
-dotenvy = "0.15.7"
-rand_chacha = "0.3.1"
+dotenvy = "0.15"
+rand_chacha = "0.3"

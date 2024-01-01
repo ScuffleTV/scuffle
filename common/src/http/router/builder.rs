@@ -232,8 +232,6 @@ impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
 						path
 					);
 
-					println!("Inserting route: {}", full_path);
-
 					let _ = target.tree.insert(&full_path, info);
 				}
 				RouterItem::Router(router) => {

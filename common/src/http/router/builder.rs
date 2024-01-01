@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Formatter};
 
+use super::extend::ExtendRouter;
 use super::middleware::{Middleware, PostMiddlewareHandler, PreMiddlewareHandler};
 use super::route::{Route, RouteHandler, RouterItem};
 use super::types::{ErrorHandler, RouteInfo};
@@ -39,6 +40,10 @@ impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
 		}
 	}
 
+	pub fn extend(self, mut extend: impl ExtendRouter<I, O, E>) -> Self {
+		extend.extend(self)
+	}
+
 	pub fn middleware(mut self, middleware: Middleware<O, E>) -> Self {
 		match middleware {
 			Middleware::Pre(handler) => self.pre_middleware.push(handler),
@@ -48,11 +53,16 @@ impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
 		self
 	}
 
-	pub fn data<T: Clone + Send + Sync + 'static>(self, data: T) -> Self {
-		self.middleware(Middleware::pre(move |mut req| {
-			req.extensions_mut().insert(data.clone());
-			async move { Ok(req) }
-		}))
+	pub fn data<T: Clone + Send + Sync + 'static>(mut self, data: T) -> Self {
+		self.pre_middleware.insert(
+			0,
+			PreMiddlewareHandler(Box::new(move |mut req: hyper::Request<()>| {
+				req.extensions_mut().insert(data.clone());
+				Box::pin(async move { Ok(req) })
+			})),
+		);
+
+		self
 	}
 
 	pub fn error_handler<F: std::future::Future<Output = hyper::Response<O>> + Send + 'static>(
@@ -228,7 +238,7 @@ impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
 					let full_path = format!(
 						"/{method}/{}{}{}",
 						parent_path,
-						if parent_path.is_empty() { "" } else { "/" },
+						if parent_path.is_empty() || path.is_empty() { "" } else { "/" },
 						path
 					);
 
@@ -240,7 +250,10 @@ impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
 					let parent_path = parent_path.trim_matches('/');
 					let path = path.trim_matches('/');
 					router.build_scoped(
-						&format!("{parent_path}{}{path}", if parent_path.is_empty() { "" } else { "/" }),
+						&format!(
+							"{parent_path}{}{path}",
+							if parent_path.is_empty() || path.is_empty() { "" } else { "/" }
+						),
 						target,
 						&pre_middleware_idxs,
 						&post_middleware_idxs,

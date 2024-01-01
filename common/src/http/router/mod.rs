@@ -11,6 +11,7 @@ pub mod builder;
 pub mod compat;
 pub mod error;
 pub mod ext;
+pub mod extend;
 pub mod middleware;
 pub mod route;
 pub mod types;

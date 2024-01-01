@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
 use async_graphql::{extensions, Schema};
+use common::http::router::builder::RouterBuilder;
+use common::http::router::Router;
 use common::http::RouteError;
-use hyper::{Body, Response};
-use routerify::Router;
+use hyper::body::Incoming;
+use hyper::Response;
 
 use crate::api::error::ApiError;
+use crate::api::Body;
 use crate::global::ApiGlobal;
 
 mod error;
@@ -36,17 +39,15 @@ pub fn schema<G: ApiGlobal>() -> MySchema<G> {
 	.finish()
 }
 
-pub fn routes<G: ApiGlobal>(_: &Arc<G>) -> Router<Body, RouteError<ApiError>> {
+pub fn routes<G: ApiGlobal>(_: &Arc<G>) -> RouterBuilder<Incoming, Body, RouteError<ApiError>> {
 	Router::builder()
 		.data(schema::<G>())
-		.any_method("/", handlers::graphql_handler::<G>)
+		.any("/", handlers::graphql_handler::<G>)
 		.get("/playground", move |_| async move {
 			Ok(Response::builder()
 				.status(200)
 				.header("content-type", "text/html")
-				.body(Body::from(PLAYGROUND_HTML))
+				.body(PLAYGROUND_HTML.into())
 				.expect("failed to build response"))
 		})
-		.build()
-		.expect("failed to build router")
 }

@@ -13,17 +13,17 @@ prelude = ["dep:tokio"]
 signal = ["tokio/signal", "tokio/process"]
 macros = []
 database = ["dep:sqlx", "dep:sqlx-postgres", "dep:prost", "dep:uuid", "dep:ulid"]
-dataloader = ["dep:fnv", "dep:futures-util", "dep:futures-channel", "dep:futures-timer"]
+dataloader = ["dep:fnv", "dep:futures-util", "dep:futures-channel"]
 config = ["dep:config", "dep:serde", "logging", "dep:rust-s3"]
 ratelimiter = ["dep:fred"]
 global = ["context", "dep:fred", "dep:sqlx", "dep:async-nats"]
-http = ["dep:hyper", "dep:serde_json", "dep:routerify", "dep:bytes"]
+http = ["dep:hyper", "dep:serde_json", "dep:bytes", "dep:http-body-util", "dep:pin-project", "dep:path-tree"]
 
 default = ["logging", "grpc", "context", "prelude", "signal", "macros", "config", "dataloader", "database", "ratelimiter", "global", "http"]
 
 [dependencies]
 log = { version = "0.4", optional = true }
-http = { version = "=0.2", optional = true }
+http = { version = "1.0", optional = true }
 tower = { version = "0.4", optional = true }
 config = { workspace = true, optional = true }
 futures = { version = "0.3", optional = true }
@@ -41,15 +41,16 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter", "json"]
 thiserror = { version = "1.0", optional = true }
 fred = { git = "https://github.com/aembke/fred.rs.git", optional = true }
 async-nats = { version = "0.33", optional = true }
-hyper = { version = "=0.14", optional = true }
+hyper = { version = "1.1", optional = true }
 serde_json = { version = "1.0", optional = true }
-routerify = { version = "3.0", optional = true }
 bytes = { version = "1.5", optional = true }
+http-body-util = { version = "0.1", optional = true }
+pin-project = { version = "1.0", optional = true }
+path-tree = { version = "0.7", optional = true }
 
 fnv = { version = "1.0", optional = true }
 futures-util = { version = "0.3", optional = true }
 futures-channel = { version = "0.3", optional = true }
-futures-timer = { version = "3.0", optional = true }
 
 const_format = { version = "0.2" }
 
@@ -66,7 +67,6 @@ ulid = "1.1"
 prost = "0.12"
 tempfile = "3.8"
 portpicker = "0.1"
-serial_test = "2.0"
 dotenvy = "0.15"
 
 [build-dependencies]

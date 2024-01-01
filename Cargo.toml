@@ -15,9 +15,8 @@ members = [
     "binary-helper",
     "common",
     "proto",
-    "config/config",
-    "config/config_derive",
-    "config/config_test",
+    "config",
+    "config/derive",
 ]
 
 resolver = "2"
@@ -47,7 +46,7 @@ mp4 = { path = "video/lib/mp4" }
 rtmp = { path = "video/lib/rtmp" }
 transmuxer = { path = "video/lib/transmuxer" }
 common = { path = "common", default-features = false }
-config = { path = "config/config" }
+config = { path = "config" }
 pb = { path = "proto" }
 video-common = { path = "video/common" }
 video-player-types = { path = "video/player_types" }

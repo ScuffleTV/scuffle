@@ -3,12 +3,17 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
+use bytes::Bytes;
+use common::http::router::middleware::Middleware;
+use common::http::router::Router;
 use common::http::RouteError;
 use common::prelude::FutureTimeout;
+use http_body_util::Full;
+use hyper::body::Incoming;
 use hyper::http::header;
-use hyper::server::conn::Http;
-use hyper::Body;
-use routerify::{Middleware, RequestServiceBuilder, Router};
+use hyper::server::conn::http1;
+use hyper::service::service_fn;
+use hyper_util::rt::TokioIo;
 use tokio::net::TcpSocket;
 use tokio::select;
 
@@ -19,6 +24,8 @@ mod error;
 mod stream;
 
 pub use error::EdgeError;
+
+type Body = Full<Bytes>;
 
 pub fn cors_middleware<G: EdgeGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError<EdgeError>> {
 	Middleware::post(|mut resp| async move {
@@ -40,15 +47,14 @@ pub fn cors_middleware<G: EdgeGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError
 	})
 }
 
-pub fn routes<G: EdgeGlobal>(global: &Arc<G>) -> Router<Body, RouteError<EdgeError>> {
+pub fn routes<G: EdgeGlobal>(global: &Arc<G>) -> Router<Incoming, Body, RouteError<EdgeError>> {
 	let weak = Arc::downgrade(global);
 	Router::builder()
 		.data(weak)
-		.err_handler_with_info(common::http::error_handler::<EdgeError>)
+		.error_handler(common::http::error_handler::<EdgeError, _>)
 		.middleware(cors_middleware(global))
 		.scope("/", stream::routes(global))
 		.build()
-		.expect("failed to build router")
 }
 
 pub async fn run<G: EdgeGlobal>(global: Arc<G>) -> anyhow::Result<()> {
@@ -94,7 +100,7 @@ pub async fn run<G: EdgeGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 	// the shutdown would never complete By using a Weak reference, we can check if
 	// the global state is still alive, and if it isn't, we can stop accepting new
 	// connections
-	let request_service = RequestServiceBuilder::new(routes(&global)).expect("failed to build request service");
+	let router = Arc::new(routes(&global));
 
 	loop {
 		select! {
@@ -104,24 +110,32 @@ pub async fn run<G: EdgeGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 			r = listener.accept() => {
 				let (socket, addr) = r?;
 
+				let router = router.clone();
+				let service = service_fn(move |mut req| {
+					req.extensions_mut().insert(addr);
+					let this = router.clone();
+					async move { this.handle(req).await }
+				});
+
 				let tls_acceptor = tls_acceptor.clone();
-				let service = request_service.build(addr);
 
 				tracing::debug!("Accepted connection from {}", addr);
 
 				tokio::spawn(async move {
-					 if let Some(tls_acceptor) = tls_acceptor {
+					let http = http1::Builder::new();
+
+					if let Some(tls_acceptor) = tls_acceptor {
 						let Ok(Ok(socket)) = tls_acceptor.accept(socket).timeout(Duration::from_secs(5)).await else {
 							return;
 						};
 						tracing::debug!("TLS handshake complete");
-						Http::new().serve_connection(
-							socket,
+						http.serve_connection(
+							TokioIo::new(socket),
 							service,
 						).with_upgrades().await.ok();
 					} else {
-						 Http::new().serve_connection(
-							socket,
+						http.serve_connection(
+							TokioIo::new(socket),
 							service,
 						).with_upgrades().await.ok();
 					}

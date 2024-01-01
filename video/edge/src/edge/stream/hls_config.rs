@@ -1,6 +1,6 @@
 use common::http::ext::*;
 use common::http::RouteError;
-use hyper::{Body, Request, StatusCode};
+use hyper::{Request, StatusCode};
 use pb::scuffle::video::internal::live_rendition_manifest::RenditionInfo;
 
 use super::block_style::BlockStyle;
@@ -15,7 +15,7 @@ pub struct HlsConfig {
 }
 
 impl HlsConfig {
-	pub fn new(req: &Request<Body>) -> Result<Self> {
+	pub fn new<B>(req: &Request<B>) -> Result<Self> {
 		Ok(req
 			.uri()
 			.query()

@@ -8,6 +8,9 @@ pub struct TranscoderConfig {
 	/// The direcory to create unix sockets in
 	pub socket_dir: String,
 
+	/// Events stream name
+	pub events_stream_name: String,
+
 	/// The name of the transcoder requests queue to use
 	pub transcoder_request_subject: String,
 
@@ -42,12 +45,13 @@ pub struct TranscoderConfig {
 impl Default for TranscoderConfig {
 	fn default() -> Self {
 		Self {
-			transcoder_request_subject: "transcoder-request".to_string(),
+			events_stream_name: "scuffle-video-events".to_string(),
+			transcoder_request_subject: "scuffle-video-transcoder_requests".to_string(),
 			socket_dir: format!("/tmp/{}", std::process::id()),
 			ffmpeg_uid: 1000,
 			ffmpeg_gid: 1000,
-			metadata_kv_store: "transcoder-metadata".to_string(),
-			media_ob_store: "transcoder-media".to_string(),
+			metadata_kv_store: "scuffle-video-transcoder_metadata".to_string(),
+			media_ob_store: "scuffle-video-transcoder_media".to_string(),
 			min_segment_duration: Duration::from_secs(2),
 			target_part_duration: Duration::from_millis(250),
 			max_part_duration: Duration::from_millis(500),

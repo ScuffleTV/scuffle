@@ -31,8 +31,8 @@ impl Default for EdgeConfig {
 			tls: None,
 			media_key: "media_key".to_string(),
 			session_key: "session_key".to_string(),
-			metadata_kv_store: "transcoder-metadata".to_string(),
-			media_ob_store: "transcoder-media".to_string(),
+			metadata_kv_store: "scuffle-video-transcoder_metadata".to_string(),
+			media_ob_store: "scuffle-video-transcoder_media".to_string(),
 		}
 	}
 }

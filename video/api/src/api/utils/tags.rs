@@ -179,7 +179,7 @@ macro_rules! impl_tag_req {
 				})?;
 
 				let $id = pb::ext::UlidExt::into_ulid(req.id);
-				video_common::events::emit(global.nats(), access_token.organization_id.0, $event_target, $event).await;
+				video_common::events::emit(global.nats(), &global.config().events.stream_name, access_token.organization_id.0, $event_target, $event).await;
 
 				Ok(tonic::Response::new($resp {
 					tags: Some(result.into_tags()?)
@@ -218,7 +218,7 @@ macro_rules! impl_untag_req {
 				})?;
 
 				let $id = pb::ext::UlidExt::into_ulid(req.id);
-				video_common::events::emit(global.nats(), access_token.organization_id.0, $event_target, $event).await;
+				video_common::events::emit(global.nats(), &global.config().events.stream_name, access_token.organization_id.0, $event_target, $event).await;
 
 				Ok(tonic::Response::new($resp {
 					tags: Some(result.into_tags()?)

@@ -4,9 +4,9 @@ use prost::Message;
 
 use crate::keys::event_subject;
 
-pub async fn emit(nats: &async_nats::Client, org_id: ulid::Ulid, target: Target, event: event::Event) {
+pub async fn emit(nats: &async_nats::Client, stream_name: &str, org_id: ulid::Ulid, target: Target, event: event::Event) {
 	nats.publish(
-		event_subject(org_id, target),
+		event_subject(stream_name, org_id, target),
 		Event {
 			timestamp: chrono::Utc::now().timestamp_millis(),
 			event_id: Some(ulid::Ulid::new().into()),

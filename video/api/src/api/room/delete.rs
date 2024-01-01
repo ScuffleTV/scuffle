@@ -96,6 +96,7 @@ impl ApiRequest<RoomDeleteResponse> for tonic::Request<RoomDeleteRequest> {
 		for id in deleted_ids.iter().copied() {
 			video_common::events::emit(
 				global.nats(),
+				&global.config().events.stream_name,
 				access_token.organization_id.0,
 				Target::Room,
 				event::Event::Room(event::Room {

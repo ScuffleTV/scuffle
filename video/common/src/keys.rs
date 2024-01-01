@@ -44,6 +44,10 @@ pub fn ingest_disconnect(session_id: Ulid) -> String {
 	format!("ingest.{session_id}.disconnect")
 }
 
-pub fn event_subject(organization_id: Ulid, target: pb::scuffle::video::v1::events_fetch_request::Target) -> String {
-	format!("events.{organization_id}.{}", target.as_str_name())
+pub fn event_subject(
+	stream_name: &str,
+	organization_id: Ulid,
+	target: pb::scuffle::video::v1::events_fetch_request::Target,
+) -> String {
+	format!("{stream_name}.{organization_id}.{}", target.as_str_name())
 }

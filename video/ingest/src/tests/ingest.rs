@@ -180,6 +180,7 @@ impl TestState {
 		let rtmp_port = portpicker::pick_unused_port().unwrap();
 
 		let (global, handler) = mock_global_state(IngestConfig {
+			events_stream_name: Ulid::new().to_string(),
 			transcoder_request_subject: Uuid::new_v4().to_string(),
 			bitrate_update_interval: Duration::from_secs(1),
 			grpc_advertise_address: format!("127.0.0.1:{grpc_port}"),
@@ -230,7 +231,11 @@ impl TestState {
 
 		let events = {
 			let global = global.clone();
-			let mut stream = global.nats().subscribe(event_subject(org_id, Target::Room)).await.unwrap();
+			let mut stream = global
+				.nats()
+				.subscribe(event_subject(&global.config().events_stream_name, org_id, Target::Room))
+				.await
+				.unwrap();
 			stream!({
 				loop {
 					select! {

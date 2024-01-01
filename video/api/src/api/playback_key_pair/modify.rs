@@ -91,6 +91,7 @@ impl ApiRequest<PlaybackKeyPairModifyResponse> for tonic::Request<PlaybackKeyPai
 			Some(result) => {
 				video_common::events::emit(
 					global.nats(),
+					&global.config().events.stream_name,
 					access_token.organization_id.0,
 					Target::PlaybackKeyPair,
 					event::Event::PlaybackKeyPair(event::PlaybackKeyPair {

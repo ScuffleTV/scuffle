@@ -75,6 +75,7 @@ pub async fn handle_message<G: TranscoderGlobal>(global: Arc<G>, msg: Message, s
 	if let Err(err) = job.run(&global, shutdown_token, &mut streams).await {
 		video_common::events::emit(
 			global.nats(),
+			&global.config().events_stream_name,
 			job.organization_id,
 			Target::Room,
 			event::Event::Room(event::Room {
@@ -435,6 +436,7 @@ impl<G: TranscoderGlobal> Job<G> {
 
 					video_common::events::emit(
 						global.nats(),
+						&global.config().events_stream_name,
 						organization_id,
 						Target::Room,
 						event::Event::Room(event::Room {

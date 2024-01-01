@@ -85,6 +85,7 @@ async fn test_transcode() {
 	let port = portpicker::pick_unused_port().unwrap();
 
 	let (global, handler) = crate::tests::global::mock_global_state(TranscoderConfig {
+		events_stream_name: Ulid::new().to_string(),
 		transcoder_request_subject: Ulid::new().to_string(),
 		metadata_kv_store: Ulid::new().to_string(),
 		media_ob_store: Ulid::new().to_string(),
@@ -96,7 +97,11 @@ async fn test_transcode() {
 
 	let mut event_stream = global
 		.nats()
-		.subscribe(video_common::keys::event_subject(org_id, Target::Room))
+		.subscribe(video_common::keys::event_subject(
+			&global.config().events_stream_name,
+			org_id,
+			Target::Room,
+		))
 		.await
 		.unwrap();
 
@@ -610,6 +615,7 @@ async fn test_transcode_reconnect() {
 	let port = portpicker::pick_unused_port().unwrap();
 
 	let (global, handler) = crate::tests::global::mock_global_state(TranscoderConfig {
+		events_stream_name: Ulid::new().to_string(),
 		transcoder_request_subject: Ulid::new().to_string(),
 		metadata_kv_store: Ulid::new().to_string(),
 		media_ob_store: Ulid::new().to_string(),
@@ -632,7 +638,11 @@ async fn test_transcode_reconnect() {
 
 	let mut event_stream = global
 		.nats()
-		.subscribe(video_common::keys::event_subject(org_id, Target::Room))
+		.subscribe(video_common::keys::event_subject(
+			&global.config().events_stream_name,
+			org_id,
+			Target::Room,
+		))
 		.await
 		.unwrap();
 

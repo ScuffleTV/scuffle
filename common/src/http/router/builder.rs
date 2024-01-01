@@ -39,8 +39,8 @@ impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
 		}
 	}
 
-	pub fn middleware(mut self, middleware: impl Into<Middleware<O, E>>) -> Self {
-		match middleware.into() {
+	pub fn middleware(mut self, middleware: Middleware<O, E>) -> Self {
+		match middleware {
 			Middleware::Pre(handler) => self.pre_middleware.push(handler),
 			Middleware::Post(handler) => self.post_middleware.push(handler),
 		}
@@ -232,13 +232,15 @@ impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
 						path
 					);
 
+					tracing::debug!(parent_path, path, full_path, "adding route");
+
 					let _ = target.tree.insert(&full_path, info);
 				}
 				RouterItem::Router(router) => {
 					let parent_path = parent_path.trim_matches('/');
 					let path = path.trim_matches('/');
 					router.build_scoped(
-						&format!("{}{}", parent_path, path),
+						&format!("{parent_path}{}{path}", if parent_path.is_empty() { "" } else { "/" }),
 						target,
 						&pre_middleware_idxs,
 						&post_middleware_idxs,

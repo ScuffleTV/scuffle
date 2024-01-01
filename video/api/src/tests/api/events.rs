@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use common::global::GlobalNats;
+use common::global::{GlobalConfig, GlobalNats};
 use futures_util::StreamExt;
 use pb::scuffle::video::v1::types::Event;
 use pb::scuffle::video::v1::{events_fetch_request, EventsAckRequest, EventsFetchRequest};
@@ -16,6 +16,7 @@ use crate::tests::utils;
 async fn test_events() {
 	let (global, handler, access_token) = utils::setup(ApiConfig {
 		events: EventsConfig {
+			stream_name: Ulid::new().to_string(),
 			fetch_request_min_delay: Duration::from_secs(0),
 			..Default::default()
 		},
@@ -51,7 +52,11 @@ async fn test_events() {
 	global
 		.nats()
 		.publish(
-			event_subject(access_token.organization_id.0, events_fetch_request::Target::AccessToken),
+			event_subject(
+				&global.config().events.stream_name,
+				access_token.organization_id.0,
+				events_fetch_request::Target::AccessToken,
+			),
 			published_event.encode_to_vec().into(),
 		)
 		.await

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use common::database::Ulid;
 use pb::scuffle::video::v1::types::{event, Event};
 use pb::scuffle::video::v1::EventsFetchRequest;
@@ -13,10 +14,11 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 			.clone()
 			.fetch(EventsFetchRequest {
 				target: pb::scuffle::video::v1::events_fetch_request::Target::Room.into(),
-				max_delay_ms: 100,
+				max_delay_ms: 1000,
 				max_events: 100,
 			})
-			.await?
+			.await
+			.context("failed to fetch events")?
 			.into_inner();
 
 		while let Some(msg) = event_stream.message().await? {
@@ -36,7 +38,8 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 							.bind(timestamp)
 							.bind(Ulid::from(room_id.into_ulid()))
 							.execute(global.db().as_ref())
-							.await?;
+							.await
+							.context("failed to update channel live viewer count")?;
 						// TODO: ack event
 					}
 					event::room::Event::Disconnected(..) => {
@@ -45,7 +48,8 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 						)
 						.bind(Ulid::from(room_id.into_ulid()))
 						.execute(global.db().as_ref())
-						.await?;
+						.await
+						.context("failed to update channel live viewer count")?;
 						// TODO: ack event
 					}
 					_ => {}

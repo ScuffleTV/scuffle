@@ -131,7 +131,7 @@ impl ApiRequest<S3BucketModifyResponse> for tonic::Request<S3BucketModifyRequest
 		match result {
 			Some(result) => {
 				video_common::events::emit(
-					global.jetstream(),
+					global.nats(),
 					access_token.organization_id.0,
 					Target::S3Bucket,
 					event::Event::S3Bucket(event::S3Bucket {

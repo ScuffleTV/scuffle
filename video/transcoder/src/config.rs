@@ -11,9 +11,6 @@ pub struct TranscoderConfig {
 	/// The name of the transcoder requests queue to use
 	pub transcoder_request_subject: String,
 
-	/// The name of the events queue to use
-	pub events_subject: String,
-
 	/// The uid to use for the unix socket and ffmpeg process
 	pub ffmpeg_uid: u32,
 
@@ -45,7 +42,6 @@ pub struct TranscoderConfig {
 impl Default for TranscoderConfig {
 	fn default() -> Self {
 		Self {
-			events_subject: "events".to_string(),
 			transcoder_request_subject: "transcoder-request".to_string(),
 			socket_dir: format!("/tmp/{}", std::process::id()),
 			ffmpeg_uid: 1000,

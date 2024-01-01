@@ -7,7 +7,7 @@ use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
 use common::context::Context;
 use common::dataloader::DataLoader;
 use common::global::*;
-use platform_api::config::{ApiConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
+use platform_api::config::{ApiConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
 use platform_api::dataloader::category::CategoryByIdLoader;
 use platform_api::dataloader::global_state::GlobalStateLoader;
 use platform_api::dataloader::role::RoleByIdLoader;
@@ -183,7 +183,6 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 		let uploader_file_by_id_loader = UploadedFileByIdLoader::new(db.clone());
 
 		let subscription_manager = SubscriptionManager::default();
-
 
 		let image_processor_s3 = config
 			.extra

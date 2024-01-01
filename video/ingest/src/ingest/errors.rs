@@ -19,19 +19,6 @@ pub enum IngestError {
 	FailedToUpdateRoom,
 }
 
-impl From<IngestError> for pb::scuffle::video::v1::types::event::room::disconnected::Cause {
-	fn from(value: IngestError) -> Self {
-		// TODO: return the correct cause
-		match value {
-			IngestError::KeyframeBitrateDistance(_, _) => Self::DisconnectedCauseHighBitrate,
-			IngestError::BitrateLimit(_, _) => Self::DisconnectedCauseHighBitrate,
-			IngestError::KeyframeTimeLimit(_) => Self::DisconnectedCauseHighBitrate,
-			IngestError::DisconnectRequested => Self::DisconnectedCauseDisconnectRequest,
-			_ => Self::DisconnectedCauseUnknown,
-		}
-	}
-}
-
 impl std::fmt::Display for IngestError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {

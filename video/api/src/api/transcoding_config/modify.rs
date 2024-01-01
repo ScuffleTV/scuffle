@@ -98,7 +98,7 @@ impl ApiRequest<TranscodingConfigModifyResponse> for tonic::Request<TranscodingC
 		match result {
 			Some(result) => {
 				video_common::events::emit(
-					global.jetstream(),
+					global.nats(),
 					access_token.organization_id.0,
 					Target::TranscodingConfig,
 					event::Event::TranscodingConfig(event::TranscodingConfig {

@@ -102,7 +102,7 @@ impl ApiRequest<RecordingConfigDeleteResponse> for tonic::Request<RecordingConfi
 
 		for id in deleted_ids.iter().copied() {
 			video_common::events::emit(
-				global.jetstream(),
+				global.nats(),
 				access_token.organization_id.0,
 				Target::RecordingConfig,
 				event::Event::RecordingConfig(event::RecordingConfig {

@@ -144,7 +144,7 @@ impl ApiRequest<RoomModifyResponse> for tonic::Request<RoomModifyRequest> {
 		};
 
 		video_common::events::emit(
-			global.jetstream(),
+			global.nats(),
 			access_token.organization_id.0,
 			Target::Room,
 			event::Event::Room(event::Room {

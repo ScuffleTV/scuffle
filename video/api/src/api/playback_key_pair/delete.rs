@@ -63,7 +63,7 @@ impl ApiRequest<PlaybackKeyPairDeleteResponse> for tonic::Request<PlaybackKeyPai
 
 		for id in deleted_ids.iter().copied() {
 			video_common::events::emit(
-				global.jetstream(),
+				global.nats(),
 				access_token.organization_id.0,
 				Target::PlaybackKeyPair,
 				event::Event::PlaybackKeyPair(event::PlaybackKeyPair {

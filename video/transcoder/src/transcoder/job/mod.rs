@@ -12,7 +12,7 @@ use common::prelude::FutureTimeout;
 use futures::{FutureExt, StreamExt};
 use futures_util::{Future, Stream, TryFutureExt};
 use pb::ext::UlidExt;
-use pb::scuffle::video::internal::events::{organization_event, OrganizationEvent, TranscoderRequestTask};
+use pb::scuffle::video::internal::events::TranscoderRequestTask;
 use pb::scuffle::video::internal::ingest_client::IngestClient;
 use pb::scuffle::video::internal::{
 	ingest_watch_request, ingest_watch_response, live_rendition_manifest, IngestWatchRequest, IngestWatchResponse,
@@ -73,6 +73,20 @@ pub async fn handle_message<G: TranscoderGlobal>(global: Arc<G>, msg: Message, s
 	);
 
 	if let Err(err) = job.run(&global, shutdown_token, &mut streams).await {
+		video_common::events::emit(
+			global.nats(),
+			job.organization_id,
+			Target::Room,
+			event::Event::Room(event::Room {
+				room_id: Some(job.room_id.into()),
+				event: Some(event::room::Event::Failed(event::room::Failed {
+					connection_id: Some(job.connection_id.into()),
+					error: err.to_string(),
+				})),
+			}),
+		)
+		.await;
+
 		tracing::error!(error = %err, "failed to run transcoder");
 	}
 
@@ -99,7 +113,8 @@ struct Job<G: TranscoderGlobal> {
 	video_input: VideoConfig,
 	recording: Option<Recording>,
 
-	ready: bool,
+	ingest_ready: bool,
+	transcoder_ready: bool,
 	init_segment: Option<Bytes>,
 
 	track_state: HashMap<Rendition, TrackState>,
@@ -248,7 +263,8 @@ impl<G: TranscoderGlobal> Job<G> {
 				.iter()
 				.map(|(_, rendition)| (*rendition, LiveRenditionManifest::default()))
 				.collect(),
-			ready: false,
+			ingest_ready: false,
+			transcoder_ready: false,
 			track_state: tracks
 				.iter()
 				.map(|(_, rendition)| (*rendition, TrackState::default()))
@@ -359,6 +375,7 @@ impl<G: TranscoderGlobal> Job<G> {
 					}
 
 					self.update_manifest();
+					self.ready();
 				}
 				r = streams.next() => {
 					let Some((result, rendition)) = r else {
@@ -375,6 +392,63 @@ impl<G: TranscoderGlobal> Job<G> {
 		}
 
 		Ok(())
+	}
+
+	fn ready(&mut self) {
+		if self.transcoder_ready {
+			return;
+		}
+
+		self.transcoder_ready = true;
+
+		let organization_id = self.organization_id;
+		let connection_id = self.connection_id;
+		let room_id = self.room_id;
+
+		self.tasker
+			.submit_with_abort(TaskDomain::Generic, "room_ready", move |global| {
+				let global = global.clone();
+				Box::pin(async move {
+					let resp = sqlx::query(
+						r#"
+						UPDATE rooms
+						SET
+							updated_at = NOW(),
+							status = $1
+						WHERE
+							organization_id = $2 AND
+							id = $3 AND
+							active_ingest_connection_id = $4
+						"#,
+					)
+					.bind(RoomStatus::Ready)
+					.bind(Uuid::from(organization_id))
+					.bind(Uuid::from(room_id))
+					.bind(Uuid::from(connection_id))
+					.execute(global.db().as_ref())
+					.await
+					.map_err(|e| TaskError::Custom(e.into()))?;
+
+					if resp.rows_affected() != 1 {
+						return Err(TaskError::Custom(anyhow::anyhow!("failed to update room status")));
+					}
+
+					video_common::events::emit(
+						global.nats(),
+						organization_id,
+						Target::Room,
+						event::Event::Room(event::Room {
+							room_id: Some(room_id.into()),
+							event: Some(event::room::Event::Ready(event::room::Ready {
+								connection_id: Some(connection_id.into()),
+							})),
+						}),
+					)
+					.await;
+
+					Ok(())
+				})
+			});
 	}
 
 	async fn handle_msg(&mut self, global: &Arc<G>, msg: Option<Result<IngestWatchResponse, Status>>) -> Result<()> {
@@ -425,7 +499,7 @@ impl<G: TranscoderGlobal> Job<G> {
 				self.ffmpeg.stdin.take();
 			}
 			ingest_watch_response::Message::Ready(_) => {
-				self.ready = true;
+				self.ingest_ready = true;
 				self.fetch_manifests(global).await?;
 				self.put_init_segments()?;
 				for rendition in self.track_state.keys().cloned().collect::<Vec<_>>() {
@@ -439,7 +513,7 @@ impl<G: TranscoderGlobal> Job<G> {
 	}
 
 	fn take_screenshot(&mut self, global: &Arc<G>, data: &Bytes, start_time: f64) -> Result<()> {
-		if !self.ready {
+		if !self.ingest_ready {
 			return Ok(());
 		}
 
@@ -495,7 +569,7 @@ impl<G: TranscoderGlobal> Job<G> {
 	}
 
 	fn put_init_segments(&mut self) -> Result<()> {
-		if !self.ready {
+		if !self.ingest_ready {
 			return Ok(());
 		}
 
@@ -514,74 +588,6 @@ impl<G: TranscoderGlobal> Job<G> {
 		if self.first_init_put {
 			self.first_init_put = false;
 
-			let event = Bytes::from(
-				OrganizationEvent {
-					id: Some(self.organization_id.into()),
-					timestamp: chrono::Utc::now().timestamp_micros(),
-					event: Some(organization_event::Event::RoomReady(organization_event::RoomReady {
-						room_id: Some(self.room_id.into()),
-						connection_id: Some(self.connection_id.into()),
-					})),
-				}
-				.encode_to_vec(),
-			);
-
-			let organization_id = self.organization_id;
-			let connection_id = self.connection_id;
-			let room_id = self.room_id;
-
-			self.tasker
-				.submit_with_abort(TaskDomain::Generic, "room_ready", move |global| {
-					let global = global.clone();
-					let event = event.clone();
-					Box::pin(async move {
-						let resp = sqlx::query(
-							r#"
-							UPDATE rooms
-							SET
-								updated_at = NOW(),
-								status = $1
-							WHERE
-								organization_id = $2 AND
-								id = $3 AND
-								active_ingest_connection_id = $4
-							"#,
-						)
-						.bind(RoomStatus::Ready)
-						.bind(Uuid::from(organization_id))
-						.bind(Uuid::from(room_id))
-						.bind(Uuid::from(connection_id))
-						.execute(global.db().as_ref())
-						.await
-						.map_err(|e| TaskError::Custom(e.into()))?;
-
-						video_common::events::emit(
-							global.jetstream(),
-							organization_id,
-							Target::Room,
-							event::Event::Room(event::Room {
-								room_id: Some(room_id.into()),
-								event: Some(event::room::Event::Ready(event::room::Ready {
-									connection_id: Some(connection_id.into()),
-								})),
-							}),
-						)
-						.await;
-
-						if resp.rows_affected() != 1 {
-							return Err(TaskError::Custom(anyhow::anyhow!("failed to update room status")));
-						}
-
-						global
-							.nats()
-							.publish(global.config::<TranscoderConfig>().events_subject.clone(), event)
-							.await
-							.map_err(|e| TaskError::Custom(e.into()))?;
-
-						Ok(())
-					})
-				});
-
 			if let Some(recording) = &mut self.recording {
 				self.track_state.iter().for_each(|(rendition, state)| {
 					self.tasker
@@ -594,7 +600,7 @@ impl<G: TranscoderGlobal> Job<G> {
 	}
 
 	fn handle_sample(&mut self, global: &Arc<G>, rendition: Rendition) -> Result<()> {
-		if !self.ready || self.first_init_put {
+		if !self.ingest_ready || self.first_init_put {
 			return Ok(());
 		}
 
@@ -815,7 +821,7 @@ impl<G: TranscoderGlobal> Job<G> {
 	}
 
 	fn update_manifest(&mut self) {
-		if !self.ready {
+		if !self.ingest_ready {
 			return;
 		}
 
@@ -832,7 +838,7 @@ impl<G: TranscoderGlobal> Job<G> {
 	}
 
 	fn update_rendition_manifest(&mut self, rendition: Rendition) {
-		if !self.ready {
+		if !self.ingest_ready {
 			return;
 		}
 

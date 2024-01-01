@@ -7,11 +7,10 @@ use anyhow::Result;
 use base64::Engine;
 use bytes::Bytes;
 use bytesio::bytesio::AsyncReadWrite;
-use chrono::Utc;
 use flv::{FlvTag, FlvTagData, FlvTagType};
 use futures::Future;
 use futures_util::StreamExt;
-use pb::scuffle::video::internal::events::{organization_event, OrganizationEvent, TranscoderRequestTask};
+use pb::scuffle::video::internal::events::TranscoderRequestTask;
 use pb::scuffle::video::internal::{ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse};
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::{event, Rendition};
@@ -125,41 +124,7 @@ pub async fn handle<G: IngestGlobal, S: AsyncReadWrite>(global: Arc<G>, socket: 
 		}
 	};
 
-	// emit room connected event
-	video_common::events::emit(
-		global.jetstream(),
-		connection.organization_id,
-		Target::Room,
-		event::Event::Room(event::Room {
-			room_id: Some(connection.room_id.into()),
-			event: Some(event::room::Event::Connected(event::room::Connected {
-				connection_id: Some(connection.id.into()),
-			})),
-		}),
-	)
-	.await;
-
 	let clean_disconnect = connection.run(&global, session).await;
-
-	// emit room disconnected event
-	video_common::events::emit(
-		global.jetstream(),
-		connection.organization_id,
-		Target::Room,
-		event::Event::Room(event::Room {
-			room_id: Some(connection.room_id.into()),
-			event: Some(event::room::Event::Disconnected(event::room::Disconnected {
-				connection_id: Some(connection.id.into()),
-				clean: clean_disconnect,
-				cause: connection
-					.error
-					.clone()
-					.map(|e| e.into())
-					.unwrap_or(event::room::disconnected::Cause::DisconnectedCauseUnknown) as i32,
-			})),
-		}),
-	)
-	.await;
 
 	if let Err(err) = connection.cleanup(&global, clean_disconnect).await {
 		tracing::error!(error = %err, "failed to cleanup connection")
@@ -755,25 +720,18 @@ impl Connection {
 			}
 		}
 
-		if let Err(err) = global
-			.nats()
-			.publish(
-				format!("{}.{}", global.config::<IngestConfig>().events_subject, self.organization_id),
-				OrganizationEvent {
-					timestamp: Utc::now().timestamp_micros(),
-					id: Some(self.organization_id.into()),
-					event: Some(organization_event::Event::RoomLive(organization_event::RoomLive {
-						connection_id: Some(self.id.into()),
-						room_id: Some(self.room_id.into()),
-					})),
-				}
-				.encode_to_vec()
-				.into(),
-			)
-			.await
-		{
-			tracing::error!(error = %err, "failed to publish disconnect event");
-		}
+		video_common::events::emit(
+			global.nats(),
+			self.organization_id,
+			Target::Room,
+			event::Event::Room(event::Room {
+				room_id: Some(self.room_id.into()),
+				event: Some(event::room::Event::Connected(event::room::Connected {
+					connection_id: Some(self.id.into()),
+				})),
+			}),
+		)
+		.await;
 
 		self.request_transcoder(global).await
 	}
@@ -1083,29 +1041,20 @@ impl Connection {
 				.ok();
 		}
 
-		if let Err(err) = global
-			.nats()
-			.publish(
-				format!("{}.{}", global.config::<IngestConfig>().events_subject, self.organization_id),
-				OrganizationEvent {
-					timestamp: Utc::now().timestamp_micros(),
-					id: Some(self.organization_id.into()),
-					event: Some(organization_event::Event::RoomDisconnect(
-						organization_event::RoomDisconnect {
-							connection_id: Some(self.id.into()),
-							room_id: Some(self.room_id.into()),
-							clean: clean_disconnect,
-							error: self.error.as_ref().map(|e| e.to_string()),
-						},
-					)),
-				}
-				.encode_to_vec()
-				.into(),
-			)
-			.await
-		{
-			tracing::error!(error = %err, "failed to publish room disconnect event");
-		}
+		video_common::events::emit(
+			global.nats(),
+			self.organization_id,
+			Target::Room,
+			event::Event::Room(event::Room {
+				room_id: Some(self.room_id.into()),
+				event: Some(event::room::Event::Disconnected(event::room::Disconnected {
+					connection_id: Some(self.id.into()),
+					clean: clean_disconnect,
+					cause: self.error.as_ref().map(|e| e.to_string()),
+				})),
+			}),
+		)
+		.await;
 
 		sqlx::query(
 			r#"

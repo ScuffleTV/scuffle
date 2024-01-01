@@ -114,7 +114,7 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 			.unwrap_or_default();
 
 		video_common::events::emit(
-			global.jetstream(),
+			global.nats(),
 			access_token.organization_id.0,
 			Target::Recording,
 			event::Event::Recording(event::Recording {

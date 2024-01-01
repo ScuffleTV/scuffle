@@ -20,7 +20,7 @@
 		PUBLIC_BASE_URL,
 		PUBLIC_TWITTER_HANDLE,
 		PUBLIC_ORG_ID,
-		PUBLIC_EDGE_ENDPOINT
+		PUBLIC_EDGE_ENDPOINT,
 	} from "$env/static/public";
 	import { websocketOpen } from "$/store/websocket";
 	import { dev } from "$app/environment";

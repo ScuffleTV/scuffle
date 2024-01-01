@@ -28,9 +28,6 @@ pub struct IngestConfig {
 	/// NATS subject to send transcoder requests to
 	pub transcoder_request_subject: String,
 
-	/// NATS subject for events
-	pub events_subject: String,
-
 	/// The interval in to update the bitrate for a room
 	pub bitrate_update_interval: Duration,
 
@@ -58,7 +55,6 @@ impl Default for IngestConfig {
 	fn default() -> Self {
 		Self {
 			transcoder_request_subject: "transcoder-request".to_string(),
-			events_subject: "events".to_string(),
 			bitrate_update_interval: Duration::from_secs(5),
 			max_bitrate: 12000 * 1024,
 			max_bytes_between_keyframes: 5 * 12000 * 1024 / 8,

@@ -96,25 +96,8 @@ message Event {
       // If the disconnection was clean. Meaning the client disconnected and it
       // was handled gracefully.
       bool clean = 2;
-
       // The cause of the disconnection.
-      enum Cause {
-        // The cause is unknown.
-        DISCONNECTED_CAUSE_UNKNOWN = 0;
-        // The server requested the disconnection. This is usually because an
-        // API request on Room.Disconnect was made. Or because another client
-        // connected to the room, or the room was deleted.
-        DISCONNECTED_CAUSE_DISCONNECT_REQUEST = 1;
-        // The ingest bitrate was too high.
-        DISCONNECTED_CAUSE_HIGH_BITRATE = 2;
-        // The ingest resolution was too high.
-        DISCONNECTED_CAUSE_HIGH_RESOLUTION = 3;
-        // The ingest FPS was too high.
-        DISCONNECTED_CAUSE_HIGH_FPS = 4;
-      }
-
-      // The cause of the disconnection.
-      Cause cause = 3;
+      optional string cause = 3;
     }
 
     // If the room is ready to be watched.
@@ -131,8 +114,9 @@ message Event {
 
     // If the room failed to be go live.
     message Failed {
+      scuffle.types.Ulid connection_id = 1;
       // The error that occurred.
-      string error = 1;
+      string error = 2;
     }
 
     // The event that occurred.

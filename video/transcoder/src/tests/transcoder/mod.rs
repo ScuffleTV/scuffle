@@ -13,12 +13,13 @@ use common::global::*;
 use common::prelude::FutureTimeout;
 use futures_util::Stream;
 use pb::ext::UlidExt;
-use pb::scuffle::video::internal::events::{organization_event, OrganizationEvent, TranscoderRequestTask};
+use pb::scuffle::video::internal::events::TranscoderRequestTask;
 use pb::scuffle::video::internal::ingest_server::{Ingest, IngestServer};
 use pb::scuffle::video::internal::{
 	ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse, LiveRenditionManifest,
 };
-use pb::scuffle::video::v1::types::{AudioConfig, Rendition, VideoConfig};
+use pb::scuffle::video::v1::events_fetch_request::Target;
+use pb::scuffle::video::v1::types::{event, AudioConfig, Event, Rendition, VideoConfig};
 use prost::Message;
 use tokio::process::Command;
 use tokio::sync::mpsc;
@@ -84,7 +85,6 @@ async fn test_transcode() {
 	let port = portpicker::pick_unused_port().unwrap();
 
 	let (global, handler) = crate::tests::global::mock_global_state(TranscoderConfig {
-		events_subject: Ulid::new().to_string(),
 		transcoder_request_subject: Ulid::new().to_string(),
 		metadata_kv_store: Ulid::new().to_string(),
 		media_ob_store: Ulid::new().to_string(),
@@ -92,9 +92,11 @@ async fn test_transcode() {
 	})
 	.await;
 
+	let org_id = Ulid::new();
+
 	let mut event_stream = global
 		.nats()
-		.subscribe(global.config::<TranscoderConfig>().events_subject.clone())
+		.subscribe(video_common::keys::event_subject(org_id, Target::Room))
 		.await
 		.unwrap();
 
@@ -107,7 +109,6 @@ async fn test_transcode() {
 	let req_id = Ulid::new();
 
 	let room_id = Ulid::new();
-	let org_id = Ulid::new();
 	let connection_id = Ulid::new();
 
 	sqlx::query(
@@ -269,13 +270,18 @@ async fn test_transcode() {
 	}
 
 	{
-		let event = OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-		assert_eq!(event.id.into_ulid(), org_id);
-		assert!(event.timestamp > 0);
+		let event = Event::decode(event_stream.next().await.unwrap().payload).unwrap();
+		assert!(event.timestamp - chrono::Utc::now().timestamp_millis() < 1000);
 		match event.event {
-			Some(organization_event::Event::RoomReady(r)) => {
-				assert_eq!(r.room_id.into_ulid(), room_id);
-				assert_eq!(r.connection_id.into_ulid(), connection_id);
+			Some(event::Event::Room(room)) => {
+				assert_eq!(room.room_id.into_ulid(), room_id);
+
+				match room.event {
+					Some(event::room::Event::Ready(ready)) => {
+						assert_eq!(ready.connection_id.into_ulid(), connection_id);
+					}
+					_ => panic!("unexpected event"),
+				}
 			}
 			_ => panic!("unexpected event"),
 		};
@@ -604,7 +610,6 @@ async fn test_transcode_reconnect() {
 	let port = portpicker::pick_unused_port().unwrap();
 
 	let (global, handler) = crate::tests::global::mock_global_state(TranscoderConfig {
-		events_subject: Ulid::new().to_string(),
 		transcoder_request_subject: Ulid::new().to_string(),
 		metadata_kv_store: Ulid::new().to_string(),
 		media_ob_store: Ulid::new().to_string(),
@@ -623,7 +628,13 @@ async fn test_transcode_reconnect() {
 		.await
 		.unwrap();
 
-	let mut event_stream = global.nats().subscribe(config.events_subject.clone()).await.unwrap();
+	let org_id = Ulid::new();
+
+	let mut event_stream = global
+		.nats()
+		.subscribe(video_common::keys::event_subject(org_id, Target::Room))
+		.await
+		.unwrap();
 
 	let addr = SocketAddr::from(([127, 0, 0, 1], port));
 
@@ -634,7 +645,6 @@ async fn test_transcode_reconnect() {
 	let req_id = Ulid::new();
 
 	let room_id = Ulid::new();
-	let org_id = Ulid::new();
 	let connection_id = Ulid::new();
 
 	sqlx::query(
@@ -808,13 +818,18 @@ async fn test_transcode_reconnect() {
 		}
 
 		{
-			let event = OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-			assert_eq!(event.id.into_ulid(), org_id);
-			assert!(event.timestamp > 0);
+			let event = Event::decode(event_stream.next().await.unwrap().payload).unwrap();
+			assert!(event.timestamp - chrono::Utc::now().timestamp_millis() < 1000);
 			match event.event {
-				Some(organization_event::Event::RoomReady(r)) => {
-					assert_eq!(r.room_id.into_ulid(), room_id);
-					assert_eq!(r.connection_id.into_ulid(), connection_id);
+				Some(event::Event::Room(room)) => {
+					assert_eq!(room.room_id.into_ulid(), room_id);
+
+					match room.event {
+						Some(event::room::Event::Ready(ready)) => {
+							assert_eq!(ready.connection_id.into_ulid(), connection_id);
+						}
+						_ => panic!("unexpected event"),
+					}
 				}
 				_ => panic!("unexpected event"),
 			};
@@ -977,13 +992,18 @@ async fn test_transcode_reconnect() {
 		}
 
 		{
-			let event = OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-			assert_eq!(event.id.into_ulid(), org_id);
-			assert!(event.timestamp > 0);
+			let event = Event::decode(event_stream.next().await.unwrap().payload).unwrap();
+			assert!(event.timestamp - chrono::Utc::now().timestamp_millis() < 1000);
 			match event.event {
-				Some(organization_event::Event::RoomReady(r)) => {
-					assert_eq!(r.room_id.into_ulid(), room_id);
-					assert_eq!(r.connection_id.into_ulid(), connection_id);
+				Some(event::Event::Room(room)) => {
+					assert_eq!(room.room_id.into_ulid(), room_id);
+
+					match room.event {
+						Some(event::room::Event::Ready(ready)) => {
+							assert_eq!(ready.connection_id.into_ulid(), connection_id);
+						}
+						_ => panic!("unexpected event"),
+					}
 				}
 				_ => panic!("unexpected event"),
 			};
@@ -1152,13 +1172,18 @@ async fn test_transcode_reconnect() {
 		}
 
 		{
-			let event = OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-			assert_eq!(event.id.into_ulid(), org_id);
-			assert!(event.timestamp > 0);
+			let event = Event::decode(event_stream.next().await.unwrap().payload).unwrap();
+			assert!(event.timestamp - chrono::Utc::now().timestamp_millis() < 1000);
 			match event.event {
-				Some(organization_event::Event::RoomReady(r)) => {
-					assert_eq!(r.room_id.into_ulid(), room_id);
-					assert_eq!(r.connection_id.into_ulid(), connection_id);
+				Some(event::Event::Room(room)) => {
+					assert_eq!(room.room_id.into_ulid(), room_id);
+
+					match room.event {
+						Some(event::room::Event::Ready(ready)) => {
+							assert_eq!(ready.connection_id.into_ulid(), connection_id);
+						}
+						_ => panic!("unexpected event"),
+					}
 				}
 				_ => panic!("unexpected event"),
 			};
@@ -1332,13 +1357,18 @@ async fn test_transcode_reconnect() {
 		}
 
 		{
-			let event = OrganizationEvent::decode(event_stream.next().await.unwrap().payload).unwrap();
-			assert_eq!(event.id.into_ulid(), org_id);
-			assert!(event.timestamp > 0);
+			let event = Event::decode(event_stream.next().await.unwrap().payload).unwrap();
+			assert!(event.timestamp - chrono::Utc::now().timestamp_millis() < 1000);
 			match event.event {
-				Some(organization_event::Event::RoomReady(r)) => {
-					assert_eq!(r.room_id.into_ulid(), room_id);
-					assert_eq!(r.connection_id.into_ulid(), connection_id);
+				Some(event::Event::Room(room)) => {
+					assert_eq!(room.room_id.into_ulid(), room_id);
+
+					match room.event {
+						Some(event::room::Event::Ready(ready)) => {
+							assert_eq!(ready.connection_id.into_ulid(), connection_id);
+						}
+						_ => panic!("unexpected event"),
+					}
 				}
 				_ => panic!("unexpected event"),
 			};

@@ -54,6 +54,25 @@
 		$sideNavHidden = theaterMode;
 	}
 
+	function pipEnabled() {
+		pip = true;
+	}
+
+	function pipDisabled() {
+		pip = false;
+	}
+
+	onMount(() => {
+		document.addEventListener("enterpictureinpicture", pipEnabled);
+		document.addEventListener("leavepictureinpicture", pipDisabled);
+		return () => {
+			document.removeEventListener("enterpictureinpicture", pipEnabled);
+			document.removeEventListener("leavepictureinpicture", pipDisabled);
+		};
+	});
+
+	$: console.debug("[player] pip: ", pip);
+
 	$: {
 		if (player) {
 			if (selectedVariant === -1) {
@@ -152,10 +171,10 @@
 	}
 
 	function togglePictureInPicture() {
-		if (pip) {
-			document.exitPictureInPicture().then(() => (pip = false));
+		if (document.pictureInPictureElement) {
+			document.exitPictureInPicture();
 		} else {
-			videoEl.requestPictureInPicture().then(() => (pip = true));
+			videoEl.requestPictureInPicture();
 		}
 	}
 
@@ -303,7 +322,7 @@
 				>
 					<Clip />
 				</button>
-				{#if showPip && videoEl?.requestPictureInPicture !== undefined}
+				{#if showPip && document.pictureInPictureEnabled && videoEl?.requestPictureInPicture !== undefined}
 					<button
 						title={pip ? "Exit picture-in-picture" : "Enter picture-in-picture"}
 						on:click|preventDefault={togglePictureInPicture}
@@ -384,6 +403,8 @@
 		border-radius: 0.5rem;
 		font-size: 0.75rem;
 		font-weight: 600;
+		background-color: transparent;
+		border: none;
 
 		display: flex;
 		align-items: center;

@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use tokio::sync::broadcast;
 use ulid::Ulid;
@@ -12,7 +12,44 @@ use super::events::EventManager;
 use super::settings::PlayerSettingsParsed;
 use super::variant::Variant;
 
-pub type PlayerInnerHolder = Rc<RefCell<PlayerInner>>;
+#[derive(Clone)]
+pub struct PlayerInnerHolder(Rc<RefCell<PlayerInner>>);
+
+#[derive(Clone)]
+pub struct PlayerInnerWeakHolder(Weak<RefCell<PlayerInner>>);
+
+impl PlayerInnerHolder {
+	pub fn new(inner: PlayerInner) -> Self {
+		Self(Rc::new(RefCell::new(inner)))
+	}
+
+	#[track_caller]
+	pub fn borrow(&self) -> std::cell::Ref<PlayerInner> {
+		self.0.try_borrow().map_err(|err| {
+			tracing::error!(error = ?err, location = %std::panic::Location::caller(), "failed to borrow player inner");
+			err
+		}).expect("failed to borrow player inner")
+	}
+
+	#[track_caller]
+	pub fn borrow_mut(&self) -> std::cell::RefMut<PlayerInner> {
+		self.0.try_borrow_mut().map_err(|err| {
+			tracing::error!(error = ?err, location = %std::panic::Location::caller(), "failed to borrow player inner");
+			err
+		}).expect("failed to borrow player inner")
+	}
+
+	pub fn downgrade(&self) -> PlayerInnerWeakHolder {
+		PlayerInnerWeakHolder(Rc::downgrade(&self.0))
+	}
+}
+
+impl PlayerInnerWeakHolder {
+	pub fn upgrade(&self) -> Option<PlayerInnerHolder> {
+		self.0.upgrade().map(PlayerInnerHolder)
+	}
+}
+
 
 #[derive(Debug)]
 pub struct InterfaceSettings {

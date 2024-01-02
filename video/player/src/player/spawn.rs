@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use tokio::sync::mpsc;
 
 use super::inner::PlayerInnerHolder;
@@ -15,7 +13,7 @@ pub fn spawn_runner(runner_tx: mpsc::Sender<()>, mut player_rx: mpsc::Receiver<(
 		let mut wakeup_rx = runner.inner().borrow().runner_settings.request_wakeup.subscribe();
 
 		let _interval = gloo_timers::callback::Interval::new(50, {
-			let inner = Rc::downgrade(runner.inner());
+			let inner = runner.inner().downgrade();
 			move || {
 				if let Some(inner) = inner.upgrade() {
 					inner.borrow_mut().runner_settings.request_wakeup.send(()).ok();

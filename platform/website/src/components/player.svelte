@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from "svelte";
-	import init, { Player, type Variant } from "@scuffle/player";
+	import init, { Player, type EventError, type Variant } from "@scuffle/player";
 	import Play from "$/components/icons/player/play.svelte";
 	import Pause from "$/components/icons/player/pause.svelte";
 	import Volume from "$/components/icons/player/volume.svelte";
@@ -16,7 +16,7 @@
 	import { sideNavHidden, topNavHidden } from "$/store/layout";
 	import { authDialog } from "$/store/auth";
 	import { dev } from "$app/environment";
-	import { PUBLIC_ORG_ID } from "$env/static/public";
+	import { PUBLIC_EDGE_ENDPOINT, PUBLIC_ORG_ID } from "$env/static/public";
 
 	export let roomId: string;
 	export let controls = true;
@@ -65,54 +65,46 @@
 		}
 	}
 
-	// 	function onManifestLoaded() {
-	// 		console.log(player.variants);
-	// 		manifest = player.variants;
-	// 	}
+	function onManifestLoaded() {
+		console.debug("[player] variants: ", player.variants);
+		manifest = player.variants;
+	}
 
-	// 	function onVariantChange() {
-	// 		let variant = manifest.at(player.variantId);
-	// 		if (variant) {
-	// 			currentVariantId = player.variantId;
-	// 			console.log(`Switched to ${variant.video_track?.name ?? "audio only"}`);
-	// 			audioOnly = !variant.video_track;
-	// 		} else {
-	// 			console.error("switched to unkonwn variant");
-	// 		}
-	// 	}
+	function onVariantChange() {
+		let variant = manifest.at(player.variantId);
+		if (variant) {
+			currentVariantId = player.variantId;
+			console.debug(`[player] switched to ${variant.video_track?.name ?? "audio only"}`);
+			audioOnly = !variant.video_track;
+		} else {
+			console.debug("[player] switched to unkonwn variant");
+		}
+	}
 
-	// 	function onError(evt: EventError) {
-	// 		state = PlayerState.Error;
-	// 		console.log(`⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠋⠉⣉⣉⠙⠿⠋⣠⢴⣊⣙⢿⣿⣿
-	// ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠋⠁⠀⢀⠔⡩⠔⠒⠛⠧⣾⠊⢁⣀⣀⣀⡙⣿
-	// ⣿⣿⣿⣿⣿⣿⣿⠟⠛⠁⠀⠀⠀⠀⠀⡡⠊⠀⠀⣀⣠⣤⣌⣾⣿⠏⠀⡈⢿⡜
-	// ⣿⣿⣿⠿⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠡⣤⣶⠏⢁⠈⢻⡏⠙⠛⠀⣀⣁⣤⢢
-	// ⣿⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠰⣄⡀⠣⣌⡙⠀⣘⡁⠜⠈⠑⢮⡭⠴⠚⠉⠀
-	// ⠁⠀⢀⠔⠁⣀⣤⣤⣤⣤⣤⣄⣀⠀⠉⠉⠉⠉⠉⠁⠀⠀⠀⠀⠀⠁⠀⢀⣠⢠
-	// ⡀⠀⢸⠀⢼⣿⣿⣶⣭⣭⣭⣟⣛⣛⡿⠷⠶⠶⢶⣶⣤⣤⣤⣶⣶⣾⡿⠿⣫⣾
-	// ⠇⠀⠀⠀⠈⠉⠉⠉⠉⠉⠙⠛⠛⠻⠿⠿⠿⠷⣶⣶⣶⣶⣶⣶⣶⣶⡾⢗⣿⣿
-	// ⣦⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⣿⣶⣾⣿⣿⣿
-	// ⣿⣿⣿⣷⣶⣤⣄⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣝⡻⣿⣿⣿⣿⣿⣿⣿⣿
-	// ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡹⣿⣿⣿⣿⣿⣿ Player Error`);
-	// 		console.error(evt);
-	// 	}
+	function onError(evt: EventError) {
+		state = PlayerState.Error;
+		console.error(evt);
+	}
 
-	// 	function onShutdown() {
-	// 		console.log("shutdown");
-	// 		videoEl.pause();
-	// 	}
+	function onShutdown() {
+		console.debug("[player] shutdown");
+		if (videoEl) {
+			videoEl.pause();
+		}
+	}
 
 	onMount(() => {
 		init().then(() => {
 			player = new Player(videoEl, {
+				server: PUBLIC_EDGE_ENDPOINT,
 				organization_id: PUBLIC_ORG_ID,
 			});
 			player.loadRoom(roomId);
 
-			// player.on("manifestloaded", onManifestLoaded);
-			// player.on("variant", onVariantChange);
-			// player.on("error", onError);
-			// player.on("destroyed", onShutdown);
+			player.on("manifestloaded", onManifestLoaded);
+			player.on("variant", onVariantChange);
+			player.on("error", onError);
+			player.on("destroyed", onShutdown);
 
 			videoEl.play();
 		});
@@ -131,7 +123,7 @@
 				break;
 			case PlayerState.Loading:
 			case PlayerState.Paused:
-				videoEl.play();
+				jumpToLive();
 				break;
 		}
 	}
@@ -359,15 +351,6 @@
 
 		&.theater-mode {
 			height: 100%;
-		}
-
-		&:not(.theater-mode) {
-			max-height: calc(100svh - $topNavHeight - 6.5rem);
-		}
-
-		// In dev mode we need to save space for the dev bar too
-		&:not(.theater-mode).dev {
-			max-height: calc(100svh - $topNavHeight - 6.5rem - $devBannerHeight);
 		}
 	}
 

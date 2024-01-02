@@ -1,26 +1,6 @@
 import { graphql } from "$/gql";
 import type { Client } from "@urql/svelte";
 
-export async function verifyToken(client: Client, token: string) {
-	const result = await client
-		.mutation(
-			graphql(`
-				mutation LoginWithToken($token: String!) {
-					auth {
-						loginWithToken(sessionToken: $token, updateContext: true) {
-							token
-						}
-					}
-				}
-			`),
-			{ token },
-			{ requestPolicy: "network-only" },
-		)
-		.toPromise();
-
-	return result.data?.auth.loginWithToken || null;
-}
-
 export function getUser(client: Client) {
 	return client
 		.query(

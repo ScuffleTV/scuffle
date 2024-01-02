@@ -111,6 +111,7 @@
 		display: flex;
 
 		& > .user-container {
+			flex-basis: 0;
 			flex-grow: 1;
 
 			// I tried very long to figure out why we need a fixed height here to make it scrollable

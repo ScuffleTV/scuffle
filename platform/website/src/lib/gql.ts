@@ -70,8 +70,12 @@ export function createGqlClient(): Client {
 				shouldRetry: () => true,
 				retryAttempts: 10,
 				on: {
-					connected: () => websocketOpen.set(true),
+					connected: () => {
+						console.debug("Connected to websocket");
+						websocketOpen.set(true);
+					},
 					closed: (e) => {
+						console.debug("Disconnected from websocket", e);
 						websocketOpen.set(false);
 						if (
 							e instanceof CloseEvent &&

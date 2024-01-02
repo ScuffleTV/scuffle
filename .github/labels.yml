@@ -1,7 +1,7 @@
 # Generic
 
 - name: "bug"
-  color: "61537"
+  color: "c90c5b"
   description: "Something isn't working"
 - name: "feature request"
   color: "75e058"

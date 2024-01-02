@@ -18,11 +18,16 @@
 	import { dev } from "$app/environment";
 	import { PUBLIC_EDGE_ENDPOINT, PUBLIC_ORG_ID } from "$env/static/public";
 
+	function loadVolume() {
+		const storedVolume = localStorage.getItem("player_volume");
+		return storedVolume ? parseFloat(storedVolume) : null;
+	}
+
 	export let roomId: string;
 	export let controls = true;
 	export let showPip = true;
 	export let showTheater = true;
-	export let muted = false;
+	export let initMuted = false;
 
 	let playerEl: HTMLDivElement;
 	let videoEl: HTMLVideoElement;
@@ -48,6 +53,9 @@
 	let fullscreen = false;
 	let audioOnly = false;
 	let selectedVariant: number;
+	let volume = initMuted ? 0.0 : (loadVolume() ?? 1.0);
+
+	$: localStorage.setItem("player_volume", volume.toString());
 
 	$: {
 		$topNavHidden = theaterMode;
@@ -180,7 +188,11 @@
 	}
 
 	function toggleMuted() {
-		videoEl.muted = !videoEl.muted;
+		if (volume === 0.0) {
+			volume = 1.0;
+		} else {
+			volume = 0.0;
+		}
 	}
 
 	function togglePictureInPicture() {
@@ -265,7 +277,8 @@
 		autoplay
 		class:paused={state === PlayerState.Paused}
 		class:audio-only={audioOnly}
-		{muted}
+		bind:volume={volume}
+		muted={volume === 0.0}
 	>
 		<!-- No captions, this must be specified explicitly to suppress an a11y warning -->
 		<track kind="captions" />
@@ -280,7 +293,7 @@
 		{:else if state === PlayerState.Paused}
 			<Pause size={48} />
 		{:else if audioOnly}
-			<Volume size={48} />
+			<Volume volume={1.0} size={48} />
 			<span>Audio Only</span>
 		{/if}
 	</div>
@@ -309,10 +322,10 @@
 					on:click|preventDefault={toggleMuted}
 					disabled={state === PlayerState.Error}
 				>
-					<Volume muted={videoEl?.muted} />
+					<Volume volume={volume} />
 				</button>
 				{#if videoEl}
-					<input class="volume" type="range" min="0" max="1" step="0.01" bind:value={videoEl.volume} />
+					<input class="volume" type="range" min="0" max="1" step="0.01" bind:value={volume} />
 				{/if}
 			</div>
 			<div>
@@ -482,42 +495,58 @@
 				background-color: $liveColor;
 			}
 		}
-
-		.volume {
-			
-		}
 	}
 
-	input[type=range] {
+	.volume {
+		appearance: none;
 		-webkit-appearance: none;
-		width: 100%;
+		width: 8rem;
 		background: transparent;
 	}
 
-	input[type=range]::-webkit-slider-thumb {
-		-webkit-appearance: none;
-	}
-
-	input[type=range]:focus {
+	.volume:focus {
 		outline: none;
 	}
 
-	input[type=range]::-ms-track {
-		width: 100%;
-		cursor: pointer;
-
-		background: transparent; 
-		border-color: transparent;
-		color: transparent;
-	}
-
-	input[type=range]::-moz-range-thumb {
-		box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
-		border: 1px solid #000000;
+	.volume::-moz-range-thumb {
 		width: 1rem;
 		height: 1rem;
 		border-radius: 50%;
-		background: #ffffff;
+		background: white;
 		cursor: pointer;
+	}
+
+	.volume::-ms-thumb {
+		width: 1rem;
+		height: 1rem;
+		border-radius: 50%;
+		background: white;
+		cursor: pointer;
+	}
+
+	.volume::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		margin-top: -0.25rem;
+		width: 1rem;
+		height: 1rem;
+		border-radius: 50%;
+		background: white;
+		cursor: pointer;
+	}
+
+	.volume::-webkit-slider-runnable-track {
+		width: 100%;
+		height: 0.5rem;
+		cursor: pointer;
+		background: rgba($textColor, 0.25);
+		border-radius: 0.25rem;
+	}
+
+	.volume::-moz-range-track {
+		width: 100%;
+		height: 0.5rem;
+		cursor: pointer;
+		background: rgba($textColor, 0.25);
+		border-radius: 0.25rem;
 	}
 </style>

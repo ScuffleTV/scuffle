@@ -1,6 +1,6 @@
 name: Bug Report
 description: Found bugs? Share them here
-title: "[Bug]: Scuffle has a bug here [...]"
+title: ""
 labels: ["bug"]
 assignees:
   - ScuffleTV/reviewers
@@ -10,6 +10,7 @@ body:
       value: |
         ### **Thank you for taking the time to fill out this Bug Report!**
         Please provide as much information as possible. This will help us resolve the Bug quickly and accurately.
+        If you know which application this bug is for, please add the appropriate label to this issue.
   - type: markdown
     attributes:
       value: ---
@@ -64,11 +65,3 @@ body:
       label: Relevant log output
       description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
       render: shell
-  - type: checkboxes
-    id: disclaimer
-    attributes:
-      label: Disclaimer
-      description: I feel confident that this is a bug and not a browser or PC issue.
-      options:
-        - label: I agree
-          required: true

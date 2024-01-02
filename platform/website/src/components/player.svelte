@@ -85,7 +85,7 @@
 	}
 
 	function onManifestLoaded() {
-		console.debug("[player] variants: ", player.variants);
+		console.debug("[player] manifest loaded, variants: ", player.variants);
 		manifest = player.variants;
 	}
 
@@ -93,7 +93,7 @@
 		let variant = manifest.at(player.variantId);
 		if (variant) {
 			currentVariantId = player.variantId;
-			console.debug(`[player] switched to ${variant.video_track?.name ?? "audio only"}`);
+			console.debug(`[player] switched to variant ${variant.video_track?.name ?? "audio only"}`);
 			audioOnly = !variant.video_track;
 		} else {
 			console.debug("[player] switched to unkonwn variant");
@@ -105,8 +105,23 @@
 		console.error(evt);
 	}
 
-	function onShutdown() {
-		console.debug("[player] shutdown");
+	function onDestoyed() {
+		console.debug("[player] destroyed");
+		if (videoEl) {
+			videoEl.pause();
+		}
+	}
+
+	function onStarted() {
+		console.debug("[player] started");
+		if (videoEl) {
+			videoEl.play();
+			player.toRealtime();
+		}
+	}
+
+	function onStopped() {
+		console.debug("[player] stopped");
 		if (videoEl) {
 			videoEl.pause();
 		}
@@ -123,9 +138,16 @@
 			player.on("manifestloaded", onManifestLoaded);
 			player.on("variant", onVariantChange);
 			player.on("error", onError);
-			player.on("destroyed", onShutdown);
+			player.on("destroyed", onDestoyed);
+			player.on("started", onStarted);
+			player.on("stopped", onStopped);
+			player.on("finished", () => {
+				console.debug("[player] finished");
+			});
 
+			player.start();
 			videoEl.play();
+			console.debug("[player] initialized");
 		});
 	});
 
@@ -138,11 +160,13 @@
 	function onPlayClick() {
 		switch (state) {
 			case PlayerState.Playing:
-				videoEl.pause();
+				console.debug("[player] stopping (user interaction)");
+				player?.stop();
 				break;
 			case PlayerState.Loading:
 			case PlayerState.Paused:
-				jumpToLive();
+				console.debug("[player] starting (user interaction)");
+				player?.start();
 				break;
 		}
 	}
@@ -153,17 +177,6 @@
 		controlsHiddenTimeout = setTimeout(() => {
 			controlsHidden = true;
 		}, 2000);
-	}
-
-	function jumpToLive() {
-		videoEl.play();
-		if (!videoEl.buffered.length) return;
-
-		if (player.lowLatency) {
-			videoEl.currentTime = videoEl.buffered.end(videoEl.buffered.length - 1) - 0.5;
-		} else {
-			videoEl.currentTime = videoEl.buffered.end(videoEl.buffered.length - 1) - 2;
-		}
 	}
 
 	function toggleMuted() {
@@ -288,7 +301,7 @@
 				<button
 					class="live"
 					title="Jump to live"
-					on:click|preventDefault={jumpToLive}
+					on:click|preventDefault={() => player?.toRealtime()}
 					disabled={state === PlayerState.Loading || state === PlayerState.Error}>LIVE</button
 				>
 				<button
@@ -298,6 +311,9 @@
 				>
 					<Volume muted={videoEl?.muted} />
 				</button>
+				{#if videoEl}
+					<input class="volume" type="range" min="0" max="1" step="0.01" bind:value={videoEl.volume} />
+				{/if}
 			</div>
 			<div>
 				{#if manifest}
@@ -466,5 +482,42 @@
 				background-color: $liveColor;
 			}
 		}
+
+		.volume {
+			
+		}
+	}
+
+	input[type=range] {
+		-webkit-appearance: none;
+		width: 100%;
+		background: transparent;
+	}
+
+	input[type=range]::-webkit-slider-thumb {
+		-webkit-appearance: none;
+	}
+
+	input[type=range]:focus {
+		outline: none;
+	}
+
+	input[type=range]::-ms-track {
+		width: 100%;
+		cursor: pointer;
+
+		background: transparent; 
+		border-color: transparent;
+		color: transparent;
+	}
+
+	input[type=range]::-moz-range-thumb {
+		box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+		border: 1px solid #000000;
+		width: 1rem;
+		height: 1rem;
+		border-radius: 50%;
+		background: #ffffff;
+		cursor: pointer;
 	}
 </style>

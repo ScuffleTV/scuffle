@@ -1,6 +1,6 @@
 name: Bug Report
 description: Found bugs? Share them here
-title: ""
+title: "A brief description of the bug"
 labels: ["bug"]
 assignees:
   - ScuffleTV/reviewers

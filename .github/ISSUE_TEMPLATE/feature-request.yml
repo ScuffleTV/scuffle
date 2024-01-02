@@ -1,6 +1,6 @@
 name: Feature Request
 description: Have an idea for an improvement to Scuffle? Your ideas are always welcome here
-title: ""
+title: "A brief description of the feature request"
 labels: ["feature request"]
 assignees:
   - ScuffleTV/reviewers

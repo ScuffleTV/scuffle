@@ -24,6 +24,21 @@
 		return storedVolume ? parseFloat(storedVolume) : null;
 	}
 
+	function loadTheaterMode() {
+		return localStorage.getItem("player_theaterMode") === "true";
+	}
+
+	function loadBandwithEstimate() {
+		const storedEstimate = localStorage.getItem("player_bandwidthEstimate");
+		return storedEstimate ? parseFloat(storedEstimate) : null;
+	}
+
+	function storeBandwithEstimate() {
+		if (player?.bandwidth) {
+			localStorage.setItem("player_bandwidthEstimate", player.bandwidth.toString());
+		}
+	}
+
 	export let roomId: string;
 	export let controls = true;
 	export let showPip = true;
@@ -49,7 +64,7 @@
 	let controlsHidden = false;
 	let controlsHiddenTimeout: NodeJS.Timeout | number;
 
-	let theaterMode = false;
+	let theaterMode = loadTheaterMode();
 	let pip = false;
 	let fullscreen = false;
 	let audioOnly = false;
@@ -58,6 +73,7 @@
 
 	let debugOverlay = false;
 
+	$: localStorage.setItem("player_theaterMode", theaterMode.toString());
 	$: localStorage.setItem("player_volume", volume.toString());
 
 	$: {
@@ -143,6 +159,7 @@
 			player = new Player(videoEl, {
 				server: PUBLIC_EDGE_ENDPOINT,
 				organization_id: PUBLIC_ORG_ID,
+				abr_default_bandwidth: loadBandwithEstimate() ?? undefined,
 			});
 			player.loadRoom(roomId);
 
@@ -160,6 +177,11 @@
 			videoEl.play();
 			console.debug("[player] initialized");
 		});
+
+		const interval = setInterval(storeBandwithEstimate, 5000);
+		return () => {
+			clearInterval(interval);
+		};
 	});
 
 	onDestroy(() => {

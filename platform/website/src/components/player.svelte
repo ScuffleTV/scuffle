@@ -17,6 +17,7 @@
 	import { authDialog } from "$/store/auth";
 	import { dev } from "$app/environment";
 	import { PUBLIC_EDGE_ENDPOINT, PUBLIC_ORG_ID } from "$env/static/public";
+	import DebugOverlay from "./player/debug-overlay.svelte";
 
 	function loadVolume() {
 		const storedVolume = localStorage.getItem("player_volume");
@@ -41,8 +42,8 @@
 
 	let player: Player;
 	let state = PlayerState.Loading;
-	let manifest: Variant[];
-	let currentVariantId: number;
+	let variants: Variant[];
+	let currentVariant: number;
 
 	// This is only used for hiding the controls when the mouse is not moving anymore
 	let controlsHidden = false;
@@ -54,6 +55,8 @@
 	let audioOnly = false;
 	let selectedVariant: number;
 	let volume = initMuted ? 0.0 : (loadVolume() ?? 1.0);
+
+	let debugOverlay = false;
 
 	$: localStorage.setItem("player_volume", volume.toString());
 
@@ -94,13 +97,13 @@
 
 	function onManifestLoaded() {
 		console.debug("[player] manifest loaded, variants: ", player.variants);
-		manifest = player.variants;
+		variants = player.variants;
 	}
 
 	function onVariantChange() {
-		let variant = manifest.at(player.variantId);
+		let variant = player.variants.at(player.variantId);
 		if (variant) {
-			currentVariantId = player.variantId;
+			currentVariant = player.variantId;
 			console.debug(`[player] switched to variant ${variant.video_track?.name ?? "audio only"}`);
 			audioOnly = !variant.video_track;
 		} else {
@@ -248,6 +251,9 @@
 				if (!showTheater) return;
 				toggleTheaterMode();
 				break;
+			case "d":
+				debugOverlay = !debugOverlay;
+				break;
 			default:
 				return;
 		}
@@ -325,19 +331,19 @@
 					<Volume volume={volume} />
 				</button>
 				{#if videoEl}
-					<input class="volume" type="range" min="0" max="1" step="0.01" bind:value={volume} />
+					<input class="volume" type="range" min="0" max="1" step="0.01" disabled={state === PlayerState.Error} bind:value={volume} />
 				{/if}
 			</div>
 			<div>
-				{#if manifest}
-					<select bind:value={selectedVariant}>
+				{#if variants}
+					<select bind:value={selectedVariant} disabled={state === PlayerState.Error}>
 						<option value={-1}>
 							auto
 							{selectedVariant === -1
-								? ` (${manifest.at(currentVariantId)?.video_track?.name ?? "audio-only"})`
+								? ` (${player.variants.at(player.variantId)?.video_track?.name ?? "audio-only"})`
 								: ""}
 						</option>
-						{#each manifest as variant, index}
+						{#each variants as variant, index}
 							<option value={index} selected={index === selectedVariant}
 								>{variant.video_track?.name ?? "audio-only"}</option
 							>
@@ -384,6 +390,9 @@
 				</button>
 			</div>
 		</div>
+	{/if}
+	{#if debugOverlay}
+		<DebugOverlay player={player} videoEl={videoEl} on:close={() => (debugOverlay = false)} />
 	{/if}
 </div>
 

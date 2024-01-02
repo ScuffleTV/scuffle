@@ -55,7 +55,7 @@
 {/if}
 
 {#if showDebugDialog}
-	<Dialog on:close={() => (showDebugDialog = false)}>
+	<Dialog on:close={() => (showDebugDialog = false)} width={40}>
 		<div class="debug-container">
 			<div class="title">
 				<h1>Debug Info</h1>

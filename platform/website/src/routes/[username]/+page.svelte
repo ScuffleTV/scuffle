@@ -193,7 +193,7 @@
 				justify-content: center;
 
 				& > .name {
-					font-size: 1.25rem;
+					font-size: 1rem;
 					overflow: hidden;
 					text-overflow: ellipsis;
 					white-space: nowrap;

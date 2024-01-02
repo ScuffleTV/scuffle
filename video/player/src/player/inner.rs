@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{RefCell, Cell};
 use std::rc::{Rc, Weak};
 
 use tokio::sync::broadcast;
@@ -13,40 +13,51 @@ use super::settings::PlayerSettingsParsed;
 use super::variant::Variant;
 
 #[derive(Clone)]
-pub struct PlayerInnerHolder(Rc<RefCell<PlayerInner>>);
+pub struct PlayerInnerHolder(Rc<RefCell<PlayerInner>>, Rc<Cell<Option<&'static std::panic::Location<'static>>>>);
 
 #[derive(Clone)]
-pub struct PlayerInnerWeakHolder(Weak<RefCell<PlayerInner>>);
+pub struct PlayerInnerWeakHolder(Weak<RefCell<PlayerInner>>, Weak<Cell<Option<&'static std::panic::Location<'static>>>>);
 
 impl PlayerInnerHolder {
 	pub fn new(inner: PlayerInner) -> Self {
-		Self(Rc::new(RefCell::new(inner)))
+		Self(Rc::new(RefCell::new(inner)), Rc::new(Cell::new(None)))
 	}
 
 	#[track_caller]
 	pub fn borrow(&self) -> std::cell::Ref<PlayerInner> {
-		self.0.try_borrow().map_err(|err| {
-			tracing::error!(error = ?err, location = %std::panic::Location::caller(), "failed to borrow player inner");
+		let borrow = self.0.try_borrow().map_err(|err| {
+			tracing::error!("Failed to borrow player inner\nPrevious borrow location: {:?}\nNew Location: {:?}", self.1.get(), std::panic::Location::caller());
 			err
-		}).expect("failed to borrow player inner")
+		}).expect("failed to borrow player inner");
+
+		self.1.set(Some(std::panic::Location::caller()));
+
+		borrow
 	}
 
 	#[track_caller]
 	pub fn borrow_mut(&self) -> std::cell::RefMut<PlayerInner> {
-		self.0.try_borrow_mut().map_err(|err| {
-			tracing::error!(error = ?err, location = %std::panic::Location::caller(), "failed to borrow player inner");
+		let borrow = self.0.try_borrow_mut().map_err(|err| {
+			tracing::error!("Failed to borrow player inner\nPrevious borrow location: {:?}\nNew Location: {:?}", self.1.get(), std::panic::Location::caller());
 			err
-		}).expect("failed to borrow player inner")
+		}).expect("failed to borrow player inner");
+
+		self.1.set(Some(std::panic::Location::caller()));
+
+		borrow
 	}
 
 	pub fn downgrade(&self) -> PlayerInnerWeakHolder {
-		PlayerInnerWeakHolder(Rc::downgrade(&self.0))
+		PlayerInnerWeakHolder(Rc::downgrade(&self.0), Rc::downgrade(&self.1))
 	}
 }
 
 impl PlayerInnerWeakHolder {
 	pub fn upgrade(&self) -> Option<PlayerInnerHolder> {
-		self.0.upgrade().map(PlayerInnerHolder)
+		let inner = self.0.upgrade()?;
+		let location = self.1.upgrade()?;
+
+		Some(PlayerInnerHolder(inner, location))
 	}
 }
 

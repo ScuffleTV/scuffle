@@ -18,6 +18,9 @@
 - name: "help wanted"
   color: "42f58a"
   description: "Extra attention is needed"
+- name: "tests"
+  color: "10cb8b"
+  description: "Issues related to tests"
 
 # Video
 

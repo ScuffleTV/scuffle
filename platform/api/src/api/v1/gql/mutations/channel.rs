@@ -45,7 +45,7 @@ impl<G: ApiGlobal> ChannelMutation<G> {
 		.fetch_one(global.db().as_ref())
 		.await?;
 
-		let channel_id = user.id.0.into();
+		let channel_id = user.id.0;
 
 		global
 			.nats()

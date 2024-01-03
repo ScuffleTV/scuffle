@@ -173,6 +173,7 @@ CREATE INDEX users_channel_title_description_idx ON users USING GIN (to_tsvector
 CREATE INDEX users_channel_live_viewer_count ON users (channel_live_viewer_count DESC) WHERE channel_live_viewer_count IS NOT NULL;
 CREATE INDEX users_channel_last_live_at_idx ON users (channel_last_live_at) WHERE channel_last_live_at IS NOT NULL;
 CREATE INDEX users_channel_category_id_idx ON users (channel_category_id) WHERE channel_category_id IS NOT NULL;
+CREATE INDEX users_channel_room_id_idx ON users (channel_room_id);
 
 -- User Session Indexes
 

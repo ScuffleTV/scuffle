@@ -27,6 +27,12 @@ struct ChannelTitleStream {
 	pub title: Option<String>,
 }
 
+#[derive(SimpleObject)]
+struct ChannelLiveStream {
+	pub channel_id: GqlUlid,
+	pub live: bool,
+}
+
 #[Subscription]
 impl<G: ApiGlobal> ChannelSubscription<G> {
 	async fn channel_follows<'ctx>(
@@ -149,6 +155,32 @@ impl<G: ApiGlobal> ChannelSubscription<G> {
 				yield Ok(ChannelTitleStream {
 					channel_id: channel_id.into(),
 					title: Some(event.title),
+				});
+			}
+		}))
+	}
+
+	async fn channel_live<'ctx>(
+		&self,
+		ctx: &'ctx Context<'ctx>,
+		channel_id: GqlUlid,
+	) -> Result<impl Stream<Item = Result<ChannelLiveStream>> + 'ctx> {
+		let global = ctx.get_global::<G>();
+
+		let mut subscription = global
+			.subscription_manager()
+			.subscribe(SubscriptionTopic::ChannelLive(channel_id.to_ulid()))
+			.await
+			.map_err_gql("failed to subscribe to channel live")?;
+
+		Ok(async_stream::stream!({
+			while let Ok(message) = subscription.recv().await {
+				let event = pb::scuffle::platform::internal::events::ChannelLive::decode(message.payload)
+					.map_err_ignored_gql("failed to decode channel live event")?;
+
+				yield Ok(ChannelLiveStream {
+					channel_id: event.channel_id.into_ulid().into(),
+					live: event.live,
 				});
 			}
 		}))

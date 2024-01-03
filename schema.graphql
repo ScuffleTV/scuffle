@@ -161,6 +161,11 @@ type ChannelLink {
 	url: String!
 }
 
+type ChannelLiveStream {
+	channelId: ULID!
+	live: Boolean!
+}
+
 type ChannelMutation {
 	title(
 		"""
@@ -315,6 +320,7 @@ type Session {
 type Subscription {
 	channelFollowersCount(channelId: ULID!): Int!
 	channelFollows(channelId: ULID!): FollowStream!
+	channelLive(channelId: ULID!): ChannelLiveStream!
 	channelTitle(channelId: ULID!): ChannelTitleStream!
 	chatMessages(
 		"""

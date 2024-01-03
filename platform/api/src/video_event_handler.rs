@@ -4,10 +4,12 @@ use anyhow::Context;
 use common::database::Ulid;
 use pb::scuffle::video::v1::types::{event, Event};
 use pb::scuffle::video::v1::{EventsAckRequest, EventsFetchRequest};
+use prost::Message;
 
 use crate::global::ApiGlobal;
+use crate::subscription::SubscriptionTopic;
 
-pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
+pub async fn run<G: ApiGlobal>(global: &Arc<G>) -> anyhow::Result<()> {
 	loop {
 		let mut event_stream = global
 			.video_events_client()
@@ -50,22 +52,41 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 
 async fn handle_room_event<G: ApiGlobal>(global: &Arc<G>, event: event::Room, timestamp: i64) -> anyhow::Result<()> {
 	let room_id = event.room_id.as_ref().unwrap();
-	match event.event.unwrap() {
+	match event.event.context("no event")? {
 		event::room::Event::Ready(..) => {
-			// TODO: index for channel_room_id
-			sqlx::query("UPDATE users SET channel_live_viewer_count = 0, channel_live_viewer_count_updated_at = NOW(), channel_last_live_at = $1 WHERE channel_room_id = $2")
+			let (channel_id,): (common::database::Ulid,) = sqlx::query_as("UPDATE users SET channel_live_viewer_count = 0, channel_live_viewer_count_updated_at = NOW(), channel_last_live_at = $1 WHERE channel_room_id = $2 RETURNING id")
 				.bind(chrono::NaiveDateTime::from_timestamp_millis(timestamp))
 				.bind(Ulid::from(room_id.into_ulid()))
-				.execute(global.db().as_ref())
+				.fetch_one(global.db().as_ref())
 				.await?;
+			global
+				.nats()
+				.publish(
+					SubscriptionTopic::ChannelLive(channel_id.0),
+					pb::scuffle::platform::internal::events::ChannelLive {
+						channel_id: Some(channel_id.0.into()),
+						live: true,
+					}.encode_to_vec().into(),
+				)
+				.await
+				.context("failed to publish channel live event")?;
 		}
 		event::room::Event::Disconnected(..) => {
-			sqlx::query(
-				"UPDATE users SET channel_live_viewer_count = NULL, channel_live_viewer_count_updated_at = NOW() WHERE channel_room_id = $1",
-			)
-			.bind(Ulid::from(room_id.into_ulid()))
-			.execute(global.db().as_ref())
-			.await?;
+			let (channel_id,): (common::database::Ulid,) = sqlx::query_as("UPDATE users SET channel_live_viewer_count = NULL, channel_live_viewer_count_updated_at = NOW() WHERE channel_room_id = $1 RETURNING id")
+				.bind(Ulid::from(room_id.into_ulid()))
+				.fetch_one(global.db().as_ref())
+				.await?;
+			global
+				.nats()
+				.publish(
+					SubscriptionTopic::ChannelLive(channel_id.0),
+					pb::scuffle::platform::internal::events::ChannelLive {
+						channel_id: Some(channel_id.0.into()),
+						live: false,
+					}.encode_to_vec().into(),
+				)
+				.await
+				.context("failed to publish channel live event")?;
 		}
 		_ => {}
 	}

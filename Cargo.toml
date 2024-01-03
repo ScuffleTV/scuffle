@@ -17,6 +17,7 @@ members = [
     "proto",
     "config",
     "config/derive",
+    "ffmpeg-next-io",
 ]
 
 resolver = "2"
@@ -55,6 +56,7 @@ video-edge = { path = "video/edge" }
 video-ingest = { path = "video/ingest" }
 video-transcoder = { path = "video/transcoder" }
 binary-helper = { path = "binary-helper" }
+ffmpeg-next-io = { path = "ffmpeg-next-io" }
 
 [patch."https://github.com/tokio-rs/tracing.git"]
 tracing = { git = "https://github.com/ScuffleTV/tracing" }

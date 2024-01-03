@@ -34,12 +34,13 @@ byteorder = "1.5"
 gifski = "1.13"
 png = "0.17"
 num_cpus = "1.16"
-path-tree = "0.7"
+bytes = "1.0"
 
 common = { workspace = true, features = ["default"] }
 config = { workspace = true }
 pb = { workspace = true }
 binary-helper = { workspace = true }
+ffmpeg-next-io = { workspace = true, features = ["tokio"] }
 
 [dev-dependencies]
 dotenvy = "0.15.7"

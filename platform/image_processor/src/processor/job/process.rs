@@ -1,5 +1,5 @@
+use std::borrow::Cow;
 use std::collections::HashSet;
-use std::path::Path;
 
 use pb::scuffle::platform::internal::types::ImageFormat;
 
@@ -74,8 +74,8 @@ struct ResizerStack {
 	animation_encoders: Vec<AnyEncoder>,
 }
 
-pub fn process_job(backend: DecoderBackend, input_path: &Path, job: &Job) -> Result<Images> {
-	let mut decoder = backend.build(input_path, job)?;
+pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> Result<Images> {
+	let mut decoder = backend.build(job, data)?;
 
 	let info = decoder.info();
 

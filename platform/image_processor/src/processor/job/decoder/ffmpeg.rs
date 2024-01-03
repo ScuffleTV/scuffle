@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::borrow::Cow;
 
 use anyhow::{anyhow, Context as _};
 use ffmpeg_next::format::Pixel;
@@ -19,8 +19,8 @@ pub fn init() {
 	});
 }
 
-pub struct FfmpegDecoder {
-	input: ffmpeg_next::format::context::Input,
+pub struct FfmpegDecoder<'data> {
+	input: ffmpeg_next_io::Input<std::io::Cursor<Cow<'data, [u8]>>>,
 	decoder: ffmpeg_next::codec::decoder::video::Video,
 	scaler: ffmpeg_next::software::scaling::Context,
 	info: DecoderInfo,
@@ -40,11 +40,12 @@ const fn cast_bytes_to_rgba(bytes: &[u8]) -> &[rgb::RGBA8] {
 	unsafe { std::slice::from_raw_parts(bytes.as_ptr() as *const _, bytes.len() / 4) }
 }
 
-impl FfmpegDecoder {
-	pub fn new(job: &Job, input_path: &Path) -> Result<Self> {
+impl<'data> FfmpegDecoder<'data> {
+	pub fn new(job: &Job, data: Cow<'data, [u8]>) -> Result<Self> {
 		init();
 
-		let input = ffmpeg_next::format::input(&input_path)
+		let input = ffmpeg_next_io::Input::seekable(std::io::Cursor::new(data))
+			.map_err(|(_, err)| err)
 			.context("input")
 			.map_err(ProcessorError::FfmpegDecode)?;
 
@@ -138,7 +139,7 @@ impl FfmpegDecoder {
 	}
 }
 
-impl Decoder for FfmpegDecoder {
+impl Decoder for FfmpegDecoder<'_> {
 	fn backend(&self) -> DecoderBackend {
 		DecoderBackend::Ffmpeg
 	}

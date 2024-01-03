@@ -17,3 +17,7 @@ pub fn asset_path(name: &str) -> PathBuf {
 		.join("assets")
 		.join(name)
 }
+
+pub fn asset_bytes(name: &str) -> Vec<u8> {
+	std::fs::read(asset_path(name)).unwrap()
+}

@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::path::Path;
 use std::ptr::NonNull;
 
 use anyhow::{anyhow, Context};
@@ -21,10 +20,8 @@ pub struct WebpDecoder<'data> {
 	max_input_duration: u64,
 }
 
-impl WebpDecoder<'_> {
-	pub fn new(job: &Job, input_path: &Path) -> Result<Self> {
-		let data = std::fs::read(input_path).map_err(ProcessorError::FileRead)?;
-
+impl<'data> WebpDecoder<'data> {
+	pub fn new(job: &Job, data: Cow<'data, [u8]>) -> Result<Self> {
 		let max_input_width = job.task.limits.as_ref().map(|l| l.max_input_width).unwrap_or(0);
 		let max_input_height = job.task.limits.as_ref().map(|l| l.max_input_height).unwrap_or(0);
 		let max_input_frame_count = job.task.limits.as_ref().map(|l| l.max_input_frame_count).unwrap_or(0);
@@ -83,7 +80,7 @@ impl WebpDecoder<'_> {
 			},
 			max_input_duration: max_input_duration_ms as u64,
 			decoder,
-			_data: Cow::Owned(data),
+			_data: data,
 			total_duration: 0,
 			timestamp: 0,
 		})

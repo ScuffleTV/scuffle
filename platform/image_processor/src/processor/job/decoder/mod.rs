@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::borrow::Cow;
 
 use file_format::FileFormat;
 
@@ -48,17 +48,17 @@ impl DecoderBackend {
 		}
 	}
 
-	pub fn build(&self, input_path: &Path, job: &Job) -> Result<AnyDecoder> {
+	pub fn build<'a>(&self, job: &Job, data: Cow<'a, [u8]>) -> Result<AnyDecoder<'a>> {
 		match self {
-			Self::Ffmpeg => Ok(AnyDecoder::Ffmpeg(ffmpeg::FfmpegDecoder::new(job, input_path)?)),
-			Self::LibAvif => Ok(AnyDecoder::LibAvif(libavif::AvifDecoder::new(job, input_path)?)),
-			Self::LibWebp => Ok(AnyDecoder::LibWebp(libwebp::WebpDecoder::new(job, input_path)?)),
+			Self::Ffmpeg => Ok(AnyDecoder::Ffmpeg(ffmpeg::FfmpegDecoder::new(job, data)?)),
+			Self::LibAvif => Ok(AnyDecoder::LibAvif(libavif::AvifDecoder::new(job, data)?)),
+			Self::LibWebp => Ok(AnyDecoder::LibWebp(libwebp::WebpDecoder::new(job, data)?)),
 		}
 	}
 }
 
 pub enum AnyDecoder<'a> {
-	Ffmpeg(ffmpeg::FfmpegDecoder),
+	Ffmpeg(ffmpeg::FfmpegDecoder<'a>),
 	LibAvif(libavif::AvifDecoder<'a>),
 	LibWebp(libwebp::WebpDecoder<'a>),
 }

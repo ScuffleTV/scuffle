@@ -1,16 +1,18 @@
+use std::borrow::Cow;
+
 use imgref::ImgVec;
 
 use crate::processor::job::decoder::{Decoder, DecoderBackend, DecoderInfo, LoopCount};
 use crate::processor::job::frame::FrameOwned;
-use crate::tests::utils::asset_path;
+use crate::tests::utils::asset_bytes;
 
 fn decode(asset_name: &str, backend: DecoderBackend, expected_info: DecoderInfo, expected_frames: Vec<FrameOwned>) {
-	let input_path = asset_path(asset_name);
+	let asset_bytes = asset_bytes(asset_name);
 
 	let start = std::time::Instant::now();
 
 	let mut decoder = backend
-		.build(input_path.as_path(), &Default::default())
+		.build(&Default::default(), Cow::Owned(asset_bytes))
 		.expect("decoder build error");
 
 	let info = decoder.info();

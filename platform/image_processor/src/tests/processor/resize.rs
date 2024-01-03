@@ -1,14 +1,16 @@
+use std::borrow::Cow;
+
 use crate::processor::job::decoder::{Decoder, DecoderBackend};
 use crate::processor::job::resize::{ImageResizer, ImageResizerTarget};
-use crate::tests::utils::asset_path;
+use crate::tests::utils::asset_bytes;
 
 fn resize(asset_name: &str, backend: DecoderBackend) {
-	let input_path = asset_path(asset_name);
+	let input_bytes = asset_bytes(asset_name);
 
 	let start = std::time::Instant::now();
 
 	let mut decoder = backend
-		.build(input_path.as_path(), &Default::default())
+		.build(&Default::default(), Cow::Owned(input_bytes))
 		.expect("decoder build error");
 
 	let mut resizer = ImageResizer::new(ImageResizerTarget {

@@ -20,22 +20,6 @@ pub async fn run(global: Arc<impl ImageProcessorGlobal>) -> Result<()> {
 
 	let mut done = global.ctx().done();
 
-	let working_directory = if let Some(working_directory) = &config.working_directory {
-		if working_directory.is_empty() || working_directory == "." {
-			std::env::current_dir().ok()
-		} else {
-			Some(std::path::PathBuf::from(working_directory))
-		}
-	} else {
-		None
-	}
-	.unwrap_or_else(|| std::path::PathBuf::from(format!("/tmp/{}", config.instance_id)));
-
-	tokio::fs::create_dir_all(&working_directory)
-		.await
-		.map_err(ProcessorError::DirectoryCreate)?;
-	std::env::set_current_dir(&working_directory).map_err(ProcessorError::WorkingDirectoryChange)?;
-
 	let mut futures = futures::stream::FuturesUnordered::new();
 
 	loop {
@@ -54,7 +38,7 @@ pub async fn run(global: Arc<impl ImageProcessorGlobal>) -> Result<()> {
 					continue;
 				};
 
-				futures.push(handle_job(&global, &working_directory, ticket, job));
+				futures.push(handle_job(&global, ticket, job));
 			},
 			Some(r) = futures.next() => {
 				r?;

@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::path::Path;
 use std::ptr::NonNull;
 
 use anyhow::{anyhow, Context};
@@ -21,10 +20,8 @@ pub struct AvifDecoder<'data> {
 	max_input_duration: u64,
 }
 
-impl AvifDecoder<'_> {
-	pub fn new(job: &Job, input_path: &Path) -> Result<Self> {
-		let data = std::fs::read(input_path).map_err(ProcessorError::FileRead)?;
-
+impl<'data> AvifDecoder<'data> {
+	pub fn new(job: &Job, data: Cow<'data, [u8]>) -> Result<Self> {
 		let mut decoder = SmartPtr::new(
 			NonNull::new(unsafe { libavif_sys::avifDecoderCreate() })
 				.ok_or(AvifError::OutOfMemory)
@@ -92,7 +89,7 @@ impl AvifDecoder<'_> {
 		}
 
 		Ok(Self {
-			_data: Cow::Owned(data),
+			_data: data,
 			img: AvifRgbImage::new(decoder.as_ref()),
 			decoder,
 			max_input_duration: max_input_duration_ms as u64 * info.timescale / 1000,

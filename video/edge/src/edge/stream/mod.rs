@@ -117,8 +117,10 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 	let global_config = global.config();
 	let ip = if let Some(ip_header_mode) = &global_config.ip_header_mode {
 		if let Some(ip) = req.headers().get(ip_header_mode.to_lowercase().as_str()).and_then(|v| v.to_str().ok()) {
+			// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For#syntax
 			let hops = ip.split(',').collect_vec();
-			hops.get(global_config.ip_header_trusted_hops.unwrap_or(hops.len() - 1).max(hops.len())).copied().and_then(|v| v.trim().parse().ok())
+			let client_idx = hops.len().saturating_sub(global_config.ip_header_trusted_hops.unwrap_or(hops.len()));
+			hops.get(client_idx).copied().and_then(|v| v.trim().parse().ok())
 		} else {
 			None
 		}

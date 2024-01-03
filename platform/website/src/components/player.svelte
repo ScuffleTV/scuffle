@@ -69,7 +69,7 @@
 	let fullscreen = false;
 	let audioOnly = false;
 	let selectedVariant: number;
-	let volume = initMuted ? 0.0 : (loadVolume() ?? 1.0);
+	let volume = initMuted ? 0.0 : loadVolume() ?? 1.0;
 
 	let debugOverlay = false;
 
@@ -305,7 +305,7 @@
 		autoplay
 		class:paused={state === PlayerState.Paused}
 		class:audio-only={audioOnly}
-		bind:volume={volume}
+		bind:volume
 		muted={volume === 0.0}
 	>
 		<!-- No captions, this must be specified explicitly to suppress an a11y warning -->
@@ -350,10 +350,18 @@
 					on:click|preventDefault={toggleMuted}
 					disabled={state === PlayerState.Error}
 				>
-					<Volume volume={volume} />
+					<Volume {volume} />
 				</button>
 				{#if videoEl}
-					<input class="volume" type="range" min="0" max="1" step="0.01" disabled={state === PlayerState.Error} bind:value={volume} />
+					<input
+						class="volume"
+						type="range"
+						min="0"
+						max="1"
+						step="0.01"
+						disabled={state === PlayerState.Error}
+						bind:value={volume}
+					/>
 				{/if}
 			</div>
 			<div>
@@ -414,7 +422,7 @@
 		</div>
 	{/if}
 	{#if debugOverlay}
-		<DebugOverlay player={player} videoEl={videoEl} on:close={() => (debugOverlay = false)} />
+		<DebugOverlay {player} {videoEl} on:close={() => (debugOverlay = false)} />
 	{/if}
 </div>
 

@@ -322,13 +322,13 @@ impl Player {
 
 		let mut inner = self.inner.borrow_mut();
 
-        match inner.interface_settings.state {
-            PlayerState::Initialized | PlayerState::Running => {}
-            PlayerState::Stopped => {
-                inner.interface_settings.state = PlayerState::Running;
-            }
-            PlayerState::Shutdown => unreachable!(),
-        }
+		match inner.interface_settings.state {
+			PlayerState::Initialized | PlayerState::Running => {}
+			PlayerState::Stopped => {
+				inner.interface_settings.state = PlayerState::Running;
+			}
+			PlayerState::Shutdown => unreachable!(),
+		}
 
 		Ok(())
 	}

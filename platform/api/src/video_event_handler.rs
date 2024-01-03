@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use common::database::Ulid;
 use pb::scuffle::video::v1::types::{event, Event};
-use pb::scuffle::video::v1::{EventsFetchRequest, EventsAckRequest};
+use pb::scuffle::video::v1::{EventsAckRequest, EventsFetchRequest};
 
 use crate::global::ApiGlobal;
 
@@ -33,12 +33,16 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 					Err(err) => {
 						tracing::warn!(err = %err, "failed to handle event, requeueing");
 						pb::scuffle::video::v1::events_ack_request::Action::RequeueDelayMs(5000)
-					},
+					}
 				};
-				global.video_events_client().clone().ack(EventsAckRequest {
-					id: Some(evt_id),
-					action: Some(action),
-				}).await?;
+				global
+					.video_events_client()
+					.clone()
+					.ack(EventsAckRequest {
+						id: Some(evt_id),
+						action: Some(action),
+					})
+					.await?;
 			}
 		}
 	}

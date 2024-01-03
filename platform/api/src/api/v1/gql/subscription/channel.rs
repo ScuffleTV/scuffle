@@ -1,4 +1,4 @@
-use async_graphql::{Context, Subscription, SimpleObject};
+use async_graphql::{Context, SimpleObject, Subscription};
 use futures_util::Stream;
 use pb::ext::*;
 use prost::Message;
@@ -138,10 +138,7 @@ impl<G: ApiGlobal> ChannelSubscription<G> {
 			.map_err_gql("failed to subscribe to channel title")?;
 
 		Ok(async_stream::stream!({
-			yield Ok(ChannelTitleStream {
-				channel_id,
-				title,
-			});
+			yield Ok(ChannelTitleStream { channel_id, title });
 
 			while let Ok(message) = subscription.recv().await {
 				let event = pb::scuffle::platform::internal::events::ChannelTitle::decode(message.payload)
@@ -149,7 +146,10 @@ impl<G: ApiGlobal> ChannelSubscription<G> {
 
 				let channel_id = event.channel_id.into_ulid();
 
-				yield Ok(ChannelTitleStream { channel_id: channel_id.into(), title: Some(event.title) });
+				yield Ok(ChannelTitleStream {
+					channel_id: channel_id.into(),
+					title: Some(event.title),
+				});
 			}
 		}))
 	}

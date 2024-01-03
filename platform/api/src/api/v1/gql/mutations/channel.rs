@@ -1,11 +1,14 @@
-use async_graphql::{Object, Context};
-
-use crate::{global::ApiGlobal, api::{auth::AuthError, v1::gql::{error::{GqlError, Result}, models::user::User}}, database, subscription::SubscriptionTopic};
-use crate::api::v1::gql::ext::ContextExt;
-use crate::api::v1::gql::error::ext::OptionExt;
-use crate::api::v1::gql::error::ext::ResultExt;
-
+use async_graphql::{Context, Object};
 use prost::Message;
+
+use crate::api::auth::AuthError;
+use crate::api::v1::gql::error::ext::{OptionExt, ResultExt};
+use crate::api::v1::gql::error::{GqlError, Result};
+use crate::api::v1::gql::ext::ContextExt;
+use crate::api::v1::gql::models::user::User;
+use crate::database;
+use crate::global::ApiGlobal;
+use crate::subscription::SubscriptionTopic;
 
 pub struct ChannelMutation<G>(std::marker::PhantomData<G>);
 
@@ -17,12 +20,8 @@ impl<G: ApiGlobal> Default for ChannelMutation<G> {
 
 #[Object]
 impl<G: ApiGlobal> ChannelMutation<G> {
-    async fn title(
-        &self,
-		ctx: &Context<'_>,
-		#[graphql(desc = "The new title.")] title: String,
-    ) -> Result<User<G>> {
-        let global = ctx.get_global::<G>();
+	async fn title(&self, ctx: &Context<'_>, #[graphql(desc = "The new title.")] title: String) -> Result<User<G>> {
+		let global = ctx.get_global::<G>();
 		let request_context = ctx.get_req_context();
 
 		let auth = request_context
@@ -46,9 +45,9 @@ impl<G: ApiGlobal> ChannelMutation<G> {
 		.fetch_one(global.db().as_ref())
 		.await?;
 
-        let channel_id = user.id.0.into();
+		let channel_id = user.id.0.into();
 
-        global
+		global
 			.nats()
 			.publish(
 				SubscriptionTopic::ChannelTitle(channel_id),
@@ -60,8 +59,8 @@ impl<G: ApiGlobal> ChannelMutation<G> {
 				.into(),
 			)
 			.await
-            .map_err_gql("failed to publish channel title")?;
+			.map_err_gql("failed to publish channel title")?;
 
 		Ok(user.into())
-    }
+	}
 }

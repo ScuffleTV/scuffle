@@ -13,7 +13,6 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
   cancel-in-progress: true
@@ -26,7 +25,7 @@ jobs:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@v3.4.0
         with:
-          skip_after_successful_duplicate: 'true'
+          skip_after_successful_duplicate: "true"
           do_not_skip: '["workflow_dispatch", "schedule"]'
 
       - name: Set output
@@ -68,7 +67,7 @@ jobs:
           - 4222:4222
           - 8222:8222
           - 6222:6222
-      
+
       redis:
         image: ghcr.io/scuffletv/ci/redis:latest
         ports:
@@ -167,7 +166,7 @@ jobs:
       - name: Build (release fat-lto)
         if: github.ref == 'refs/heads/main'
         run: cargo build --profile release-fat
-      
+
       - name: Build (release thin-lto)
         if: github.ref != 'refs/heads/main'
         run: cargo build --profile release

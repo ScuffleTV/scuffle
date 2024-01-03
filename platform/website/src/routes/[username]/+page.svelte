@@ -56,7 +56,7 @@
 		<div class="under-player" class:hide-on-mobile={!chatCollapsed}>
 			<div class="row title-row">
 				<h1 class="title">
-					<Title channelId={channelId} bind:title={data.user.channel.title} />
+					<Title {channelId} bind:title={data.user.channel.title} />
 				</h1>
 				<div class="stream-info">
 					{#if viewers}

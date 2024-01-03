@@ -1,4 +1,4 @@
-use std::cell::{RefCell, Cell};
+use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 
 use tokio::sync::broadcast;
@@ -13,10 +13,16 @@ use super::settings::PlayerSettingsParsed;
 use super::variant::Variant;
 
 #[derive(Clone)]
-pub struct PlayerInnerHolder(Rc<RefCell<PlayerInner>>, Rc<Cell<Option<&'static std::panic::Location<'static>>>>);
+pub struct PlayerInnerHolder(
+	Rc<RefCell<PlayerInner>>,
+	Rc<Cell<Option<&'static std::panic::Location<'static>>>>,
+);
 
 #[derive(Clone)]
-pub struct PlayerInnerWeakHolder(Weak<RefCell<PlayerInner>>, Weak<Cell<Option<&'static std::panic::Location<'static>>>>);
+pub struct PlayerInnerWeakHolder(
+	Weak<RefCell<PlayerInner>>,
+	Weak<Cell<Option<&'static std::panic::Location<'static>>>>,
+);
 
 impl PlayerInnerHolder {
 	pub fn new(inner: PlayerInner) -> Self {
@@ -25,10 +31,18 @@ impl PlayerInnerHolder {
 
 	#[track_caller]
 	pub fn borrow(&self) -> std::cell::Ref<PlayerInner> {
-		let borrow = self.0.try_borrow().map_err(|err| {
-			tracing::error!("Failed to borrow player inner\nPrevious borrow location: {:?}\nNew Location: {:?}", self.1.get(), std::panic::Location::caller());
-			err
-		}).expect("failed to borrow player inner");
+		let borrow = self
+			.0
+			.try_borrow()
+			.map_err(|err| {
+				tracing::error!(
+					"Failed to borrow player inner\nPrevious borrow location: {:?}\nNew Location: {:?}",
+					self.1.get(),
+					std::panic::Location::caller()
+				);
+				err
+			})
+			.expect("failed to borrow player inner");
 
 		self.1.set(Some(std::panic::Location::caller()));
 
@@ -37,10 +51,18 @@ impl PlayerInnerHolder {
 
 	#[track_caller]
 	pub fn borrow_mut(&self) -> std::cell::RefMut<PlayerInner> {
-		let borrow = self.0.try_borrow_mut().map_err(|err| {
-			tracing::error!("Failed to borrow player inner\nPrevious borrow location: {:?}\nNew Location: {:?}", self.1.get(), std::panic::Location::caller());
-			err
-		}).expect("failed to borrow player inner");
+		let borrow = self
+			.0
+			.try_borrow_mut()
+			.map_err(|err| {
+				tracing::error!(
+					"Failed to borrow player inner\nPrevious borrow location: {:?}\nNew Location: {:?}",
+					self.1.get(),
+					std::panic::Location::caller()
+				);
+				err
+			})
+			.expect("failed to borrow player inner");
 
 		self.1.set(Some(std::panic::Location::caller()));
 
@@ -60,7 +82,6 @@ impl PlayerInnerWeakHolder {
 		Some(PlayerInnerHolder(inner, location))
 	}
 }
-
 
 #[derive(Debug)]
 pub struct InterfaceSettings {

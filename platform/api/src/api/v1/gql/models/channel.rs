@@ -1,4 +1,5 @@
 use async_graphql::{ComplexObject, Context, SimpleObject};
+use chrono::Utc;
 
 use super::category::Category;
 use super::date::DateRFC3339;
@@ -16,7 +17,6 @@ pub struct Channel<G: ApiGlobal> {
 	pub id: GqlUlid,
 	pub room_id: GqlUlid,
 	pub title: Option<String>,
-	pub live_viewer_count: Option<i32>,
 	pub live_viewer_count_updated_at: Option<DateRFC3339>,
 	pub description: Option<String>,
 	pub links: Vec<database::ChannelLink>,
@@ -24,6 +24,9 @@ pub struct Channel<G: ApiGlobal> {
 	pub offline_banner_id: Option<GqlUlid>,
 	pub category_id: Option<GqlUlid>,
 	pub last_live_at: Option<DateRFC3339>,
+
+	// Live viewer count has a custom resolver
+	live_viewer_count_: Option<i32>,
 
 	// Private fields
 	#[graphql(skip)]
@@ -76,6 +79,64 @@ impl<G: ApiGlobal> Channel<G> {
 
 		Ok(followers)
 	}
+
+	async fn live(&self, ctx: &Context<'_>) -> Result<bool> {
+		let global = ctx.get_global::<G>();
+
+		let res = global
+			.video_room_client()
+			.clone()
+			.get(pb::scuffle::video::v1::RoomGetRequest {
+				ids: vec![self.room_id.0.into()],
+				..Default::default()
+			})
+			.await
+			.map_err_gql("failed to fetch room")?;
+		let room = res.into_inner().rooms.into_iter().next().map_err_gql("failed to fetch room")?;
+
+		Ok(room.status == pb::scuffle::video::v1::types::RoomStatus::Ready as i32)
+	}
+
+	async fn live_viewer_count(&self, ctx: &Context<'_>) -> Result<i32> {
+		let global = ctx.get_global::<G>();
+
+		if let Some(count) = self.live_viewer_count_ {
+			let expired = self
+				.live_viewer_count_updated_at
+				.as_ref()
+				.map(|DateRFC3339(t)| Utc::now().signed_duration_since(t).num_seconds() > 30)
+				.unwrap_or(true);
+			if !expired {
+				return Ok(count);
+			}
+		}
+
+		let res = global
+			.video_playback_session_client()
+			.clone()
+			.count(pb::scuffle::video::v1::PlaybackSessionCountRequest {
+				filter: Some(pb::scuffle::video::v1::playback_session_count_request::Filter::Target(
+					pb::scuffle::video::v1::types::PlaybackSessionTarget {
+						target: Some(pb::scuffle::video::v1::types::playback_session_target::Target::RoomId(
+							self.room_id.0.into(),
+						)),
+					},
+				)),
+			})
+			.await
+			.map_err_gql("failed to fetch playback session count")?;
+
+		let live_viewer_count = res.into_inner().deduplicated_count as i32; //should be safe to cast
+
+		sqlx::query("UPDATE users SET channel_live_viewer_count = $1, channel_live_viewer_count_updated_at = NOW() WHERE id = $2")
+			.bind(live_viewer_count)
+			.bind(self.id.to_uuid())
+			.execute(global.db().as_ref())
+			.await
+			.map_err_gql("failed to update live viewer count")?;
+
+		Ok(live_viewer_count)
+	}
 }
 
 impl<G: ApiGlobal> From<database::Channel> for Channel<G> {
@@ -85,7 +146,7 @@ impl<G: ApiGlobal> From<database::Channel> for Channel<G> {
 			id: value.id.0.into(),
 			room_id: value.room_id.0.into(),
 			title: value.title,
-			live_viewer_count: value.live_viewer_count,
+			live_viewer_count_: value.live_viewer_count,
 			live_viewer_count_updated_at: value.live_viewer_count_updated_at.map(DateRFC3339),
 			description: value.description,
 			links: value.links.0,

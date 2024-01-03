@@ -148,7 +148,8 @@ type Channel {
 	id: ULID!
 	lastLiveAt: DateRFC3339
 	links: [ChannelLink!]!
-	liveViewerCount: Int
+	live: Boolean!
+	liveViewerCount: Int!
 	liveViewerCountUpdatedAt: DateRFC3339
 	offlineBannerId: ULID
 	roomId: ULID!

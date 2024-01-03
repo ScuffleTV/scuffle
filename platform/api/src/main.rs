@@ -15,7 +15,10 @@ use platform_api::dataloader::session::SessionByIdLoader;
 use platform_api::dataloader::uploaded_file::UploadedFileByIdLoader;
 use platform_api::dataloader::user::{UserByIdLoader, UserByUsernameLoader};
 use platform_api::subscription::SubscriptionManager;
-use platform_api::video_api::{setup_video_events_client, setup_video_room_client, VideoEventsClient, VideoRoomClient};
+use platform_api::video_api::{
+	setup_video_events_client, setup_video_playback_session_client, setup_video_room_client, VideoEventsClient,
+	VideoPlaybackSessionClient, VideoRoomClient,
+};
 use platform_api::video_event_handler;
 use tokio::select;
 
@@ -90,6 +93,7 @@ struct GlobalState {
 	image_processor_s3: s3::Bucket,
 
 	video_room_client: VideoRoomClient,
+	video_playback_session_client: VideoPlaybackSessionClient,
 	video_events_client: VideoEventsClient,
 }
 
@@ -164,6 +168,10 @@ impl platform_api::global::ApiState for GlobalState {
 		&self.video_room_client
 	}
 
+	fn video_playback_session_client(&self) -> &VideoPlaybackSessionClient {
+		&self.video_playback_session_client
+	}
+
 	fn video_events_client(&self) -> &VideoEventsClient {
 		&self.video_events_client
 	}
@@ -192,6 +200,7 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			.ok_or_else(|| anyhow::anyhow!("failed to setup image processor s3"))?;
 
 		let video_room_client = setup_video_room_client(&config.extra.video_api)?;
+		let video_playback_session_client = setup_video_playback_session_client(&config.extra.video_api)?;
 		let video_events_client = setup_video_events_client(&config.extra.video_api)?;
 
 		Ok(Self {
@@ -210,6 +219,7 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			subscription_manager,
 			image_processor_s3,
 			video_room_client,
+			video_playback_session_client,
 			video_events_client,
 		})
 	}

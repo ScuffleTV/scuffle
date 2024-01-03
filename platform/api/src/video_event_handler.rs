@@ -9,7 +9,7 @@ use prost::Message;
 use crate::global::ApiGlobal;
 use crate::subscription::SubscriptionTopic;
 
-pub async fn run<G: ApiGlobal>(global: &Arc<G>) -> anyhow::Result<()> {
+pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 	loop {
 		let mut event_stream = global
 			.video_events_client()

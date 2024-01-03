@@ -24,7 +24,7 @@ impl<G: ApiGlobal> Default for ChatSubscription<G> {
 #[Subscription]
 impl<G: ApiGlobal> ChatSubscription<G> {
 	// Listen to new messages in chat.
-	pub async fn chat_messages<'ctx>(
+	async fn chat_messages<'ctx>(
 		&self,
 		ctx: &'ctx Context<'_>,
 		#[graphql(desc = "Chat to subscribe to.")] channel_id: GqlUlid,

@@ -161,6 +161,20 @@ type ChannelLink {
 	url: String!
 }
 
+type ChannelMutation {
+	title(
+		"""
+		The new title.
+		"""
+		title: String!
+	): User!
+}
+
+type ChannelTitleStream {
+	channelId: ULID!
+	title: String
+}
+
 type ChatMessage {
 	channel: User!
 	channelId: ULID!
@@ -236,6 +250,7 @@ The root mutation type which contains root level fields.
 """
 type Mutation {
 	auth: AuthMutation!
+	channel: ChannelMutation!
 	chat: ChatMutation!
 	user: UserMutation!
 }
@@ -300,6 +315,7 @@ type Session {
 type Subscription {
 	channelFollowersCount(channelId: ULID!): Int!
 	channelFollows(channelId: ULID!): FollowStream!
+	channelTitle(channelId: ULID!): ChannelTitleStream!
 	chatMessages(
 		"""
 		Chat to subscribe to.

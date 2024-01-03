@@ -12,6 +12,7 @@
 	import FollowButton from "$/components/user/follow-button.svelte";
 	import SubscribeButton from "$/components/user/subscribe-button.svelte";
 	import { topNavHidden } from "$/store/layout";
+	import Title from "$/components/channel/title.svelte";
 
 	export let data: PageData;
 	$: channelId = data.user.id;
@@ -54,7 +55,9 @@
 		<Player roomId={data.user.channel.roomId} />
 		<div class="under-player" class:hide-on-mobile={!chatCollapsed}>
 			<div class="row title-row">
-				<h1 class="title">{data.user.channel.title ?? ""}</h1>
+				<h1 class="title">
+					<Title channelId={channelId} bind:title={data.user.channel.title} />
+				</h1>
 				<div class="stream-info">
 					{#if viewers}
 						<span class="viewers">{viewers}</span>

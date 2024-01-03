@@ -2,21 +2,21 @@
 - name: bug
   color: C90C5B
   description: Something isn't working
-- name: feature request
-  color: 75E058
-  description: New feature or request
 - name: documentation
   color: 58E0CC
   description: Improvements or additions to documentation
-- name: question
-  color: D5E058
-  description: Further information is requested
+- name: feature request
+  color: 75E058
+  description: New feature or request
 - name: good first issue
   color: 26EA63
   description: Good for newcomers
 - name: help wanted
   color: 42F58A
   description: Extra attention is needed
+- name: question
+  color: D5E058
+  description: Further information is requested
 - name: tests
   color: 10CB8B
   description: Issues related to tests
@@ -25,21 +25,21 @@
 - name: video/api
   color: 15E2D8
   description: Issues related to the Video API
+- name: video/cli
+  color: 710D62
+  description: Issues related to the Video CLI
 - name: video/edge
   color: 648E4A
   description: Issues related to the Video Edge
+- name: video/ingest
+  color: A74F7B
+  description: Issues related to the Video Ingest
 - name: video/player
   color: 9455D9
   description: Issues related to the Video Player
 - name: video/transcoder
   color: 6061E8
   description: Issues related to the Video Transcoder
-- name: video/ingest
-  color: A74F7B
-  description: Issues related to the Video Ingest
-- name: video/cli
-  color: 710D62
-  description: Issues related to the Video CLI
 - name: video/utils
   color: EF3E85
   description: Issues related to other Video Utils
@@ -48,12 +48,12 @@
 - name: platform/api
   color: 9BEE11
   description: Issues related to the Platform API
-- name: platform/website
-  color: EB4A2A
-  description: Issues related to the Platform Website
 - name: platform/image-processor
   color: 7910AD
   description: Issues related to the Platform Image Processor
+- name: platform/website
+  color: EB4A2A
+  description: Issues related to the Platform Website
 
 # Utilities labels
 - name: utils

@@ -22,12 +22,12 @@
 	$: totalCount = results?.totalCount;
 	$: liveUserResults = results?.results
 		.filter(
-			(r) => r.object.__typename === "User" && typeof r.object.channel.liveViewerCount === "number",
+			(r) => r.object.__typename === "User" && r.object.channel.live,
 		)
 		.map((r) => r.object as UserData);
 	$: offlineUserResults = results?.results
 		.filter(
-			(r) => r.object.__typename === "User" && typeof r.object.channel.liveViewerCount !== "number",
+			(r) => r.object.__typename === "User" && !r.object.channel.live,
 		)
 		.map((r) => r.object as UserData);
 	$: categoryResults = results?.results

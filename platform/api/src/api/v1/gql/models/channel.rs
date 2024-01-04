@@ -26,6 +26,7 @@ pub struct Channel<G: ApiGlobal> {
 	pub last_live_at: Option<DateRFC3339>,
 
 	// Live viewer count has a custom resolver
+	#[graphql(skip)]
 	live_viewer_count_: Option<i32>,
 
 	// Private fields

@@ -21,7 +21,7 @@ export function getUser(client: Client) {
 							lastLoginAt
 							channel {
 								id
-								liveViewerCount
+								live
 							}
 							totpEnabled
 						}

@@ -6,13 +6,11 @@
 	import { faArrowUpRightFromSquare, faRoadBarrier } from "@fortawesome/free-solid-svg-icons";
 	import Fa from "svelte-fa";
 
-	$: isLive = typeof $user?.channel.liveViewerCount === "number";
-
 	$: tabs = [
 		{ name: "Profile", pathname: "/settings/profile" },
-		{ name: "Account", pathname: "/settings/account", showWarning: isLive },
+		{ name: "Account", pathname: "/settings/account", showWarning: $user?.channel.live },
 		{ name: "Notifications", pathname: "/settings/notifications" },
-		{ name: "Billing", pathname: "/settings/billing", showWarning: isLive },
+		{ name: "Billing", pathname: "/settings/billing", showWarning: $user?.channel.live },
 	];
 
 	$: if ($sessionToken === null) {

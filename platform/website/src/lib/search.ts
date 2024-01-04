@@ -21,6 +21,7 @@ export function searchQuery(client: Client, query: string, limit?: number, offse
 									}
 									channel {
 										title
+										live
 										liveViewerCount
 										category {
 											name

@@ -24,13 +24,13 @@ export async function load({ params, parent }: LayoutLoadEvent) {
 							channel {
 								title
 								roomId
+								live
 								description
 								followersCount
 								links {
 									name
 									url
 								}
-								liveViewerCount
 								lastLiveAt
 								category {
 									name

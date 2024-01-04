@@ -7,12 +7,14 @@
 	import { browser, dev } from "$app/environment";
 	import DefaultAvatar from "$/components/user/default-avatar.svelte";
 	import { user } from "$/store/auth";
-	import { onDestroy } from "svelte";
+	import { onDestroy, onMount } from "svelte";
 	import DisplayName from "$/components/user/display-name.svelte";
 	import FollowButton from "$/components/user/follow-button.svelte";
 	import SubscribeButton from "$/components/user/subscribe-button.svelte";
 	import { topNavHidden } from "$/store/layout";
 	import Title from "$/components/channel/title.svelte";
+	import { getContextClient } from "@urql/svelte";
+	import { graphql } from "$/gql";
 
 	export let data: PageData;
 	$: channelId = data.user.id;
@@ -23,30 +25,51 @@
 		localStorage.setItem("layout_chatroomCollapsed", JSON.stringify(chatCollapsed));
 	}
 
-	$: viewers =
-		typeof data.user.channel.liveViewerCount === "number"
-			? viewersToString(data.user.channel.liveViewerCount)
-			: undefined;
-
 	let timeLive =
 		data.user.channel.lastLiveAt && formatDuration(new Date(data.user.channel.lastLiveAt));
-	let timeInterval: NodeJS.Timeout | number;
+	let viewers: number | undefined = undefined;
 
-	function setTimeLiveInterval() {
-		clearInterval(timeInterval);
-		timeInterval = setInterval(() => {
+	const client = getContextClient();
+
+	async function updateViewers() {
+		const res = await client
+		.query(
+			graphql(`
+				query ChannelLiveViewers($id: ULID!) {
+					user {
+						user: byId(id: $id) {
+							channel {
+								liveViewerCount
+							}
+						}
+					}
+				}
+			`),
+			{
+				id: data.user.id,
+			},
+			{ requestPolicy: "network-only" },
+		)
+		.toPromise();
+
+		if (res.data?.user.user?.channel) {
+			viewers = res.data.user.user.channel.liveViewerCount;
+		}
+	}
+
+	onMount(() => {
+		const timeInterval = setInterval(() => {
 			if (data.user.channel.lastLiveAt) {
 				timeLive = formatDuration(new Date(data.user.channel.lastLiveAt));
 			}
 		}, 500);
-	}
 
-	$: if (data.user.channel.lastLiveAt) {
-		setTimeLiveInterval();
-	}
-
-	onDestroy(() => {
-		clearInterval(timeInterval);
+		updateViewers();
+		const viewerInterval = setInterval(updateViewers, 30 * 1000);
+		return () => {
+			clearInterval(timeInterval);
+			clearInterval(viewerInterval);
+		};
 	});
 </script>
 
@@ -59,8 +82,9 @@
 					<Title {channelId} bind:title={data.user.channel.title} />
 				</h1>
 				<div class="stream-info">
-					{#if viewers}
-						<span class="viewers">{viewers}</span>
+					<!-- a simple if vierwers would be false when viewers is 0 -->
+					{#if typeof viewers === "number"}
+						<span class="viewers">{viewersToString(viewers)}</span>
 					{/if}
 					{#if timeLive}
 						<span class="time">{timeLive}</span>

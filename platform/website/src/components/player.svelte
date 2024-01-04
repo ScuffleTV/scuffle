@@ -40,6 +40,8 @@
 	}
 
 	export let roomId: string;
+	export let playerToken: string | undefined = undefined;
+
 	export let controls = true;
 	export let showPip = true;
 	export let showTheater = true;
@@ -161,7 +163,7 @@
 				organization_id: PUBLIC_ORG_ID,
 				abr_default_bandwidth: loadBandwithEstimate() ?? undefined,
 			});
-			player.loadRoom(roomId);
+			player.loadRoom(roomId, playerToken);
 
 			player.on("manifestloaded", onManifestLoaded);
 			player.on("variant", onVariantChange);
@@ -370,7 +372,7 @@
 						<option value={-1}>
 							auto
 							{selectedVariant === -1
-								? ` (${player.variants.at(player.variantId)?.video_track?.name ?? "audio-only"})`
+								? ` (${player.variants.at(currentVariant)?.video_track?.name ?? "audio-only"})`
 								: ""}
 						</option>
 						{#each variants as variant, index}
@@ -422,7 +424,7 @@
 		</div>
 	{/if}
 	{#if debugOverlay}
-		<DebugOverlay {player} {videoEl} on:close={() => (debugOverlay = false)} />
+		<DebugOverlay {player} {playerToken} {videoEl} on:close={() => (debugOverlay = false)} />
 	{/if}
 </div>
 

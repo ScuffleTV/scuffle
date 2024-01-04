@@ -4,6 +4,7 @@
 	import { createEventDispatcher, onMount } from "svelte";
 
 	export let player: Player;
+	export let playerToken: string | undefined;
 	export let videoEl: HTMLVideoElement;
 
 	const emit = createEventDispatcher();
@@ -100,6 +101,12 @@
 			console.error(e);
 		}
 	}
+
+	function copyPlayerToken() {
+		if (playerToken) {
+			navigator.clipboard.writeText(playerToken);
+		}
+	}
 </script>
 
 <table class="debug-overlay">
@@ -121,6 +128,10 @@
 	<tr>
 		<th>room id</th>
 		<td>{player.roomId}</td>
+	</tr>
+	<tr>
+		<th>player token</th>
+		<td><button on:click={copyPlayerToken}>copy</button></td>
 	</tr>
 	<br />
 	<tr>
@@ -218,6 +229,16 @@
 
 		th {
 			text-align: left;
+		}
+
+		button {
+			color: $textColor;
+			padding: 0;
+			text-decoration: underline;
+
+			&:hover {
+				text-decoration: none;
+			}
 		}
 
 		ul,

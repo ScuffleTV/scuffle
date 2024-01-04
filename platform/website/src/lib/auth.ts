@@ -21,7 +21,9 @@ export function getUser(client: Client) {
 							lastLoginAt
 							channel {
 								id
-								live
+								live {
+									live
+								}
 							}
 							totpEnabled
 						}

@@ -148,7 +148,7 @@ type Channel {
 	id: ULID!
 	lastLiveAt: DateRFC3339
 	links: [ChannelLink!]!
-	live: Boolean!
+	live: ChannelLive!
 	liveViewerCount: Int!
 	liveViewerCountUpdatedAt: DateRFC3339
 	offlineBannerId: ULID
@@ -160,6 +160,11 @@ type Channel {
 type ChannelLink {
 	name: String!
 	url: String!
+}
+
+type ChannelLive {
+	live: Boolean!
+	playerToken: String
 }
 
 type ChannelLiveStream {

@@ -24,7 +24,10 @@ export async function load({ params, parent }: LayoutLoadEvent) {
 							channel {
 								title
 								roomId
-								live
+								live {
+									live
+									playerToken
+								}
 								description
 								followersCount
 								links {

@@ -1,6 +1,6 @@
 use common::dataloader::DataLoader;
 
-use crate::config::{ApiConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig};
+use crate::config::{ApiConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
 use crate::dataloader::category::CategoryByIdLoader;
 use crate::dataloader::global_state::GlobalStateLoader;
 use crate::dataloader::role::RoleByIdLoader;
@@ -26,6 +26,8 @@ pub trait ApiState {
 	fn video_room_client(&self) -> &VideoRoomClient;
 	fn video_playback_session_client(&self) -> &VideoPlaybackSessionClient;
 	fn video_events_client(&self) -> &VideoEventsClient;
+
+	fn playback_private_key(&self) -> &Option<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>>;
 }
 
 pub trait ApiGlobal:
@@ -34,6 +36,7 @@ pub trait ApiGlobal:
 	+ common::global::GlobalConfigProvider<TurnstileConfig>
 	+ common::global::GlobalConfigProvider<JwtConfig>
 	+ common::global::GlobalConfigProvider<ImageUploaderConfig>
+	+ common::global::GlobalConfigProvider<VideoApiConfig>
 	+ common::global::GlobalNats
 	+ common::global::GlobalDb
 	+ common::global::GlobalConfig
@@ -50,6 +53,7 @@ impl<T> ApiGlobal for T where
 		+ common::global::GlobalConfigProvider<TurnstileConfig>
 		+ common::global::GlobalConfigProvider<JwtConfig>
 		+ common::global::GlobalConfigProvider<ImageUploaderConfig>
+		+ common::global::GlobalConfigProvider<VideoApiConfig>
 		+ common::global::GlobalNats
 		+ common::global::GlobalDb
 		+ common::global::GlobalConfig

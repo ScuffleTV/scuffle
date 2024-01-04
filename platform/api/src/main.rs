@@ -16,8 +16,8 @@ use platform_api::dataloader::uploaded_file::UploadedFileByIdLoader;
 use platform_api::dataloader::user::{UserByIdLoader, UserByUsernameLoader};
 use platform_api::subscription::SubscriptionManager;
 use platform_api::video_api::{
-	setup_video_events_client, setup_video_playback_session_client, setup_video_room_client, VideoEventsClient,
-	VideoPlaybackSessionClient, VideoRoomClient,
+	load_playback_keypair_private_key, setup_video_events_client, setup_video_playback_session_client,
+	setup_video_room_client, VideoEventsClient, VideoPlaybackSessionClient, VideoRoomClient,
 };
 use platform_api::video_event_handler;
 use tokio::select;
@@ -95,6 +95,8 @@ struct GlobalState {
 	video_room_client: VideoRoomClient,
 	video_playback_session_client: VideoPlaybackSessionClient,
 	video_events_client: VideoEventsClient,
+
+	playback_private_key: Option<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>>,
 }
 
 impl_global_traits!(GlobalState);
@@ -124,6 +126,13 @@ impl common::global::GlobalConfigProvider<ImageUploaderConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &ImageUploaderConfig {
 		&self.config.extra.image_uploader
+	}
+}
+
+impl common::global::GlobalConfigProvider<VideoApiConfig> for GlobalState {
+	#[inline(always)]
+	fn provide_config(&self) -> &VideoApiConfig {
+		&self.config.extra.video_api
 	}
 }
 
@@ -175,6 +184,10 @@ impl platform_api::global::ApiState for GlobalState {
 	fn video_events_client(&self) -> &VideoEventsClient {
 		&self.video_events_client
 	}
+
+	fn playback_private_key(&self) -> &Option<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>> {
+		&self.playback_private_key
+	}
 }
 
 impl binary_helper::Global<AppConfig> for GlobalState {
@@ -203,6 +216,14 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 		let video_playback_session_client = setup_video_playback_session_client(&config.extra.video_api)?;
 		let video_events_client = setup_video_events_client(&config.extra.video_api)?;
 
+		let playback_private_key = config
+			.extra
+			.video_api
+			.playback_keypair
+			.as_ref()
+			.map(load_playback_keypair_private_key)
+			.transpose()?;
+
 		Ok(Self {
 			ctx,
 			config,
@@ -221,6 +242,7 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			video_room_client,
 			video_playback_session_client,
 			video_events_client,
+			playback_private_key,
 		})
 	}
 }

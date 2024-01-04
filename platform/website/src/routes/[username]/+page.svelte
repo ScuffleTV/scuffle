@@ -7,7 +7,7 @@
 	import { browser, dev } from "$app/environment";
 	import DefaultAvatar from "$/components/user/default-avatar.svelte";
 	import { user } from "$/store/auth";
-	import { onDestroy, onMount } from "svelte";
+	import { onMount } from "svelte";
 	import DisplayName from "$/components/user/display-name.svelte";
 	import FollowButton from "$/components/user/follow-button.svelte";
 	import SubscribeButton from "$/components/user/subscribe-button.svelte";
@@ -27,7 +27,7 @@
 
 	let timeLive =
 		data.user.channel.lastLiveAt && formatDuration(new Date(data.user.channel.lastLiveAt));
-	let viewers: number | undefined = undefined;
+	let viewers: number | null = null;
 
 	const client = getContextClient();
 
@@ -75,7 +75,7 @@
 
 <div class="content">
 	<div class="user-container" class:dev class:top-nav-hidden={$topNavHidden}>
-		<Player roomId={data.user.channel.roomId} />
+		<Player roomId={data.user.channel.roomId} playerToken={data.user.channel.live.playerToken ?? undefined} />
 		<div class="under-player" class:hide-on-mobile={!chatCollapsed}>
 			<div class="row title-row">
 				<h1 class="title">

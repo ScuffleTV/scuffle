@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, path::PathBuf};
 
 use common::config::{S3BucketConfig, TlsConfig};
 
@@ -89,11 +89,22 @@ impl Default for ImageUploaderConfig {
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
 pub struct VideoApiConfig {
+	/// The address of the video api
 	pub address: String,
+
+	/// The TLS config for the video api
 	pub tls: Option<TlsConfig>,
+
+	/// The organization id for the video api
 	pub organization_id: ulid::Ulid,
+
+	/// The access key for the video api
 	pub access_key: ulid::Ulid,
+
+	/// The secret key for the video api
 	pub secret_key: ulid::Ulid,
+
+	pub playback_keypair: Option<VideoApiPlaybackKeypairConfig>,
 }
 
 impl Default for VideoApiConfig {
@@ -104,6 +115,16 @@ impl Default for VideoApiConfig {
 			organization_id: ulid::Ulid::nil(),
 			access_key: ulid::Ulid::nil(),
 			secret_key: ulid::Ulid::nil(),
+			playback_keypair: None,
 		}
 	}
+}
+
+#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
+pub struct VideoApiPlaybackKeypairConfig {
+	/// The playback key pair id for the video api
+	pub id: ulid::Ulid,
+
+	/// Path to the playback private key for the video api
+	pub private_key: PathBuf,
 }

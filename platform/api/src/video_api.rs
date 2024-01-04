@@ -7,8 +7,9 @@ use pb::scuffle::video::v1::room_client::RoomClient;
 use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
 use ulid::Ulid;
+use anyhow::Context;
 
-use crate::config::VideoApiConfig;
+use crate::config::{VideoApiConfig, VideoApiPlaybackKeypairConfig};
 
 #[derive(Clone, Copy)]
 pub struct AuthInterceptor {
@@ -77,4 +78,15 @@ pub fn setup_video_events_client(config: &VideoApiConfig) -> anyhow::Result<Vide
 			secret_key: config.secret_key,
 		},
 	))
+}
+
+pub fn load_playback_keypair_private_key(pbkp_config: &VideoApiPlaybackKeypairConfig) -> anyhow::Result<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>> {
+	let key_string = std::fs::read_to_string(&pbkp_config.private_key)
+				.with_context(|| format!("failed to read video api playback keypair private key from {}", pbkp_config.private_key.display()))?;
+	let key = jwt::asymmetric::PrivateKey::from_pem(&key_string)
+		.context("failed to parse video api playback keypair private key")?
+		.into_ec384()
+		.ok()
+		.context("video api playback keypair private key is not EC384")?;
+	Ok(jwt::asymmetric::AsymmetricKeyWithDigest::new(jwt::asymmetric::SigningKey::from_ec384(key)))
 }

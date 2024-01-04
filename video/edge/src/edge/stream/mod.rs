@@ -113,22 +113,32 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 	}
 
 	let id = Ulid::new();
+	let key_id = token
+		.as_ref()
+		.and_then(|t| t.header().key_id.as_ref())
+		.map(|u| Ulid::from_string(u).unwrap())
+		.map(common::database::Ulid);
 
 	let global_config = global.config();
 	let ip = if let Some(ip_header_mode) = &global_config.ip_header_mode {
-		if let Some(ip) = req.headers().get(ip_header_mode.to_lowercase().as_str()).and_then(|v| v.to_str().ok()) {
+		if let Some(ip) = req
+			.headers()
+			.get(ip_header_mode.to_lowercase().as_str())
+			.and_then(|v| v.to_str().ok())
+		{
 			// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For#syntax
 			let hops = ip.split(',').collect_vec();
-			let client_idx = hops.len().saturating_sub(global_config.ip_header_trusted_hops.unwrap_or(hops.len()));
+			let client_idx = hops
+				.len()
+				.saturating_sub(global_config.ip_header_trusted_hops.unwrap_or(hops.len()));
 			hops.get(client_idx).copied().and_then(|v| v.trim().parse().ok())
 		} else {
 			None
 		}
 	} else {
-		req
-			.data::<SocketAddr>()
-			.copied().map(|v| v.ip()) 
-	}.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to get ip address"))?;
+		req.data::<SocketAddr>().copied().map(|v| v.ip())
+	}
+	.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to get ip address"))?;
 
 	sqlx::query(
 		r#"
@@ -163,7 +173,7 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 	.bind(Uuid::from(organization_id))
 	.bind(Uuid::from(room_id))
 	.bind(token.as_ref().and_then(|t| t.claims().user_id.as_ref()))
-	.bind(token.as_ref().and_then(|t| t.header().key_id.as_ref()))
+	.bind(key_id)
 	.bind(
 		token
 			.as_ref()
@@ -304,17 +314,22 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Res
 
 	let global_config = global.config();
 	let ip = if let Some(ip_header_mode) = &global_config.ip_header_mode {
-		if let Some(ip) = req.headers().get(ip_header_mode.to_lowercase().as_str()).and_then(|v| v.to_str().ok()) {
+		if let Some(ip) = req
+			.headers()
+			.get(ip_header_mode.to_lowercase().as_str())
+			.and_then(|v| v.to_str().ok())
+		{
 			let hops = ip.split(',').collect_vec();
-			hops.get(global_config.ip_header_trusted_hops.unwrap_or(hops.len() - 1).max(hops.len())).copied().and_then(|v| v.trim().parse().ok())
+			hops.get(global_config.ip_header_trusted_hops.unwrap_or(hops.len() - 1).max(hops.len()))
+				.copied()
+				.and_then(|v| v.trim().parse().ok())
 		} else {
 			None
 		}
 	} else {
-		req
-			.data::<SocketAddr>()
-			.copied().map(|v| v.ip()) 
-	}.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to get ip address"))?;
+		req.data::<SocketAddr>().copied().map(|v| v.ip())
+	}
+	.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to get ip address"))?;
 
 	sqlx::query(
 		r#"

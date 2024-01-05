@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { viewersToString } from "$lib/utils";
 	import { page } from "$app/stores";
-	import type { DisplayColor } from "$/gql/graphql";
+	import type { Channel, DisplayColor } from "$/gql/graphql";
 	import DefaultAvatar from "../user/default-avatar.svelte";
 	import { fade } from "svelte/transition";
 
@@ -9,23 +9,29 @@
 	export let username: string;
 	export let displayName: string;
 	export let displayColor: DisplayColor;
+	// typescript pain
 	export let channel: {
-		liveViewerCount?: number | null;
-		category?: {
-			name: string;
-		} | null;
+		live?:
+			| {
+					liveViewerCount: number;
+			  }
+			| null
+			| undefined;
+		category?:
+			| {
+					name: string;
+			  }
+			| null
+			| undefined;
 	};
 	export let collapsed = false;
 
-	$: isOnline = typeof channel.liveViewerCount === "number";
-
-	$: ariaLabel =
-		typeof channel.liveViewerCount === "number"
-			? `${displayName} streaming ${channel.category?.name ?? ""} with ${viewersToString(
-					channel.liveViewerCount,
-					true,
-				)}`
-			: `${displayName} is offline`;
+	$: ariaLabel = channel.live
+		? `${displayName} streaming ${channel.category?.name ?? ""} with ${viewersToString(
+				channel.live.liveViewerCount,
+				true,
+			)}`
+		: `${displayName} is offline`;
 
 	$: selected =
 		$page.url.pathname === `/${username}` || $page.url.pathname.startsWith(`/${username}/`);
@@ -44,21 +50,18 @@
 	</div>
 	{#if !collapsed}
 		<div class="text-container">
-			<span class="name" class:offline={!isOnline}>{displayName}</span>
-			{#if isOnline && channel.category}
+			<span class="name" class:offline={!channel.live}>{displayName}</span>
+			{#if channel.live && channel.category}
 				<span class="category">{channel.category.name}</span>
 			{/if}
 		</div>
 		<span
 			class="viewers"
-			aria-label={typeof channel.liveViewerCount === "number"
-				? viewersToString(channel.liveViewerCount, true)
-				: "offline"}
-			class:online={isOnline}
-			>{typeof channel.liveViewerCount === "number"
-				? viewersToString(channel.liveViewerCount)
-				: "Offline"}</span
+			aria-label={channel.live ? viewersToString(channel.live.liveViewerCount, true) : "offline"}
+			class:online={channel.live}
 		>
+			{channel.live ? viewersToString(channel.live.liveViewerCount) : "Offline"}
+		</span>
 	{/if}
 </a>
 

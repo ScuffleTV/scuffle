@@ -1,5 +1,6 @@
+#![allow(non_snake_case)]
+
 use std::cell::RefCell;
-use std::rc::Rc;
 
 use js_sys::Promise;
 use tokio::sync::mpsc;
@@ -226,7 +227,7 @@ impl Player {
 			video_element: el,
 		};
 
-		let inner = Rc::new(RefCell::new(inner));
+		let inner = PlayerInnerHolder::new(inner);
 
 		let (player_tx, player_rx) = mpsc::channel(1);
 		let (runner_tx, runner_rx) = mpsc::channel(1);
@@ -319,10 +320,12 @@ impl Player {
 
 		tracing_wasm::scope!(self.inner.borrow());
 
-		match self.inner.borrow().interface_settings.state {
+		let mut inner = self.inner.borrow_mut();
+
+		match inner.interface_settings.state {
 			PlayerState::Initialized | PlayerState::Running => {}
 			PlayerState::Stopped => {
-				self.inner.borrow_mut().interface_settings.state = PlayerState::Running;
+				inner.interface_settings.state = PlayerState::Running;
 			}
 			PlayerState::Shutdown => unreachable!(),
 		}

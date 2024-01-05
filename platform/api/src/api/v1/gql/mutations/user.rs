@@ -130,7 +130,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 				.into(),
 			)
 			.await
-			.map_err(|_| "Failed to publish message")?;
+			.map_err(|_| "failed to publish message")?;
 
 		Ok(user.into())
 	}

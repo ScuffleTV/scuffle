@@ -32,6 +32,16 @@ message UserFollowChannel {
   bool following = 3;
 }
 
+message ChannelTitle {
+  scuffle.types.Ulid channel_id = 1;
+  string title = 2;
+}
+
+message ChannelLive {
+  scuffle.types.Ulid channel_id = 1;
+  bool live = 2;
+}
+
 // For user.{id}.profile_picture event
 message UserProfilePicture {
   scuffle.types.Ulid user_id = 1;

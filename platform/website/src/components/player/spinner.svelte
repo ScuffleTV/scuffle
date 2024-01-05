@@ -69,7 +69,6 @@
 			width: 1rem;
 			height: 1rem;
 			background-color: white;
-			box-shadow: 0 0 4rem black;
 		}
 	}
 </style>

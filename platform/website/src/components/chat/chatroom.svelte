@@ -307,7 +307,6 @@
 			width: 100%;
 			font: inherit;
 			color: $textColor;
-			word-break: break-all;
 			overflow-y: scroll;
 
 			background-color: $bgColor2;

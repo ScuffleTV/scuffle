@@ -10,7 +10,7 @@ use video_common::database::{AccessToken, DatabaseTable, Visibility};
 
 use crate::api::errors::MODIFY_NO_FIELDS;
 use crate::api::utils::tags::validate_tags;
-use crate::api::utils::{events, impl_request_scopes, ApiRequest, TonicRequest};
+use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 
@@ -143,8 +143,9 @@ impl ApiRequest<RoomModifyResponse> for tonic::Request<RoomModifyRequest> {
 			)));
 		};
 
-		events::emit(
-			global,
+		video_common::events::emit(
+			global.nats(),
+			&global.config().events.stream_name,
 			access_token.organization_id.0,
 			Target::Room,
 			event::Event::Room(event::Room {

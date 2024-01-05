@@ -1,24 +1,39 @@
 use std::sync::Arc;
 
+use common::http::router::extend::{extend_fn, ExtendRouter};
 use common::http::router::middleware::Middleware;
 use common::http::RouteError;
+use common::make_response;
+use hyper::body::Incoming;
 use hyper::http::header;
+use serde_json::json;
 
 use crate::api::error::ApiError;
 use crate::api::Body;
 use crate::global::ApiGlobal;
 
-pub fn cors_middleware<G: ApiGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError<ApiError>> {
-	Middleware::post(|mut resp| async move {
-		resp.headers_mut()
-			.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());
-		resp.headers_mut()
-			.insert(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, OPTIONS".parse().unwrap());
-		resp.headers_mut().insert(
-			header::ACCESS_CONTROL_ALLOW_HEADERS,
-			"Content-Type, Authorization".parse().unwrap(),
-		);
+pub fn cors_middleware<G: ApiGlobal>(_: &Arc<G>) -> impl ExtendRouter<Incoming, Body, RouteError<ApiError>> {
+	extend_fn(|router| {
+		router
+			.middleware(Middleware::post(|mut resp| async move {
+				resp.headers_mut()
+					.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());
+				resp.headers_mut()
+					.insert(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, OPTIONS".parse().unwrap());
+				resp.headers_mut().insert(
+					header::ACCESS_CONTROL_ALLOW_HEADERS,
+					"Content-Type, Authorization".parse().unwrap(),
+				);
 
-		Ok(resp)
+				Ok(resp)
+			}))
+			.options("/*", |_| async move {
+				Ok(make_response!(
+					hyper::StatusCode::OK,
+					json!({
+						"success": true,
+					})
+				))
+			})
 	})
 }

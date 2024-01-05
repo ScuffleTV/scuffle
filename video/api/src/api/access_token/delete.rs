@@ -8,7 +8,7 @@ use pb::scuffle::video::v1::{AccessTokenDeleteRequest, AccessTokenDeleteResponse
 use tonic::Status;
 use video_common::database::{AccessToken, DatabaseTable};
 
-use crate::api::utils::{events, impl_request_scopes, AccessTokenExt, ApiRequest, TonicRequest};
+use crate::api::utils::{impl_request_scopes, AccessTokenExt, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 
@@ -102,8 +102,9 @@ impl ApiRequest<AccessTokenDeleteResponse> for tonic::Request<AccessTokenDeleteR
 		};
 
 		for id in deleted_ids.iter().copied() {
-			events::emit(
-				global,
+			video_common::events::emit(
+				global.nats(),
+				&global.config().events.stream_name,
 				access_token.organization_id.0,
 				Target::AccessToken,
 				event::Event::AccessToken(event::AccessToken {

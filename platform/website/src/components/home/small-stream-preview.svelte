@@ -41,7 +41,7 @@
 >
 	{#if focused}
 		<div class="video">
-			<Player channelId="00000000-0000-0000-0000-000000000000" controls={false} muted />
+			<Player roomId={user.channel.roomId} controls={false} initMuted />
 		</div>
 	{:else}
 		<img src={preview} alt="Stream Thumbnail" class="thumbnail" />

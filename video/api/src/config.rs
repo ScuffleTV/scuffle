@@ -31,6 +31,9 @@ pub struct ApiConfig {
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
 pub struct EventsConfig {
+	/// Event stream name
+	pub stream_name: String,
+
 	/// The maximum age of an event before it is deleted
 	pub nats_stream_message_max_age: Duration,
 
@@ -53,6 +56,7 @@ pub struct EventsConfig {
 impl Default for EventsConfig {
 	fn default() -> Self {
 		Self {
+			stream_name: "scuffle-video-events".to_string(),
 			nats_stream_message_max_age: Duration::from_secs(60 * 60 * 24 * 7), // 7 days
 			nats_stream_message_lease_duration: Duration::from_secs(60),        // 60 seconds
 			fetch_request_max_delay: Duration::from_secs(60),                   // 60 seconds
@@ -128,7 +132,7 @@ impl Default for ApiConfig {
 			bind_address: "[::]:9080".to_string().parse().unwrap(),
 			tls: None,
 			events: EventsConfig::default(),
-			recording_delete_stream: "scuffle_video_recording_delete".to_string(),
+			recording_delete_stream: "scuffle:video:recording_delete".to_string(),
 			recording_delete_batch_size: 1000,
 			rate_limit_rules: RatelimitRules::default(),
 		}

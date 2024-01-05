@@ -13,7 +13,7 @@ use super::utils::{
 };
 use crate::api::errors::MODIFY_NO_FIELDS;
 use crate::api::utils::tags::validate_tags;
-use crate::api::utils::{events, impl_request_scopes, ApiRequest, TonicRequest};
+use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 
@@ -130,8 +130,9 @@ impl ApiRequest<S3BucketModifyResponse> for tonic::Request<S3BucketModifyRequest
 
 		match result {
 			Some(result) => {
-				events::emit(
-					global,
+				video_common::events::emit(
+					global.nats(),
+					&global.config().events.stream_name,
 					access_token.organization_id.0,
 					Target::S3Bucket,
 					event::Event::S3Bucket(event::S3Bucket {

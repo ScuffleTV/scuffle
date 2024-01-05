@@ -6,7 +6,7 @@ use crate::invoker::Invoker;
 
 #[derive(Debug, clap::Args)]
 pub struct Create {
-	/// Renditions to save for the recording
+	/// Renditions to transcode to
 	#[clap(long, value_parser, num_args = 1.., value_delimiter = ' ', required = true)]
 	renditions: Vec<Rendition>,
 

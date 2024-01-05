@@ -6,6 +6,12 @@ use common::database::Ulid;
 pub struct Channel {
 	/// Ulid of the channel
 	pub id: Ulid,
+	/// Video room id
+	#[sqlx(rename = "channel_room_id")]
+	pub room_id: Ulid,
+	/// Active connection id
+	#[sqlx(rename = "channel_active_connection_id")]
+	pub active_connection_id: Option<Ulid>,
 	/// The current stream's title
 	#[sqlx(rename = "channel_title")]
 	pub title: Option<String>,

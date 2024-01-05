@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use async_graphql::{Context, Object, Union};
 use chrono::{Duration, Utc};
 use common::database::{TraitProtobuf, Ulid};
@@ -323,6 +325,28 @@ impl<G: ApiGlobal> AuthMutation<G> {
 			.into());
 		}
 
+		// create a video room
+		let res = global
+			.video_room_client()
+			.clone()
+			.create(pb::scuffle::video::v1::RoomCreateRequest {
+				transcoding_config_id: None,
+				recording_config_id: None,
+				visibility: pb::scuffle::video::v1::types::Visibility::Public as i32,
+				tags: Some(pb::scuffle::video::v1::types::Tags { tags: HashMap::new() }),
+			})
+			.await
+			.map_err_gql("failed to create room")?;
+		let res = res.into_inner();
+		let channel_room_id = res
+			.room
+			.map_err_gql("failed to create room")?
+			.id
+			.map_err_gql("failed to create room")?
+			.into_ulid();
+
+		// TODO: what do we do when the next step fails? delete the room again?
+
 		let mut tx = global.db().begin().await?;
 
 		// TODO: maybe look to batch this
@@ -334,14 +358,18 @@ impl<G: ApiGlobal> AuthMutation<G> {
 				display_name,
 				display_color,
 				password_hash,
-				email
+				email,
+				channel_room_id,
+				channel_stream_key
 			) VALUES (
 				$1,
 				$2,
 				$3,
 				$4,
 				$5,
-				$6
+				$6,
+				$7,
+				$8
 			) RETURNING *
 			"#,
 		)
@@ -351,6 +379,8 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		.bind(database::User::generate_display_color())
 		.bind(database::User::hash_password(&password))
 		.bind(email)
+		.bind(Ulid::from(channel_room_id))
+		.bind(res.stream_key)
 		.fetch_one(&mut *tx)
 		.await?;
 

@@ -13,7 +13,7 @@ use super::utils::{
 	validate_secret_access_key,
 };
 use crate::api::utils::tags::validate_tags;
-use crate::api::utils::{events, impl_request_scopes, ApiRequest, TonicRequest};
+use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
 use crate::global::ApiGlobal;
 use crate::ratelimit::RateLimitResource;
 
@@ -110,8 +110,9 @@ impl ApiRequest<S3BucketCreateResponse> for tonic::Request<S3BucketCreateRequest
 				))
 			})?;
 
-		events::emit(
-			global,
+		video_common::events::emit(
+			global.nats(),
+			&global.config().events.stream_name,
 			access_token.organization_id.0,
 			Target::S3Bucket,
 			event::Event::S3Bucket(event::S3Bucket {

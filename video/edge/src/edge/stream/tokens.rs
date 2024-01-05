@@ -14,7 +14,8 @@ use crate::config::EdgeConfig;
 use crate::edge::error::Result;
 use crate::global::EdgeGlobal;
 
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Clone, Debug, Default, serde::Deserialize)]
+#[serde(default)]
 pub struct TokenClaims {
 	/// The room name that this token is for (required)
 	pub organization_id: Option<Ulid>,
@@ -49,8 +50,10 @@ impl TokenClaims {
 		target_id: TargetId,
 		token: &str,
 	) -> Result<Token<jwt::Header, Self, jwt::Verified>> {
-		let token: Token<jwt::Header, Self, _> =
-			Token::parse_unverified(token).map_err(|_| (StatusCode::BAD_REQUEST, "invalid token, could not parse"))?;
+		let token: Token<jwt::Header, Self, _> = Token::parse_unverified(token).map_err(|e| {
+			tracing::error!(error = %e, "failed to parse token");
+			(StatusCode::BAD_REQUEST, "invalid token, could not parse")
+		})?;
 
 		let playback_key_pair_id = Ulid::from_string(
 			token
@@ -110,11 +113,12 @@ impl TokenClaims {
 		}
 
 		let iat = Utc
-			.timestamp_millis_opt(
+			.timestamp_opt(
 				token
 					.claims()
 					.iat
 					.ok_or((StatusCode::BAD_REQUEST, "invalid token, missing iat"))?,
+				0,
 			)
 			.single()
 			.ok_or((StatusCode::BAD_REQUEST, "invalid token, iat is invalid"))?;

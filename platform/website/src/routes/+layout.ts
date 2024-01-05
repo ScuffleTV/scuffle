@@ -1,4 +1,4 @@
-import { getUser, verifyToken } from "$/lib/auth";
+import { getUser } from "$/lib/auth";
 import { sessionToken, user } from "$/store/auth";
 import { createGqlClient } from "$/lib/gql";
 import type { User } from "$/gql/graphql";
@@ -6,15 +6,8 @@ import type { User } from "$/gql/graphql";
 export const ssr = false;
 
 export async function load() {
+	sessionToken.set(window.localStorage.getItem("auth_sessionToken"));
 	const client = createGqlClient();
-	const token = window.localStorage.getItem("auth_sessionToken");
-	if (token) {
-		verifyToken(client, token).then((data) => {
-			sessionToken.set(data?.token || null);
-		});
-	} else {
-		sessionToken.set(null);
-	}
 	// Save session token to localstorage when changed
 	sessionToken.subscribe((token) => {
 		if (token) {

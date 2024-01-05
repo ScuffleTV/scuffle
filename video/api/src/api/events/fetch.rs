@@ -3,8 +3,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_nats::jetstream::consumer::{self, AckPolicy, DeliverPolicy};
-use async_nats::jetstream::stream;
-use async_nats::jetstream::stream::RetentionPolicy;
 use fred::interfaces::KeysInterface;
 use fred::types::Expiration;
 use futures_util::StreamExt;
@@ -69,32 +67,17 @@ impl ApiRequest<Stream> for tonic::Request<EventsFetchRequest> {
 			.max(config.fetch_request_min_messages)
 			.min(config.fetch_request_max_messages);
 
-		let stream = global
-			.jetstream()
-			.get_or_create_stream(stream::Config {
-				name: format!("events-{}", access_token.organization_id.0),
-				subjects: vec![format!("events.{}.*", access_token.organization_id.0)],
-				retention: RetentionPolicy::Interest,
-				max_age: config.nats_stream_message_max_age, // 7 days
-				..Default::default()
-			})
-			.await
-			.map_err(|err| {
-				tracing::error!(err = %err, "failed to create events stream");
-				tonic::Status::internal("failed to create events stream")
-			})?;
+		let name = format!("{}-{}", access_token.organization_id.0, target.as_str_name());
 
-		let name = format!("events-{}-{}", access_token.organization_id.0, target.as_str_name());
-
-		let consumer = stream
+		let consumer = global
+			.events_stream()
 			.get_or_create_consumer(
 				&name,
 				consumer::pull::Config {
-					durable_name: Some(name.clone()),
 					name: Some(name.clone()),
-					deliver_policy: DeliverPolicy::New,
+					deliver_policy: DeliverPolicy::All,
 					ack_policy: AckPolicy::Explicit,
-					filter_subject: event_subject(access_token.organization_id.0, target),
+					filter_subject: event_subject(&config.stream_name, access_token.organization_id.0, target),
 					ack_wait: config.nats_stream_message_lease_duration,
 					..Default::default()
 				},

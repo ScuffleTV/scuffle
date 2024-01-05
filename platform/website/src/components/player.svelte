@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from "svelte";
-	import init, { Player, type Variant } from "@scuffle/player";
+	import init, { Player, type EventError, type Variant } from "@scuffle/player";
 	import Play from "$/components/icons/player/play.svelte";
 	import Pause from "$/components/icons/player/pause.svelte";
 	import Volume from "$/components/icons/player/volume.svelte";
@@ -16,12 +16,56 @@
 	import { sideNavHidden, topNavHidden } from "$/store/layout";
 	import { authDialog } from "$/store/auth";
 	import { dev } from "$app/environment";
+	import DebugOverlay from "./player/debug-overlay.svelte";
 
-	export const channelId: string = "";
+	function loadVolume() {
+		const storedVolume = localStorage.getItem("player_volume");
+		return storedVolume ? parseFloat(storedVolume) : null;
+	}
+
+	function loadTheaterMode() {
+		return localStorage.getItem("player_theaterMode") === "true";
+	}
+
+	function loadBandwithEstimate() {
+		const storedEstimate = localStorage.getItem("player_bandwidthEstimate");
+		return storedEstimate ? parseFloat(storedEstimate) : null;
+	}
+
+	function storeBandwithEstimate() {
+		if (player?.bandwidth) {
+			localStorage.setItem("player_bandwidthEstimate", player.bandwidth.toString());
+		}
+	}
+
+	function friendlyVariantName(variant: Variant) {
+		if (variant.video_track) {
+			return `${variant.video_track.height}p${variant.video_track.frame_rate}`;
+		} else {
+			return "audio only";
+		}
+	}
+
+	function autoVariantName(selected: number) {
+		let name = "auto";
+		if (selected === -1 && player?.variants) {
+			const variant = player.variants.at(player.variantId);
+			if (variant) {
+				name += ` (${friendlyVariantName(variant)})`;
+			}
+		}
+		return name;
+	}
+
+	export let edgeEndpoint: string;
+	export let organizationId: string;
+	export let roomId: string;
+	export let playerToken: string | undefined = undefined;
+
 	export let controls = true;
 	export let showPip = true;
 	export let showTheater = true;
-	export let muted = false;
+	export let initMuted = false;
 
 	let playerEl: HTMLDivElement;
 	let videoEl: HTMLVideoElement;
@@ -35,23 +79,48 @@
 
 	let player: Player;
 	let state = PlayerState.Loading;
-	let manifest: Variant[];
-	let currentVariantId: number;
+	let variants: Variant[];
+	let currentVariant: number;
 
 	// This is only used for hiding the controls when the mouse is not moving anymore
 	let controlsHidden = false;
 	let controlsHiddenTimeout: NodeJS.Timeout | number;
 
-	let theaterMode = false;
+	let theaterMode = loadTheaterMode();
 	let pip = false;
 	let fullscreen = false;
 	let audioOnly = false;
 	let selectedVariant: number;
+	let volume = initMuted ? 0.0 : loadVolume() ?? 1.0;
+
+	let debugOverlay = false;
+
+	$: localStorage.setItem("player_theaterMode", theaterMode.toString());
+	$: localStorage.setItem("player_volume", volume.toString());
 
 	$: {
 		$topNavHidden = theaterMode;
 		$sideNavHidden = theaterMode;
 	}
+
+	function pipEnabled() {
+		pip = true;
+	}
+
+	function pipDisabled() {
+		pip = false;
+	}
+
+	onMount(() => {
+		document.addEventListener("enterpictureinpicture", pipEnabled);
+		document.addEventListener("leavepictureinpicture", pipDisabled);
+		return () => {
+			document.removeEventListener("enterpictureinpicture", pipEnabled);
+			document.removeEventListener("leavepictureinpicture", pipDisabled);
+		};
+	});
+
+	$: console.debug("[player] pip: ", pip);
 
 	$: {
 		if (player) {
@@ -64,56 +133,77 @@
 		}
 	}
 
-	// 	function onManifestLoaded() {
-	// 		console.log(player.variants);
-	// 		manifest = player.variants;
-	// 	}
+	function onManifestLoaded() {
+		console.debug("[player] manifest loaded, variants: ", player.variants);
+		variants = player.variants;
+	}
 
-	// 	function onVariantChange() {
-	// 		let variant = manifest.at(player.variantId);
-	// 		if (variant) {
-	// 			currentVariantId = player.variantId;
-	// 			console.log(`Switched to ${variant.video_track?.name ?? "audio only"}`);
-	// 			audioOnly = !variant.video_track;
-	// 		} else {
-	// 			console.error("switched to unkonwn variant");
-	// 		}
-	// 	}
+	function onVariantChange() {
+		let variant = player.variants.at(player.variantId);
+		if (variant) {
+			currentVariant = player.variantId;
+			console.debug(`[player] switched to variant ${variant.video_track?.name ?? "audio only"}`);
+			audioOnly = !variant.video_track;
+		} else {
+			console.debug("[player] switched to unkonwn variant");
+		}
+	}
 
-	// 	function onError(evt: EventError) {
-	// 		state = PlayerState.Error;
-	// 		console.log(`⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠋⠉⣉⣉⠙⠿⠋⣠⢴⣊⣙⢿⣿⣿
-	// ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠋⠁⠀⢀⠔⡩⠔⠒⠛⠧⣾⠊⢁⣀⣀⣀⡙⣿
-	// ⣿⣿⣿⣿⣿⣿⣿⠟⠛⠁⠀⠀⠀⠀⠀⡡⠊⠀⠀⣀⣠⣤⣌⣾⣿⠏⠀⡈⢿⡜
-	// ⣿⣿⣿⠿⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠡⣤⣶⠏⢁⠈⢻⡏⠙⠛⠀⣀⣁⣤⢢
-	// ⣿⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠰⣄⡀⠣⣌⡙⠀⣘⡁⠜⠈⠑⢮⡭⠴⠚⠉⠀
-	// ⠁⠀⢀⠔⠁⣀⣤⣤⣤⣤⣤⣄⣀⠀⠉⠉⠉⠉⠉⠁⠀⠀⠀⠀⠀⠁⠀⢀⣠⢠
-	// ⡀⠀⢸⠀⢼⣿⣿⣶⣭⣭⣭⣟⣛⣛⡿⠷⠶⠶⢶⣶⣤⣤⣤⣶⣶⣾⡿⠿⣫⣾
-	// ⠇⠀⠀⠀⠈⠉⠉⠉⠉⠉⠙⠛⠛⠻⠿⠿⠿⠷⣶⣶⣶⣶⣶⣶⣶⣶⡾⢗⣿⣿
-	// ⣦⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⣿⣶⣾⣿⣿⣿
-	// ⣿⣿⣿⣷⣶⣤⣄⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣝⡻⣿⣿⣿⣿⣿⣿⣿⣿
-	// ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡹⣿⣿⣿⣿⣿⣿ Player Error`);
-	// 		console.error(evt);
-	// 	}
+	function onError(evt: EventError) {
+		state = PlayerState.Error;
+		console.error(evt);
+	}
 
-	// 	function onShutdown() {
-	// 		console.log("shutdown");
-	// 		videoEl.pause();
-	// 	}
+	function onDestoyed() {
+		console.debug("[player] destroyed");
+		if (videoEl) {
+			videoEl.pause();
+		}
+	}
+
+	function onStarted() {
+		console.debug("[player] started");
+		if (videoEl) {
+			videoEl.play();
+			player.toRealtime();
+		}
+	}
+
+	function onStopped() {
+		console.debug("[player] stopped");
+		if (videoEl) {
+			videoEl.pause();
+		}
+	}
 
 	onMount(() => {
 		init().then(() => {
-			// player = new Player(videoEl, {
-			// 	organization_id: "TODO",
-			// });
+			player = new Player(videoEl, {
+				server: edgeEndpoint,
+				organization_id: organizationId,
+				abr_default_bandwidth: loadBandwithEstimate() ?? undefined,
+			});
+			player.loadRoom(roomId, playerToken);
 
-			// player.on("manifestloaded", onManifestLoaded);
-			// player.on("variant", onVariantChange);
-			// player.on("error", onError);
-			// player.on("destroyed", onShutdown);
+			player.on("manifestloaded", onManifestLoaded);
+			player.on("variant", onVariantChange);
+			player.on("error", onError);
+			player.on("destroyed", onDestoyed);
+			player.on("started", onStarted);
+			player.on("stopped", onStopped);
+			player.on("finished", () => {
+				console.debug("[player] finished");
+			});
 
+			player.start();
 			videoEl.play();
+			console.debug("[player] initialized");
 		});
+
+		const interval = setInterval(storeBandwithEstimate, 5000);
+		return () => {
+			clearInterval(interval);
+		};
 	});
 
 	onDestroy(() => {
@@ -125,11 +215,13 @@
 	function onPlayClick() {
 		switch (state) {
 			case PlayerState.Playing:
-				videoEl.pause();
+				console.debug("[player] stopping (user interaction)");
+				player?.stop();
 				break;
 			case PlayerState.Loading:
 			case PlayerState.Paused:
-				videoEl.play();
+				console.debug("[player] starting (user interaction)");
+				player?.start();
 				break;
 		}
 	}
@@ -142,26 +234,19 @@
 		}, 2000);
 	}
 
-	function jumpToLive() {
-		videoEl.play();
-		if (!videoEl.buffered.length) return;
-
-		if (player.lowLatency) {
-			videoEl.currentTime = videoEl.buffered.end(videoEl.buffered.length - 1) - 0.5;
+	function toggleMuted() {
+		if (volume === 0.0) {
+			volume = 1.0;
 		} else {
-			videoEl.currentTime = videoEl.buffered.end(videoEl.buffered.length - 1) - 2;
+			volume = 0.0;
 		}
 	}
 
-	function toggleMuted() {
-		videoEl.muted = !videoEl.muted;
-	}
-
 	function togglePictureInPicture() {
-		if (pip) {
-			document.exitPictureInPicture().then(() => (pip = false));
+		if (document.pictureInPictureElement) {
+			document.exitPictureInPicture();
 		} else {
-			videoEl.requestPictureInPicture().then(() => (pip = true));
+			videoEl.requestPictureInPicture();
 		}
 	}
 
@@ -210,6 +295,9 @@
 				if (!showTheater) return;
 				toggleTheaterMode();
 				break;
+			case "d":
+				debugOverlay = !debugOverlay;
+				break;
 			default:
 				return;
 		}
@@ -239,13 +327,14 @@
 		autoplay
 		class:paused={state === PlayerState.Paused}
 		class:audio-only={audioOnly}
-		{muted}
+		bind:volume
+		muted={volume === 0.0}
 	>
 		<!-- No captions, this must be specified explicitly to suppress an a11y warning -->
 		<track kind="captions" />
 		<span>Sorry, your browser can't play this</span>
 	</video>
-	<div class="center-icons">
+	<div class="center-icons" class:background={state === PlayerState.Error || audioOnly}>
 		{#if state === PlayerState.Error}
 			<Lightning />
 			<span>Something went wrong</span>
@@ -254,7 +343,7 @@
 		{:else if state === PlayerState.Paused}
 			<Pause size={48} />
 		{:else if audioOnly}
-			<Volume size={48} />
+			<Volume volume={1.0} size={48} />
 			<span>Audio Only</span>
 		{/if}
 	</div>
@@ -275,7 +364,7 @@
 				<button
 					class="live"
 					title="Jump to live"
-					on:click|preventDefault={jumpToLive}
+					on:click|preventDefault={() => player?.toRealtime()}
 					disabled={state === PlayerState.Loading || state === PlayerState.Error}>LIVE</button
 				>
 				<button
@@ -283,21 +372,27 @@
 					on:click|preventDefault={toggleMuted}
 					disabled={state === PlayerState.Error}
 				>
-					<Volume muted={videoEl?.muted} />
+					<Volume {volume} />
 				</button>
+				{#if videoEl}
+					<input
+						class="volume"
+						type="range"
+						min="0"
+						max="1"
+						step="0.01"
+						disabled={state === PlayerState.Error}
+						bind:value={volume}
+					/>
+				{/if}
 			</div>
 			<div>
-				{#if manifest}
-					<select bind:value={selectedVariant}>
-						<option value={-1}>
-							auto
-							{selectedVariant === -1
-								? ` (${manifest.at(currentVariantId)?.video_track?.name ?? "audio-only"})`
-								: ""}
-						</option>
-						{#each manifest as variant, index}
+				{#if variants}
+					<select bind:value={selectedVariant} disabled={state === PlayerState.Error}>
+						<option value={-1}>{autoVariantName(selectedVariant)}</option>
+						{#each variants as variant, index}
 							<option value={index} selected={index === selectedVariant}
-								>{variant.video_track?.name ?? "audio-only"}</option
+								>{friendlyVariantName(variant)}</option
 							>
 						{/each}
 					</select>
@@ -309,7 +404,7 @@
 				>
 					<Clip />
 				</button>
-				{#if showPip && videoEl?.requestPictureInPicture !== undefined}
+				{#if showPip && document.pictureInPictureEnabled && videoEl?.requestPictureInPicture !== undefined}
 					<button
 						title={pip ? "Exit picture-in-picture" : "Enter picture-in-picture"}
 						on:click|preventDefault={togglePictureInPicture}
@@ -343,6 +438,9 @@
 			</div>
 		</div>
 	{/if}
+	{#if debugOverlay}
+		<DebugOverlay {player} {playerToken} {videoEl} on:close={() => (debugOverlay = false)} />
+	{/if}
 </div>
 
 <style lang="scss">
@@ -357,15 +455,6 @@
 
 		&.theater-mode {
 			height: 100%;
-		}
-
-		&:not(.theater-mode) {
-			max-height: calc(100svh - $topNavHeight - 6.5rem);
-		}
-
-		// In dev mode we need to save space for the dev bar too
-		&:not(.theater-mode).dev {
-			max-height: calc(100svh - $topNavHeight - 6.5rem - $devBannerHeight);
 		}
 	}
 
@@ -391,6 +480,10 @@
 		align-items: center;
 		flex-direction: column;
 		gap: 1rem;
+
+		&.background {
+			background-color: rgba(black, 0.5);
+		}
 	}
 
 	button,
@@ -399,6 +492,8 @@
 		border-radius: 0.5rem;
 		font-size: 0.75rem;
 		font-weight: 600;
+		background-color: transparent;
+		border: none;
 
 		display: flex;
 		align-items: center;
@@ -460,5 +555,58 @@
 				background-color: $liveColor;
 			}
 		}
+	}
+
+	.volume {
+		appearance: none;
+		-webkit-appearance: none;
+		width: 8rem;
+		background: transparent;
+	}
+
+	.volume:focus {
+		outline: none;
+	}
+
+	.volume::-moz-range-thumb {
+		width: 1rem;
+		height: 1rem;
+		border-radius: 50%;
+		background: white;
+		cursor: pointer;
+	}
+
+	.volume::-ms-thumb {
+		width: 1rem;
+		height: 1rem;
+		border-radius: 50%;
+		background: white;
+		cursor: pointer;
+	}
+
+	.volume::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		margin-top: -0.25rem;
+		width: 1rem;
+		height: 1rem;
+		border-radius: 50%;
+		background: white;
+		cursor: pointer;
+	}
+
+	.volume::-webkit-slider-runnable-track {
+		width: 100%;
+		height: 0.5rem;
+		cursor: pointer;
+		background: rgba($textColor, 0.25);
+		border-radius: 0.25rem;
+	}
+
+	.volume::-moz-range-track {
+		width: 100%;
+		height: 0.5rem;
+		cursor: pointer;
+		background: rgba($textColor, 0.25);
+		border-radius: 0.25rem;
 	}
 </style>

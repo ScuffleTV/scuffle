@@ -167,7 +167,7 @@ impl Runner {
 			return;
 		}
 
-		let state = self.inner.borrow().interface_settings.state;
+		let state = { self.inner.borrow().interface_settings.state };
 		match state {
 			PlayerState::Shutdown | PlayerState::Stopped => {
 				self.drive_shutdown().await;

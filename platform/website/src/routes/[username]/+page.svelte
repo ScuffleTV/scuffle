@@ -7,11 +7,14 @@
 	import { browser, dev } from "$app/environment";
 	import DefaultAvatar from "$/components/user/default-avatar.svelte";
 	import { user } from "$/store/auth";
-	import { onDestroy } from "svelte";
+	import { onMount } from "svelte";
 	import DisplayName from "$/components/user/display-name.svelte";
 	import FollowButton from "$/components/user/follow-button.svelte";
 	import SubscribeButton from "$/components/user/subscribe-button.svelte";
 	import { topNavHidden } from "$/store/layout";
+	import Title from "$/components/channel/title.svelte";
+	import { getContextClient } from "@urql/svelte";
+	import { graphql } from "$/gql";
 
 	export let data: PageData;
 	$: channelId = data.user.id;
@@ -22,43 +25,73 @@
 		localStorage.setItem("layout_chatroomCollapsed", JSON.stringify(chatCollapsed));
 	}
 
-	$: viewers =
-		typeof data.user.channel.liveViewerCount === "number"
-			? viewersToString(data.user.channel.liveViewerCount)
-			: undefined;
-
 	let timeLive =
 		data.user.channel.lastLiveAt && formatDuration(new Date(data.user.channel.lastLiveAt));
-	let timeInterval: NodeJS.Timeout | number;
+	let viewers = data.user.channel.live?.liveViewerCount ?? 0;
 
-	function setTimeLiveInterval() {
-		clearInterval(timeInterval);
-		timeInterval = setInterval(() => {
+	const client = getContextClient();
+
+	async function updateViewers() {
+		const res = await client
+			.query(
+				graphql(`
+					query ChannelLiveViewers($id: ULID!) {
+						user {
+							user: byId(id: $id) {
+								channel {
+									live {
+										liveViewerCount
+									}
+								}
+							}
+						}
+					}
+				`),
+				{
+					id: data.user.id,
+				},
+				{ requestPolicy: "network-only" },
+			)
+			.toPromise();
+
+		if (res.data?.user.user?.channel.live) {
+			viewers = res.data.user.user.channel.live.liveViewerCount;
+		}
+	}
+
+	onMount(() => {
+		const timeInterval = setInterval(() => {
 			if (data.user.channel.lastLiveAt) {
 				timeLive = formatDuration(new Date(data.user.channel.lastLiveAt));
 			}
 		}, 500);
-	}
 
-	$: if (data.user.channel.lastLiveAt) {
-		setTimeLiveInterval();
-	}
-
-	onDestroy(() => {
-		clearInterval(timeInterval);
+		updateViewers();
+		const viewerInterval = setInterval(updateViewers, 30 * 1000);
+		return () => {
+			clearInterval(timeInterval);
+			clearInterval(viewerInterval);
+		};
 	});
 </script>
 
 <div class="content">
 	<div class="user-container" class:dev class:top-nav-hidden={$topNavHidden}>
-		<Player {channelId} />
+		{#if data.user.channel.live}
+			<Player
+				edgeEndpoint={data.user.channel.live.edgeEndpoint}
+				organizationId={data.user.channel.live.organizationId}
+				roomId={data.user.channel.live.roomId}
+				playerToken={data.user.channel.live.playerToken ?? undefined}
+			/>
+		{/if}
 		<div class="under-player" class:hide-on-mobile={!chatCollapsed}>
 			<div class="row title-row">
-				<h1 class="title">{data.user.channel.title ?? ""}</h1>
+				<h1 class="title">
+					<Title {channelId} bind:title={data.user.channel.title} />
+				</h1>
 				<div class="stream-info">
-					{#if viewers}
-						<span class="viewers">{viewers}</span>
-					{/if}
+					<span class="viewers">{viewersToString(viewers)}</span>
 					{#if timeLive}
 						<span class="time">{timeLive}</span>
 					{/if}
@@ -111,6 +144,7 @@
 		display: flex;
 
 		& > .user-container {
+			flex-basis: 0;
 			flex-grow: 1;
 
 			// I tried very long to figure out why we need a fixed height here to make it scrollable
@@ -192,7 +226,7 @@
 				justify-content: center;
 
 				& > .name {
-					font-size: 1.25rem;
+					font-size: 1rem;
 					overflow: hidden;
 					text-overflow: ellipsis;
 					white-space: nowrap;

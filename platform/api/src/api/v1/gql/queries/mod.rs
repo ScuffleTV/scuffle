@@ -5,6 +5,7 @@ use sqlx::FromRow;
 use super::error::ext::*;
 use super::ext::ContextExt;
 use super::models::search_result::{SearchAllResultData, SearchAllResults, SearchResult};
+use super::models::user::User;
 use crate::api::v1::gql::error::Result;
 use crate::global::ApiGlobal;
 
@@ -110,7 +111,7 @@ impl<G: ApiGlobal> Query<G> {
 			.iter()
 			.filter_map(|r| {
 				let object = match r.r#type {
-					0 => SearchAllResultData::User(Box::new(users.get(&r.id.0)?.clone().into())),
+					0 => SearchAllResultData::User(Box::new(User::from(users.get(&r.id.0)?.clone()))),
 					1 => SearchAllResultData::Category(categories.get(&r.id.0)?.clone().into()),
 					_ => unreachable!(),
 				};

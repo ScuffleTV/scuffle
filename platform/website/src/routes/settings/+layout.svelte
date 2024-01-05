@@ -2,17 +2,15 @@
 	import UserBanner from "$/components/settings/user-banner.svelte";
 	import TabSelector from "$/components/tab-selector.svelte";
 	import { authDialog, AuthMode, user, sessionToken } from "$/store/auth";
-	import { PUBLIC_ASSET_BASE_URL } from "$env/static/public";
+	import { PUBLIC_BASE_URL } from "$env/static/public";
 	import { faArrowUpRightFromSquare, faRoadBarrier } from "@fortawesome/free-solid-svg-icons";
 	import Fa from "svelte-fa";
 
-	$: isLive = typeof $user?.channel.liveViewerCount === "number";
-
 	$: tabs = [
 		{ name: "Profile", pathname: "/settings/profile" },
-		{ name: "Account", pathname: "/settings/account", showWarning: isLive },
+		{ name: "Account", pathname: "/settings/account", showWarning: $user?.channel.live },
 		{ name: "Notifications", pathname: "/settings/notifications" },
-		{ name: "Billing", pathname: "/settings/billing", showWarning: isLive },
+		{ name: "Billing", pathname: "/settings/billing", showWarning: $user?.channel.live },
 	];
 
 	$: if ($sessionToken === null) {
@@ -29,7 +27,7 @@
 	<!-- Open Graph -->
 	<meta property="og:title" content="Scuffle - Settings" />
 	<meta property="og:description" content="Scuffle - open-source live-streaming platform" />
-	<meta property="og:image" content="{PUBLIC_ASSET_BASE_URL}/banner.jpeg" />
+	<meta property="og:image" content="{PUBLIC_BASE_URL}/banner.jpeg" />
 	<meta property="og:image:alt" content="Scuffle Banner" />
 </svelte:head>
 

@@ -9,11 +9,11 @@ use common::http::router::Router;
 use common::http::RouteError;
 use common::prelude::FutureTimeout;
 use http_body_util::Full;
-use hyper::StatusCode;
 use hyper::body::Incoming;
 use hyper::http::header;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
+use hyper::StatusCode;
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpSocket;
 use tokio::select;
@@ -55,9 +55,7 @@ pub fn routes<G: EdgeGlobal>(global: &Arc<G>) -> Router<Incoming, Body, RouteErr
 		.error_handler(common::http::error_handler::<EdgeError, _>)
 		.middleware(cors_middleware(global))
 		.scope("/", stream::routes(global))
-		.not_found(|_| async move {
-			Err((StatusCode::NOT_FOUND, "not found").into())
-		})
+		.not_found(|_| async move { Err((StatusCode::NOT_FOUND, "not found").into()) })
 		.build()
 }
 

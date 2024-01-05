@@ -25,11 +25,11 @@ impl Default for RtmpConfig {
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
 pub struct IngestConfig {
+	/// Events stream name
+	pub events_stream_name: String,
+
 	/// NATS subject to send transcoder requests to
 	pub transcoder_request_subject: String,
-
-	/// NATS subject for events
-	pub events_subject: String,
 
 	/// The interval in to update the bitrate for a room
 	pub bitrate_update_interval: Duration,
@@ -57,8 +57,8 @@ pub struct IngestConfig {
 impl Default for IngestConfig {
 	fn default() -> Self {
 		Self {
-			transcoder_request_subject: "transcoder-request".to_string(),
-			events_subject: "events".to_string(),
+			events_stream_name: "scuffle-video-events".to_string(),
+			transcoder_request_subject: "scuffle-video-transcoder_requests".to_string(),
 			bitrate_update_interval: Duration::from_secs(5),
 			max_bitrate: 12000 * 1024,
 			max_bytes_between_keyframes: 5 * 12000 * 1024 / 8,

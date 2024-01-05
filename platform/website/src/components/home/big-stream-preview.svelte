@@ -38,11 +38,7 @@
 	</div>
 	<a class="video" href="/{user.username}">
 		{#if playing}
-			<Player
-				channelId={"00000000-0000-0000-0000-000000000000"}
-				showPip={false}
-				showTheater={false}
-			/>
+			<Player roomId={user.channel.roomId} showPip={false} showTheater={false} />
 		{:else}
 			<img src={preview} alt="Stream Thumbnail" class="blurred" aria-hidden="true" />
 			<img src={preview} alt="Stream Thumbnail" class="thumbnail" />

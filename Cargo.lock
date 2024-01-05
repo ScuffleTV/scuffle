@@ -3296,6 +3296,7 @@ dependencies = [
  "async-nats",
  "async-stream",
  "async-trait",
+ "base64 0.21.5",
  "binary-helper",
  "bitmask-enum",
  "bytes",

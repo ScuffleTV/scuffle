@@ -28,6 +28,8 @@ CREATE TABLE users (
     roles UUID[] NOT NULL DEFAULT '{}'::UUID[],
 
     -- Channel Settings
+    channel_room_id UUID NOT NULL,
+    channel_active_connection_id UUID DEFAULT NULL,
     channel_title VARCHAR(256),
     channel_live_viewer_count INT4,
     channel_live_viewer_count_updated_at TIMESTAMPTZ,
@@ -172,6 +174,7 @@ CREATE INDEX users_channel_title_description_idx ON users USING GIN (to_tsvector
 CREATE INDEX users_channel_live_viewer_count ON users (channel_live_viewer_count DESC) WHERE channel_live_viewer_count IS NOT NULL;
 CREATE INDEX users_channel_last_live_at_idx ON users (channel_last_live_at) WHERE channel_last_live_at IS NOT NULL;
 CREATE INDEX users_channel_category_id_idx ON users (channel_category_id) WHERE channel_category_id IS NOT NULL;
+CREATE INDEX users_channel_room_id_idx ON users (channel_room_id);
 
 -- User Session Indexes
 

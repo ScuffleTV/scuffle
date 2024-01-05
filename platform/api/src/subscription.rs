@@ -74,6 +74,8 @@ impl DerefMut for SubscriberReceiver<'_> {
 pub enum SubscriptionTopic {
 	ChannelFollows(Ulid),
 	ChannelChatMessages(Ulid),
+	ChannelTitle(Ulid),
+	ChannelLive(Ulid),
 	UserDisplayName(Ulid),
 	UserDisplayColor(Ulid),
 	UserFollows(Ulid),
@@ -85,6 +87,8 @@ impl std::fmt::Display for SubscriptionTopic {
 		match self {
 			Self::ChannelFollows(channel_id) => write!(f, "channel.{channel_id}.follows"),
 			Self::ChannelChatMessages(channel_id) => write!(f, "channel.{channel_id}.chat_messages"),
+			Self::ChannelTitle(channel_id) => write!(f, "channel.{channel_id}.title"),
+			Self::ChannelLive(channel_id) => write!(f, "channel.{channel_id}.live"),
 			Self::UserDisplayName(user_id) => write!(f, "user.{user_id}.display_name"),
 			Self::UserDisplayColor(user_id) => write!(f, "user.{user_id}.display_color"),
 			Self::UserFollows(user_id) => write!(f, "user.{user_id}.follows"),

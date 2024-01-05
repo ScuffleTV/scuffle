@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PUBLIC_ASSET_BASE_URL } from "$env/static/public";
+	import { PUBLIC_BASE_URL } from "$env/static/public";
 	import CategoryCard from "$/components/home/category-card.svelte";
 	import SmallStreamPreview from "$/components/home/small-stream-preview.svelte";
 	import User from "$/components/search/user.svelte";
@@ -21,14 +21,10 @@
 	let results: SearchAllResults | undefined = undefined;
 	$: totalCount = results?.totalCount;
 	$: liveUserResults = results?.results
-		.filter(
-			(r) => r.object.__typename === "User" && typeof r.object.channel.liveViewerCount === "number",
-		)
+		.filter((r) => r.object.__typename === "User" && r.object.channel.live)
 		.map((r) => r.object as UserData);
 	$: offlineUserResults = results?.results
-		.filter(
-			(r) => r.object.__typename === "User" && typeof r.object.channel.liveViewerCount !== "number",
-		)
+		.filter((r) => r.object.__typename === "User" && !r.object.channel.live)
 		.map((r) => r.object as UserData);
 	$: categoryResults = results?.results
 		.filter((r) => r.object.__typename === "Category")
@@ -61,7 +57,7 @@
 	<!-- Open Graph -->
 	<meta property="og:title" content="Scuffle - Search Results" />
 	<meta property="og:description" content="Scuffle - open-source live-streaming platform" />
-	<meta property="og:image" content="{PUBLIC_ASSET_BASE_URL}/banner.jpeg" />
+	<meta property="og:image" content="{PUBLIC_BASE_URL}/banner.jpeg" />
 	<meta property="og:image:alt" content="Scuffle Banner" />
 </svelte:head>
 

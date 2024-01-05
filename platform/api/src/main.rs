@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context as _;
 use async_graphql::SDLExportOptions;
@@ -7,7 +8,8 @@ use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
 use common::context::Context;
 use common::dataloader::DataLoader;
 use common::global::*;
-use platform_api::config::{ApiConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig};
+use common::grpc::TlsSettings;
+use platform_api::config::{ApiConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
 use platform_api::dataloader::category::CategoryByIdLoader;
 use platform_api::dataloader::global_state::GlobalStateLoader;
 use platform_api::dataloader::role::RoleByIdLoader;
@@ -15,6 +17,11 @@ use platform_api::dataloader::session::SessionByIdLoader;
 use platform_api::dataloader::uploaded_file::UploadedFileByIdLoader;
 use platform_api::dataloader::user::{UserByIdLoader, UserByUsernameLoader};
 use platform_api::subscription::SubscriptionManager;
+use platform_api::video_api::{
+	load_playback_keypair_private_key, setup_video_events_client, setup_video_playback_session_client,
+	setup_video_room_client, VideoEventsClient, VideoPlaybackSessionClient, VideoRoomClient,
+};
+use platform_api::video_event_handler;
 use tokio::select;
 
 #[derive(Debug, Clone, Default, config::Config, serde::Deserialize)]
@@ -36,6 +43,9 @@ struct ExtConfig {
 
 	/// Image Uploader Config
 	image_uploader: ImageUploaderConfig,
+
+	/// The video api config
+	video_api: VideoApiConfig,
 }
 
 impl binary_helper::config::ConfigExtention for ExtConfig {
@@ -83,6 +93,12 @@ struct GlobalState {
 	subscription_manager: SubscriptionManager,
 
 	image_processor_s3: s3::Bucket,
+
+	video_room_client: VideoRoomClient,
+	video_playback_session_client: VideoPlaybackSessionClient,
+	video_events_client: VideoEventsClient,
+
+	playback_private_key: Option<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>>,
 }
 
 impl_global_traits!(GlobalState);
@@ -112,6 +128,13 @@ impl common::global::GlobalConfigProvider<ImageUploaderConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &ImageUploaderConfig {
 		&self.config.extra.image_uploader
+	}
+}
+
+impl common::global::GlobalConfigProvider<VideoApiConfig> for GlobalState {
+	#[inline(always)]
+	fn provide_config(&self) -> &VideoApiConfig {
+		&self.config.extra.video_api
 	}
 }
 
@@ -151,6 +174,22 @@ impl platform_api::global::ApiState for GlobalState {
 	fn image_uploader_s3(&self) -> &s3::Bucket {
 		&self.image_processor_s3
 	}
+
+	fn video_room_client(&self) -> &VideoRoomClient {
+		&self.video_room_client
+	}
+
+	fn video_playback_session_client(&self) -> &VideoPlaybackSessionClient {
+		&self.video_playback_session_client
+	}
+
+	fn video_events_client(&self) -> &VideoEventsClient {
+		&self.video_events_client
+	}
+
+	fn playback_private_key(&self) -> &Option<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>> {
+		&self.playback_private_key
+	}
 }
 
 impl binary_helper::Global<AppConfig> for GlobalState {
@@ -175,6 +214,47 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			.setup()
 			.ok_or_else(|| anyhow::anyhow!("failed to setup image processor s3"))?;
 
+		let video_api_tls = if let Some(tls) = &config.extra.video_api.tls {
+			let cert = tokio::fs::read(&tls.cert)
+				.await
+				.context("failed to read video api tls cert")?;
+			let key = tokio::fs::read(&tls.key).await.context("failed to read video api tls key")?;
+
+			let ca_cert = if let Some(ca_cert) = &tls.ca_cert {
+				Some(tonic::transport::Certificate::from_pem(
+					tokio::fs::read(&ca_cert).await.context("failed to read video api tls ca")?,
+				))
+			} else {
+				None
+			};
+
+			Some(TlsSettings {
+				domain: tls.domain.clone(),
+				ca_cert,
+				identity: tonic::transport::Identity::from_pem(cert, key),
+			})
+		} else {
+			None
+		};
+
+		let video_api_channel = common::grpc::make_channel(
+			vec![config.extra.video_api.address.clone()],
+			Duration::from_secs(30),
+			video_api_tls,
+		)?;
+		let video_room_client = setup_video_room_client(video_api_channel.clone(), &config.extra.video_api);
+		let video_playback_session_client =
+			setup_video_playback_session_client(video_api_channel.clone(), &config.extra.video_api);
+		let video_events_client = setup_video_events_client(video_api_channel.clone(), &config.extra.video_api);
+
+		let playback_private_key = config
+			.extra
+			.video_api
+			.playback_keypair
+			.as_ref()
+			.map(load_playback_keypair_private_key)
+			.transpose()?;
+
 		Ok(Self {
 			ctx,
 			config,
@@ -190,6 +270,10 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			uploader_file_by_id_loader,
 			subscription_manager,
 			image_processor_s3,
+			video_room_client,
+			video_playback_session_client,
+			video_events_client,
+			playback_private_key,
 		})
 	}
 }
@@ -216,10 +300,13 @@ pub async fn main() {
 
 		let subscription_manager = global.subscription_manager.run(global.ctx.clone(), global.nats.clone());
 
+		let video_event_handler = video_event_handler::run(global.clone());
+
 		select! {
 			r = grpc_future => r.context("grpc server stopped unexpectedly")?,
 			r = api_future => r.context("api server stopped unexpectedly")?,
 			r = subscription_manager => r.context("subscription manager stopped unexpectedly")?,
+			r = video_event_handler => r.context("video event handler stopped unexpectedly")?,
 		}
 
 		Ok(())

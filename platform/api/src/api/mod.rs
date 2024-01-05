@@ -36,11 +36,10 @@ pub fn routes<G: ApiGlobal>(global: &Arc<G>) -> Router<Incoming, Body, RouteErro
 		.data(weak)
 		// These response header middlewares lets us add headers to the response from the request
 		// handlers
-		.middleware(middleware::response_headers::pre_flight_middleware(global))
-		.middleware(middleware::response_headers::post_flight_middleware(global))
+		.extend(middleware::response_headers::response_headers(global))
 		// Our error handler
 		// The CORS middleware adds the CORS headers to the response
-		.middleware(middleware::cors::cors_middleware(global))
+		.extend(middleware::cors::cors_middleware(global))
 		// The auth middleware checks the Authorization header, and if it's valid, it adds the user
 		// to the request extensions This way, we can access the user in the handlers, this does not
 		// fail the request if the token is invalid or not present.

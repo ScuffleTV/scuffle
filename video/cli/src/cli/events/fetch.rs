@@ -287,7 +287,7 @@ impl Invokable for Fetch {
 								action: "disconnected".to_owned(),
 								connection_id: Some(disconnected.connection_id.into_ulid()),
 								clean: Some(disconnected.clean),
-								cause: Some(disconnected.cause().as_str_name().into()),
+								cause: disconnected.cause,
 								..Default::default()
 							},
 							Some(event::room::Event::Ready(ready)) => EventPayload {

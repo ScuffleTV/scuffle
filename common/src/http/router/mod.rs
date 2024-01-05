@@ -11,6 +11,7 @@ pub mod builder;
 pub mod compat;
 pub mod error;
 pub mod ext;
+pub mod extend;
 pub mod middleware;
 pub mod route;
 pub mod types;
@@ -63,7 +64,7 @@ impl<I: 'static, O: 'static, E: 'static> Router<I, O, E> {
 			Ok(res) => res,
 			Err(err) => {
 				if let Some(error_handler) = error_handler {
-					return Ok(error_handler((hyper::Request::new(()), err)).await);
+					error_handler((hyper::Request::new(()), err)).await
 				} else {
 					return Err(RouterError::Unhandled(err));
 				}

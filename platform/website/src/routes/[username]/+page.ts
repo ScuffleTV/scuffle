@@ -5,7 +5,7 @@ export async function load({ parent }: PageLoadEvent) {
 	const data = await parent();
 
 	// When offline
-	if (!data.user.channel.liveViewerCount && data.user.channel.liveViewerCount !== 0) {
+	if (!data.user.channel.live) {
 		throw redirect(307, `/${data.user.username}/home`);
 	}
 

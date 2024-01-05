@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, Copy)]
 pub enum IngestError {
 	KeyframeBitrateDistance(u64, u64),
 	BitrateLimit(u64, u64),

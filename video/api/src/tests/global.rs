@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use async_nats::jetstream::stream::{self, RetentionPolicy};
 use common::context::{Context, Handler};
 use common::dataloader::DataLoader;
 use common::logging;
@@ -20,6 +21,8 @@ pub struct GlobalState {
 	access_token_loader: DataLoader<dataloaders::AccessTokenLoader>,
 	recording_state_loader: DataLoader<dataloaders::RecordingStateLoader>,
 	room_loader: DataLoader<dataloaders::RoomLoader>,
+
+	events_stream: async_nats::jetstream::stream::Stream,
 }
 
 impl common::global::GlobalCtx for GlobalState {
@@ -70,6 +73,10 @@ impl crate::global::ApiState for GlobalState {
 	fn room_loader(&self) -> &DataLoader<dataloaders::RoomLoader> {
 		&self.room_loader
 	}
+
+	fn events_stream(&self) -> &async_nats::jetstream::stream::Stream {
+		&self.events_stream
+	}
 }
 
 pub async fn mock_global_state(config: ApiConfig) -> (Arc<GlobalState>, Handler) {
@@ -113,6 +120,17 @@ pub async fn mock_global_state(config: ApiConfig) -> (Arc<GlobalState>, Handler)
 		.await
 		.expect("failed to load rate limiter script");
 
+	let events_stream = jetstream
+		.get_or_create_stream(stream::Config {
+			name: config.events.stream_name.clone(),
+			subjects: vec![format!("{}.>", config.events.stream_name)],
+			retention: RetentionPolicy::WorkQueue,
+			max_age: config.events.nats_stream_message_max_age,
+			..Default::default()
+		})
+		.await
+		.expect("failed to create event stream");
+
 	let access_token_loader = dataloaders::AccessTokenLoader::new(db.clone());
 	let recording_state_loader = dataloaders::RecordingStateLoader::new(db.clone());
 	let room_loader = dataloaders::RoomLoader::new(db.clone());
@@ -127,6 +145,7 @@ pub async fn mock_global_state(config: ApiConfig) -> (Arc<GlobalState>, Handler)
 		recording_state_loader,
 		room_loader,
 		redis,
+		events_stream,
 	});
 
 	(global, handler)

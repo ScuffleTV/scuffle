@@ -7,13 +7,13 @@ use anyhow::Result;
 use base64::Engine;
 use bytes::Bytes;
 use bytesio::bytesio::AsyncReadWrite;
-use chrono::Utc;
 use flv::{FlvTag, FlvTagData, FlvTagType};
 use futures::Future;
 use futures_util::StreamExt;
-use pb::scuffle::video::internal::events::{organization_event, OrganizationEvent, TranscoderRequestTask};
+use pb::scuffle::video::internal::events::TranscoderRequestTask;
 use pb::scuffle::video::internal::{ingest_watch_request, ingest_watch_response, IngestWatchRequest, IngestWatchResponse};
-use pb::scuffle::video::v1::types::Rendition;
+use pb::scuffle::video::v1::events_fetch_request::Target;
+use pb::scuffle::video::v1::types::{event, Rendition};
 use prost::Message as _;
 use rtmp::{ChannelData, PublishRequest, Session, SessionError};
 use tokio::select;
@@ -403,7 +403,7 @@ impl Connection {
 
 		self.update_sender.take();
 
-		tracing::info!(clean = clean_shutdown, "connection closed",);
+		tracing::info!(clean = clean_shutdown, "connection closed");
 
 		clean_shutdown
 	}
@@ -720,25 +720,19 @@ impl Connection {
 			}
 		}
 
-		if let Err(err) = global
-			.nats()
-			.publish(
-				format!("{}.{}", global.config::<IngestConfig>().events_subject, self.organization_id),
-				OrganizationEvent {
-					timestamp: Utc::now().timestamp_micros(),
-					id: Some(self.organization_id.into()),
-					event: Some(organization_event::Event::RoomLive(organization_event::RoomLive {
-						connection_id: Some(self.id.into()),
-						room_id: Some(self.room_id.into()),
-					})),
-				}
-				.encode_to_vec()
-				.into(),
-			)
-			.await
-		{
-			tracing::error!(error = %err, "failed to publish disconnect event");
-		}
+		video_common::events::emit(
+			global.nats(),
+			&global.config().events_stream_name,
+			self.organization_id,
+			Target::Room,
+			event::Event::Room(event::Room {
+				room_id: Some(self.room_id.into()),
+				event: Some(event::room::Event::Connected(event::room::Connected {
+					connection_id: Some(self.id.into()),
+				})),
+			}),
+		)
+		.await;
 
 		self.request_transcoder(global).await
 	}
@@ -1048,29 +1042,21 @@ impl Connection {
 				.ok();
 		}
 
-		if let Err(err) = global
-			.nats()
-			.publish(
-				format!("{}.{}", global.config::<IngestConfig>().events_subject, self.organization_id),
-				OrganizationEvent {
-					timestamp: Utc::now().timestamp_micros(),
-					id: Some(self.organization_id.into()),
-					event: Some(organization_event::Event::RoomDisconnect(
-						organization_event::RoomDisconnect {
-							connection_id: Some(self.id.into()),
-							room_id: Some(self.room_id.into()),
-							clean: clean_disconnect,
-							error: self.error.as_ref().map(|e| e.to_string()),
-						},
-					)),
-				}
-				.encode_to_vec()
-				.into(),
-			)
-			.await
-		{
-			tracing::error!(error = %err, "failed to publish room disconnect event");
-		}
+		video_common::events::emit(
+			global.nats(),
+			&global.config().events_stream_name,
+			self.organization_id,
+			Target::Room,
+			event::Event::Room(event::Room {
+				room_id: Some(self.room_id.into()),
+				event: Some(event::room::Event::Disconnected(event::room::Disconnected {
+					connection_id: Some(self.id.into()),
+					clean: clean_disconnect,
+					cause: self.error.as_ref().map(|e| e.to_string()),
+				})),
+			}),
+		)
+		.await;
 
 		sqlx::query(
 			r#"

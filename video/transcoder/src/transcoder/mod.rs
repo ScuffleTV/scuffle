@@ -3,6 +3,8 @@ use std::time::Duration;
 
 use anyhow::{bail, Result};
 use async_nats::jetstream::consumer::pull::Config;
+use async_nats::jetstream::consumer::DeliverPolicy;
+use async_nats::jetstream::stream::RetentionPolicy;
 use futures::StreamExt;
 use tokio::select;
 use tokio_util::sync::CancellationToken;
@@ -21,6 +23,7 @@ pub async fn run<G: TranscoderGlobal>(global: Arc<G>) -> Result<()> {
 		.get_or_create_stream(async_nats::jetstream::stream::Config {
 			name: config.transcoder_request_subject.clone(),
 			max_age: Duration::from_secs(60 * 2), // 2 minutes max age
+			retention: RetentionPolicy::WorkQueue,
 			subjects: vec![config.transcoder_request_subject.clone()],
 			storage: async_nats::jetstream::stream::StorageType::Memory,
 			..Default::default()
@@ -28,11 +31,16 @@ pub async fn run<G: TranscoderGlobal>(global: Arc<G>) -> Result<()> {
 		.await?;
 
 	let consumer = stream
-		.create_consumer(Config {
-			name: Some("transcoder".to_string()),
-			durable_name: Some("transcoder".to_string()),
-			..Default::default()
-		})
+		.get_or_create_consumer(
+			"transcoder",
+			Config {
+				name: Some("transcoder".to_string()),
+				filter_subject: config.transcoder_request_subject.clone(),
+				max_deliver: 3,
+				deliver_policy: DeliverPolicy::All,
+				..Default::default()
+			},
+		)
 		.await?;
 
 	let mut messages = consumer.messages().await?;

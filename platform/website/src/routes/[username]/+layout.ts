@@ -23,13 +23,19 @@ export async function load({ params, parent }: LayoutLoadEvent) {
 							}
 							channel {
 								title
+								live {
+									edgeEndpoint
+									organizationId
+									roomId
+									playerToken
+									liveViewerCount
+								}
 								description
 								followersCount
 								links {
 									name
 									url
 								}
-								liveViewerCount
 								lastLiveAt
 								category {
 									name

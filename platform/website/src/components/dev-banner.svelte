@@ -17,7 +17,7 @@
 		PUBLIC_GQL_ENDPOINT,
 		PUBLIC_GQL_WS_ENDPOINT,
 		PUBLIC_GQL_VERSION,
-		PUBLIC_ASSET_BASE_URL,
+		PUBLIC_BASE_URL,
 		PUBLIC_TWITTER_HANDLE,
 	} from "$env/static/public";
 	import { websocketOpen } from "$/store/websocket";
@@ -53,7 +53,7 @@
 {/if}
 
 {#if showDebugDialog}
-	<Dialog on:close={() => (showDebugDialog = false)}>
+	<Dialog on:close={() => (showDebugDialog = false)} width={40}>
 		<div class="debug-container">
 			<div class="title">
 				<h1>Debug Info</h1>
@@ -104,7 +104,7 @@
 					Environment Variables
 				</span>
 				<ul>
-					{#each Object.entries( { PUBLIC_CF_TURNSTILE_KEY, PUBLIC_GQL_ENDPOINT, PUBLIC_GQL_WS_ENDPOINT, PUBLIC_GQL_VERSION, PUBLIC_ASSET_BASE_URL, PUBLIC_TWITTER_HANDLE }, ) as [key, value]}
+					{#each Object.entries( { PUBLIC_CF_TURNSTILE_KEY, PUBLIC_GQL_ENDPOINT, PUBLIC_GQL_WS_ENDPOINT, PUBLIC_GQL_VERSION, PUBLIC_BASE_URL, PUBLIC_TWITTER_HANDLE }, ) as [key, value]}
 						<li><code>{key}</code>: <code>{value}</code></li>
 					{/each}
 				</ul>

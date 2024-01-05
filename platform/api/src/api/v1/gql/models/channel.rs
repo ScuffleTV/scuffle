@@ -1,4 +1,7 @@
 use async_graphql::{ComplexObject, Context, SimpleObject};
+use chrono::Utc;
+use common::database::Ulid;
+use jwt::SignWithKey;
 
 use super::category::Category;
 use super::date::DateRFC3339;
@@ -7,16 +10,16 @@ use crate::api::v1::gql::error::ext::*;
 use crate::api::v1::gql::error::Result;
 use crate::api::v1::gql::ext::ContextExt;
 use crate::api::v1::gql::guards::auth_guard;
+use crate::config::{VideoApiConfig, VideoApiPlaybackKeypairConfig};
 use crate::database;
 use crate::global::ApiGlobal;
+use crate::video_api::request_deduplicated_viewer_count;
 
 #[derive(SimpleObject, Clone)]
 #[graphql(complex)]
 pub struct Channel<G: ApiGlobal> {
 	pub id: GqlUlid,
 	pub title: Option<String>,
-	pub live_viewer_count: Option<i32>,
-	pub live_viewer_count_updated_at: Option<DateRFC3339>,
 	pub description: Option<String>,
 	pub links: Vec<database::ChannelLink>,
 	pub custom_thumbnail_id: Option<GqlUlid>,
@@ -27,6 +30,13 @@ pub struct Channel<G: ApiGlobal> {
 	// Private fields
 	#[graphql(skip)]
 	stream_key_: Option<String>,
+
+	// Keep the database channel around for the live resolver
+	#[graphql(skip)]
+	db_: database::Channel,
+
+	#[graphql(skip)]
+	active_connection_id_: Option<ulid::Ulid>,
 
 	#[graphql(skip)]
 	_phantom: std::marker::PhantomData<G>,
@@ -75,16 +85,135 @@ impl<G: ApiGlobal> Channel<G> {
 
 		Ok(followers)
 	}
+
+	async fn live(&self, ctx: &Context<'_>) -> Result<Option<ChannelLive<G>>> {
+		let global = ctx.get_global::<G>();
+		let video_api_config: &VideoApiConfig = global.provide_config();
+
+		if self.active_connection_id_.is_some() {
+			Ok(Some(ChannelLive {
+				edge_endpoint: video_api_config.edge_endpoint.clone(),
+				organization_id: video_api_config.organization_id.into(),
+				room_id: self.db_.room_id.0.into(),
+				live_viewer_count_: self.db_.live_viewer_count,
+				live_viewer_count_updated_at_: self.db_.live_viewer_count_updated_at.map(DateRFC3339),
+				channel_id: self.id.0,
+				_phantom: std::marker::PhantomData,
+			}))
+		} else {
+			Ok(None)
+		}
+	}
+}
+
+#[derive(Clone, SimpleObject)]
+#[graphql(complex)]
+pub struct ChannelLive<G: ApiGlobal> {
+	pub edge_endpoint: String,
+	pub organization_id: GqlUlid,
+	pub room_id: GqlUlid,
+
+	// Live viewer count has a custom resolver
+	#[graphql(skip)]
+	live_viewer_count_: Option<i32>,
+	#[graphql(skip)]
+	live_viewer_count_updated_at_: Option<DateRFC3339>,
+	// Needed for the live_viewer_count resolver
+	#[graphql(skip)]
+	channel_id: ulid::Ulid,
+
+	#[graphql(skip)]
+	_phantom: std::marker::PhantomData<G>,
+}
+
+#[derive(serde::Serialize)]
+struct PlayerTokenClaim {
+	organization_id: String,
+	room_id: String,
+	iat: i64,
+	user_id: String,
+}
+
+#[ComplexObject]
+impl<G: ApiGlobal> ChannelLive<G> {
+	async fn live_viewer_count(&self, ctx: &Context<'_>) -> Result<i32> {
+		let global = ctx.get_global::<G>();
+
+		if let Some(count) = self.live_viewer_count_ {
+			let expired = self
+				.live_viewer_count_updated_at_
+				.as_ref()
+				.map(|DateRFC3339(t)| Utc::now().signed_duration_since(t).num_seconds() > 30)
+				.unwrap_or(true);
+			if !expired {
+				return Ok(count);
+			}
+		}
+
+		let live_viewer_count =
+			request_deduplicated_viewer_count(&mut global.video_playback_session_client().clone(), self.room_id.0)
+				.await
+				.map_err_gql("failed to fetch playback session count")?;
+
+		sqlx::query(
+			"UPDATE users SET channel_live_viewer_count = $1, channel_live_viewer_count_updated_at = NOW() WHERE id = $2",
+		)
+		.bind(live_viewer_count)
+		.bind(Ulid::from(self.channel_id))
+		.execute(global.db().as_ref())
+		.await
+		.map_err_gql("failed to update live viewer count")?;
+
+		Ok(live_viewer_count)
+	}
+
+	async fn player_token(&self, ctx: &Context<'_>) -> Result<Option<String>> {
+		let global = ctx.get_global::<G>();
+
+		let request_context = ctx.get_req_context();
+		let Some(auth) = request_context.auth(global).await? else {
+			// If the request is not authenticated, return None
+			return Ok(None);
+		};
+
+		let video_api_config: &VideoApiConfig = global.provide_config();
+		let (Some(VideoApiPlaybackKeypairConfig { id: public_key_id, .. }), Some(private_key)) =
+			(video_api_config.playback_keypair.as_ref(), global.playback_private_key())
+		else {
+			// If the video api playback keypair is not configured, return None
+			return Ok(None);
+		};
+
+		let header = jwt::Header {
+			algorithm: jwt::AlgorithmType::Es384,
+			key_id: Some(public_key_id.to_string()),
+			type_: Some(jwt::header::HeaderType::JsonWebToken),
+			..Default::default()
+		};
+
+		let token = jwt::Token::new(
+			header,
+			PlayerTokenClaim {
+				organization_id: video_api_config.organization_id.to_string(),
+				room_id: self.room_id.to_string(),
+				iat: Utc::now().timestamp(),
+				user_id: auth.session.user_id.to_string(),
+			},
+		)
+		.sign_with_key(private_key)
+		.map_err_ignored_gql("failed to sign token")?;
+
+		Ok(Some(token.as_str().to_string()))
+	}
 }
 
 impl<G: ApiGlobal> From<database::Channel> for Channel<G> {
 	fn from(value: database::Channel) -> Self {
 		let stream_key_ = value.get_stream_key();
 		Self {
+			db_: value.clone(),
 			id: value.id.0.into(),
 			title: value.title,
-			live_viewer_count: value.live_viewer_count,
-			live_viewer_count_updated_at: value.live_viewer_count_updated_at.map(DateRFC3339),
 			description: value.description,
 			links: value.links.0,
 			custom_thumbnail_id: value.custom_thumbnail_id.map(|v| Into::into(v.0)),
@@ -92,6 +221,7 @@ impl<G: ApiGlobal> From<database::Channel> for Channel<G> {
 			category_id: value.category_id.map(|v| Into::into(v.0)),
 			last_live_at: value.last_live_at.map(DateRFC3339),
 			stream_key_,
+			active_connection_id_: value.active_connection_id.map(|u| u.0),
 			_phantom: std::marker::PhantomData,
 		}
 	}

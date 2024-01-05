@@ -17,6 +17,7 @@
 	import Search from "./top-nav/search.svelte";
 	import Logo from "./icons/logo.svelte";
 	import ResponsiveContainer from "../components/responsive-container.svelte";
+	import LiveIndicator from "./top-nav/live-indicator.svelte";
 
 	const client = getContextClient();
 
@@ -66,9 +67,7 @@
 	<Search />
 	<div class="nav-right">
 		{#if $user}
-			{#if typeof $user.channel.liveViewerCount === "number"}
-				<a href="/creator-dashboard" class="live-indicator" title="You are live">Live</a>
-			{/if}
+			<LiveIndicator />
 			<DropDown>
 				<DefaultAvatar userId={$user.id} displayColor={$user.displayColor} />
 				<svelte:fragment slot="dropdown">
@@ -173,33 +172,6 @@
 	.nav-right {
 		/* Take all available space but shrink by a very high factor */
 		flex: 1 9999;
-
-		& > .live-indicator {
-			font-weight: 500;
-			color: $textColor;
-			padding: 0.5rem 1rem;
-			border-radius: 0.5rem;
-			background-color: $bgColor;
-
-			text-decoration: none;
-
-			transition: background-color 0.2s;
-
-			&:hover {
-				background-color: $bgColorLight;
-			}
-
-			&::before {
-				content: "";
-				display: inline-block;
-				width: 0.4rem;
-				height: 0.4rem;
-				background-color: $liveColor;
-				border-radius: 50%;
-				margin-right: 0.4rem;
-				margin-bottom: 0.1rem;
-			}
-		}
 	}
 
 	.buttons,

@@ -3,6 +3,7 @@ use async_graphql::SimpleObject;
 use crate::global::ApiGlobal;
 
 mod auth;
+mod channel;
 mod chat;
 mod user;
 
@@ -12,6 +13,7 @@ pub struct Mutation<G: ApiGlobal> {
 	auth: auth::AuthMutation<G>,
 	chat: chat::ChatMutation<G>,
 	user: user::UserMutation<G>,
+	channel: channel::ChannelMutation<G>,
 }
 
 impl<G: ApiGlobal> Default for Mutation<G> {
@@ -20,6 +22,7 @@ impl<G: ApiGlobal> Default for Mutation<G> {
 			auth: Default::default(),
 			chat: Default::default(),
 			user: Default::default(),
+			channel: Default::default(),
 		}
 	}
 }

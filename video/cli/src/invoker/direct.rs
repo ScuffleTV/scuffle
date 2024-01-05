@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use async_nats::jetstream::stream::{self, RetentionPolicy};
 use binary_helper::global::{setup_database, setup_nats, setup_redis};
 use binary_helper::impl_global_traits;
 use common::config::RedisConfig;
@@ -286,6 +287,7 @@ struct GlobalState {
 	access_token_loader: DataLoader<dataloaders::AccessTokenLoader>,
 	recording_state_loader: DataLoader<dataloaders::RecordingStateLoader>,
 	room_loader: DataLoader<dataloaders::RoomLoader>,
+	events_stream: async_nats::jetstream::stream::Stream,
 }
 
 impl_global_traits!(GlobalState);
@@ -319,6 +321,11 @@ impl video_api::global::ApiState for GlobalState {
 	fn room_loader(&self) -> &DataLoader<dataloaders::RoomLoader> {
 		&self.room_loader
 	}
+
+	#[inline(always)]
+	fn events_stream(&self) -> &async_nats::jetstream::stream::Stream {
+		&self.events_stream
+	}
 }
 
 impl GlobalState {
@@ -349,6 +356,17 @@ impl GlobalState {
 			.await
 			.context("failed to load rate limiter script")?;
 
+		let events_stream = jetstream
+			.get_or_create_stream(stream::Config {
+				name: config.extra.api.events.stream_name.clone(),
+				subjects: vec![format!("{}.>", config.extra.api.events.stream_name)],
+				retention: RetentionPolicy::WorkQueue,
+				max_age: config.extra.api.events.nats_stream_message_max_age,
+				..Default::default()
+			})
+			.await
+			.context("failed to create event stream")?;
+
 		Ok(Self {
 			ctx,
 			config,
@@ -359,6 +377,7 @@ impl GlobalState {
 			access_token_loader,
 			recording_state_loader,
 			room_loader,
+			events_stream,
 		})
 	}
 }

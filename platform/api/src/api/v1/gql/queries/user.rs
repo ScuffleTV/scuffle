@@ -4,7 +4,6 @@ use crate::api::auth::AuthError;
 use crate::api::v1::gql::error::ext::*;
 use crate::api::v1::gql::error::{GqlError, Result};
 use crate::api::v1::gql::ext::ContextExt;
-use crate::api::v1::gql::models;
 use crate::api::v1::gql::models::search_result::SearchResult;
 use crate::api::v1::gql::models::ulid::GqlUlid;
 use crate::api::v1::gql::models::user::User;
@@ -39,7 +38,7 @@ impl<G: ApiGlobal> From<Vec<database::SearchResult<database::User>>> for UserSea
 #[Object]
 impl<G: ApiGlobal> UserQuery<G> {
 	/// Get the user of the current context(session)
-	async fn with_current_context(&self, ctx: &Context<'_>) -> Result<models::user::User<G>> {
+	async fn with_current_context(&self, ctx: &Context<'_>) -> Result<User<G>> {
 		let global = ctx.get_global::<G>();
 		let auth = ctx
 			.get_req_context()
@@ -61,7 +60,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 		&self,
 		ctx: &Context<'_>,
 		#[graphql(desc = "The username of the user.")] username: String,
-	) -> Result<Option<models::user::User<G>>> {
+	) -> Result<Option<User<G>>> {
 		let global = ctx.get_global::<G>();
 
 		let user = global
@@ -78,7 +77,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 		&self,
 		ctx: &Context<'_>,
 		#[graphql(desc = "The id of the user.")] id: GqlUlid,
-	) -> Result<Option<models::user::User<G>>> {
+	) -> Result<Option<User<G>>> {
 		let global = ctx.get_global::<G>();
 
 		let user = global
@@ -87,7 +86,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 			.await
 			.map_err_ignored_gql("failed to fetch user")?;
 
-		Ok(user.map(models::user::User::from))
+		Ok(user.map(Into::into))
 	}
 
 	async fn search_by_username(
@@ -107,7 +106,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 			.await
 			.map_err_gql("failed to search users")?;
 
-		Ok(users.into())
+		Ok(UserSearchResults::from(users))
 	}
 
 	/// Get if the current user is following a given channel
@@ -145,7 +144,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 		ctx: &Context<'_>,
 		#[graphql(desc = "The id of the user.")] id: GqlUlid,
 		#[graphql(desc = "Restricts the number of returned users, default: no limit")] limit: Option<u32>,
-	) -> Result<Vec<models::user::User<G>>> {
+	) -> Result<Vec<User<G>>> {
 		let global = ctx.get_global::<G>();
 		let request_context = ctx.get_req_context();
 

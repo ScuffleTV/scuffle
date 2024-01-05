@@ -13,6 +13,7 @@ use common::make_response;
 use common::prelude::FutureTimeout;
 use hyper::body::Incoming;
 use hyper::{Request, Response, StatusCode};
+use itertools::Itertools;
 use pb::scuffle::video::internal::{LiveManifest, LiveRenditionManifest};
 use pb::scuffle::video::v1::types::{AudioConfig, VideoConfig};
 use prost::Message;
@@ -112,11 +113,32 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 	}
 
 	let id = Ulid::new();
+	let key_id = token
+		.as_ref()
+		.and_then(|t| t.header().key_id.as_ref())
+		.map(|u| Ulid::from_string(u).unwrap())
+		.map(common::database::Ulid);
 
-	let remote_addr = req
-		.data::<SocketAddr>()
-		.copied()
-		.unwrap_or(SocketAddr::from(([0, 0, 0, 0], 0)));
+	let global_config = global.config();
+	let ip = if let Some(ip_header_mode) = &global_config.ip_header_mode {
+		if let Some(ip) = req
+			.headers()
+			.get(ip_header_mode.to_lowercase().as_str())
+			.and_then(|v| v.to_str().ok())
+		{
+			// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For#syntax
+			let hops = ip.split(',').collect_vec();
+			let client_idx = hops
+				.len()
+				.saturating_sub(global_config.ip_header_trusted_hops.unwrap_or(hops.len()));
+			hops.get(client_idx).copied().and_then(|v| v.trim().parse().ok())
+		} else {
+			None
+		}
+	} else {
+		req.data::<SocketAddr>().copied().map(|v| v.ip())
+	}
+	.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to get ip address"))?;
 
 	sqlx::query(
 		r#"
@@ -151,13 +173,13 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 	.bind(Uuid::from(organization_id))
 	.bind(Uuid::from(room_id))
 	.bind(token.as_ref().and_then(|t| t.claims().user_id.as_ref()))
-	.bind(token.as_ref().and_then(|t| t.header().key_id.as_ref()))
+	.bind(key_id)
 	.bind(
 		token
 			.as_ref()
 			.and_then(|t| chrono::Utc.timestamp_opt(t.claims().iat.unwrap(), 0).single()),
 	)
-	.bind(remote_addr.ip().to_string())
+	.bind(ip)
 	.bind(req.headers().get("user-agent").map(|v| v.to_str().unwrap_or_default()))
 	.bind(req.headers().get("referer").map(|v| v.to_str().unwrap_or_default()))
 	.bind(req.headers().get("origin").map(|v| v.to_str().unwrap_or_default()))
@@ -290,10 +312,24 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Res
 
 	let id = Ulid::new();
 
-	let remote_addr = req
-		.data::<SocketAddr>()
-		.copied()
-		.unwrap_or(SocketAddr::from(([0, 0, 0, 0], 0)));
+	let global_config = global.config();
+	let ip = if let Some(ip_header_mode) = &global_config.ip_header_mode {
+		if let Some(ip) = req
+			.headers()
+			.get(ip_header_mode.to_lowercase().as_str())
+			.and_then(|v| v.to_str().ok())
+		{
+			let hops = ip.split(',').collect_vec();
+			hops.get(global_config.ip_header_trusted_hops.unwrap_or(hops.len() - 1).max(hops.len()))
+				.copied()
+				.and_then(|v| v.trim().parse().ok())
+		} else {
+			None
+		}
+	} else {
+		req.data::<SocketAddr>().copied().map(|v| v.ip())
+	}
+	.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to get ip address"))?;
 
 	sqlx::query(
 		r#"
@@ -334,7 +370,7 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Res
 			.as_ref()
 			.and_then(|t| chrono::Utc.timestamp_opt(t.claims().iat.unwrap(), 0).single()),
 	)
-	.bind(remote_addr.ip().to_string())
+	.bind(ip)
 	.bind(req.headers().get("user-agent").map(|v| v.to_str().unwrap_or_default()))
 	.bind(req.headers().get("referer").map(|v| v.to_str().unwrap_or_default()))
 	.bind(req.headers().get("origin").map(|v| v.to_str().unwrap_or_default()))

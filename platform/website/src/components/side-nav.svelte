@@ -30,7 +30,9 @@
 									isGray
 								}
 								channel {
-									liveViewerCount
+									live {
+										liveViewerCount
+									}
 									category {
 										name
 									}

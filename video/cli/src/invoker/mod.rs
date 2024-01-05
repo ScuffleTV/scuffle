@@ -45,7 +45,7 @@ impl Invoker {
 		if mode == Mode::Direct {
 			return Ok(Self {
 				backend: InvokerBackend::Direct(
-					DirectBackend::new(context, args.config.clone(), args.organization_id).await?,
+					DirectBackend::new(context, args.config_file.clone(), args.organization_id).await?,
 				),
 				json_output: args.json,
 			});

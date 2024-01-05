@@ -50,6 +50,7 @@ http-body = "1.0"
 http-body-util = "0.1"
 hyper-util = "0.1"
 pin-project = "1.1"
+base64 = "0.21"
 
 config = { workspace = true }
 pb = { workspace = true }

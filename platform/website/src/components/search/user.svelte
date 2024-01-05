@@ -16,18 +16,16 @@
 	</div>
 	<div class="text-container">
 		<span class="name ellipsis">
-			<span class:offline={grayWhenOffline && typeof user.channel.liveViewerCount !== "number"}
-				>{user.displayName}</span
-			>
-			{#if typeof user.channel.liveViewerCount === "number" && user.channel.category?.name}
+			<span class:offline={grayWhenOffline && !user.channel.live}>{user.displayName}</span>
+			{#if user.channel.live && user.channel.category?.name}
 				<span class="category">• {user.channel.category.name}</span>
 			{/if}
 		</span>
-		{#if typeof user.channel.liveViewerCount === "number" && user.channel.title}
+		{#if user.channel.live && user.channel.title}
 			<span class="title ellipsis">{user.channel.title}</span>
 		{/if}
 	</div>
-	{#if typeof user.channel.liveViewerCount === "number"}
+	{#if user.channel.live}
 		<span class="live-viewers">{viewersToString(user.channel.liveViewerCount)}</span>
 	{/if}
 </a>

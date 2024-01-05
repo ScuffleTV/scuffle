@@ -315,7 +315,7 @@
 		<track kind="captions" />
 		<span>Sorry, your browser can't play this</span>
 	</video>
-	<div class="center-icons">
+	<div class="center-icons" class:background={state === PlayerState.Error || audioOnly}>
 		{#if state === PlayerState.Error}
 			<Lightning />
 			<span>Something went wrong</span>
@@ -466,6 +466,10 @@
 		align-items: center;
 		flex-direction: column;
 		gap: 1rem;
+
+		&.background {
+			background-color: rgba(black, 0.5);
+		}
 	}
 
 	button,

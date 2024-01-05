@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { viewersToString } from "$lib/utils";
 	import { page } from "$app/stores";
-	import type { Channel, DisplayColor } from "$/gql/graphql";
+	import type { DisplayColor } from "$/gql/graphql";
 	import DefaultAvatar from "../user/default-avatar.svelte";
 	import { fade } from "svelte/transition";
 

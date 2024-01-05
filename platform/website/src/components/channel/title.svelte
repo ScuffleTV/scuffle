@@ -46,4 +46,6 @@
 	});
 </script>
 
-{title}
+{#if title}
+	{title}
+{/if}

@@ -100,3 +100,19 @@ pub fn load_playback_keypair_private_key(
 		jwt::asymmetric::SigningKey::from_ec384(key),
 	))
 }
+
+pub async fn request_deduplicated_viewer_count(client: &mut VideoPlaybackSessionClient, room_id: Ulid) -> tonic::Result<i32> {
+	let res = client
+		.count(pb::scuffle::video::v1::PlaybackSessionCountRequest {
+			filter: Some(pb::scuffle::video::v1::playback_session_count_request::Filter::Target(
+				pb::scuffle::video::v1::types::PlaybackSessionTarget {
+					target: Some(pb::scuffle::video::v1::types::playback_session_target::Target::RoomId(
+						room_id.into(),
+					)),
+				},
+			)),
+		})
+		.await?;
+
+	Ok(res.into_inner().deduplicated_count as i32) //should be safe to cast
+}

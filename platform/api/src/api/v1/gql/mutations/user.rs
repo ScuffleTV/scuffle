@@ -66,7 +66,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 		.fetch_one(global.db().as_ref())
 		.await?;
 
-		Ok(user.into())
+		Ok(User::from_db(user, global))
 	}
 
 	/// Change the display name of the currently logged in user.
@@ -132,7 +132,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.await
 			.map_err(|_| "failed to publish message")?;
 
-		Ok(user.into())
+		Ok(User::from_db(user, global))
 	}
 
 	/// Change the display color of the currently logged in user.
@@ -179,7 +179,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.await
 			.map_err_gql("failed to publish message")?;
 
-		Ok(user.into())
+		Ok(User::from_db(user, global))
 	}
 
 	async fn password<'ctx>(
@@ -244,7 +244,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 			Ok(TwoFaResponse::TwoFaRequest(TwoFaRequest { id: request_id.into() }))
 		} else {
 			change_password.execute(global, user.id).await?;
-			Ok(TwoFaResponse::Success(user.into()))
+			Ok(TwoFaResponse::Success(User::from_db(user, global)))
 		}
 	}
 

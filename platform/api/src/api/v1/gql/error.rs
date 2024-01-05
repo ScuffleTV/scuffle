@@ -65,9 +65,9 @@ pub enum GqlError {
 	/// Publish Error
 	#[error("publish error: {0}")]
 	Publish(#[from] Arc<async_nats::PublishError>),
-	/// Tonic Error
-	#[error("tonic error: {0}")]
-	Tonic(#[from] tonic::Status),
+	/// Video API Error
+	#[error("video api error: {0}")]
+	VideoApi(#[from] tonic::Status),
 	/// Subscription Error
 	#[error("subscription error: {0}")]
 	Subscription(#[from] Arc<SubscriptionManagerError>),
@@ -123,7 +123,7 @@ impl GqlError {
 			GqlError::Publish(_) => "Publish",
 			GqlError::InternalServerError(_) => "InternalServerError",
 			GqlError::Sqlx(_) => "Sqlx",
-			GqlError::Tonic(_) => "Tonic",
+			GqlError::VideoApi(_) => "VideoApi",
 			GqlError::Subscription(_) => "Subscription",
 		}
 	}

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { PUBLIC_EDGE_ENDPOINT, PUBLIC_ORG_ID } from "$env/static/public";
 	import type { Player, Variant } from "@scuffle/player";
 	import { createEventDispatcher, onMount } from "svelte";
 
@@ -117,14 +116,6 @@
 		</tr>
 	</thead>
 	<br />
-	<tr>
-		<th>edge endpoint</th>
-		<td>{PUBLIC_EDGE_ENDPOINT}</td>
-	</tr>
-	<tr>
-		<th>organization id</th>
-		<td>{PUBLIC_ORG_ID}</td>
-	</tr>
 	<tr>
 		<th>room id</th>
 		<td>{player.roomId}</td>

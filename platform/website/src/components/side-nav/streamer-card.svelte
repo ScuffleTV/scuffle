@@ -9,12 +9,26 @@
 	export let username: string;
 	export let displayName: string;
 	export let displayColor: DisplayColor;
-	export let channel: Channel;
+	// typescript pain
+	export let channel: {
+		live?:
+			| {
+					liveViewerCount: number;
+			  }
+			| null
+			| undefined;
+		category?:
+			| {
+					name: string;
+			  }
+			| null
+			| undefined;
+	};
 	export let collapsed = false;
 
 	$: ariaLabel = channel.live
 		? `${displayName} streaming ${channel.category?.name ?? ""} with ${viewersToString(
-				channel.liveViewerCount,
+				channel.live.liveViewerCount,
 				true,
 			)}`
 		: `${displayName} is offline`;
@@ -43,10 +57,10 @@
 		</div>
 		<span
 			class="viewers"
-			aria-label={channel.live ? viewersToString(channel.liveViewerCount, true) : "offline"}
+			aria-label={channel.live ? viewersToString(channel.live.liveViewerCount, true) : "offline"}
 			class:online={channel.live}
 		>
-			{channel.live ? viewersToString(channel.liveViewerCount) : "Offline"}
+			{channel.live ? viewersToString(channel.live.liveViewerCount) : "Offline"}
 		</span>
 	{/if}
 </a>

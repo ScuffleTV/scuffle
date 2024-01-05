@@ -16,7 +16,6 @@
 	import { sideNavHidden, topNavHidden } from "$/store/layout";
 	import { authDialog } from "$/store/auth";
 	import { dev } from "$app/environment";
-	import { PUBLIC_EDGE_ENDPOINT, PUBLIC_ORG_ID } from "$env/static/public";
 	import DebugOverlay from "./player/debug-overlay.svelte";
 
 	function loadVolume() {
@@ -39,6 +38,8 @@
 		}
 	}
 
+	export let edgeEndpoint: string;
+	export let organizationId: string;
 	export let roomId: string;
 	export let playerToken: string | undefined = undefined;
 
@@ -159,8 +160,8 @@
 	onMount(() => {
 		init().then(() => {
 			player = new Player(videoEl, {
-				server: PUBLIC_EDGE_ENDPOINT,
-				organization_id: PUBLIC_ORG_ID,
+				server: edgeEndpoint,
+				organization_id: organizationId,
 				abr_default_bandwidth: loadBandwithEstimate() ?? undefined,
 			});
 			player.loadRoom(roomId, playerToken);

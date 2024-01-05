@@ -61,6 +61,6 @@ impl<G: ApiGlobal> ChannelMutation<G> {
 			.await
 			.map_err_gql("failed to publish channel title")?;
 
-		Ok(user.into())
+		Ok(User::from_db(user, global))
 	}
 }

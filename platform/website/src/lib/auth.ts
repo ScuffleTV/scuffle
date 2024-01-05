@@ -22,7 +22,7 @@ export function getUser(client: Client) {
 							channel {
 								id
 								live {
-									live
+									roomId
 								}
 							}
 							totpEnabled

@@ -29,6 +29,7 @@ CREATE TABLE users (
 
     -- Channel Settings
     channel_room_id UUID NOT NULL,
+    channel_active_connection_id UUID DEFAULT NULL,
     channel_title VARCHAR(256),
     channel_live_viewer_count INT4,
     channel_live_viewer_count_updated_at TIMESTAMPTZ,

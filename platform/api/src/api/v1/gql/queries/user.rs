@@ -1,10 +1,11 @@
+use std::sync::Arc;
+
 use async_graphql::{Context, Object, SimpleObject};
 
 use crate::api::auth::AuthError;
 use crate::api::v1::gql::error::ext::*;
 use crate::api::v1::gql::error::{GqlError, Result};
 use crate::api::v1::gql::ext::ContextExt;
-use crate::api::v1::gql::models;
 use crate::api::v1::gql::models::search_result::SearchResult;
 use crate::api::v1::gql::models::ulid::GqlUlid;
 use crate::api::v1::gql::models::user::User;
@@ -26,11 +27,17 @@ struct UserSearchResults<G: ApiGlobal> {
 	total_count: u32,
 }
 
-impl<G: ApiGlobal> From<Vec<database::SearchResult<database::User>>> for UserSearchResults<G> {
-	fn from(value: Vec<database::SearchResult<database::User>>) -> Self {
+impl<G: ApiGlobal> UserSearchResults<G> {
+	pub fn from_db(value: Vec<database::SearchResult<database::User>>, global: &Arc<G>) -> Self {
 		let total_count = value.first().map(|r| r.total_count).unwrap_or(0) as u32;
 		Self {
-			results: value.into_iter().map(Into::into).collect(),
+			results: value
+				.into_iter()
+				.map(|r| SearchResult {
+					similarity: r.similarity,
+					object: User::from_db(r.object, global),
+				})
+				.collect(),
 			total_count,
 		}
 	}
@@ -39,7 +46,7 @@ impl<G: ApiGlobal> From<Vec<database::SearchResult<database::User>>> for UserSea
 #[Object]
 impl<G: ApiGlobal> UserQuery<G> {
 	/// Get the user of the current context(session)
-	async fn with_current_context(&self, ctx: &Context<'_>) -> Result<models::user::User<G>> {
+	async fn with_current_context(&self, ctx: &Context<'_>) -> Result<User<G>> {
 		let global = ctx.get_global::<G>();
 		let auth = ctx
 			.get_req_context()
@@ -53,7 +60,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 			.await
 			.map_err_ignored_gql("failed to fetch user")?
 			.map_err_gql(GqlError::NotFound("user"))
-			.map(Into::into)
+			.map(|u| User::from_db(u, global))
 	}
 
 	/// Get a user by their username
@@ -61,7 +68,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 		&self,
 		ctx: &Context<'_>,
 		#[graphql(desc = "The username of the user.")] username: String,
-	) -> Result<Option<models::user::User<G>>> {
+	) -> Result<Option<User<G>>> {
 		let global = ctx.get_global::<G>();
 
 		let user = global
@@ -70,7 +77,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 			.await
 			.map_err_ignored_gql("failed to fetch user")?;
 
-		Ok(user.map(Into::into))
+		Ok(user.map(|u| User::from_db(u, global)))
 	}
 
 	/// Get a user by their id
@@ -78,7 +85,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 		&self,
 		ctx: &Context<'_>,
 		#[graphql(desc = "The id of the user.")] id: GqlUlid,
-	) -> Result<Option<models::user::User<G>>> {
+	) -> Result<Option<User<G>>> {
 		let global = ctx.get_global::<G>();
 
 		let user = global
@@ -87,7 +94,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 			.await
 			.map_err_ignored_gql("failed to fetch user")?;
 
-		Ok(user.map(models::user::User::from))
+		Ok(user.map(|u| User::from_db(u, global)))
 	}
 
 	async fn search_by_username(
@@ -107,7 +114,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 			.await
 			.map_err_gql("failed to search users")?;
 
-		Ok(users.into())
+		Ok(UserSearchResults::from_db(users, global))
 	}
 
 	/// Get if the current user is following a given channel
@@ -145,7 +152,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 		ctx: &Context<'_>,
 		#[graphql(desc = "The id of the user.")] id: GqlUlid,
 		#[graphql(desc = "Restricts the number of returned users, default: no limit")] limit: Option<u32>,
-	) -> Result<Vec<models::user::User<G>>> {
+	) -> Result<Vec<User<G>>> {
 		let global = ctx.get_global::<G>();
 		let request_context = ctx.get_req_context();
 
@@ -184,6 +191,6 @@ impl<G: ApiGlobal> UserQuery<G> {
 		.fetch_all(global.db().as_ref())
 		.await?;
 
-		Ok(channels.into_iter().map(Into::into).collect())
+		Ok(channels.into_iter().map(|u| User::from_db(u, global)).collect())
 	}
 }

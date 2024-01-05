@@ -148,11 +148,8 @@ type Channel {
 	id: ULID!
 	lastLiveAt: DateRFC3339
 	links: [ChannelLink!]!
-	live: ChannelLive!
-	liveViewerCount: Int!
-	liveViewerCountUpdatedAt: DateRFC3339
+	live: ChannelLive
 	offlineBannerId: ULID
-	roomId: ULID!
 	streamKey: String
 	title: String
 }
@@ -163,8 +160,12 @@ type ChannelLink {
 }
 
 type ChannelLive {
-	live: Boolean!
+	edgeEndpoint: String!
+	liveViewerCount: Int!
+	liveViewerCountUpdatedAt: DateRFC3339
+	organizationId: ULID!
 	playerToken: String
+	roomId: ULID!
 }
 
 type ChannelLiveStream {

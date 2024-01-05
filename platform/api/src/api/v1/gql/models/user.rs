@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_graphql::{ComplexObject, Context, SimpleObject};
 use ulid::Ulid;
 
@@ -71,14 +73,14 @@ impl<G: ApiGlobal> User<G> {
 	}
 }
 
-impl<G: ApiGlobal> From<database::User> for User<G> {
-	fn from(value: database::User) -> Self {
+impl<G: ApiGlobal> User<G> {
+	pub fn from_db(value: database::User, global: &Arc<G>) -> Self {
 		Self {
 			id: value.id.0.into(),
 			username: value.username,
 			display_name: value.display_name,
 			display_color: value.display_color.into(),
-			channel: value.channel.into(),
+			channel: Channel::from_db(value.channel, global),
 			email_: value.email,
 			email_verified_: value.email_verified,
 			last_login_at_: value.last_login_at.into(),

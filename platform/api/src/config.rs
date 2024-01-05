@@ -96,6 +96,9 @@ pub struct VideoApiConfig {
 	/// The TLS config for the video api
 	pub tls: Option<TlsConfig>,
 
+	/// Edge endpoint to pass to the player
+	pub edge_endpoint: String,
+
 	/// The organization id for the video api
 	pub organization_id: ulid::Ulid,
 
@@ -105,6 +108,7 @@ pub struct VideoApiConfig {
 	/// The secret key for the video api
 	pub secret_key: ulid::Ulid,
 
+	/// The playback key pair for the video api
 	pub playback_keypair: Option<VideoApiPlaybackKeypairConfig>,
 }
 
@@ -113,6 +117,7 @@ impl Default for VideoApiConfig {
 		Self {
 			address: "localhost:9080".to_string(),
 			tls: None,
+			edge_endpoint: "https://edge.scuffle.dev".to_string(),
 			organization_id: ulid::Ulid::nil(),
 			access_key: ulid::Ulid::nil(),
 			secret_key: ulid::Ulid::nil(),

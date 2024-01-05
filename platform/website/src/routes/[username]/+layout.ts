@@ -23,9 +23,10 @@ export async function load({ params, parent }: LayoutLoadEvent) {
 							}
 							channel {
 								title
-								roomId
 								live {
-									live
+									edgeEndpoint
+									organizationId
+									roomId
 									playerToken
 								}
 								description

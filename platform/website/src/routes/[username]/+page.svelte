@@ -39,7 +39,9 @@
 						user {
 							user: byId(id: $id) {
 								channel {
-									liveViewerCount
+									live {
+										liveViewerCount
+									}
 								}
 							}
 						}
@@ -52,8 +54,8 @@
 			)
 			.toPromise();
 
-		if (res.data?.user.user?.channel) {
-			viewers = res.data.user.user.channel.liveViewerCount;
+		if (res.data?.user.user?.channel.live) {
+			viewers = res.data.user.user.channel.live.liveViewerCount;
 		}
 	}
 
@@ -75,10 +77,14 @@
 
 <div class="content">
 	<div class="user-container" class:dev class:top-nav-hidden={$topNavHidden}>
-		<Player
-			roomId={data.user.channel.roomId}
-			playerToken={data.user.channel.live.playerToken ?? undefined}
-		/>
+		{#if data.user.channel.live}
+			<Player
+				edgeEndpoint={data.user.channel.live.edgeEndpoint}
+				organizationId={data.user.channel.live.organizationId}
+				roomId={data.user.channel.live.roomId}
+				playerToken={data.user.channel.live.playerToken ?? undefined}
+			/>
+		{/if}
 		<div class="under-player" class:hide-on-mobile={!chatCollapsed}>
 			<div class="row title-row">
 				<h1 class="title">

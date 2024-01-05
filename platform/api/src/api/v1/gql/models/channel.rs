@@ -112,13 +112,14 @@ pub struct ChannelLive<G: ApiGlobal> {
 	_phantom: std::marker::PhantomData<G>,
 }
 
-// For some weird reason Clone can't be derived here, it has something to do with the generic parameter
+// For some weird reason Clone can't be derived here, it has something to do
+// with the generic parameter
 impl<G: ApiGlobal> Clone for ChannelLive<G> {
 	fn clone(&self) -> Self {
 		Self {
 			edge_endpoint: self.edge_endpoint.clone(),
-			organization_id: self.organization_id.clone(),
-			room_id: self.room_id.clone(),
+			organization_id: self.organization_id,
+			room_id: self.room_id,
 			live_viewer_count_updated_at: self.live_viewer_count_updated_at.clone(),
 			live_viewer_count_: self.live_viewer_count_,
 			channel_id: self.channel_id,
@@ -151,7 +152,10 @@ impl<G: ApiGlobal> ChannelLive<G> {
 			}
 		}
 
-		let live_viewer_count = request_deduplicated_viewer_count(&mut global.video_playback_session_client().clone(), self.room_id.0).await.map_err_gql("failed to fetch playback session count")?;
+		let live_viewer_count =
+			request_deduplicated_viewer_count(&mut global.video_playback_session_client().clone(), self.room_id.0)
+				.await
+				.map_err_gql("failed to fetch playback session count")?;
 
 		sqlx::query(
 			"UPDATE users SET channel_live_viewer_count = $1, channel_live_viewer_count_updated_at = NOW() WHERE id = $2",

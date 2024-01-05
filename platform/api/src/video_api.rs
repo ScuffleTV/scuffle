@@ -52,7 +52,10 @@ pub fn setup_video_room_client(config: &VideoApiConfig, tls: Option<TlsSettings>
 	))
 }
 
-pub fn setup_video_playback_session_client(config: &VideoApiConfig, tls: Option<TlsSettings>) -> anyhow::Result<VideoPlaybackSessionClient> {
+pub fn setup_video_playback_session_client(
+	config: &VideoApiConfig,
+	tls: Option<TlsSettings>,
+) -> anyhow::Result<VideoPlaybackSessionClient> {
 	let video_api = common::grpc::make_channel(vec![config.address.clone()], Duration::from_secs(30), tls)?;
 
 	Ok(
@@ -99,7 +102,10 @@ pub fn load_playback_keypair_private_key(
 	))
 }
 
-pub async fn request_deduplicated_viewer_count(client: &mut VideoPlaybackSessionClient, room_id: Ulid) -> tonic::Result<i32> {
+pub async fn request_deduplicated_viewer_count(
+	client: &mut VideoPlaybackSessionClient,
+	room_id: Ulid,
+) -> tonic::Result<i32> {
 	let res = client
 		.count(pb::scuffle::video::v1::PlaybackSessionCountRequest {
 			filter: Some(pb::scuffle::video::v1::playback_session_count_request::Filter::Target(

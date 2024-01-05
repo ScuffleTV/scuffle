@@ -214,7 +214,9 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			.ok_or_else(|| anyhow::anyhow!("failed to setup image processor s3"))?;
 
 		let video_api_tls = if let Some(tls) = &config.extra.video_api.tls {
-			let cert = tokio::fs::read(&tls.cert).await.context("failed to read video api tls cert")?;
+			let cert = tokio::fs::read(&tls.cert)
+				.await
+				.context("failed to read video api tls cert")?;
 			let key = tokio::fs::read(&tls.key).await.context("failed to read video api tls key")?;
 
 			let ca_cert = if let Some(ca_cert) = &tls.ca_cert {
@@ -235,7 +237,8 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 		};
 
 		let video_room_client = setup_video_room_client(&config.extra.video_api, video_api_tls.clone())?;
-		let video_playback_session_client = setup_video_playback_session_client(&config.extra.video_api, video_api_tls.clone())?;
+		let video_playback_session_client =
+			setup_video_playback_session_client(&config.extra.video_api, video_api_tls.clone())?;
 		let video_events_client = setup_video_events_client(&config.extra.video_api, video_api_tls)?;
 
 		let playback_private_key = config

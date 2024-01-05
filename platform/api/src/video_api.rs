@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use base64::Engine;
+use common::grpc::TlsSettings;
 use pb::scuffle::video::v1::events_client::EventsClient;
 use pb::scuffle::video::v1::playback_session_client::PlaybackSessionClient;
 use pb::scuffle::video::v1::room_client::RoomClient;
@@ -38,9 +39,8 @@ pub type VideoRoomClient = RoomClient<InterceptedService<Channel, AuthIntercepto
 pub type VideoPlaybackSessionClient = PlaybackSessionClient<InterceptedService<Channel, AuthInterceptor>>;
 pub type VideoEventsClient = EventsClient<InterceptedService<Channel, AuthInterceptor>>;
 
-pub fn setup_video_room_client(config: &VideoApiConfig) -> anyhow::Result<VideoRoomClient> {
-	// TODO: tls
-	let video_api = common::grpc::make_channel(vec![config.address.clone()], Duration::from_secs(30), None)?;
+pub fn setup_video_room_client(config: &VideoApiConfig, tls: Option<TlsSettings>) -> anyhow::Result<VideoRoomClient> {
+	let video_api = common::grpc::make_channel(vec![config.address.clone()], Duration::from_secs(30), tls)?;
 
 	Ok(pb::scuffle::video::v1::room_client::RoomClient::with_interceptor(
 		video_api,
@@ -52,9 +52,8 @@ pub fn setup_video_room_client(config: &VideoApiConfig) -> anyhow::Result<VideoR
 	))
 }
 
-pub fn setup_video_playback_session_client(config: &VideoApiConfig) -> anyhow::Result<VideoPlaybackSessionClient> {
-	// TODO: tls
-	let video_api = common::grpc::make_channel(vec![config.address.clone()], Duration::from_secs(30), None)?;
+pub fn setup_video_playback_session_client(config: &VideoApiConfig, tls: Option<TlsSettings>) -> anyhow::Result<VideoPlaybackSessionClient> {
+	let video_api = common::grpc::make_channel(vec![config.address.clone()], Duration::from_secs(30), tls)?;
 
 	Ok(
 		pb::scuffle::video::v1::playback_session_client::PlaybackSessionClient::with_interceptor(
@@ -68,9 +67,8 @@ pub fn setup_video_playback_session_client(config: &VideoApiConfig) -> anyhow::R
 	)
 }
 
-pub fn setup_video_events_client(config: &VideoApiConfig) -> anyhow::Result<VideoEventsClient> {
-	// TODO: tls
-	let video_api = common::grpc::make_channel(vec![config.address.clone()], Duration::from_secs(30), None)?;
+pub fn setup_video_events_client(config: &VideoApiConfig, tls: Option<TlsSettings>) -> anyhow::Result<VideoEventsClient> {
+	let video_api = common::grpc::make_channel(vec![config.address.clone()], Duration::from_secs(30), tls)?;
 
 	Ok(pb::scuffle::video::v1::events_client::EventsClient::with_interceptor(
 		video_api,

@@ -7,6 +7,7 @@ use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
 use common::context::Context;
 use common::dataloader::DataLoader;
 use common::global::*;
+use common::grpc::TlsSettings;
 use platform_api::config::{ApiConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
 use platform_api::dataloader::category::CategoryByIdLoader;
 use platform_api::dataloader::global_state::GlobalStateLoader;
@@ -212,9 +213,30 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			.setup()
 			.ok_or_else(|| anyhow::anyhow!("failed to setup image processor s3"))?;
 
-		let video_room_client = setup_video_room_client(&config.extra.video_api)?;
-		let video_playback_session_client = setup_video_playback_session_client(&config.extra.video_api)?;
-		let video_events_client = setup_video_events_client(&config.extra.video_api)?;
+		let video_api_tls = if let Some(tls) = &config.extra.video_api.tls {
+			let cert = tokio::fs::read(&tls.cert).await.context("failed to read video api tls cert")?;
+			let key = tokio::fs::read(&tls.key).await.context("failed to read video api tls key")?;
+
+			let ca_cert = if let Some(ca_cert) = &tls.ca_cert {
+				Some(tonic::transport::Certificate::from_pem(
+					tokio::fs::read(&ca_cert).await.context("failed to read video api tls ca")?,
+				))
+			} else {
+				None
+			};
+
+			Some(TlsSettings {
+				domain: tls.domain.clone(),
+				ca_cert,
+				identity: tonic::transport::Identity::from_pem(cert, key),
+			})
+		} else {
+			None
+		};
+
+		let video_room_client = setup_video_room_client(&config.extra.video_api, video_api_tls.clone())?;
+		let video_playback_session_client = setup_video_playback_session_client(&config.extra.video_api, video_api_tls.clone())?;
+		let video_events_client = setup_video_events_client(&config.extra.video_api, video_api_tls)?;
 
 		let playback_private_key = config
 			.extra

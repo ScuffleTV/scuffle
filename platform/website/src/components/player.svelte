@@ -391,7 +391,9 @@
 					<select bind:value={selectedVariant} disabled={state === PlayerState.Error}>
 						<option value={-1}>{autoVariantName(selectedVariant)}</option>
 						{#each variants as variant, index}
-							<option value={index} selected={index === selectedVariant}>{friendlyVariantName(variant)}</option>
+							<option value={index} selected={index === selectedVariant}
+								>{friendlyVariantName(variant)}</option
+							>
 						{/each}
 					</select>
 				{/if}

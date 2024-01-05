@@ -66,7 +66,9 @@ async fn handle_room_event<G: ApiGlobal>(global: &Arc<G>, event: event::Room, ti
 					pb::scuffle::platform::internal::events::ChannelLive {
 						channel_id: Some(channel_id.0.into()),
 						live: true,
-					}.encode_to_vec().into(),
+					}
+					.encode_to_vec()
+					.into(),
 				)
 				.await
 				.context("failed to publish channel live event")?;
@@ -83,7 +85,9 @@ async fn handle_room_event<G: ApiGlobal>(global: &Arc<G>, event: event::Room, ti
 					pb::scuffle::platform::internal::events::ChannelLive {
 						channel_id: Some(channel_id.0.into()),
 						live: false,
-					}.encode_to_vec().into(),
+					}
+					.encode_to_vec()
+					.into(),
 				)
 				.await
 				.context("failed to publish channel live event")?;

@@ -1,5 +1,4 @@
-use async_graphql::Object;
-use async_graphql::{ComplexObject, Context, SimpleObject};
+use async_graphql::{ComplexObject, Context, Object, SimpleObject};
 use chrono::Utc;
 use jwt::SignWithKey;
 

@@ -12,13 +12,12 @@
 	export let channel: Channel;
 	export let collapsed = false;
 
-	$: ariaLabel =
-		channel.live
-			? `${displayName} streaming ${channel.category?.name ?? ""} with ${viewersToString(
-					channel.liveViewerCount,
-					true,
-				)}`
-			: `${displayName} is offline`;
+	$: ariaLabel = channel.live
+		? `${displayName} streaming ${channel.category?.name ?? ""} with ${viewersToString(
+				channel.liveViewerCount,
+				true,
+			)}`
+		: `${displayName} is offline`;
 
 	$: selected =
 		$page.url.pathname === `/${username}` || $page.url.pathname.startsWith(`/${username}/`);

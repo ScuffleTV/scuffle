@@ -1,17 +1,17 @@
 <script lang="ts">
-    import { graphql } from "$/gql";
+	import { graphql } from "$/gql";
 	import { websocketOpen } from "$/store/websocket";
 	import { getContextClient } from "@urql/svelte";
 	import { onDestroy } from "svelte";
 	import { type Subscription, subscribe, pipe } from "wonka";
 	import { user } from "$/store/auth";
 
-    let subscription: Subscription;
+	let subscription: Subscription;
 
 	const client = getContextClient();
 
 	function sub() {
-        if (!$user) return;
+		if (!$user) return;
 		subscription?.unsubscribe();
 		subscription = pipe(
 			client.subscription(
@@ -46,7 +46,7 @@
 </script>
 
 {#if $user?.channel.live}
-    <a href="/creator-dashboard" class="live-indicator" title="You are live">Live</a>
+	<a href="/creator-dashboard" class="live-indicator" title="You are live">Live</a>
 {/if}
 
 <style lang="scss">

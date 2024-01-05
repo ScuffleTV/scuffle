@@ -33,24 +33,24 @@
 
 	async function updateViewers() {
 		const res = await client
-		.query(
-			graphql(`
-				query ChannelLiveViewers($id: ULID!) {
-					user {
-						user: byId(id: $id) {
-							channel {
-								liveViewerCount
+			.query(
+				graphql(`
+					query ChannelLiveViewers($id: ULID!) {
+						user {
+							user: byId(id: $id) {
+								channel {
+									liveViewerCount
+								}
 							}
 						}
 					}
-				}
-			`),
-			{
-				id: data.user.id,
-			},
-			{ requestPolicy: "network-only" },
-		)
-		.toPromise();
+				`),
+				{
+					id: data.user.id,
+				},
+				{ requestPolicy: "network-only" },
+			)
+			.toPromise();
 
 		if (res.data?.user.user?.channel) {
 			viewers = res.data.user.user.channel.liveViewerCount;
@@ -75,7 +75,10 @@
 
 <div class="content">
 	<div class="user-container" class:dev class:top-nav-hidden={$topNavHidden}>
-		<Player roomId={data.user.channel.roomId} playerToken={data.user.channel.live.playerToken ?? undefined} />
+		<Player
+			roomId={data.user.channel.roomId}
+			playerToken={data.user.channel.live.playerToken ?? undefined}
+		/>
 		<div class="under-player" class:hide-on-mobile={!chatCollapsed}>
 			<div class="row title-row">
 				<h1 class="title">

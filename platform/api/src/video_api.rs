@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use anyhow::Context;
 use base64::Engine;
 use pb::scuffle::video::v1::events_client::EventsClient;
 use pb::scuffle::video::v1::playback_session_client::PlaybackSessionClient;
@@ -7,7 +8,6 @@ use pb::scuffle::video::v1::room_client::RoomClient;
 use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
 use ulid::Ulid;
-use anyhow::Context;
 
 use crate::config::{VideoApiConfig, VideoApiPlaybackKeypairConfig};
 
@@ -56,14 +56,16 @@ pub fn setup_video_playback_session_client(config: &VideoApiConfig) -> anyhow::R
 	// TODO: tls
 	let video_api = common::grpc::make_channel(vec![config.address.clone()], Duration::from_secs(30), None)?;
 
-	Ok(pb::scuffle::video::v1::playback_session_client::PlaybackSessionClient::with_interceptor(
-		video_api,
-		AuthInterceptor {
-			organization_id: config.organization_id,
-			access_key: config.access_key,
-			secret_key: config.secret_key,
-		},
-	))
+	Ok(
+		pb::scuffle::video::v1::playback_session_client::PlaybackSessionClient::with_interceptor(
+			video_api,
+			AuthInterceptor {
+				organization_id: config.organization_id,
+				access_key: config.access_key,
+				secret_key: config.secret_key,
+			},
+		),
+	)
 }
 
 pub fn setup_video_events_client(config: &VideoApiConfig) -> anyhow::Result<VideoEventsClient> {
@@ -80,13 +82,21 @@ pub fn setup_video_events_client(config: &VideoApiConfig) -> anyhow::Result<Vide
 	))
 }
 
-pub fn load_playback_keypair_private_key(pbkp_config: &VideoApiPlaybackKeypairConfig) -> anyhow::Result<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>> {
-	let key_string = std::fs::read_to_string(&pbkp_config.private_key)
-				.with_context(|| format!("failed to read video api playback keypair private key from {}", pbkp_config.private_key.display()))?;
+pub fn load_playback_keypair_private_key(
+	pbkp_config: &VideoApiPlaybackKeypairConfig,
+) -> anyhow::Result<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>> {
+	let key_string = std::fs::read_to_string(&pbkp_config.private_key).with_context(|| {
+		format!(
+			"failed to read video api playback keypair private key from {}",
+			pbkp_config.private_key.display()
+		)
+	})?;
 	let key = jwt::asymmetric::PrivateKey::from_pem(&key_string)
 		.context("failed to parse video api playback keypair private key")?
 		.into_ec384()
 		.ok()
 		.context("video api playback keypair private key is not EC384")?;
-	Ok(jwt::asymmetric::AsymmetricKeyWithDigest::new(jwt::asymmetric::SigningKey::from_ec384(key)))
+	Ok(jwt::asymmetric::AsymmetricKeyWithDigest::new(
+		jwt::asymmetric::SigningKey::from_ec384(key),
+	))
 }

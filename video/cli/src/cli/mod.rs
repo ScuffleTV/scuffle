@@ -24,7 +24,7 @@ pub struct Cli {
 
 	/// The video api configuration file path
 	#[clap(long, env = "SCUF_CONFIG_PATH")]
-	pub config: Option<String>,
+	pub config_file: Option<String>,
 
 	/// The access key id for scuffle video api
 	#[clap(long, env = "SCUF_ACCESS_KEY_ID")]

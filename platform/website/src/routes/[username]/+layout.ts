@@ -28,6 +28,7 @@ export async function load({ params, parent }: LayoutLoadEvent) {
 									organizationId
 									roomId
 									playerToken
+									liveViewerCount
 								}
 								description
 								followersCount

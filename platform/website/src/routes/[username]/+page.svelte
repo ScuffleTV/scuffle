@@ -27,7 +27,7 @@
 
 	let timeLive =
 		data.user.channel.lastLiveAt && formatDuration(new Date(data.user.channel.lastLiveAt));
-	let viewers: number | null = null;
+	let viewers = data.user.channel.live?.liveViewerCount ?? 0;
 
 	const client = getContextClient();
 
@@ -91,10 +91,7 @@
 					<Title {channelId} bind:title={data.user.channel.title} />
 				</h1>
 				<div class="stream-info">
-					<!-- a simple if vierwers would be false when viewers is 0 -->
-					{#if typeof viewers === "number"}
-						<span class="viewers">{viewersToString(viewers)}</span>
-					{/if}
+					<span class="viewers">{viewersToString(viewers)}</span>
 					{#if timeLive}
 						<span class="time">{timeLive}</span>
 					{/if}

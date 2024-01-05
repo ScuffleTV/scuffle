@@ -11,8 +11,8 @@ pub struct Modify {
 	#[clap(long, required = true)]
 	id: Ulid,
 
-	#[clap(long)]
-	/// Renditions to save for the recording
+	#[clap(long, value_parser, num_args = 1.., value_delimiter = ' ')]
+	/// Renditions to transcode to
 	renditions: Option<Vec<Rendition>>,
 
 	/// The tags for the transcoding config (JSON)

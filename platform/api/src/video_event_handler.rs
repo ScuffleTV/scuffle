@@ -88,7 +88,7 @@ async fn handle_room_event<G: ApiGlobal>(global: &Arc<G>, event: event::Room, ti
 			connection_id: Some(connection_id),
 			..
 		}) => {
-			let res: Option<(common::database::Ulid,)> = sqlx::query_as("UPDATE users SET channel_active_connection_id = NULL, channel_live_viewer_count = NULL, channel_live_viewer_count_updated_at = NOW() WHERE channel_room_id = $1 AND channel_active_connection_id = $2 RETURNING id")
+			let res: Option<(common::database::Ulid,)> = sqlx::query_as("UPDATE users SET channel_active_connection_id = NULL, channel_live_viewer_count = 0, channel_live_viewer_count_updated_at = NOW() WHERE channel_room_id = $1 AND channel_active_connection_id = $2 RETURNING id")
 				.bind(Ulid::from(room_id.into_ulid()))
 				.bind(Ulid::from(connection_id.into_ulid()))
 				.fetch_optional(global.db().as_ref())

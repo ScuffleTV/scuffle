@@ -31,7 +31,7 @@ CREATE TABLE users (
     channel_room_id UUID NOT NULL,
     channel_active_connection_id UUID DEFAULT NULL,
     channel_title VARCHAR(256),
-    channel_live_viewer_count INT4,
+    channel_live_viewer_count INT4 NOT NULL DEFAULT 0,
     channel_live_viewer_count_updated_at TIMESTAMPTZ,
     channel_description TEXT,
     channel_links JSONB NOT NULL DEFAULT '[]'::JSONB,

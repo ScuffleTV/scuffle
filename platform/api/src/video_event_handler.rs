@@ -87,44 +87,37 @@ async fn handle_room_event<G: ApiGlobal>(global: &Arc<G>, event: event::Room, ti
 		event::room::Event::Disconnected(event::room::Disconnected {
 			connection_id: Some(connection_id),
 			..
-		}) => handle_room_disconnect(global, room_id.into_ulid(), connection_id.into_ulid()).await?,
+		}) => {
+			let res: Option<(common::database::Ulid,)> = sqlx::query_as("UPDATE users SET channel_active_connection_id = NULL, channel_live_viewer_count = NULL, channel_live_viewer_count_updated_at = NOW() WHERE channel_room_id = $1 AND channel_active_connection_id = $2 RETURNING id")
+				.bind(Ulid::from(room_id.into_ulid()))
+				.bind(Ulid::from(connection_id.into_ulid()))
+				.fetch_optional(global.db().as_ref())
+				.await?;
+			if let Some((channel_id,)) = res {
+				global
+					.nats()
+					.publish(
+						SubscriptionTopic::ChannelLive(channel_id.0),
+						pb::scuffle::platform::internal::events::ChannelLive {
+							channel_id: Some(channel_id.0.into()),
+							live: false,
+						}
+						.encode_to_vec()
+						.into(),
+					)
+					.await
+					.context("failed to publish channel live event")?;
+			}
+		}
 		event::room::Event::Failed(event::room::Failed {
 			connection_id: Some(connection_id),
 			error,
 			..
 		}) => {
-			tracing::warn!(error = %error, "room failed");
-			handle_room_disconnect(global, room_id.into_ulid(), connection_id.into_ulid()).await?;
+			let connection_id = connection_id.into_ulid();
+			tracing::warn!(connection_id = %connection_id, error = %error, "room failed");
 		}
 		_ => {}
-	}
-	Ok(())
-}
-
-async fn handle_room_disconnect<G: ApiGlobal>(
-	global: &Arc<G>,
-	room_id: ulid::Ulid,
-	connection_id: ulid::Ulid,
-) -> anyhow::Result<()> {
-	let res: Option<(common::database::Ulid,)> = sqlx::query_as("UPDATE users SET channel_active_connection_id = NULL, channel_live_viewer_count = NULL, channel_live_viewer_count_updated_at = NOW() WHERE channel_room_id = $1 AND channel_active_connection_id = $2 RETURNING id")
-		.bind(Ulid::from(room_id))
-		.bind(Ulid::from(connection_id))
-		.fetch_optional(global.db().as_ref())
-		.await?;
-	if let Some((channel_id,)) = res {
-		global
-			.nats()
-			.publish(
-				SubscriptionTopic::ChannelLive(channel_id.0),
-				pb::scuffle::platform::internal::events::ChannelLive {
-					channel_id: Some(channel_id.0.into()),
-					live: false,
-				}
-				.encode_to_vec()
-				.into(),
-			)
-			.await
-			.context("failed to publish channel live event")?;
 	}
 	Ok(())
 }

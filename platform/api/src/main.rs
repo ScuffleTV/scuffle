@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context as _;
 use async_graphql::SDLExportOptions;
@@ -236,10 +237,15 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			None
 		};
 
-		let video_room_client = setup_video_room_client(&config.extra.video_api, video_api_tls.clone())?;
+		let video_api_channel = common::grpc::make_channel(
+			vec![config.extra.video_api.address.clone()],
+			Duration::from_secs(30),
+			video_api_tls,
+		)?;
+		let video_room_client = setup_video_room_client(video_api_channel.clone(), &config.extra.video_api);
 		let video_playback_session_client =
-			setup_video_playback_session_client(&config.extra.video_api, video_api_tls.clone())?;
-		let video_events_client = setup_video_events_client(&config.extra.video_api, video_api_tls)?;
+			setup_video_playback_session_client(video_api_channel.clone(), &config.extra.video_api);
+		let video_events_client = setup_video_events_client(video_api_channel.clone(), &config.extra.video_api);
 
 		let playback_private_key = config
 			.extra

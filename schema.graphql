@@ -162,7 +162,6 @@ type ChannelLink {
 type ChannelLive {
 	edgeEndpoint: String!
 	liveViewerCount: Int!
-	liveViewerCountUpdatedAt: DateRFC3339
 	organizationId: ULID!
 	playerToken: String
 	roomId: ULID!

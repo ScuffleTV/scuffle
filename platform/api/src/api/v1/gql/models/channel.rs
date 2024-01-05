@@ -99,11 +99,12 @@ pub struct ChannelLive<G: ApiGlobal> {
 	pub edge_endpoint: String,
 	pub organization_id: GqlUlid,
 	pub room_id: GqlUlid,
-	pub live_viewer_count_updated_at: Option<DateRFC3339>,
 
 	// Live viewer count has a custom resolver
 	#[graphql(skip)]
 	live_viewer_count_: Option<i32>,
+	#[graphql(skip)]
+	live_viewer_count_updated_at_: Option<DateRFC3339>,
 	// Needed for the live_viewer_count resolver
 	#[graphql(skip)]
 	channel_id: ulid::Ulid,
@@ -120,7 +121,7 @@ impl<G: ApiGlobal> Clone for ChannelLive<G> {
 			edge_endpoint: self.edge_endpoint.clone(),
 			organization_id: self.organization_id,
 			room_id: self.room_id,
-			live_viewer_count_updated_at: self.live_viewer_count_updated_at.clone(),
+			live_viewer_count_updated_at_: self.live_viewer_count_updated_at_.clone(),
 			live_viewer_count_: self.live_viewer_count_,
 			channel_id: self.channel_id,
 			_phantom: std::marker::PhantomData,
@@ -143,7 +144,7 @@ impl<G: ApiGlobal> ChannelLive<G> {
 
 		if let Some(count) = self.live_viewer_count_ {
 			let expired = self
-				.live_viewer_count_updated_at
+				.live_viewer_count_updated_at_
 				.as_ref()
 				.map(|DateRFC3339(t)| Utc::now().signed_duration_since(t).num_seconds() > 30)
 				.unwrap_or(true);
@@ -229,7 +230,7 @@ impl<G: ApiGlobal> Channel<G> {
 				organization_id: video_api_config.organization_id.into(),
 				room_id: value.room_id.0.into(),
 				live_viewer_count_: value.live_viewer_count,
-				live_viewer_count_updated_at: value.live_viewer_count_updated_at.map(DateRFC3339),
+				live_viewer_count_updated_at_: value.live_viewer_count_updated_at.map(DateRFC3339),
 				channel_id: value.id.0,
 				_phantom: std::marker::PhantomData,
 			},

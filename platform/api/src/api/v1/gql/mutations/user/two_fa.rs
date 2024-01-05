@@ -147,7 +147,7 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 
 		// TODO: Log out all other sessions?
 
-		Ok(User::from_db(user, global))
+		Ok(user.into())
 	}
 
 	/// Disable TOTP for the currently authenticated user.
@@ -194,6 +194,6 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 		.fetch_one(global.db().as_ref())
 		.await?;
 
-		Ok(User::from_db(user, global))
+		Ok(user.into())
 	}
 }

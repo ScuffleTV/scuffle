@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, Object, SimpleObject};
 
 use crate::api::auth::AuthError;
@@ -27,17 +25,11 @@ struct UserSearchResults<G: ApiGlobal> {
 	total_count: u32,
 }
 
-impl<G: ApiGlobal> UserSearchResults<G> {
-	pub fn from_db(value: Vec<database::SearchResult<database::User>>, global: &Arc<G>) -> Self {
+impl<G: ApiGlobal> From<Vec<database::SearchResult<database::User>>> for UserSearchResults<G> {
+	fn from(value: Vec<database::SearchResult<database::User>>) -> Self {
 		let total_count = value.first().map(|r| r.total_count).unwrap_or(0) as u32;
 		Self {
-			results: value
-				.into_iter()
-				.map(|r| SearchResult {
-					similarity: r.similarity,
-					object: User::from_db(r.object, global),
-				})
-				.collect(),
+			results: value.into_iter().map(Into::into).collect(),
 			total_count,
 		}
 	}
@@ -60,7 +52,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 			.await
 			.map_err_ignored_gql("failed to fetch user")?
 			.map_err_gql(GqlError::NotFound("user"))
-			.map(|u| User::from_db(u, global))
+			.map(Into::into)
 	}
 
 	/// Get a user by their username
@@ -77,7 +69,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 			.await
 			.map_err_ignored_gql("failed to fetch user")?;
 
-		Ok(user.map(|u| User::from_db(u, global)))
+		Ok(user.map(Into::into))
 	}
 
 	/// Get a user by their id
@@ -94,7 +86,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 			.await
 			.map_err_ignored_gql("failed to fetch user")?;
 
-		Ok(user.map(|u| User::from_db(u, global)))
+		Ok(user.map(Into::into))
 	}
 
 	async fn search_by_username(
@@ -114,7 +106,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 			.await
 			.map_err_gql("failed to search users")?;
 
-		Ok(UserSearchResults::from_db(users, global))
+		Ok(UserSearchResults::from(users))
 	}
 
 	/// Get if the current user is following a given channel
@@ -191,6 +183,6 @@ impl<G: ApiGlobal> UserQuery<G> {
 		.fetch_all(global.db().as_ref())
 		.await?;
 
-		Ok(channels.into_iter().map(|u| User::from_db(u, global)).collect())
+		Ok(channels.into_iter().map(Into::into).collect())
 	}
 }

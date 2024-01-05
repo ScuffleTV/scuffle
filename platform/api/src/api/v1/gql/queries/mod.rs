@@ -111,7 +111,7 @@ impl<G: ApiGlobal> Query<G> {
 			.iter()
 			.filter_map(|r| {
 				let object = match r.r#type {
-					0 => SearchAllResultData::User(Box::new(User::from_db(users.get(&r.id.0)?.clone(), global))),
+					0 => SearchAllResultData::User(Box::new(User::from(users.get(&r.id.0)?.clone()))),
 					1 => SearchAllResultData::Category(categories.get(&r.id.0)?.clone().into()),
 					_ => unreachable!(),
 				};

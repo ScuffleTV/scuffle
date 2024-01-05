@@ -44,7 +44,7 @@ impl<G: ApiGlobal> ChatMessage<G> {
 			.map_err_ignored_gql("failed to fetch user")?
 			.ok_or(GqlError::NotFound("user"))?;
 
-		Ok(Some(User::from_db(user, global)))
+		Ok(Some(user.into()))
 	}
 
 	pub async fn channel(&self, ctx: &Context<'_>) -> Result<User<G>> {
@@ -57,7 +57,7 @@ impl<G: ApiGlobal> ChatMessage<G> {
 			.map_err_ignored_gql("failed to fetch user")?
 			.ok_or(GqlError::NotFound("user"))?;
 
-		Ok(User::from_db(user, global))
+		Ok(user.into())
 	}
 }
 

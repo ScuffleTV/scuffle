@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use async_graphql::{ComplexObject, Context, SimpleObject};
 use chrono::Utc;
 use common::database::Ulid;
@@ -33,11 +31,15 @@ pub struct Channel<G: ApiGlobal> {
 	#[graphql(skip)]
 	stream_key_: Option<String>,
 
-	// Live has a custom resolver
+	// Keep the database channel around for the live resolver
 	#[graphql(skip)]
-	live_: ChannelLive<G>,
+	db_: database::Channel,
+
 	#[graphql(skip)]
 	active_connection_id_: Option<ulid::Ulid>,
+
+	#[graphql(skip)]
+	_phantom: std::marker::PhantomData<G>,
 }
 
 #[ComplexObject]
@@ -84,16 +86,27 @@ impl<G: ApiGlobal> Channel<G> {
 		Ok(followers)
 	}
 
-	async fn live(&self, _ctx: &Context<'_>) -> Result<Option<ChannelLive<G>>> {
+	async fn live(&self, ctx: &Context<'_>) -> Result<Option<ChannelLive<G>>> {
+		let global = ctx.get_global::<G>();
+		let video_api_config: &VideoApiConfig = global.provide_config();
+
 		if self.active_connection_id_.is_some() {
-			Ok(Some(self.live_.clone()))
+			Ok(Some(ChannelLive {
+				edge_endpoint: video_api_config.edge_endpoint.clone(),
+				organization_id: video_api_config.organization_id.into(),
+				room_id: self.db_.room_id.0.into(),
+				live_viewer_count_: self.db_.live_viewer_count,
+				live_viewer_count_updated_at_: self.db_.live_viewer_count_updated_at.map(DateRFC3339),
+				channel_id: self.id.0,
+				_phantom: std::marker::PhantomData,
+			}))
 		} else {
 			Ok(None)
 		}
 	}
 }
 
-#[derive(SimpleObject)]
+#[derive(Clone, SimpleObject)]
 #[graphql(complex)]
 pub struct ChannelLive<G: ApiGlobal> {
 	pub edge_endpoint: String,
@@ -111,22 +124,6 @@ pub struct ChannelLive<G: ApiGlobal> {
 
 	#[graphql(skip)]
 	_phantom: std::marker::PhantomData<G>,
-}
-
-// For some weird reason Clone can't be derived here, it has something to do
-// with the generic parameter
-impl<G: ApiGlobal> Clone for ChannelLive<G> {
-	fn clone(&self) -> Self {
-		Self {
-			edge_endpoint: self.edge_endpoint.clone(),
-			organization_id: self.organization_id,
-			room_id: self.room_id,
-			live_viewer_count_updated_at_: self.live_viewer_count_updated_at_.clone(),
-			live_viewer_count_: self.live_viewer_count_,
-			channel_id: self.channel_id,
-			_phantom: std::marker::PhantomData,
-		}
-	}
 }
 
 #[derive(serde::Serialize)]
@@ -210,11 +207,11 @@ impl<G: ApiGlobal> ChannelLive<G> {
 	}
 }
 
-impl<G: ApiGlobal> Channel<G> {
-	pub fn from_db(value: database::Channel, global: &Arc<G>) -> Self {
-		let video_api_config: &VideoApiConfig = global.provide_config();
+impl<G: ApiGlobal> From<database::Channel> for Channel<G> {
+	fn from(value: database::Channel) -> Self {
 		let stream_key_ = value.get_stream_key();
 		Self {
+			db_: value.clone(),
 			id: value.id.0.into(),
 			title: value.title,
 			description: value.description,
@@ -225,15 +222,7 @@ impl<G: ApiGlobal> Channel<G> {
 			last_live_at: value.last_live_at.map(DateRFC3339),
 			stream_key_,
 			active_connection_id_: value.active_connection_id.map(|u| u.0),
-			live_: ChannelLive {
-				edge_endpoint: video_api_config.edge_endpoint.clone(),
-				organization_id: video_api_config.organization_id.into(),
-				room_id: value.room_id.0.into(),
-				live_viewer_count_: value.live_viewer_count,
-				live_viewer_count_updated_at_: value.live_viewer_count_updated_at.map(DateRFC3339),
-				channel_id: value.id.0,
-				_phantom: std::marker::PhantomData,
-			},
+			_phantom: std::marker::PhantomData,
 		}
 	}
 }

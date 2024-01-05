@@ -38,6 +38,25 @@
 		}
 	}
 
+	function friendlyVariantName(variant: Variant) {
+		if (variant.video_track) {
+			return `${variant.video_track.height}p${variant.video_track.frame_rate}`;
+		} else {
+			return "audio only";
+		}
+	}
+
+	function autoVariantName(selected: number) {
+		let name = "auto";
+		if (selected === -1 && player?.variants) {
+			const variant = player.variants.at(player.variantId);
+			if (variant) {
+				name += ` (${friendlyVariantName(variant)})`;
+			}
+		}
+		return name;
+	}
+
 	export let edgeEndpoint: string;
 	export let organizationId: string;
 	export let roomId: string;
@@ -370,16 +389,9 @@
 			<div>
 				{#if variants}
 					<select bind:value={selectedVariant} disabled={state === PlayerState.Error}>
-						<option value={-1}>
-							auto
-							{selectedVariant === -1
-								? ` (${player.variants.at(currentVariant)?.video_track?.name ?? "audio-only"})`
-								: ""}
-						</option>
+						<option value={-1}>{autoVariantName(selectedVariant)}</option>
 						{#each variants as variant, index}
-							<option value={index} selected={index === selectedVariant}
-								>{variant.video_track?.name ?? "audio-only"}</option
-							>
+							<option value={index} selected={index === selectedVariant}>{friendlyVariantName(variant)}</option>
 						{/each}
 					</select>
 				{/if}

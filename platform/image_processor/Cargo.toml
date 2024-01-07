@@ -26,7 +26,6 @@ scopeguard = "1.2"
 rgb = "0.8"
 imgref = "1.10"
 opencv = { version = "0.88", default-features = false, features = ["clang-runtime", "imgproc"] }
-ffmpeg-next = "6.1"
 libavif-sys = { version = "0.15" }
 libwebp-sys2 = { version = "0.1", features = ["1_2", "demux", "mux", "static"] }
 sha2 = "0.10"
@@ -40,7 +39,7 @@ common = { workspace = true, features = ["default"] }
 config = { workspace = true }
 pb = { workspace = true }
 binary-helper = { workspace = true }
-ffmpeg-next-io = { workspace = true, features = ["tokio"] }
+ffmpeg = { workspace = true }
 
 [dev-dependencies]
 dotenvy = "0.15.7"

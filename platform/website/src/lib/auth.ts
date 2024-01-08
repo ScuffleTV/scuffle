@@ -16,6 +16,17 @@ export function getUser(client: Client) {
 								isGray
 							}
 							username
+							profilePicture {
+								id
+								variants {
+									width
+									height
+									scale
+									url
+									format
+									byteSize
+								}
+							}
 							email
 							emailVerified
 							lastLoginAt

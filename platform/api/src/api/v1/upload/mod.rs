@@ -39,7 +39,7 @@ trait UploadType: serde::de::DeserializeOwned + Default {
 }
 
 pub fn routes<G: ApiGlobal>(_: &Arc<G>) -> RouterBuilder<Incoming, Body, RouteError<ApiError>> {
-	Router::builder().patch("/profile-picture", handler::<G, ProfilePicture>)
+	Router::builder().post("/profile-picture", handler::<G, ProfilePicture>)
 }
 
 async fn handler<G: ApiGlobal, U: UploadType>(req: Request<Incoming>) -> Result<Response<Body>, RouteError<ApiError>> {
@@ -68,7 +68,7 @@ async fn handler<G: ApiGlobal, U: UploadType>(req: Request<Incoming>) -> Result<
 		.size_limit(
 			SizeLimit::new()
 				.for_field("metadata", 30 * 1024)
-				.for_field("captcha", 512)
+				.for_field("captcha", 2048) // https://developers.cloudflare.com/turnstile/frequently-asked-questions/#what-is-the-length-of-a-turnstile-token
 				.for_field("file", U::get_max_size(&global) as u64),
 		);
 

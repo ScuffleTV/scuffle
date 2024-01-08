@@ -29,6 +29,17 @@
 									hue
 									isGray
 								}
+								profilePicture {
+									id
+									variants {
+										width
+										height
+										scale
+										url
+										format
+										byteSize
+									}
+								}
 								channel {
 									live {
 										liveViewerCount

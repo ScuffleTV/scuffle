@@ -1,5 +1,4 @@
 <script lang="ts">
-	import DefaultAvatar from "$/components/user/default-avatar.svelte";
 	import Color from "$/components/settings/profile/color.svelte";
 	import { user } from "$/store/auth";
 	import { faPalette, faTrashAlt, faUpload } from "@fortawesome/free-solid-svg-icons";
@@ -10,6 +9,10 @@
 	import StatusBar, { Status } from "$/components/settings/status-bar.svelte";
 	import SectionContainer from "$/components/settings/section-container.svelte";
 	import Field, { FieldStatusType, type FieldStatus } from "$/components/form/field.svelte";
+	import { uploadFile } from "$/lib/fileUpload";
+	import { PUBLIC_CF_TURNSTILE_KEY, PUBLIC_GQL_ENDPOINT, PUBLIC_UPLOAD_ENDPOINT } from "$env/static/public";
+	import { Turnstile } from "svelte-turnstile";
+	import ProfilePicture from "$/components/user/profile-picture.svelte";
 
 	// TODO: Add invisible turnstile captcha
 
@@ -122,28 +125,46 @@
 		}
 	}
 
+	let turnstileToken: string | null = null;
+
+	function uploadProfilePicture() {
+		if (turnstileToken) {
+			uploadFile(`${PUBLIC_UPLOAD_ENDPOINT}/profile-picture`, { set_active: true }, avatarFiles[0], turnstileToken).then((res) => res.json()).then((res) => {
+				console.log(res);
+			}).catch((err) => {
+				console.error(err);
+			});
+		}
+	}
+
 	$: {
 		if (avatarFiles && avatarFiles[0]) {
 			status = Status.Saving;
-			//TODO: Upload file
+			uploadProfilePicture();
 		}
 	}
 </script>
 
 {#if $user}
+	<Turnstile
+		appearance="interaction-only"
+		siteKey={PUBLIC_CF_TURNSTILE_KEY}
+		on:turnstile-callback={(e) => (turnstileToken = e.detail.token)}
+	/>
 	<SectionContainer>
 		<Section title="Profile Picture" details="Personalize your account with a profile picture.">
 			<div class="input big">
-				<DefaultAvatar userId={$user.id} displayColor={$user.displayColor} size={6 * 16} />
+				<ProfilePicture userId={$user.id} displayColor={$user.displayColor} profilePicture={$user.profilePicture} size={6 * 16} />
 				<div class="buttons">
 					<!-- Pseudo button that clicks the hidden input -->
-					<button class="button primary" on:click={() => avatarInput.click()}>
+					<button class="button primary" on:click={() => avatarInput.click()} disabled={!turnstileToken}>
 						<Fa icon={faUpload} />
 						Upload Picture
 					</button>
 					<input
 						type="file"
-						accept="image/png, image/jpeg"
+						accept="image/jpeg, image/png, image/webp, image/gif, image/avif"
+						name="file"
 						bind:this={avatarInput}
 						bind:files={avatarFiles}
 						hidden

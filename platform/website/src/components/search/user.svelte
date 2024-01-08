@@ -3,6 +3,7 @@
 	import { viewersToString } from "$/lib/utils";
 	import { createEventDispatcher } from "svelte";
 	import DefaultAvatar from "../user/default-avatar.svelte";
+	import ProfilePicture from "../user/profile-picture.svelte";
 
 	const dispatch = createEventDispatcher();
 
@@ -12,7 +13,7 @@
 
 <a on:click={() => dispatch("close")} href="/{user.username}">
 	<div class="avatar">
-		<DefaultAvatar userId={user.id} displayColor={user.displayColor} size={2.5 * 16} />
+		<ProfilePicture userId={user.id} profilePicture={user.profilePicture} displayColor={user.displayColor} size={2.5 * 16} />
 	</div>
 	<div class="text-container">
 		<span class="name ellipsis">
@@ -26,7 +27,7 @@
 		{/if}
 	</div>
 	{#if user.channel.live}
-		<span class="live-viewers">{viewersToString(user.channel.liveViewerCount)}</span>
+		<span class="live-viewers">{viewersToString(user.channel.live.liveViewerCount)}</span>
 	{/if}
 </a>
 

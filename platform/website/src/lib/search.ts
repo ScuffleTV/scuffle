@@ -19,6 +19,17 @@ export function searchQuery(client: Client, query: string, limit?: number, offse
 										hue
 										isGray
 									}
+									profilePicture {
+										id
+										variants {
+											width
+											height
+											scale
+											url
+											format
+											byteSize
+										}
+									}
 									channel {
 										title
 										live {

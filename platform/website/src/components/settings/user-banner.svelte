@@ -1,12 +1,12 @@
 <script>
 	import { user } from "$/store/auth";
-	import DefaultAvatar from "../user/default-avatar.svelte";
 	import DisplayName from "../user/display-name.svelte";
+	import ProfilePicture from "../user/profile-picture.svelte";
 </script>
 
 {#if $user}
 	<div class="user-banner">
-		<DefaultAvatar userId={$user.id} bind:displayColor={$user.displayColor} size={6 * 16} />
+		<ProfilePicture userId={$user.id} bind:displayColor={$user.displayColor} bind:profilePicture={$user.profilePicture} size={6 * 16} />
 		<div class="user-info">
 			<span class="display-name">
 				<DisplayName userId={$user.id} bind:displayName={$user.displayName} />

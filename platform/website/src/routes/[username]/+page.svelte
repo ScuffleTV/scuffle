@@ -5,7 +5,6 @@
 	import Player from "$/components/player.svelte";
 	import { formatDuration, viewersToString } from "$/lib/utils";
 	import { browser, dev } from "$app/environment";
-	import DefaultAvatar from "$/components/user/default-avatar.svelte";
 	import { user } from "$/store/auth";
 	import { onMount } from "svelte";
 	import DisplayName from "$/components/user/display-name.svelte";
@@ -15,6 +14,7 @@
 	import Title from "$/components/channel/title.svelte";
 	import { getContextClient } from "@urql/svelte";
 	import { graphql } from "$/gql";
+	import ProfilePicture from "$/components/user/profile-picture.svelte";
 
 	export let data: PageData;
 	$: channelId = data.user.id;
@@ -102,11 +102,7 @@
 					<div class="user">
 						<!-- Wrapper div -->
 						<div class="avatar">
-							<DefaultAvatar
-								userId={channelId}
-								bind:displayColor={data.user.displayColor}
-								size={40}
-							/>
+							<ProfilePicture userId={channelId} bind:displayColor={data.user.displayColor} bind:profilePicture={data.user.profilePicture} size={40} />
 						</div>
 						<div class="container">
 							<h1 class="name">

@@ -21,6 +21,17 @@ export async function load({ params, parent }: LayoutLoadEvent) {
 								hue
 								isGray
 							}
+							profilePicture {
+								id
+								variants {
+									width
+									height
+									scale
+									url
+									format
+									byteSize
+								}
+							}
 							channel {
 								title
 								live {

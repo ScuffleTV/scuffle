@@ -18,6 +18,7 @@
 	import Logo from "./icons/logo.svelte";
 	import ResponsiveContainer from "../components/responsive-container.svelte";
 	import LiveIndicator from "./top-nav/live-indicator.svelte";
+	import ProfilePicture from "./user/profile-picture.svelte";
 
 	const client = getContextClient();
 
@@ -69,7 +70,7 @@
 		{#if $user}
 			<LiveIndicator />
 			<DropDown>
-				<DefaultAvatar userId={$user.id} displayColor={$user.displayColor} />
+				<ProfilePicture userId={$user.id} displayColor={$user.displayColor} profilePicture={$user.profilePicture} />
 				<svelte:fragment slot="dropdown">
 					<li>
 						<a href="/{$user.username}">

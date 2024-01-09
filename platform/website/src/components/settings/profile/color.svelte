@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
 
-	export let color: string;
+	export let rgb: string;
 
 	const dispatch = createEventDispatcher();
 </script>
 
-<button class="color" style="background-color: {color}" on:click={() => dispatch("click")} />
+<button class="color" style="background-color: {rgb}" on:click={() => dispatch("click")} />
 
 <style lang="scss">
 	@import "../../../assets/styles/variables.scss";

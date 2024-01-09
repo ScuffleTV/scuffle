@@ -17,8 +17,12 @@ export async function load({ params, parent }: LayoutLoadEvent) {
 							username
 							displayName
 							displayColor {
-								color
-								hue
+								rgb
+								hsl {
+									h
+									s
+									l
+								}
 								isGray
 							}
 							profilePicture {

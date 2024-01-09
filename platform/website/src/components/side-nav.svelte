@@ -26,8 +26,12 @@
 								username
 								displayName
 								displayColor {
-									color
-									hue
+									rgb
+									hsl {
+										h
+										s
+										l
+									}
 									isGray
 								}
 								profilePicture {

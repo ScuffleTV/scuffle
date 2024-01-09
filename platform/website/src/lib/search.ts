@@ -15,8 +15,12 @@ export function searchQuery(client: Client, query: string, limit?: number, offse
 									username
 									displayName
 									displayColor {
-										color
-										hue
+										rgb
+										hsl {
+											h
+											s
+											l
+										}
 										isGray
 									}
 									profilePicture {

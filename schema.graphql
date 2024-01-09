@@ -209,14 +209,12 @@ type ChatMutation {
 	): ChatMessage!
 }
 
-scalar Color
-
 scalar DateRFC3339
 
 type DisplayColor {
-	color: Color!
-	hue: Float!
+	hsl: HslColor!
 	isGray: Boolean!
+	rgb: RgbColor!
 }
 
 enum FileStatus {
@@ -247,6 +245,15 @@ type FollowStream {
 	channelId: ULID!
 	following: Boolean!
 	userId: ULID!
+}
+
+"""
+A HSL color.
+"""
+type HslColor {
+	h: Float!
+	l: Float!
+	s: Float!
 }
 
 type ImageUpload {
@@ -312,6 +319,8 @@ type Query {
 	): SearchAllResults!
 	user: UserQuery!
 }
+
+scalar RgbColor
 
 union SearchAllResultData = Category | User
 
@@ -441,7 +450,7 @@ type UserMutation {
 		"""
 		New display color.
 		"""
-		color: Color!
+		color: RgbColor!
 	): User!
 	"""
 	Change the display name of the currently logged in user.

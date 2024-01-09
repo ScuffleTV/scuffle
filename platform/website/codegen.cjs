@@ -13,7 +13,7 @@ const config = {
 					DateRFC3339: "string",
 					UUID: "string",
 					ULID: "string",
-					Color: "string",
+					RgbColor: "string",
 				},
 			},
 		},

@@ -17,6 +17,7 @@
 	import { pipe, subscribe, type Subscription } from "wonka";
 	import { FileStatus } from "$/gql/graphql";
 	import ErrorDialog from "$/components/error-dialog.svelte";
+	import { colorToStyle, rgbHexToHsl } from "$/lib/colors";
 
 	const recommendedColors = ["#ff7a00", "#ffe457", "#57ff86", "#00ffd1", "#5786ff", "#8357ff"];
 
@@ -33,14 +34,14 @@
 		return { type: FieldStatusType.Success };
 	}
 
-	let displayColor = $user?.displayColor.color;
+	let displayColorRgb = $user?.displayColor.rgb;
 	let displayColorInput: HTMLInputElement;
 
 	let avatarFiles: FileList;
 	let avatarInput: HTMLInputElement;
 
 	$: status =
-		displayName !== $user?.displayName || displayColor !== $user?.displayColor.color
+		displayName !== $user?.displayName || displayColorRgb !== $user?.displayColor.rgb
 			? Status.Changed
 			: Status.Unchanged;
 
@@ -48,7 +49,7 @@
 		if (displayName !== $user?.displayName) {
 			saveDisplayName();
 		}
-		if (displayColor !== $user?.displayColor.color) {
+		if (displayColorRgb !== $user?.displayColor.rgb) {
 			saveDisplayColor();
 		}
 	}
@@ -89,16 +90,20 @@
 	}
 
 	function saveDisplayColor() {
-		if (displayColor) {
+		if (displayColorRgb) {
 			status = Status.Saving;
 			const request = {
 				query: graphql(`
-					mutation SetDisplayColor($color: Color!) {
+					mutation SetDisplayColor($color: RgbColor!) {
 						user {
 							resp: displayColor(color: $color) {
 								displayColor {
-									color
-									hue
+									rgb
+									hsl {
+										h
+										s
+										l
+									}
 									isGray
 								}
 							}
@@ -106,7 +111,7 @@
 					}
 				`),
 				variables: {
-					color: displayColor,
+					color: displayColorRgb,
 				},
 			};
 			client
@@ -116,12 +121,12 @@
 				.toPromise()
 				.then((result) => {
 					if (result.data) {
-						displayColor = result.data.user.resp.displayColor.color;
+						displayColorRgb = result.data.user.resp.displayColor.rgb;
 						if ($user) {
 							$user.displayColor = result.data.user.resp.displayColor;
 						}
 					} else if (result.error && $user) {
-						displayColor = $user.displayColor.color;
+						displayColorRgb = $user.displayColor.rgb;
 					}
 				});
 		}
@@ -299,15 +304,17 @@
 		<Section
 			title="Display Color"
 			details="The color of your name in chat."
-			showReset={displayColor !== $user.displayColor.color}
-			on:reset={() => (displayColor = $user?.displayColor.color)}
+			showReset={displayColorRgb !== $user.displayColor.rgb}
+			on:reset={() => (displayColorRgb = $user?.displayColor.rgb)}
 		>
 			<div class="input big display-color">
-				<span class="display-name" style="color: {displayColor}">{$user?.displayName}</span>
+				<span class="display-name" style={colorToStyle(rgbHexToHsl(displayColorRgb))}
+					>{$user?.displayName}</span
+				>
 				<div class="color-picker">
 					<div class="colors">
 						{#each recommendedColors as color}
-							<Color {color} on:click={() => (displayColor = color)} />
+							<Color rgb={color} on:click={() => (displayColorRgb = color)} />
 						{/each}
 					</div>
 					<!-- Pseudo button that clicks the hidden input -->
@@ -315,7 +322,7 @@
 						<Fa icon={faPalette} />
 						Choose Color
 					</button>
-					<input type="color" bind:this={displayColorInput} bind:value={displayColor} hidden />
+					<input type="color" bind:this={displayColorInput} bind:value={displayColorRgb} hidden />
 				</div>
 			</div>
 		</Section>

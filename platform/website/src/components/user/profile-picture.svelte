@@ -101,7 +101,7 @@
 {#if profilePicture && bestSupportedVariant}
 	<picture>
 		{#each profilePicture.variants as variant}
-			<source type={formatToMimeType(variant.format)} srcset={variant.url} media={`(min-width: ${variant.width}px)`} />
+			<source type={formatToMimeType(variant.format)} srcset={variant.url} media={`(min-width: ${variant.width}px)`} width={size} height={size} />
 		{/each}
 		<img class="avatar" src={bestSupportedVariant.url} width={size} height={size} alt="avatar" />
 	</picture>

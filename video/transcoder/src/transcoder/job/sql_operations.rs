@@ -157,8 +157,6 @@ pub async fn perform_sql_operations(
 
 	let (video_output, audio_output) = determine_output_renditions(&video_input, &audio_input, &transcoding_config);
 
-	dbg!(&video_output);
-
 	let mut tx = match global.db().begin().await {
 		Ok(tx) => tx,
 		Err(err) => {

@@ -441,8 +441,6 @@ impl Transcoder {
 			}
 		}
 
-		tracing::info!("received eof");
-
 		handle_audio_eof(&mut self.audio_copies, self.audio_decoder.as_mut(), &mut self.audio_encoders)
 			.context("audio eof")?;
 
@@ -454,8 +452,6 @@ impl Transcoder {
 			&mut self.limiters,
 		)
 		.context("video eof")?;
-
-		tracing::info!("done");
 
 		Ok(())
 	}

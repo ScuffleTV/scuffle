@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::pin::{pin, Pin};
+use std::pin::pin;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -86,7 +86,7 @@ pub async fn handle_message<G: TranscoderGlobal>(global: Arc<G>, msg: Message, s
 		tracing::error!(error = %err, "failed to run transcoder");
 	}
 
-	if let Err(err) = job.handle_shutdown(&global).await {
+	if let Err(err) = job.handle_shutdown().await {
 		tracing::error!(error = %err, "failed to shutdown transcoder");
 	}
 
@@ -253,13 +253,11 @@ impl Job {
 	}
 
 	async fn run(&mut self, global: &Arc<impl TranscoderGlobal>, shutdown_token: CancellationToken) -> Result<()> {
-		tracing::info!("starting transcode job");
-
 		let mut shutdown_fuse = pin!(shutdown_token.cancelled().fuse());
 
 		let mut upload_init_timer = tokio::time::interval(Duration::from_secs(15));
 
-		loop {
+		while self.ffmpeg_input.is_some() {
 			select! {
 				_ = &mut shutdown_fuse => {
 					self.ingest_send.try_send(IngestWatchRequest {
@@ -271,49 +269,30 @@ impl Job {
 				_ = upload_init_timer.tick() => {
 					self.update_manifest()?;
 				}
-				cycle = self.cycle(global) => {
-					if !cycle? {
+				r = self.ffmpeg_output.recv() => {
+					let Some((rendition, track_out)) = r else {
 						break;
-					}
-				}
-			}
-		}
+					};
 
-		tracing::info!("transcode job finished");
+					self.handle_track(rendition, track_out)?;
+				},
+				msg = self.ingest_recv.next() => {
+					let Some(msg) = msg else {
+						if self.ingest_shutdown.is_none() {
+							anyhow::bail!("ingest closed");
+						}
+
+						break;
+					};
+
+					self.handle_msg(global, msg.context("ingest recv failed")?).await?;
+				},
+			}
+
+			self.check_tasks()?;
+		}
 
 		Ok(())
-	}
-
-	async fn cycle(&mut self, global: &Arc<impl TranscoderGlobal>) -> Result<bool> {
-		select! {
-			Some((rendition, track_out)) = self.ffmpeg_output.recv() => {
-				self.handle_track(rendition, track_out)?;
-			},
-			Some(msg) = async {
-				if self.ffmpeg_input.is_none() {
-					None
-				} else {
-					Some(self.ingest_recv.next().await)
-				}
-			} => {
-				let Some(msg) = msg else {
-					if self.ingest_shutdown.is_none() {
-						anyhow::bail!("ingest closed");
-					}
-
-					return Ok(false);
-				};
-
-				self.handle_msg(global, msg.context("ingest recv failed")?).await?;
-			},
-			else => {
-				return Ok(false);
-			}
-		}
-
-		self.check_tasks()?;
-
-		Ok(true)
 	}
 
 	fn check_tasks(&mut self) -> Result<()> {
@@ -334,14 +313,10 @@ impl Job {
 			.try_send(GenericTask::RoomReady)
 			.context("send room ready task")?;
 
-		tracing::info!("transcoder reported ready");
-
 		Ok(())
 	}
 
 	async fn handle_msg(&mut self, global: &Arc<impl TranscoderGlobal>, msg: IngestWatchResponse) -> Result<()> {
-		tracing::trace!("recieved message");
-
 		let msg = msg.message.ok_or_else(|| anyhow::anyhow!("ingest sent bad message"))?;
 
 		match msg {
@@ -439,12 +414,14 @@ impl Job {
 			.collect()
 	}
 
-	pub async fn handle_shutdown(&mut self, global: &Arc<impl TranscoderGlobal>) -> Result<()> {
+	pub async fn handle_shutdown(mut self) -> Result<()> {
 		tracing::info!("shutting down transcoder");
 
 		drop(self.ffmpeg_input.take());
 
-		while self.cycle(global).await.context("cycle")? {}
+		while let Some((rendition, track_out)) = self.ffmpeg_output.recv().await {
+			self.handle_track(rendition, track_out)?;
+		}
 
 		let is_shutdown = self.ingest_shutdown == Some(ingest_watch_response::Shutdown::Stream);
 
@@ -458,9 +435,19 @@ impl Job {
 			.map(|(rendition, ts)| (rendition.to_string(), ts.info()))
 			.collect();
 
+		self.update_manifest()?;
+
 		self.tracks
 			.drain()
 			.try_for_each(|(_, mut track)| track.update_manifest(self.recording.as_mut(), &info_map, is_shutdown))?;
+
+		// Close the generic uploader so that it can finish its tasks
+		drop(self.generic_uploader);
+
+		// New tasks may have been added during shutdown, so we need to check again
+		for task in self.tasks.drain(..) {
+			task.wait().await?;
+		}
 
 		if let Some(shutdown) = self.ingest_shutdown.take() {
 			match shutdown {

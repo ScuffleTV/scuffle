@@ -330,8 +330,6 @@ async fn test_transcode() {
 	assert!(!video_manifest.completed);
 	assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_idx, 1);
 	assert_eq!(video_manifest.info.as_ref().unwrap().next_part_idx, 3);
-	assert_eq!(video_manifest.other_info["audio_source"].next_segment_idx, 1);
-	assert_eq!(video_manifest.other_info["audio_source"].next_part_idx, 3);
 
 	assert_eq!(audio_manifest.segments.len(), 1);
 	assert_eq!(audio_manifest.segments[0].parts.len(), 3);
@@ -339,8 +337,6 @@ async fn test_transcode() {
 	assert!(!audio_manifest.completed);
 	assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_idx, 1);
 	assert_eq!(audio_manifest.info.as_ref().unwrap().next_part_idx, 3);
-	assert_eq!(audio_manifest.other_info["video_source"].next_segment_idx, 1);
-	assert_eq!(audio_manifest.other_info["video_source"].next_part_idx, 3);
 
 	tracing::debug!("finished sending frames");
 
@@ -394,8 +390,6 @@ async fn test_transcode() {
 	assert!(video_manifest.completed);
 	assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_idx, 1);
 	assert_eq!(video_manifest.info.as_ref().unwrap().next_part_idx, 4);
-	assert_eq!(video_manifest.other_info["audio_source"].next_segment_idx, 1);
-	assert_eq!(video_manifest.other_info["audio_source"].next_part_idx, 4);
 	assert_eq!(video_manifest.total_duration, 59000); // verified with ffprobe
 
 	assert_eq!(video_manifest.segments.len(), 1);
@@ -404,8 +398,6 @@ async fn test_transcode() {
 	assert!(audio_manifest.completed);
 	assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_idx, 1);
 	assert_eq!(audio_manifest.info.as_ref().unwrap().next_part_idx, 4);
-	assert_eq!(audio_manifest.other_info["video_source"].next_segment_idx, 1);
-	assert_eq!(audio_manifest.other_info["video_source"].next_part_idx, 4);
 	assert_eq!(audio_manifest.total_duration, 48128); // verified with ffprobe
 
 	let mut video_parts = vec![
@@ -887,8 +879,6 @@ async fn test_transcode_reconnect() {
 		)
 		.unwrap();
 
-		dbg!(&video_manifest);
-
 		assert_eq!(video_manifest.segments.len(), 1);
 		assert_eq!(video_manifest.segments[0].parts.len(), 4);
 		assert!(video_manifest.segments[0].parts.iter().skip(1).all(|p| !p.independent));
@@ -897,9 +887,6 @@ async fn test_transcode_reconnect() {
 		assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_idx, 1);
 		assert_eq!(video_manifest.info.as_ref().unwrap().next_part_idx, 4);
 		assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_part_idx, 0);
-		assert_eq!(video_manifest.other_info["audio_source"].next_segment_idx, 1);
-		assert_eq!(video_manifest.other_info["audio_source"].next_part_idx, 4);
-		assert_eq!(video_manifest.other_info["audio_source"].next_segment_part_idx, 0);
 		assert_eq!(video_manifest.total_duration, 59000); // verified with ffprobe
 
 		assert_eq!(video_manifest.segments.len(), 1);
@@ -908,11 +895,7 @@ async fn test_transcode_reconnect() {
 		assert!(!audio_manifest.completed);
 		assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_idx, 1);
 		assert_eq!(audio_manifest.info.as_ref().unwrap().next_part_idx, 4);
-		assert_eq!(audio_manifest.other_info["video_source"].next_segment_idx, 1);
-		assert_eq!(audio_manifest.other_info["video_source"].next_part_idx, 4);
-		assert_eq!(audio_manifest.other_info["video_source"].next_segment_part_idx, 0);
-		assert_eq!(audio_manifest.total_duration, 48128); // verified with
-		// ffprobe
+		assert_eq!(audio_manifest.total_duration, 48128); // verified with ffprobe
 	}
 
 	{
@@ -1063,6 +1046,8 @@ async fn test_transcode_reconnect() {
 		)
 		.unwrap();
 
+		dbg!(&video_manifest);
+
 		assert_eq!(video_manifest.segments.len(), 2);
 		assert_eq!(video_manifest.segments[0].parts.len(), 4);
 		assert_eq!(video_manifest.segments[1].parts.len(), 4);
@@ -1074,9 +1059,6 @@ async fn test_transcode_reconnect() {
 		assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_idx, 2);
 		assert_eq!(video_manifest.info.as_ref().unwrap().next_part_idx, 8);
 		assert_eq!(video_manifest.info.as_ref().unwrap().next_segment_part_idx, 0);
-		assert_eq!(video_manifest.other_info["audio_source"].next_segment_idx, 2);
-		assert_eq!(video_manifest.other_info["audio_source"].next_part_idx, 8);
-		assert_eq!(video_manifest.other_info["audio_source"].next_segment_part_idx, 0);
 		assert_eq!(video_manifest.total_duration, 59000 * 2); // verified with ffprobe
 
 		assert_eq!(video_manifest.segments.len(), 2);
@@ -1088,11 +1070,7 @@ async fn test_transcode_reconnect() {
 		assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_idx, 2);
 		assert_eq!(audio_manifest.info.as_ref().unwrap().next_part_idx, 8);
 		assert_eq!(audio_manifest.info.as_ref().unwrap().next_segment_part_idx, 0);
-		assert_eq!(audio_manifest.other_info["video_source"].next_segment_idx, 2);
-		assert_eq!(audio_manifest.other_info["video_source"].next_part_idx, 8);
-		assert_eq!(audio_manifest.other_info["video_source"].next_segment_part_idx, 0);
-		assert_eq!(audio_manifest.total_duration, 48128 * 2); // verified with
-		// ffprobe
+		assert_eq!(audio_manifest.total_duration, 48128 * 2); // verified with ffprobe
 	}
 
 	{

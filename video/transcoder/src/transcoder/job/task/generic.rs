@@ -39,8 +39,8 @@ pub async fn generic_task(
 					GenericTask::Manifest { data } => {
 						let key = video_common::keys::manifest(organization_id, room_id, connection_id);
 						global
-							.media_store()
-							.put(key.as_str(), &mut std::io::Cursor::new(&data))
+							.metadata_store()
+							.put(key.as_str(), data.clone())
 							.await
 							.context("upload manifest")?;
 					}

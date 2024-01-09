@@ -3,7 +3,7 @@ use std::ffi::CStr;
 use ffmpeg_sys_next::*;
 
 use super::internal::{read_packet, seek, Inner, InnerOptions};
-use crate::consts::{DEFAULT_BUFFER_SIZE, Const};
+use crate::consts::{Const, DEFAULT_BUFFER_SIZE};
 use crate::dict::Dictionary;
 use crate::error::FfmpegError;
 use crate::packet::Packets;

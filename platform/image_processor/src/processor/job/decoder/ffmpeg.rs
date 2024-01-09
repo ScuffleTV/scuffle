@@ -26,7 +26,7 @@ const fn cast_bytes_to_rgba(bytes: &[u8]) -> &[rgb::RGBA8] {
 
 impl<'data> FfmpegDecoder<'data> {
 	pub fn new(job: &Job, data: Cow<'data, [u8]>) -> Result<Self> {
-		let mut input = ffmpeg::io::Input::seekable(std::io::Cursor::new(data))
+		let input = ffmpeg::io::Input::seekable(std::io::Cursor::new(data))
 			.context("input")
 			.map_err(ProcessorError::FfmpegDecode)?;
 

@@ -7,6 +7,9 @@ use crate::smart_object::SmartPtr;
 pub struct Scalar {
 	ptr: SmartPtr<SwsContext>,
 	frame: VideoFrame,
+	pixel_format: AVPixelFormat,
+	width: i32,
+	height: i32,
 }
 
 /// Safety: `Scalar` is safe to send between threads.
@@ -19,7 +22,7 @@ impl Scalar {
 		incoming_pixel_fmt: AVPixelFormat,
 		width: i32,
 		height: i32,
-		outgoing_pixel_fmt: AVPixelFormat,
+		pixel_format: AVPixelFormat,
 	) -> Result<Self, FfmpegError> {
 		// Safety: `sws_getContext` is safe to call, and the pointer returned is valid.
 		let ptr = unsafe {
@@ -30,7 +33,7 @@ impl Scalar {
 					incoming_pixel_fmt,
 					width,
 					height,
-					outgoing_pixel_fmt,
+					pixel_format,
 					SWS_BILINEAR,
 					std::ptr::null_mut(),
 					std::ptr::null_mut(),
@@ -52,7 +55,7 @@ impl Scalar {
 
 			frame_mut.width = width;
 			frame_mut.height = height;
-			frame_mut.format = outgoing_pixel_fmt as i32;
+			frame_mut.format = pixel_format as i32;
 
 			// Safety: `av_image_alloc` is safe to call, and the pointer returned is valid.
 			av_image_alloc(
@@ -60,7 +63,7 @@ impl Scalar {
 				frame_mut.linesize.as_mut_ptr(),
 				width,
 				height,
-				outgoing_pixel_fmt,
+				pixel_format,
 				32,
 			);
 		}
@@ -68,7 +71,22 @@ impl Scalar {
 		Ok(Self {
 			ptr,
 			frame: frame.video(),
+			pixel_format,
+			width,
+			height,
 		})
+	}
+
+	pub fn pixel_format(&self) -> AVPixelFormat {
+		self.pixel_format
+	}
+
+	pub fn width(&self) -> i32 {
+		self.width
+	}
+
+	pub fn height(&self) -> i32 {
+		self.height
 	}
 
 	pub fn process<'a>(&'a mut self, frame: &Frame) -> Result<&'a VideoFrame, FfmpegError> {

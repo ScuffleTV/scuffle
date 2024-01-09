@@ -127,7 +127,7 @@ impl<T: std::io::Write> Output<T> {
 					..Default::default()
 				},
 			)?,
-			witten_header	: false,
+			witten_header: false,
 		})
 	}
 }
@@ -139,7 +139,7 @@ impl<T> Output<T> {
 			self.inner.context.as_deref_mut_except().metadata = metadata.into_ptr();
 		};
 	}
-	
+
 	pub fn as_ptr(&self) -> *const AVFormatContext {
 		self.inner.context.as_ptr()
 	}
@@ -193,7 +193,8 @@ impl<T> Output<T> {
 			return Err(FfmpegError::Arguments("header already written"));
 		}
 
-		// Safety: `avformat_write_header` is safe to call, if the header has not been written yet.
+		// Safety: `avformat_write_header` is safe to call, if the header has not been
+		// written yet.
 		unsafe {
 			match avformat_write_header(self.as_mut_ptr(), std::ptr::null_mut()) {
 				0 => Ok(()),
@@ -210,7 +211,8 @@ impl<T> Output<T> {
 			return Err(FfmpegError::Arguments("header already written"));
 		}
 
-		// Safety: `avformat_write_header` is safe to call, if the header has not been written yet.
+		// Safety: `avformat_write_header` is safe to call, if the header has not been
+		// written yet.
 		unsafe {
 			match avformat_write_header(self.as_mut_ptr(), options.as_mut_ptr_ref()) {
 				0 => Ok(()),
@@ -241,7 +243,8 @@ impl<T> Output<T> {
 			return Err(FfmpegError::Arguments("header not written"));
 		}
 
-		// Safety: `av_interleaved_write_frame` is safe to call, once the header has been written.
+		// Safety: `av_interleaved_write_frame` is safe to call, once the header has
+		// been written.
 		unsafe {
 			match av_interleaved_write_frame(self.as_mut_ptr(), packet.as_mut_ptr()) {
 				0 => Ok(()),

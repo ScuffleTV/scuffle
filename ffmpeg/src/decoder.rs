@@ -53,7 +53,7 @@ impl std::fmt::Debug for AudioDecoder {
 			.field("sample_rate", &self.sample_rate())
 			.field("channel_layout", &self.channel_layout())
 			.field("channels", &self.channels())
-			.field("sample_fmt", &self.sample_fmt())
+			.field("sample_fmt", &self.sample_format())
 			.finish()
 	}
 }
@@ -90,7 +90,8 @@ impl Decoder {
 			return Err(FfmpegError::NoDecoder);
 		}
 
-		// Safety: `codec` is a valid pointer, also the pointer returned from `avcodec_alloc_context3` is valid.
+		// Safety: `codec` is a valid pointer, also the pointer returned from
+		// `avcodec_alloc_context3` is valid.
 		let mut decoder =
 			unsafe { SmartPtr::wrap_non_null(avcodec_alloc_context3(codec.as_ptr()), |ptr| avcodec_free_context(ptr)) }
 				.ok_or(FfmpegError::Alloc)?;
@@ -108,10 +109,11 @@ impl Decoder {
 		decoder_mut.thread_count = options.thread_count;
 
 		if decoder_mut.codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO {
-			// Even though we are upcasting `AVFormatContext` from a const pointer to a mutable pointer, it is still safe
-			// becasuse av_guess_frame_rate does not use the pointer to modify the `AVFormatContext`. 
-			// https://github.com/FFmpeg/FFmpeg/blame/90bef6390fba02472141f299264331f68018a992/libavformat/avformat.c#L728
-			// The function does not use the pointer at all, it only uses the `AVStream` pointer to get the `AVRational`
+			// Even though we are upcasting `AVFormatContext` from a const pointer to a
+			// mutable pointer, it is still safe becasuse av_guess_frame_rate does not use
+			// the pointer to modify the `AVFormatContext`. https://github.com/FFmpeg/FFmpeg/blame/90bef6390fba02472141f299264331f68018a992/libavformat/avformat.c#L728
+			// The function does not use the pointer at all, it only uses the `AVStream`
+			// pointer to get the `AVRational`
 			decoder_mut.framerate = unsafe {
 				av_guess_frame_rate(
 					ist.format_context() as *const AVFormatContext as *mut AVFormatContext,
@@ -235,7 +237,7 @@ impl AudioDecoder {
 		self.0.decoder.as_deref_except().channels
 	}
 
-	pub fn sample_fmt(&self) -> AVSampleFormat {
+	pub fn sample_format(&self) -> AVSampleFormat {
 		self.0.decoder.as_deref_except().sample_fmt
 	}
 }

@@ -77,8 +77,9 @@ impl Dictionary {
 	}
 
 	/// # Safety
-	/// `ptr` must be a valid pointer. 
-	/// The caller must also ensure that the dictionary is not freed while this object is alive.
+	/// `ptr` must be a valid pointer.
+	/// The caller must also ensure that the dictionary is not freed while this
+	/// object is alive.
 	pub unsafe fn from_ptr(ptr: *const AVDictionary) -> Self {
 		// We don't own the dictionary, so we don't need to free it
 		Self {

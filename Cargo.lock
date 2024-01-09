@@ -1458,8 +1458,11 @@ dependencies = [
 name = "ffmpeg"
 version = "0.1.0"
 dependencies = [
+ "bytes",
+ "crossbeam-channel",
  "ffmpeg-sys-next",
  "libc",
+ "tokio",
 ]
 
 [[package]]
@@ -5789,10 +5792,12 @@ dependencies = [
  "common",
  "config",
  "dotenvy",
+ "ffmpeg",
  "flv",
  "futures",
  "futures-util",
  "hyper 1.1.0",
+ "itertools 0.12.0",
  "mp4",
  "nix",
  "pb",

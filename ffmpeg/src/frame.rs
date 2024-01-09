@@ -15,6 +15,9 @@ impl Clone for Frame {
 /// Safety: `Frame` is safe to send between threads.
 unsafe impl Send for Frame {}
 
+/// Safety: `Frame` is safe to share between threads.
+unsafe impl Sync for Frame {}
+
 #[derive(Clone)]
 pub struct VideoFrame(pub Frame);
 
@@ -23,14 +26,14 @@ pub struct AudioFrame(pub Frame);
 
 impl Frame {
 	pub fn new() -> Result<Self, FfmpegError> {
-        // Safety: the pointer returned from av_frame_alloc is valid
+		// Safety: the pointer returned from av_frame_alloc is valid
 		unsafe { Self::wrap(av_frame_alloc()) }
 	}
 
-    /// Safety: `ptr` must be a valid pointer to an `AVFrame`.
+	/// Safety: `ptr` must be a valid pointer to an `AVFrame`.
 	unsafe fn wrap(ptr: *mut AVFrame) -> Result<Self, FfmpegError> {
 		Ok(Self(
-            // The caller guarantees that `ptr` is valid.
+			// The caller guarantees that `ptr` is valid.
 			SmartPtr::wrap_non_null(ptr, |ptr| av_frame_free(ptr)).ok_or(FfmpegError::Alloc)?,
 		))
 	}
@@ -56,8 +59,8 @@ impl Frame {
 	}
 
 	pub fn set_pts(&mut self, pts: Option<i64>) {
-        self.0.as_deref_mut_except().pts = pts.unwrap_or(AV_NOPTS_VALUE);
-        self.0.as_deref_mut_except().best_effort_timestamp = pts.unwrap_or(AV_NOPTS_VALUE);
+		self.0.as_deref_mut_except().pts = pts.unwrap_or(AV_NOPTS_VALUE);
+		self.0.as_deref_mut_except().best_effort_timestamp = pts.unwrap_or(AV_NOPTS_VALUE);
 	}
 
 	pub fn duration(&self) -> Option<i64> {
@@ -65,8 +68,8 @@ impl Frame {
 	}
 
 	pub fn set_duration(&mut self, duration: Option<i64>) {
-        self.0.as_deref_mut_except().duration = duration.unwrap_or(AV_NOPTS_VALUE);
-        self.0.as_deref_mut_except().pkt_duration = duration.unwrap_or(AV_NOPTS_VALUE);
+		self.0.as_deref_mut_except().duration = duration.unwrap_or(AV_NOPTS_VALUE);
+		self.0.as_deref_mut_except().pkt_duration = duration.unwrap_or(AV_NOPTS_VALUE);
 	}
 
 	pub fn best_effort_timestamp(&self) -> Option<i64> {
@@ -234,33 +237,33 @@ impl AudioFrame {
 }
 
 impl std::fmt::Debug for AudioFrame {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AudioFrame")
-            .field("nb_samples", &self.nb_samples())
-            .field("sample_rate", &self.sample_rate())
-            .field("channel_layout", &self.channel_layout())
-            .field("pts", &self.pts())
-            .field("dts", &self.dts())
-            .field("duration", &self.duration())
-            .field("best_effort_timestamp", &self.best_effort_timestamp())
-            .field("time_base", &self.time_base())
-            .field("format", &self.format())
-            .field("is_audio", &self.is_audio())
-            .field("is_video", &self.is_video())
-            .finish()
-    }
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("AudioFrame")
+			.field("nb_samples", &self.nb_samples())
+			.field("sample_rate", &self.sample_rate())
+			.field("channel_layout", &self.channel_layout())
+			.field("pts", &self.pts())
+			.field("dts", &self.dts())
+			.field("duration", &self.duration())
+			.field("best_effort_timestamp", &self.best_effort_timestamp())
+			.field("time_base", &self.time_base())
+			.field("format", &self.format())
+			.field("is_audio", &self.is_audio())
+			.field("is_video", &self.is_video())
+			.finish()
+	}
 }
 
 impl std::ops::Deref for AudioFrame {
-    type Target = Frame;
+	type Target = Frame;
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
 }
 
 impl std::ops::DerefMut for AudioFrame {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
 }

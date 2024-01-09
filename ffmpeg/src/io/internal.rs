@@ -79,8 +79,6 @@ pub(crate) unsafe extern "C" fn seek<T: std::io::Seek>(opaque: *mut libc::c_void
 		_ => return -1,
 	};
 
-	
-
 	match this.seek(whence) {
 		Ok(pos) => pos as i64,
 		Err(_) => AVERROR_IO as i64,

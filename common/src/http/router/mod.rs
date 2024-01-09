@@ -64,7 +64,7 @@ impl<I: 'static, O: 'static, E: 'static> Router<I, O, E> {
 			Ok(res) => res,
 			Err(err) => {
 				if let Some(error_handler) = error_handler {
-					error_handler((hyper::Request::new(()), err)).await
+					error_handler((req.clone(), err)).await
 				} else {
 					return Err(RouterError::Unhandled(err));
 				}
@@ -77,7 +77,7 @@ impl<I: 'static, O: 'static, E: 'static> Router<I, O, E> {
 				Ok(res) => res,
 				Err(err) => {
 					if let Some(error_handler) = error_handler {
-						return Ok(error_handler((hyper::Request::new(()), err)).await);
+						return Ok(error_handler((req, err)).await);
 					} else {
 						return Err(RouterError::Unhandled(err));
 					}

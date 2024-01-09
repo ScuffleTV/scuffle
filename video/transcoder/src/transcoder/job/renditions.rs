@@ -71,13 +71,21 @@ pub fn determine_output_renditions(
 	for res in resolutions {
 		// This prevents us from upscaling the video
 		// We only want to downscale the video
-		let (width, height) = if aspect_ratio > 1.0 && video_input.height as u32 > res.side {
+		let (mut width, mut height) = if aspect_ratio > 1.0 && video_input.height as u32 > res.side {
 			((res.side as f64 * aspect_ratio).round() as u32, res.side)
 		} else if aspect_ratio < 1.0 && video_input.width as u32 > res.side {
 			(res.side, (res.side as f64 / aspect_ratio).round() as u32)
 		} else {
 			continue;
 		};
+
+		// we need even numbers for the width and height
+		// this is a requirement of the h264 codec
+		if width % 2 != 0 {
+			width += 1;
+		} else if height % 2 != 0 {
+			height += 1;
+		}
 
 		// We dont want to transcode video with resolutions less than 100px on either
 		// side We also do not want to transcode anything more expensive than 720p on a
@@ -106,6 +114,8 @@ pub fn determine_output_renditions(
 			width: width as i32,
 		})
 	}
+
+	video_configs.sort_by(|a, b| b.width.cmp(&a.width));
 
 	(video_configs, audio_configs)
 }

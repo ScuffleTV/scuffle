@@ -122,6 +122,8 @@ impl Sps {
 			- frame_crop_bottom_offset * 2
 			- frame_crop_top_offset * 2;
 
+		println!("{}x{}", width, height);
+
 		let mut frame_rate = 0.0;
 
 		let vui_parameters_present_flag = bit_reader.read_bit()?;

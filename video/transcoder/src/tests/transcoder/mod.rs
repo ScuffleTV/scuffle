@@ -887,6 +887,8 @@ async fn test_transcode_reconnect() {
 		)
 		.unwrap();
 
+		dbg!(&video_manifest);
+
 		assert_eq!(video_manifest.segments.len(), 1);
 		assert_eq!(video_manifest.segments[0].parts.len(), 4);
 		assert!(video_manifest.segments[0].parts.iter().skip(1).all(|p| !p.independent));

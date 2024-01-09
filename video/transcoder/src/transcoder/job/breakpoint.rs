@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::transcoder::job::track_parser::TrackSample;
+use crate::transcoder::job::track::parser::TrackSample;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BreakType {

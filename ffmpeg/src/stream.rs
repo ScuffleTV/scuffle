@@ -5,21 +5,23 @@ use crate::dict::Dictionary;
 use crate::utils::check_i64;
 
 pub struct Streams<'a> {
-	input: &'a mut AVFormatContext,
+	input: &'a AVFormatContext,
 }
 
 /// Safety: `Streams` is safe to send between threads.
 unsafe impl Send for Streams<'_> {}
 
 impl<'a> Streams<'a> {
-	pub(crate) fn new(input: &'a mut AVFormatContext) -> Self {
+	pub(crate) fn new(input: &'a AVFormatContext) -> Self {
 		Self { input }
 	}
 
-	pub fn best(self, media_type: AVMediaType) -> Option<Stream<'a>> {
+	pub fn best(&self, media_type: AVMediaType) -> Option<Stream<'a>> {
 		// Safety: av_find_best_stream is safe to call, 'input' is a valid pointer
+		// We upcast the pointer to a mutable pointer because the function signature
+		// requires it, but it does not mutate the pointer.
 		let stream =
-			unsafe { av_find_best_stream(self.input, media_type, -1, -1, std::ptr::null_mut(), 0) };
+			unsafe { av_find_best_stream(self.input as *const _ as *mut _, media_type, -1, -1, std::ptr::null_mut(), 0) };
 		if stream < 0 {
 			return None;
 		}
@@ -183,12 +185,14 @@ impl<'a> Stream<'a> {
 	}
 
 	pub fn metadata(&self) -> Const<'_, Dictionary> {
-		// Safety: the pointer metadata pointer does not live longer than this object, see `Const::new`
+		// Safety: the pointer metadata pointer does not live longer than this object,
+		// see `Const::new`
 		Const::new(unsafe { Dictionary::from_ptr(self.0.metadata) })
 	}
 
 	pub fn metadata_mut(&mut self) -> MutConst<'_, Dictionary> {
-		// Safety: the pointer metadata pointer does not live longer than this object, see `MutConst::new`
+		// Safety: the pointer metadata pointer does not live longer than this object,
+		// see `MutConst::new`
 		MutConst::new(unsafe { Dictionary::from_ptr(self.0.metadata) })
 	}
 

@@ -90,16 +90,12 @@ impl<T> SmartPtr<T> {
 
 	pub(crate) fn as_deref(&self) -> Option<&T> {
 		// Safety: The pointer is valid.
-		unsafe {
-			self.0.inner().as_ref()
-		}
+		unsafe { self.0.inner().as_ref() }
 	}
 
 	pub(crate) fn as_deref_mut(&mut self) -> Option<&mut T> {
 		// Safety: The pointer is valid.
-		unsafe {
-			self.0.inner().as_mut()
-		}
+		unsafe { self.0.inner().as_mut() }
 	}
 
 	/// Panics if the pointer is null.

@@ -90,8 +90,8 @@ impl<T> Input<T> {
 		self.inner.context.as_mut_ptr()
 	}
 
-	pub fn streams(&mut self) -> Streams<'_> {
-		Streams::new(self.inner.context.as_deref_mut_except())
+	pub fn streams(&self) -> Streams<'_> {
+		Streams::new(self.inner.context.as_deref_except())
 	}
 
 	pub fn packets(&mut self) -> Packets<'_> {

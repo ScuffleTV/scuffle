@@ -60,7 +60,7 @@ mod smart_object;
 //     let muxer_options = Dictionary::builder()
 //         .set(
 //             "movflags",
-//             
+//
 // "frag_keyframe+frag_every_frame+empty_moov+delay_moov+default_base_moof",
 //         )
 //         .build();
@@ -126,8 +126,8 @@ mod smart_object;
 //             .copied()
 //             .map(|(width, height, fps)| {
 //                 let enc = encoder::Encoder::with_output(
-//                     
-// EncoderCodec::by_name(encoder).ok_or(FfmpegError::NoEncoder)?,               
+//
+// EncoderCodec::by_name(encoder).ok_or(FfmpegError::NoEncoder)?,
 // io::Output::new(Vec::new(), OutputOptions::new().format_name("mp4"))?,
 //                     decoder.time_base(),
 //                     AVRational {
@@ -191,7 +191,6 @@ mod smart_object;
 // !limiter.limit(&frame) {                 break;
 //             }
 
-//             
 // frames.push(resizer.proces(*frames.last().unwrap_or(&frame_ref))?);         }
 
 //         encoders

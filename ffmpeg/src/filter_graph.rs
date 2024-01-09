@@ -39,7 +39,8 @@ impl FilterGraph {
 
 		let mut filter_context = std::ptr::null_mut();
 
-		// Safety: avfilter_graph_create_filter is safe to call, 'filter_context' is a valid pointer
+		// Safety: avfilter_graph_create_filter is safe to call, 'filter_context' is a
+		// valid pointer
 		let ret = unsafe {
 			avfilter_graph_create_filter(
 				&mut filter_context,
@@ -63,7 +64,8 @@ impl FilterGraph {
 
 	pub fn get(&mut self, name: &str) -> Option<FilterContext<'_>> {
 		let name = CString::new(name).unwrap();
-		// Safety: avfilter_graph_get_filter is safe to call, and the returned pointer is valid
+		// Safety: avfilter_graph_get_filter is safe to call, and the returned pointer
+		// is valid
 		let mut ptr = NonNull::new(unsafe { avfilter_graph_get_filter(self.as_mut_ptr(), name.as_ptr()) })?;
 		Some(FilterContext(unsafe { ptr.as_mut() }))
 	}
@@ -77,13 +79,15 @@ impl FilterGraph {
 
 	pub fn dump(&mut self) -> Option<String> {
 		unsafe {
-			// Safety: avfilter_graph_dump is safe to call, and the returned pointer is valid
+			// Safety: avfilter_graph_dump is safe to call, and the returned pointer is
+			// valid
 			let c_str = SmartPtr::wrap_non_null(avfilter_graph_dump(self.as_mut_ptr(), std::ptr::null_mut()), |ptr| {
 				av_free(*ptr as *mut libc::c_void);
 				*ptr = std::ptr::null_mut();
 			})?;
 
-			// Safety: the lifetime of c_str does not exceed the lifetime of the the `CStr` returned by `from_ptr`
+			// Safety: the lifetime of c_str does not exceed the lifetime of the the `CStr`
+			// returned by `from_ptr`
 			let c_str = std::ffi::CStr::from_ptr(c_str.as_ptr());
 			Some(c_str.to_str().ok()?.to_owned())
 		}
@@ -133,7 +137,8 @@ impl<'a> FilterGraphParser<'a> {
 	pub fn parse(mut self, spec: &str) -> Result<(), FfmpegError> {
 		let spec = CString::new(spec).unwrap();
 
-		// Safety: 'avfilter_graph_parse_ptr' is safe to call and all the pointers are valid.
+		// Safety: 'avfilter_graph_parse_ptr' is safe to call and all the pointers are
+		// valid.
 		unsafe {
 			match avfilter_graph_parse_ptr(
 				self.graph.as_mut_ptr(),
@@ -151,10 +156,10 @@ impl<'a> FilterGraphParser<'a> {
 	fn inout_impl(mut self, name: &str, pad: i32, output: bool) -> Result<Self, FfmpegError> {
 		let context = self.graph.get(name).ok_or(FfmpegError::Arguments("unknown name"))?;
 
-		// Safety: 'avfilter_inout_alloc' is safe to call, and the returned pointer is valid
-		let mut inout = unsafe { SmartPtr::wrap_non_null(avfilter_inout_alloc(),
-			|ptr| avfilter_inout_free(ptr),
-		) }.ok_or(FfmpegError::Alloc)?;
+		// Safety: 'avfilter_inout_alloc' is safe to call, and the returned pointer is
+		// valid
+		let mut inout = unsafe { SmartPtr::wrap_non_null(avfilter_inout_alloc(), |ptr| avfilter_inout_free(ptr)) }
+			.ok_or(FfmpegError::Alloc)?;
 
 		let name = CString::new(name).unwrap();
 
@@ -181,7 +186,8 @@ impl Filter {
 	pub fn get(name: &str) -> Option<Self> {
 		let name = std::ffi::CString::new(name).ok()?;
 
-		// Safety: avfilter_get_by_name is safe to call, and the returned pointer is valid
+		// Safety: avfilter_get_by_name is safe to call, and the returned pointer is
+		// valid
 		let filter = unsafe { avfilter_get_by_name(name.as_ptr()) };
 
 		if filter.is_null() { None } else { Some(Self(filter)) }

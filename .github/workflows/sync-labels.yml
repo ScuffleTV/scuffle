@@ -8,20 +8,21 @@ on:
     branches:
       - main
     paths:
-      - ".github/labels.yml"
+      - .github/labels.yml
+      - .github/workflows/sync-labels.yml
 
 jobs:
-  synclabels:
+  sync-labels:
     name: Sync Labels
     runs-on: ubuntu-latest
-
     permissions: write-all
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Sync labels
+        with:
+          fetch-depth: 1
+      - name: Syncing labels
         uses: crazy-max/ghaction-github-labeler@v5
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          yaml-file: .github/labels.yml

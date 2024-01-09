@@ -1,65 +1,61 @@
-# Generic
+# Generic labels
+- name: bug
+  color: C90C5B
+  description: Something isn't working
+- name: documentation
+  color: 58E0CC
+  description: Improvements or additions to documentation
+- name: feature request
+  color: 75E058
+  description: New feature or request
+- name: good first issue
+  color: 26EA63
+  description: Good for newcomers
+- name: help wanted
+  color: 42F58A
+  description: Extra attention is needed
+- name: question
+  color: D5E058
+  description: Further information is requested
+- name: tests
+  color: 10CB8B
+  description: Issues related to tests
 
-- name: "bug"
-  color: "c90c5b"
-  description: "Something isn't working"
-- name: "feature request"
-  color: "75e058"
-  description: "New feature or request"
-- name: "documentation"
-  color: "58e0cc"
-  description: "Improvements or additions to documentation"
-- name: "question"
-  color: "d5e058"
-  description: "Further information is requested"
-- name: "good first issue"
-  color: "26ea63"
-  description: "Good for newcomers"
-- name: "help wanted"
-  color: "42f58a"
-  description: "Extra attention is needed"
-- name: "tests"
-  color: "10cb8b"
-  description: "Issues related to tests"
+# Video labels
+- name: video/api
+  color: 15E2D8
+  description: Issues related to the Video API
+- name: video/cli
+  color: 710D62
+  description: Issues related to the Video CLI
+- name: video/edge
+  color: 648E4A
+  description: Issues related to the Video Edge
+- name: video/ingest
+  color: A74F7B
+  description: Issues related to the Video Ingest
+- name: video/player
+  color: 9455D9
+  description: Issues related to the Video Player
+- name: video/transcoder
+  color: 6061E8
+  description: Issues related to the Video Transcoder
+- name: video/utils
+  color: EF3E85
+  description: Issues related to other Video Utils
 
-# Video
+# Platform labels
+- name: platform/api
+  color: 9BEE11
+  description: Issues related to the Platform API
+- name: platform/image-processor
+  color: 7910AD
+  description: Issues related to the Platform Image Processor
+- name: platform/website
+  color: EB4A2A
+  description: Issues related to the Platform Website
 
-- name: "video/api"
-  color: "15e2d8"
-  description: "Issues related to the Video API"
-- name: "video/edge"
-  color: "648e4a"
-  description: "Issues related to the Video Edge"
-- name: "video/player"
-  color: "9455d9"
-  description: "Issues related to the Video Player"
-- name: "video/transcoder"
-  color: "6061e8"
-  description: "Issues related to the Video Transcoder"
-- name: "video/ingest"
-  color: "a74f7b"
-  description: "Issues related to the Video Ingest"
-- name: "video/cli"
-  color: "710d62"
-  description: "Issues related to the Video CLI"
-- name: "video/utils"
-  color: "ef3e85"
-  description: "Issues related to other Video Utils"
-
-# Platform
-
-- name: "platform/api"
-  color: "9bee11"
-  description: "Issues related to the Platform API"
-- name: "platform/website"
-  color: "eb4a2a"
-  description: "Issues related to the Platform Website"
-- name: "platform/image-processor"
-  color: "7910ad"
-  description: "Issues related to the Platform Image Processor"
-
-# Utilities
-
-- name: "utils"
-  color: "a93146"
-  description: "Issues related to other helper utilities"
+# Utilities labels
+- name: utils
+  color: A93146
+  description: Issues related to other helper utilities

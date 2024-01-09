@@ -10,12 +10,12 @@ use crate::packet::Packets;
 use crate::smart_object::SmartObject;
 use crate::stream::Streams;
 
-pub struct Input<T> {
+pub struct Input<T: Send + Sync> {
 	inner: SmartObject<Inner<T>>,
 }
 
 /// Safety: `Input` is safe to send between threads.
-unsafe impl<T: Send> Send for Input<T> {}
+unsafe impl<T: Send + Sync> Send for Input<T> {}
 
 #[derive(Debug, Clone)]
 pub struct InputOptions<I: FnMut() -> bool> {
@@ -34,7 +34,7 @@ impl Default for InputOptions<fn() -> bool> {
 	}
 }
 
-impl<T: std::io::Read> Input<T> {
+impl<T: std::io::Read + Send + Sync> Input<T> {
 	pub fn new(input: T) -> Result<Self, FfmpegError> {
 		Self::with_options(input, &mut InputOptions::default())
 	}
@@ -81,7 +81,7 @@ impl<T: std::io::Read> Input<T> {
 	}
 }
 
-impl<T> Input<T> {
+impl<T: Send + Sync> Input<T> {
 	pub fn as_ptr(&self) -> *const AVFormatContext {
 		self.inner.context.as_ptr()
 	}

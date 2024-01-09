@@ -419,7 +419,7 @@ impl From<AudioEncoderSettings> for EncoderSettings {
 }
 
 impl Encoder {
-	fn new<T>(
+	fn new<T: Send + Sync>(
 		codec: EncoderCodec,
 		output: &mut Output<T>,
 		incoming_time_base: AVRational,
@@ -545,7 +545,7 @@ impl Encoder {
 	}
 }
 
-pub struct MuxerEncoder<T> {
+pub struct MuxerEncoder<T: Send + Sync> {
 	encoder: Encoder,
 	output: Output<T>,
 	interleave: bool,
@@ -594,7 +594,7 @@ impl MuxerSettingsBuilder {
 	}
 }
 
-impl<T> MuxerEncoder<T> {
+impl<T: Send + Sync> MuxerEncoder<T> {
 	pub fn new(
 		codec: EncoderCodec,
 		mut output: Output<T>,
@@ -692,7 +692,7 @@ impl<T> MuxerEncoder<T> {
 	}
 }
 
-impl<T> std::ops::Deref for MuxerEncoder<T> {
+impl<T: Send + Sync> std::ops::Deref for MuxerEncoder<T> {
 	type Target = Encoder;
 
 	fn deref(&self) -> &Self::Target {
@@ -700,7 +700,7 @@ impl<T> std::ops::Deref for MuxerEncoder<T> {
 	}
 }
 
-impl<T> std::ops::DerefMut for MuxerEncoder<T> {
+impl<T: Send + Sync> std::ops::DerefMut for MuxerEncoder<T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.encoder
 	}

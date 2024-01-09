@@ -85,7 +85,7 @@ pub(crate) unsafe extern "C" fn seek<T: std::io::Seek>(opaque: *mut libc::c_void
 	}
 }
 
-pub(crate) struct Inner<T> {
+pub(crate) struct Inner<T: Send + Sync> {
 	pub(crate) data: Option<Box<T>>,
 	pub(crate) context: SmartPtr<AVFormatContext>,
 	_io: SmartPtr<AVIOContext>,
@@ -111,7 +111,7 @@ impl Default for InnerOptions {
 	}
 }
 
-impl<T> Inner<T> {
+impl<T: Send + Sync> Inner<T> {
 	pub fn new(data: T, options: InnerOptions) -> Result<Self, FfmpegError> {
 		// Safety: av_malloc is safe to call
 		let buffer = unsafe {

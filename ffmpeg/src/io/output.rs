@@ -78,21 +78,21 @@ impl Default for OutputOptions<'_> {
 	}
 }
 
-pub struct Output<T> {
+pub struct Output<T: Send + Sync> {
 	inner: Inner<T>,
 	witten_header: bool,
 }
 
 /// Safety: `T` must be `Send` and `Sync`.
-unsafe impl<T: Send> Send for Output<T> {}
+unsafe impl<T: Send + Sync> Send for Output<T> {}
 
-impl<T> Output<T> {
+impl<T: Send + Sync> Output<T> {
 	pub fn into_inner(mut self) -> T {
 		*(self.inner.data.take().unwrap())
 	}
 }
 
-impl<T: std::io::Write> Output<T> {
+impl<T: std::io::Write + Send + Sync> Output<T> {
 	pub fn new(input: T, options: OutputOptions) -> Result<Self, FfmpegError> {
 		let output_format = options.get_format_ffi()?;
 
@@ -132,7 +132,7 @@ impl<T: std::io::Write> Output<T> {
 	}
 }
 
-impl<T> Output<T> {
+impl<T: Send + Sync> Output<T> {
 	pub fn set_metadata(&mut self, metadata: Dictionary) {
 		unsafe {
 			Dictionary::from_ptr_mut(self.inner.context.as_deref_except().metadata);

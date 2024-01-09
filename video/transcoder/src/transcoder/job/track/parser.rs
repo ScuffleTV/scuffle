@@ -58,12 +58,12 @@ impl TrackParser {
 			self.buffer.extend_from_slice(&self.cursor.extract_remaining());
 		}
 
-		self.buffer.extend_from_slice(&data);
+		self.buffer.extend_from_slice(data);
 	}
 
 	fn try_parse(&mut self) -> anyhow::Result<Option<TrackOut>> {
 		if !self.cursor.has_remaining() {
-			if self.buffer.len() == 0 {
+			if self.buffer.is_empty() {
 				return Ok(None);
 			}
 

@@ -111,7 +111,7 @@ pub async fn recording_task(
 						bucket
 							.put_object_with_content_type(
 								video_common::keys::s3_init(organization_id, recording_id, rendition),
-								&data,
+								data,
 								"video/mp4",
 							)
 							.await

@@ -346,7 +346,7 @@ impl AudioEncoderBuilder {
 impl AudioEncoderSettings {
 	fn apply(&self, encoder: &mut AVCodecContext) -> Result<(), FfmpegError> {
 		if self.sample_rate <= 0
-			|| self.channel_layout <= 0
+			|| self.channel_layout == 0
 			|| self.channel_count <= 0
 			|| self.sample_fmt == AVSampleFormat::AV_SAMPLE_FMT_NONE
 		{

@@ -281,11 +281,7 @@ impl Transcoder {
 			audio_encoders: Vec::new(),
 		};
 
-		if audio_outputs
-			.iter()
-			.find(|c| c.rendition() == Rendition::AudioSource.into())
-			.is_some()
-		{
+		if audio_outputs.iter().any(|c| c.rendition() == Rendition::AudioSource.into()) {
 			let sender = outputs
 				.remove(&Rendition::AudioSource)
 				.ok_or_else(|| anyhow::anyhow!("missing audio source output"))?;
@@ -305,11 +301,7 @@ impl Transcoder {
 			this.audio_copies.push(output);
 		}
 
-		if video_configs
-			.iter()
-			.find(|c| c.rendition() == Rendition::VideoSource.into())
-			.is_some()
-		{
+		if video_configs.iter().any(|c| c.rendition() == Rendition::VideoSource.into()) {
 			let sender = outputs
 				.remove(&Rendition::VideoSource)
 				.ok_or_else(|| anyhow::anyhow!("missing video source output"))?;

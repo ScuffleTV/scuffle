@@ -82,7 +82,7 @@ impl Recording {
 			.iter()
 			.map(|o| (o.rendition, o.encode_to_vec()))
 			.chain(video_outputs.iter().map(|o| (o.rendition, o.encode_to_vec())))
-			.filter(|(r, _)| recording_config.renditions.contains(&r))
+			.filter(|(r, _)| recording_config.renditions.contains(r))
 			.map(|(r, config)| (Rendition::from(PbRendition::try_from(r).unwrap_or_default()), config))
 			.collect::<Vec<_>>();
 

@@ -26,7 +26,6 @@ scopeguard = "1.2"
 rgb = "0.8"
 imgref = "1.10"
 opencv = { version = "0.88", default-features = false, features = ["clang-runtime", "imgproc"] }
-ffmpeg-next = "6.1"
 libavif-sys = { version = "0.15" }
 libwebp-sys2 = { version = "0.1", features = ["1_2", "demux", "mux", "static"] }
 sha2 = "0.10"
@@ -34,12 +33,13 @@ byteorder = "1.5"
 gifski = "1.13"
 png = "0.17"
 num_cpus = "1.16"
-path-tree = "0.7"
+bytes = "1.0"
 
 common = { workspace = true, features = ["default"] }
 config = { workspace = true }
 pb = { workspace = true }
 binary-helper = { workspace = true }
+ffmpeg = { workspace = true }
 
 [dev-dependencies]
 dotenvy = "0.15.7"

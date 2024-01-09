@@ -1,6 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::borrow::Cow;
 use std::sync::Arc;
 
+use bytes::Bytes;
 use file_format::FileFormat;
 use futures::FutureExt;
 use prost::Message;
@@ -27,12 +28,10 @@ pub(crate) mod smart_object;
 pub(crate) struct Job<'a, G: ImageProcessorGlobal> {
 	pub(crate) global: &'a Arc<G>,
 	pub(crate) job: database::Job,
-	pub(crate) working_directory: std::path::PathBuf,
 }
 
 pub async fn handle_job(
 	global: &Arc<impl ImageProcessorGlobal>,
-	parent_directory: &Path,
 	_ticket: SemaphorePermit<'_>,
 	job: database::Job,
 ) -> Result<()> {
@@ -41,13 +40,7 @@ pub async fn handle_job(
 	let job_id = job.id.0;
 	let max_processing_time_ms = job.task.limits.as_ref().map(|l| l.max_processing_time_ms);
 
-	let working_directory = parent_directory.join(job_id.to_string());
-
-	let job = Job {
-		global,
-		job,
-		working_directory,
-	};
+	let job = Job { global, job };
 
 	let time_limit = async {
 		if let Some(max_processing_time_ms) = max_processing_time_ms {
@@ -78,50 +71,36 @@ pub async fn handle_job(
 }
 
 impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
-	async fn download_source(&self) -> Result<PathBuf> {
-		let dest = self.working_directory.join("input");
-
+	async fn download_source(&self) -> Result<Bytes> {
 		tracing::info!(
-			"downloading {}/{} to {:?}",
+			"downloading {}/{}",
 			self.global.config().source_bucket.name,
 			self.job.id.to_string(),
-			dest
 		);
 
-		let mut fs = tokio::fs::OpenOptions::new()
-			.write(true)
-			.create_new(true)
-			.open(&dest)
-			.await
-			.map_err(ProcessorError::FileCreate)?;
-
-		let status = self
+		let response = self
 			.global
 			.s3_source_bucket()
-			.get_object_to_writer(&self.job.task.input_path, &mut fs)
+			.get_object(&self.job.task.input_path)
 			.await
 			.map_err(ProcessorError::S3Download)?;
 
-		if (200..299).contains(&status) {
-			Ok(dest)
+		if (200..299).contains(&response.status_code()) {
+			Ok(response.bytes().clone())
 		} else {
 			Err(ProcessorError::S3Download(s3::error::S3Error::HttpFail))
 		}
 	}
 
 	pub(crate) async fn process(self) -> Result<()> {
-		tokio::fs::create_dir_all(&self.working_directory)
-			.await
-			.map_err(ProcessorError::DirectoryCreate)?;
+		let input_data = self.download_source().await?;
 
-		let input_path = self.download_source().await?;
-
-		let backend = DecoderBackend::from_format(FileFormat::from_file(&input_path).map_err(ProcessorError::FileFormat)?)?;
+		let backend = DecoderBackend::from_format(FileFormat::from_bytes(&input_data))?;
 
 		let url_prefix = format!("result/{}{}", self.job.task.output_prefix, self.job.id);
 
 		let job_c = self.job.clone();
-		let images = tokio::task::spawn_blocking(move || process::process_job(backend, &input_path, &job_c))
+		let images = tokio::task::spawn_blocking(move || process::process_job(backend, &job_c, Cow::Borrowed(&input_data)))
 			.await
 			.unwrap_or_else(|e| {
 				tracing::error!(error = %e, "failed to spawn blocking task");
@@ -176,16 +155,5 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 		utils::delete_job(self.global, self.job.id.0).await?;
 
 		Ok(())
-	}
-}
-
-impl<'a, G: ImageProcessorGlobal> Drop for Job<'a, G> {
-	fn drop(&mut self) {
-		let working_directory = self.working_directory.clone();
-		tokio::spawn(async move {
-			tokio::fs::remove_dir_all(working_directory).await.unwrap_or_else(|e| {
-				tracing::error!(error = %e, "failed to remove working directory");
-			});
-		});
 	}
 }

@@ -24,7 +24,7 @@ use transmuxer::{AudioSettings, MediaSegment, TransmuxResult, Transmuxer, VideoS
 use ulid::Ulid;
 use uuid::Uuid;
 use video_common::database::RoomStatus;
-use video_common::keys;
+use video_common::{events, keys};
 
 use super::bytes_tracker::BytesTracker;
 use super::errors::IngestError;
@@ -423,6 +423,24 @@ impl Connection {
 							ingest_watch_request::Shutdown::Complete => {
 								if transcoder == WhichTranscoder::Old {
 									self.old_transcoder = None;
+
+									events::emit(
+										global.nats(),
+										&global.config().events_stream_name,
+										self.organization_id,
+										Target::Room,
+										event::Event::Room(event::Room {
+											room_id: Some(self.room_id.into()),
+											event: Some(event::room::Event::TranscoderDisconnected(
+												event::room::TranscoderDisconnected {
+													connection_id: Some(self.id.into()),
+													clean: true,
+												},
+											)),
+										}),
+									)
+									.await;
+
 									if let Some(transcoder) = &mut self.current_transcoder {
 										if transcoder
 											.send
@@ -460,6 +478,23 @@ impl Connection {
 			}
 			Err(_) | Ok(None) => {
 				tracing::warn!("transcoder seems to have disconnected unexpectedly");
+
+				events::emit(
+					global.nats(),
+					&global.config().events_stream_name,
+					self.organization_id,
+					Target::Room,
+					event::Event::Room(event::Room {
+						room_id: Some(self.room_id.into()),
+						event: Some(event::room::Event::TranscoderDisconnected(
+							event::room::TranscoderDisconnected {
+								connection_id: Some(self.id.into()),
+								clean: false,
+							},
+						)),
+					}),
+				)
+				.await;
 
 				match transcoder {
 					WhichTranscoder::Current => {

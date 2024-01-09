@@ -15,9 +15,6 @@ pub struct ImageProcessorConfig {
 
 	/// Instance ID (defaults to a random ULID)
 	pub instance_id: Ulid,
-
-	/// Working directory (defaults to the /tmp/{instance_id} directory)
-	pub working_directory: Option<String>,
 }
 
 impl Default for ImageProcessorConfig {
@@ -27,7 +24,6 @@ impl Default for ImageProcessorConfig {
 			target_bucket: S3BucketConfig::default(),
 			concurrency: num_cpus::get(),
 			instance_id: Ulid::new(),
-			working_directory: None,
 		}
 	}
 }

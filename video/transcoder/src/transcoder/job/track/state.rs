@@ -19,8 +19,8 @@ use pb::ext::UlidExt;
 use pb::scuffle::video::internal::LiveRenditionManifest;
 use ulid::Ulid;
 
-use super::breakpoint::{BreakType, BreakpointState};
-use crate::transcoder::job::track_parser::TrackSample;
+use crate::transcoder::job::breakpoint::{BreakType, BreakpointState};
+use crate::transcoder::job::track::parser::TrackSample;
 
 #[derive(Default, Clone)]
 pub struct Part {

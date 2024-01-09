@@ -135,8 +135,16 @@ impl Sps {
 			conf_win_bottom_offset = 0;
 		}
 
-		let width = pic_width_in_luma_samples - conf_win_left_offset - conf_win_right_offset;
-		let height = pic_height_in_luma_samples - conf_win_top_offset - conf_win_bottom_offset;
+		let (sub_width_c, sub_height_c) = match chroma_format_idc {
+			0 => (1, 1),
+			1 => (2, 2),
+			2 => (2, 1),
+			3 => (1, 1),
+			_ => return Err(io::Error::new(io::ErrorKind::InvalidData, "chroma_format_idc is not 0-3")),
+		};
+
+		let width = pic_width_in_luma_samples - sub_width_c * (conf_win_left_offset + conf_win_right_offset);
+		let height = pic_height_in_luma_samples - sub_height_c * (conf_win_top_offset + conf_win_bottom_offset);
 
 		read_exp_golomb(&mut bit_reader)?; // bit_depth_luma_minus8
 		read_exp_golomb(&mut bit_reader)?; // bit_depth_chroma_minus8

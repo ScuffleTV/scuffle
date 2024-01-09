@@ -7,7 +7,7 @@ use ulid::Ulid;
 use uuid::Uuid;
 use video_common::database::{Room, S3Bucket};
 
-use super::Recording;
+use super::recording::Recording;
 use crate::global::TranscoderGlobal;
 use crate::transcoder::job::renditions::determine_output_renditions;
 
@@ -20,8 +20,8 @@ pub struct SqlOperations {
 	pub audio_output: Vec<AudioConfig>,
 }
 
-pub async fn perform_sql_operations<G: TranscoderGlobal>(
-	global: &Arc<G>,
+pub async fn perform_sql_operations(
+	global: &Arc<impl TranscoderGlobal>,
 	organization_id: Ulid,
 	room_id: Ulid,
 	connection_id: Ulid,
@@ -37,9 +37,9 @@ pub async fn perform_sql_operations<G: TranscoderGlobal>(
             active_ingest_connection_id = $3
         "#,
 	)
-	.bind(Uuid::from(organization_id))
-	.bind(Uuid::from(room_id))
-	.bind(Uuid::from(connection_id))
+	.bind(common::database::Ulid(organization_id))
+	.bind(common::database::Ulid(room_id))
+	.bind(common::database::Ulid(connection_id))
 	.fetch_optional(global.db().as_ref())
 	.await
 	{
@@ -183,15 +183,16 @@ pub async fn perform_sql_operations<G: TranscoderGlobal>(
 	.bind(recording_config.as_ref().map(|(r, _)| r.encode_to_vec()))
 	.bind(video_output.iter().map(|v| v.encode_to_vec()).collect::<Vec<_>>())
 	.bind(audio_output.iter().map(|v| v.encode_to_vec()).collect::<Vec<_>>())
-	.bind(Uuid::from(organization_id))
-	.bind(Uuid::from(room_id))
-	.bind(Uuid::from(connection_id))
+	.bind(common::database::Ulid(organization_id))
+	.bind(common::database::Ulid(room_id))
+	.bind(common::database::Ulid(connection_id))
 	.execute(tx.as_mut())
 	.await?;
 
 	let recording = if let Some((recording_config, s3_bucket)) = &recording_config {
 		Some(
 			Recording::new(
+				global,
 				&mut tx,
 				room.active_recording_id.map(Ulid::from).unwrap_or_else(Ulid::new),
 				organization_id,

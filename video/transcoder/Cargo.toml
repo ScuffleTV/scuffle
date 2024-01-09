@@ -32,6 +32,8 @@ sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "tls-rustls",
 sqlx-postgres = "0.7"
 thiserror = "1.0"
 rust-s3 = { git = "https://github.com/durch/rust-s3.git", default-features = false, features = ["tags", "tokio-rustls-tls", "fail-on-err"] }
+itertools = "0.12"
+image = "0.24"
 
 aac = { workspace = true }
 mp4 = { workspace = true }
@@ -41,6 +43,7 @@ config = { workspace = true }
 pb = { workspace = true }
 video-common = { workspace = true }
 binary-helper = { workspace = true }
+ffmpeg = { workspace = true, features = ["tokio-channel", "tracing"] }
 
 [dev-dependencies]
 dotenvy = "0.15"

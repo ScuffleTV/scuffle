@@ -119,6 +119,14 @@ message Event {
       string error = 2;
     }
 
+    // If the transcoder was disconnected.
+    message TranscoderDisconnected {
+      // The ULID of the connection that the transcoder was disconnected from.
+      scuffle.types.Ulid connection_id = 1;
+      // If the disconnection was clean. Meaning everything was transferred correctly.
+      bool clean = 2;
+    }
+
     // The event that occurred.
     oneof event {
       Created created = 2;
@@ -128,6 +136,7 @@ message Event {
       Deleted deleted = 6;
       Modified modified = 7;
       Failed failed = 8;
+      TranscoderDisconnected transcoder_disconnected = 9;
     }
   }
 

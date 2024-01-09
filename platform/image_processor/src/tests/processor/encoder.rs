@@ -1,17 +1,19 @@
+use std::borrow::Cow;
+
 use crate::processor::error::ProcessorError;
 use crate::processor::job::decoder::{Decoder, DecoderBackend};
 use crate::processor::job::encoder::{Encoder, EncoderFrontend, EncoderSettings};
 use crate::processor::job::frame_deduplicator;
 use crate::processor::job::resize::{ImageResizer, ImageResizerTarget};
-use crate::tests::utils::asset_path;
+use crate::tests::utils::asset_bytes;
 
 fn encode(asset_name: &str, backend: DecoderBackend, frontend: EncoderFrontend) {
-	let input_path = asset_path(asset_name);
+	let input_bytes = asset_bytes(asset_name);
 
 	let start = std::time::Instant::now();
 
 	let mut decoder = backend
-		.build(&input_path, &Default::default())
+		.build(&Default::default(), Cow::Owned(input_bytes))
 		.expect("failed to build decoder");
 
 	let info = decoder.info();

@@ -1,0 +1,21 @@
+[package]
+name = "ffmpeg"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ffmpeg-sys-next = "6.1"
+libc = "0.2"
+bytes = { optional = true, version = "1" }
+tokio = { optional = true, version = "1" }
+crossbeam-channel = { optional = true, version = "0.5" }
+tracing = { optional = true, version = "0.1" }
+
+[features]
+default = []
+channel = ["dep:bytes"]
+tokio-channel = ["channel", "dep:tokio"]
+crossbeam-channel = ["channel", "dep:crossbeam-channel"]
+tracing = ["dep:tracing"]

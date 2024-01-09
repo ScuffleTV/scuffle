@@ -71,13 +71,21 @@ pub fn determine_output_renditions(
 	for res in resolutions {
 		// This prevents us from upscaling the video
 		// We only want to downscale the video
-		let (width, height) = if aspect_ratio > 1.0 && video_input.height as u32 > res.side {
+		let (mut width, mut height) = if aspect_ratio > 1.0 && video_input.height as u32 > res.side {
 			((res.side as f64 * aspect_ratio).round() as u32, res.side)
 		} else if aspect_ratio < 1.0 && video_input.width as u32 > res.side {
 			(res.side, (res.side as f64 / aspect_ratio).round() as u32)
 		} else {
 			continue;
 		};
+
+		// we need even numbers for the width and height
+		// this is a requirement of the h264 codec
+		if width % 2 != 0 {
+			width += 1;
+		} else if height % 2 != 0 {
+			height += 1;
+		}
 
 		// We dont want to transcode video with resolutions less than 100px on either
 		// side We also do not want to transcode anything more expensive than 720p on a
@@ -107,27 +115,7 @@ pub fn determine_output_renditions(
 		})
 	}
 
+	video_configs.sort_by(|a, b| b.width.cmp(&a.width));
+
 	(video_configs, audio_configs)
-}
-
-pub fn screenshot_size(video_input: &VideoConfig) -> (i32, i32) {
-	const MAX_SCREENSHOT_SIZE: i32 = 180;
-
-	let aspect_ratio = video_input.width as f64 / video_input.height as f64;
-
-	let (width, height) = if aspect_ratio > 1.0 && video_input.height > MAX_SCREENSHOT_SIZE {
-		(
-			(MAX_SCREENSHOT_SIZE as f64 * aspect_ratio).round() as i32,
-			MAX_SCREENSHOT_SIZE,
-		)
-	} else if aspect_ratio < 1.0 && video_input.width > MAX_SCREENSHOT_SIZE {
-		(
-			MAX_SCREENSHOT_SIZE,
-			(MAX_SCREENSHOT_SIZE as f64 / aspect_ratio).round() as i32,
-		)
-	} else {
-		(video_input.width, video_input.height)
-	};
-
-	(width, height)
 }

@@ -442,6 +442,25 @@ async fn test_ingest_stream() {
 
 	assert!(got_shutting_down);
 
+	tokio::time::sleep(Duration::from_millis(200)).await;
+
+	let update = state.organization_event().await;
+	assert!(update.timestamp.sub(chrono::Utc::now().timestamp_millis()) < 1000);
+	assert!(!update.event_id.into_ulid().is_nil(), "event_id is nil");
+	match update.event {
+		Some(event::Event::Room(room)) => {
+			assert_eq!(room.room_id.into_ulid(), state.room_id);
+			match room.event {
+				Some(event::room::Event::TranscoderDisconnected(disconnected)) => {
+					assert!(!disconnected.connection_id.into_ulid().is_nil());
+					assert!(disconnected.clean);
+				}
+				_ => panic!("unexpected event: {:#?}", room),
+			}
+		}
+		_ => panic!("unexpected event"),
+	}
+
 	match new_watcher.recv().await.message {
 		Some(ingest_watch_response::Message::Media(media)) => {
 			assert_eq!(media.r#type(), ingest_watch_response::media::Type::Init);
@@ -491,7 +510,7 @@ async fn test_ingest_stream() {
 					assert!(!disconnected.clean);
 					assert!(disconnected.cause.is_none());
 				}
-				_ => panic!("unexpected event"),
+				_ => panic!("unexpected event: {:#?}", room),
 			}
 		}
 		_ => panic!("unexpected event"),
@@ -572,6 +591,25 @@ async fn test_ingest_stream_transcoder_disconnect() {
 
 	// Force disconnect the transcoder
 	drop(watcher);
+
+	tokio::time::sleep(Duration::from_millis(200)).await;
+
+	let update = state.organization_event().await;
+	assert!(update.timestamp.sub(chrono::Utc::now().timestamp_millis()) < 1000);
+	assert!(!update.event_id.into_ulid().is_nil(), "event_id is nil");
+	match update.event {
+		Some(event::Event::Room(room)) => {
+			assert_eq!(room.room_id.into_ulid(), state.room_id);
+			match room.event {
+				Some(event::room::Event::TranscoderDisconnected(disconnected)) => {
+					assert!(!disconnected.connection_id.into_ulid().is_nil());
+					assert!(!disconnected.clean);
+				}
+				_ => panic!("unexpected event: {:#?}", room),
+			}
+		}
+		_ => panic!("unexpected event"),
+	}
 
 	let msg = state.transcoder_request().await;
 	assert!(!msg.request_id.into_ulid().is_nil());

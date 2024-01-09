@@ -175,57 +175,59 @@ let destroyed = false;
 const loop = () => {
 	if (destroyed) return;
 
-	try {
-		if (video.buffered.length) {
-			let found = false;
-			for (let i = 0; i < video.buffered.length; i++) {
-				const start = video.buffered.start(i);
-				const end = video.buffered.end(i);
-				if (video.currentTime >= start && video.currentTime <= end) {
-					bufferSize.innerText = `${(end - video.currentTime).toFixed(3)}`;
-					found = true;
-					break;
+	if (player) {
+		try {
+			if (video.buffered.length) {
+				let found = false;
+				for (let i = 0; i < video.buffered.length; i++) {
+					const start = video.buffered.start(i);
+					const end = video.buffered.end(i);
+					if (video.currentTime >= start && video.currentTime <= end) {
+						bufferSize.innerText = `${(end - video.currentTime).toFixed(3)}`;
+						found = true;
+						break;
+					}
 				}
+	
+				if (!found) {
+					bufferSize.innerText = "-1";
+				}
+			} else {
+				bufferSize.innerText = "0";
 			}
-
-			if (!found) {
-				bufferSize.innerText = "-1";
+	
+			const currentTime = video.currentTime;
+			const duration = video.seekable.length ? video.seekable.end(0) : 0;
+	
+			videoTime.innerText = `${currentTime.toFixed(3)}`;
+			videoDuration.innerText = `${duration.toFixed(3)}`;
+			latency.innerText = `${(duration - currentTime).toFixed(3)}`;
+	
+			resolution.innerText = `${video.videoWidth}x${video.videoHeight}`;
+	
+			saveBandwidthEstimate(player.bandwidth || 0);
+	
+			const bps = (player.bandwidth || 0) / 1000;
+	
+			if (bps > 3000) {
+				bandwidth.innerText = `${(bps / 1000).toFixed(2)}Mbps`;
+			} else {
+				bandwidth.innerText = `${bps.toFixed(2)}Kbps`;
 			}
-		} else {
-			bufferSize.innerText = "0";
+	
+			const quality = video.getVideoPlaybackQuality();
+	
+			droppedFrames.innerText = `${quality.droppedVideoFrames}`;
+	
+			const now = performance.now();
+			if (now - lastFrameTime >= 1000) {
+				frameRate.innerText = `${quality.totalVideoFrames - frameCount}`;
+				frameCount = quality.totalVideoFrames;
+				lastFrameTime = now;
+			}
+		} catch (e) {
+			console.error(e);
 		}
-
-		const currentTime = video.currentTime;
-		const duration = video.seekable.length ? video.seekable.end(0) : 0;
-
-		videoTime.innerText = `${currentTime.toFixed(3)}`;
-		videoDuration.innerText = `${duration.toFixed(3)}`;
-		latency.innerText = `${(duration - currentTime).toFixed(3)}`;
-
-		resolution.innerText = `${video.videoWidth}x${video.videoHeight}`;
-
-		saveBandwidthEstimate(player.bandwidth || 0);
-
-		const bps = (player.bandwidth || 0) / 1000;
-
-		if (bps > 3000) {
-			bandwidth.innerText = `${(bps / 1000).toFixed(2)}Mbps`;
-		} else {
-			bandwidth.innerText = `${bps.toFixed(2)}Kbps`;
-		}
-
-		const quality = video.getVideoPlaybackQuality();
-
-		droppedFrames.innerText = `${quality.droppedVideoFrames}`;
-
-		const now = performance.now();
-		if (now - lastFrameTime >= 1000) {
-			frameRate.innerText = `${quality.totalVideoFrames - frameCount}`;
-			frameCount = quality.totalVideoFrames;
-			lastFrameTime = now;
-		}
-	} catch (e) {
-		console.error(e);
 	}
 
 	window.requestAnimationFrame(loop);

@@ -8,6 +8,7 @@ pub mod filter_graph;
 pub mod frame;
 pub mod io;
 pub mod limiter;
+pub mod log;
 pub mod packet;
 pub mod scalar;
 pub mod stream;

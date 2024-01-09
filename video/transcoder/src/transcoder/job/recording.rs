@@ -26,9 +26,7 @@ pub struct PartialUpload {
 
 pub struct Recording {
 	id: Ulid,
-	organization_id: Ulid,
 	allow_dvr: bool,
-	bucket: s3::Bucket,
 	partial_uploads: HashMap<Rendition, PartialUpload>,
 	uploaders: HashMap<Rendition, mpsc::Sender<RecordingTask>>,
 	thumbnail_uploader: mpsc::Sender<RecordingThumbnailTask>,
@@ -165,8 +163,6 @@ impl Recording {
 
 		Ok(Self {
 			id,
-			organization_id,
-			bucket,
 			allow_dvr,
 			renditions: recording_renditions.into_iter().map(|(r, _)| r).collect(),
 			partial_uploads: HashMap::new(),
@@ -191,10 +187,6 @@ impl Recording {
 
 	pub fn allow_dvr(&self) -> bool {
 		self.allow_dvr
-	}
-
-	pub fn renditions(&self) -> &HashSet<Rendition> {
-		&self.renditions
 	}
 
 	pub fn tasks(&mut self) -> Vec<Task> {
@@ -269,10 +261,12 @@ impl Recording {
 		Ok(())
 	}
 
-	pub fn upload_thumbnail(&mut self, id: Ulid, idx: u32, start_time: f64, data: Bytes) -> anyhow::Result<()> {
+	pub fn upload_thumbnail(&mut self, idx: u32, start_time: f64, data: Bytes) -> anyhow::Result<()> {
 		if self.previous_thumbnails.len() >= 10 {
 			self.previous_thumbnails.remove(0);
 		}
+
+		let id = Ulid::new();
 
 		self.previous_thumbnails.push(RecordingThumbnail {
 			ulid: Some(id.into()),

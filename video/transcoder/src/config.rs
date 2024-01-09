@@ -33,6 +33,9 @@ pub struct TranscoderConfig {
 	/// The number of segments to keep in the playlist
 	pub playlist_segments: usize,
 
+	/// The interval to take screenshots at
+	pub screenshot_interval: Duration,
+
 	/// The encoder to use for h264
 	pub h264_encoder: Option<String>,
 
@@ -51,6 +54,7 @@ impl Default for TranscoderConfig {
 			min_segment_duration: Duration::from_secs(2),
 			target_part_duration: Duration::from_millis(250),
 			max_part_duration: Duration::from_millis(500),
+			screenshot_interval: Duration::from_secs(5),
 			ingest_tls: None,
 			playlist_segments: 5,
 			h264_encoder: Some("libx264".to_string()),

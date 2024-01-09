@@ -18,10 +18,9 @@ use pb::scuffle::video::internal::{
 	LiveRenditionManifest,
 };
 use pb::scuffle::video::v1::events_fetch_request::Target;
-use pb::scuffle::video::v1::types::{event, VideoConfig};
+use pb::scuffle::video::v1::types::event;
 use prost::Message as _;
 use tokio::sync::mpsc;
-use tokio::time::Instant;
 use tokio::{select, try_join};
 use tokio_util::sync::CancellationToken;
 use ulid::Ulid;
@@ -44,6 +43,7 @@ mod breakpoint;
 mod ffmpeg;
 mod recording;
 mod renditions;
+mod screenshot;
 mod sql_operations;
 mod task;
 mod track;
@@ -98,7 +98,6 @@ struct Job {
 	room_id: Ulid,
 	connection_id: Ulid,
 
-	video_input: VideoConfig,
 	recording: Option<Recording>,
 
 	ingest_ready: bool,
@@ -107,14 +106,15 @@ struct Job {
 	tracks: HashMap<Rendition, Track>,
 	generic_uploader: mpsc::Sender<GenericTask>,
 
-	ffmpeg_input: Option<mpsc::Sender<Bytes>>,
-	ffmpeg_output: mpsc::Receiver<(Rendition, TrackOut)>,
+	ffmpeg_send: Option<mpsc::Sender<Bytes>>,
+	ffmpeg_recv: mpsc::Receiver<(Rendition, TrackOut)>,
+
+	screenshot_recv: mpsc::Receiver<(Bytes, f64)>,
 
 	tasks: Vec<Task>,
 
 	first_init_put: bool,
 	screenshot_idx: u32,
-	last_screenshot: Instant,
 
 	ingest_send: mpsc::Sender<IngestWatchRequest>,
 	ingest_recv: tonic::Streaming<IngestWatchResponse>,
@@ -185,6 +185,7 @@ impl Job {
 			Task::new(task, format!("rendition({rendition})"))
 		}));
 
+		let (frame_send, frame_recv) = mpsc::channel(1);
 		tasks.push(Task::new(
 			tokio::task::spawn_blocking({
 				let global = global.clone();
@@ -192,9 +193,25 @@ impl Job {
 				let video_configs = result.video_output.clone();
 				let audio_configs = result.audio_output.clone();
 
-				move || Transcoder::new(global, input_receiver, ffmpeg_outputs, video_configs, audio_configs)?.run()
+				move || {
+					Transcoder::new(
+						&global,
+						input_receiver,
+						frame_send,
+						ffmpeg_outputs,
+						video_configs,
+						audio_configs,
+					)?
+					.run()
+				}
 			}),
 			"ffmpeg",
+		));
+
+		let (screenshot_send, screenshot_recv) = mpsc::channel(16);
+		tasks.push(Task::new(
+			tokio::task::spawn_blocking(|| screenshot::screenshot_task(frame_recv, screenshot_send)),
+			"screenshot",
 		));
 
 		let (generic_uploader, rx) = mpsc::channel(16);
@@ -235,20 +252,19 @@ impl Job {
 			room_id,
 			connection_id,
 			recording,
-			last_screenshot: Instant::now(),
 			screenshot_idx: 0,
-			video_input: result.video_input,
 			ingest_ready: false,
 			transcoder_ready: false,
 			tracks,
 			ingest_send,
 			ingest_recv,
 			first_init_put: true,
-			ffmpeg_input: Some(ffmpeg_input),
+			ffmpeg_send: Some(ffmpeg_input),
 			tasks,
 			ingest_shutdown: None,
-			ffmpeg_output,
+			ffmpeg_recv: ffmpeg_output,
 			generic_uploader,
+			screenshot_recv,
 		})
 	}
 
@@ -257,7 +273,7 @@ impl Job {
 
 		let mut upload_init_timer = tokio::time::interval(Duration::from_secs(15));
 
-		while self.ffmpeg_input.is_some() {
+		while self.ffmpeg_send.is_some() {
 			select! {
 				_ = &mut shutdown_fuse => {
 					self.ingest_send.try_send(IngestWatchRequest {
@@ -269,12 +285,26 @@ impl Job {
 				_ = upload_init_timer.tick() => {
 					self.update_manifest()?;
 				}
-				r = self.ffmpeg_output.recv() => {
+				r = self.ffmpeg_recv.recv() => {
 					let Some((rendition, track_out)) = r else {
 						break;
 					};
 
 					self.handle_track(rendition, track_out)?;
+				},
+				Some((data, time)) = self.screenshot_recv.recv() => {
+					self.screenshot_idx += 1;
+
+					if let Some(recording) = &mut self.recording {
+						recording.upload_thumbnail(self.screenshot_idx, time, data.clone())?;
+					}
+
+					self.generic_uploader
+						.try_send(GenericTask::Screenshot { data, idx: self.screenshot_idx })
+						.context("send screenshot task")?;
+
+					self.update_manifest()?;
+					self.ready()?;
 				},
 				msg = self.ingest_recv.next() => {
 					let Some(msg) = msg else {
@@ -304,7 +334,7 @@ impl Job {
 	}
 
 	fn ready(&mut self) -> Result<()> {
-		if self.transcoder_ready || !self.ingest_ready {
+		if self.transcoder_ready || !self.ingest_ready && self.screenshot_idx != 0 {
 			return Ok(());
 		}
 
@@ -324,7 +354,7 @@ impl Job {
 				let mut outputs = Vec::new();
 				{
 					let input = self
-						.ffmpeg_input
+						.ffmpeg_send
 						.as_ref()
 						.ok_or_else(|| anyhow::anyhow!("ffmpeg already shutdown"))?;
 					let mut ffmpeg_input_fut = pin!(input.send(media.data.clone()));
@@ -333,7 +363,7 @@ impl Job {
 							_ = &mut ffmpeg_input_fut => {
 								break;
 							},
-							Some(output) = self.ffmpeg_output.recv() => {
+							Some(output) = self.ffmpeg_recv.recv() => {
 								outputs.push(output);
 							}
 						}
@@ -348,7 +378,7 @@ impl Job {
 				self.ingest_shutdown = Some(
 					ingest_watch_response::Shutdown::try_from(s).unwrap_or(ingest_watch_response::Shutdown::Transcoder),
 				);
-				self.ffmpeg_input.take();
+				self.ffmpeg_send.take();
 			}
 			ingest_watch_response::Message::Ready(_) => {
 				self.ingest_ready = true;
@@ -417,9 +447,9 @@ impl Job {
 	pub async fn handle_shutdown(mut self) -> Result<()> {
 		tracing::info!("shutting down transcoder");
 
-		drop(self.ffmpeg_input.take());
+		drop(self.ffmpeg_send.take());
 
-		while let Some((rendition, track_out)) = self.ffmpeg_output.recv().await {
+		while let Some((rendition, track_out)) = self.ffmpeg_recv.recv().await {
 			self.handle_track(rendition, track_out)?;
 		}
 

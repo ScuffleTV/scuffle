@@ -552,6 +552,8 @@ pub struct MuxerEncoder<T: Send + Sync> {
 	muxer_headers_written: bool,
 	muxer_options: Dictionary,
 	buffered_packet: Option<Packet>,
+	previous_dts: i64,
+	previous_pts: i64,
 }
 
 #[derive(Clone, Debug)]
@@ -609,6 +611,8 @@ impl<T: Send + Sync> MuxerEncoder<T> {
 			interleave: muxer_settings.interleave,
 			muxer_options: muxer_settings.muxer_options,
 			muxer_headers_written: false,
+			previous_dts: -1,
+			previous_pts: -1,
 			buffered_packet: None,
 		})
 	}
@@ -618,6 +622,22 @@ impl<T: Send + Sync> MuxerEncoder<T> {
 		self.handle_packets()?;
 
 		if let Some(mut bufferd_packet) = self.buffered_packet.take() {
+			if let Some(dts) = bufferd_packet.dts() {
+				if dts == self.previous_dts {
+					bufferd_packet.set_dts(Some(dts + 1));
+				}
+
+				self.previous_dts = dts;
+			}
+
+			if let Some(pts) = bufferd_packet.pts() {
+				if pts == self.previous_pts {
+					bufferd_packet.set_pts(Some(pts + 1));
+				}
+
+				self.previous_pts = pts;
+			}
+
 			bufferd_packet.set_duration(Some(self.average_duration));
 
 			if self.interleave {
@@ -650,7 +670,7 @@ impl<T: Send + Sync> MuxerEncoder<T> {
 			}
 
 			if let Some(mut bufferd_packet) = self.buffered_packet.take() {
-				if bufferd_packet.duration().is_none() {
+				if bufferd_packet.duration().unwrap_or(0) == 0 {
 					match ((packet.dts(), bufferd_packet.dts()), (packet.pts(), bufferd_packet.pts())) {
 						((Some(packet_dts), Some(bufferd_dts)), _) if bufferd_dts < packet_dts => {
 							bufferd_packet.set_duration(Some(packet_dts - bufferd_dts))
@@ -660,6 +680,22 @@ impl<T: Send + Sync> MuxerEncoder<T> {
 						}
 						_ => bufferd_packet.set_duration(Some(self.encoder.average_duration)),
 					}
+				}
+
+				if let Some(dts) = bufferd_packet.dts() {
+					if dts == self.previous_dts {
+						bufferd_packet.set_dts(Some(dts + 1));
+					}
+
+					self.previous_dts = dts;
+				}
+
+				if let Some(pts) = bufferd_packet.pts() {
+					if pts == self.previous_pts {
+						bufferd_packet.set_pts(Some(pts + 1));
+					}
+
+					self.previous_pts = pts;
 				}
 
 				if self.interleave {

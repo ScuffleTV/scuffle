@@ -290,6 +290,14 @@ impl Invokable for Fetch {
 								cause: disconnected.cause,
 								..Default::default()
 							},
+							Some(event::room::Event::TranscoderDisconnected(disconnected)) => EventPayload {
+								resource_id: room.room_id.into_ulid(),
+								resource: "room".to_owned(),
+								action: "transcoder_disconnected".to_owned(),
+								connection_id: Some(disconnected.connection_id.into_ulid()),
+								clean: Some(disconnected.clean),
+								..Default::default()
+							},
 							Some(event::room::Event::Ready(ready)) => EventPayload {
 								resource_id: room.room_id.into_ulid(),
 								resource: "room".to_owned(),

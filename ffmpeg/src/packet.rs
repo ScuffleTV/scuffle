@@ -16,7 +16,7 @@ impl<'a> Packets<'a> {
 		Self { context }
 	}
 
-	pub fn receive_packet(&mut self) -> Result<Option<Packet>, FfmpegError> {
+	pub fn receive(&mut self) -> Result<Option<Packet>, FfmpegError> {
 		let mut packet = Packet::new()?;
 
 		// Safety: av_read_frame is safe to call, 'packet' is a valid pointer
@@ -34,7 +34,7 @@ impl Iterator for Packets<'_> {
 	type Item = Result<Packet, FfmpegError>;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		self.receive_packet().transpose()
+		self.receive().transpose()
 	}
 }
 

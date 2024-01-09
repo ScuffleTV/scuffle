@@ -6,7 +6,7 @@ use super::internal::{read_packet, seek, Inner, InnerOptions};
 use crate::consts::{Const, DEFAULT_BUFFER_SIZE};
 use crate::dict::Dictionary;
 use crate::error::FfmpegError;
-use crate::packet::Packets;
+use crate::packet::{Packet, Packets};
 use crate::smart_object::SmartObject;
 use crate::stream::Streams;
 
@@ -96,6 +96,10 @@ impl<T: Send + Sync> Input<T> {
 
 	pub fn packets(&mut self) -> Packets<'_> {
 		Packets::new(self.inner.context.as_deref_mut_except())
+	}
+
+	pub fn receive_packet(&mut self) -> Result<Option<Packet>, FfmpegError> {
+		self.packets().receive()
 	}
 
 	fn create_input(mut inner: Inner<T>, path: Option<&CStr>, dictionary: &mut Dictionary) -> Result<Self, FfmpegError> {

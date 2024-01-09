@@ -1,4 +1,4 @@
-pub(crate) const DEFAULT_BUFFER_SIZE: usize = 695642;
+pub(crate) const DEFAULT_BUFFER_SIZE: usize = 4096;
 
 /// Const is a owned value which is immutable, but also has a lifetime.
 pub struct Const<'a, T>(pub(crate) T, pub(crate) std::marker::PhantomData<&'a ()>);

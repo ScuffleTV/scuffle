@@ -252,13 +252,13 @@ impl Transcoder {
 	) -> anyhow::Result<Self> {
 		let ictx = ffmpeg::io::Input::new(input.into_compat()).context("failed to create input")?;
 
-		let mut video_stream = ictx
+		let video_stream = ictx
 			.streams()
 			.best(AVMediaType::AVMEDIA_TYPE_VIDEO)
 			.ok_or(FfmpegError::NoStream)
 			.context("failed to find video stream")?;
 
-		let mut audio_stream = ictx
+		let audio_stream = ictx
 			.streams()
 			.best(AVMediaType::AVMEDIA_TYPE_AUDIO)
 			.ok_or(FfmpegError::NoStream)
@@ -267,7 +267,7 @@ impl Transcoder {
 		let mut this = Self {
 			audio_stream_index: audio_stream.index(),
 			video_stream_index: video_stream.index(),
-			video_decoder: match ffmpeg::decoder::Decoder::new(&mut video_stream).context("failed to create h264 decoder")? {
+			video_decoder: match ffmpeg::decoder::Decoder::new(&video_stream).context("failed to create h264 decoder")? {
 				Decoder::Video(decoder) => decoder,
 				_ => anyhow::bail!("expected video decoder"),
 			},
@@ -346,13 +346,13 @@ impl Transcoder {
 				let sender = outputs
 					.remove(&Rendition::from(video_config.rendition()))
 					.ok_or_else(|| anyhow::anyhow!("missing video output"))?;
-				this.setup_video_encoder(sender, &video_config, &mut video_stream, encoder_codec, encoder_options)?;
+				this.setup_video_encoder(sender, &video_config, &video_stream, encoder_codec, encoder_options)?;
 			}
 		}
 
 		if !audio_outputs.is_empty() {
 			this.audio_decoder = Some(
-				match ffmpeg::decoder::Decoder::new(&mut audio_stream).context("failed to create aac decoder")? {
+				match ffmpeg::decoder::Decoder::new(&audio_stream).context("failed to create aac decoder")? {
 					Decoder::Audio(decoder) => decoder,
 					_ => anyhow::bail!("expected audio decoder"),
 				},
@@ -400,7 +400,7 @@ impl Transcoder {
 				let sender = outputs
 					.remove(&Rendition::from(audio_config.rendition()))
 					.ok_or_else(|| anyhow::anyhow!("missing audio output"))?;
-				this.setup_audio_encoder(sender, &audio_config, &mut audio_stream, encoder_codec, encoder_options)?;
+				this.setup_audio_encoder(sender, &audio_config, &audio_stream, encoder_codec, encoder_options)?;
 			}
 		}
 
@@ -464,7 +464,7 @@ impl Transcoder {
 		&mut self,
 		sender: mpsc::Sender<Vec<u8>>,
 		video_config: &VideoConfig,
-		video_stream: &mut Stream<'_>,
+		video_stream: &Stream<'_>,
 		encoder_codec: EncoderCodec,
 		encoder_options: Dictionary,
 	) -> anyhow::Result<()> {
@@ -533,7 +533,7 @@ impl Transcoder {
 		&mut self,
 		sender: mpsc::Sender<Vec<u8>>,
 		audio_config: &AudioConfig,
-		audio_stream: &mut Stream<'_>,
+		audio_stream: &Stream<'_>,
 		encoder_codec: EncoderCodec,
 		encoder_options: Dictionary,
 	) -> anyhow::Result<()> {

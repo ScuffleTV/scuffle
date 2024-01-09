@@ -16,7 +16,7 @@ impl<'a> Streams<'a> {
 		Self { input }
 	}
 
-	pub fn best(&self, media_type: AVMediaType) -> Option<Stream<'a>> {
+	pub fn best(&self, media_type: AVMediaType) -> Option<Const<'a, Stream<'a>>> {
 		// Safety: av_find_best_stream is safe to call, 'input' is a valid pointer
 		// We upcast the pointer to a mutable pointer because the function signature
 		// requires it, but it does not mutate the pointer.
@@ -29,13 +29,17 @@ impl<'a> Streams<'a> {
 		// Safety: if we get back an index, it's valid
 		let stream = unsafe { &mut *(*self.input.streams.add(stream as usize)) };
 
-		Some(Stream::new(stream, self.input))
+		Some(Const::new(Stream::new(stream, self.input)))
+	}
+
+	pub fn best_mut(self, media_type: AVMediaType) -> Option<Stream<'a>> {
+		self.best(media_type).map(|s| s.0)
 	}
 }
 
 impl<'a> IntoIterator for Streams<'a> {
 	type IntoIter = StreamIter<'a>;
-	type Item = Stream<'a>;
+	type Item = Const<'a, Stream<'a>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		StreamIter {
@@ -77,7 +81,7 @@ pub struct StreamIter<'a> {
 }
 
 impl<'a> Iterator for StreamIter<'a> {
-	type Item = Stream<'a>;
+	type Item = Const<'a, Stream<'a>>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		if self.index >= self.input.nb_streams as usize {
@@ -87,7 +91,7 @@ impl<'a> Iterator for StreamIter<'a> {
 		let stream = unsafe { &mut *(*self.input.streams.add(self.index)) };
 		self.index += 1;
 
-		Some(Stream::new(stream, self.input))
+		Some(Const::new(Stream::new(stream, self.input)))
 	}
 
 	fn size_hint(&self) -> (usize, Option<usize>) {

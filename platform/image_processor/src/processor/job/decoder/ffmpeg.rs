@@ -30,7 +30,7 @@ impl<'data> FfmpegDecoder<'data> {
 			.context("input")
 			.map_err(ProcessorError::FfmpegDecode)?;
 
-		let mut input_stream = input
+		let input_stream = input
 			.streams()
 			.best(ffmpeg::ffi::AVMediaType::AVMEDIA_TYPE_VIDEO)
 			.ok_or_else(|| ProcessorError::FfmpegDecode(anyhow!("no video stream")))?;
@@ -47,7 +47,7 @@ impl<'data> FfmpegDecoder<'data> {
 			return Err(ProcessorError::FfmpegDecode(anyhow!("stream time base is 0")));
 		}
 
-		let decoder = match ffmpeg::decoder::Decoder::new(&mut input_stream)
+		let decoder = match ffmpeg::decoder::Decoder::new(&input_stream)
 			.context("video decoder")
 			.map_err(ProcessorError::FfmpegDecode)?
 		{

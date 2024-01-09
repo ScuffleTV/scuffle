@@ -3,7 +3,7 @@ use std::ffi::CStr;
 use ffmpeg_sys_next::*;
 
 use super::internal::{read_packet, seek, Inner, InnerOptions};
-use crate::consts::DEFAULT_BUFFER_SIZE;
+use crate::consts::{DEFAULT_BUFFER_SIZE, Const};
 use crate::dict::Dictionary;
 use crate::error::FfmpegError;
 use crate::packet::Packets;
@@ -90,8 +90,8 @@ impl<T: Send + Sync> Input<T> {
 		self.inner.context.as_mut_ptr()
 	}
 
-	pub fn streams(&self) -> Streams<'_> {
-		Streams::new(self.inner.context.as_deref_except())
+	pub fn streams(&self) -> Const<'_, Streams<'_>> {
+		Const::new(Streams::new(self.inner.context.as_deref_except()))
 	}
 
 	pub fn packets(&mut self) -> Packets<'_> {

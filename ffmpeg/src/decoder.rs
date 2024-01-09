@@ -73,11 +73,11 @@ impl Default for DecoderOptions {
 }
 
 impl Decoder {
-	pub fn new(ist: &mut Stream) -> Result<Self, FfmpegError> {
+	pub fn new(ist: &Stream) -> Result<Self, FfmpegError> {
 		Self::with_options(ist, Default::default())
 	}
 
-	pub fn with_options(ist: &mut Stream, options: DecoderOptions) -> Result<Self, FfmpegError> {
+	pub fn with_options(ist: &Stream, options: DecoderOptions) -> Result<Self, FfmpegError> {
 		let Some(codec_params) = ist.codec_parameters() else {
 			return Err(FfmpegError::NoDecoder);
 		};

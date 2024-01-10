@@ -3,10 +3,10 @@ use std::ptr::NonNull;
 
 use anyhow::{anyhow, Context};
 
-use super::{Decoder, DecoderBackend, DecoderInfo, FrameRef, LoopCount};
+use super::{Decoder, DecoderBackend, DecoderInfo, LoopCount};
 use crate::database::Job;
 use crate::processor::error::{ProcessorError, Result};
-use crate::processor::job::frame::FrameCow;
+use crate::processor::job::frame::Frame;
 use crate::processor::job::libavif::{AvifError, AvifRgbImage};
 use crate::processor::job::smart_object::SmartPtr;
 
@@ -108,7 +108,9 @@ impl Decoder for AvifDecoder<'_> {
 		self.info
 	}
 
-	fn decode(&mut self) -> Result<Option<FrameCow<'_>>> {
+	fn decode(&mut self) -> Result<Option<Frame>> {
+		let _abort_guard = common::task::AbortGuard::new();
+
 		if AvifError::from_code(unsafe { libavif_sys::avifDecoderNextImage(self.decoder.as_ptr()) }).is_err() {
 			return Ok(None);
 		}
@@ -124,12 +126,9 @@ impl Decoder for AvifDecoder<'_> {
 			return Err(ProcessorError::AvifDecode(anyhow!("input duration exceeds limit")));
 		}
 
-		Ok(Some(
-			FrameRef {
-				image: self.img.data(),
-				duration_ts,
-			}
-			.into(),
-		))
+		Ok(Some(Frame {
+			image: self.img.data().clone(),
+			duration_ts,
+		}))
 	}
 }

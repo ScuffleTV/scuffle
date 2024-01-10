@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use file_format::FileFormat;
 
-use super::frame::{FrameCow, FrameRef};
+use super::frame::Frame;
 use crate::database::Job;
 use crate::processor::error::{ProcessorError, Result};
 
@@ -66,7 +66,7 @@ pub enum AnyDecoder<'a> {
 pub trait Decoder {
 	fn backend(&self) -> DecoderBackend;
 	fn info(&self) -> DecoderInfo;
-	fn decode(&mut self) -> Result<Option<FrameCow<'_>>>;
+	fn decode(&mut self) -> Result<Option<Frame>>;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -101,7 +101,7 @@ impl Decoder for AnyDecoder<'_> {
 		}
 	}
 
-	fn decode(&mut self) -> Result<Option<FrameCow<'_>>> {
+	fn decode(&mut self) -> Result<Option<Frame>> {
 		match self {
 			Self::Ffmpeg(decoder) => decoder.decode(),
 			Self::LibAvif(decoder) => decoder.decode(),

@@ -25,5 +25,8 @@ pub mod ratelimiter;
 #[cfg(feature = "http")]
 pub mod http;
 
+#[cfg(feature = "task")]
+pub mod task;
+
 #[cfg(test)]
 mod tests;

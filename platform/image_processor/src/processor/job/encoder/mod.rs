@@ -1,5 +1,5 @@
 use super::decoder::LoopCount;
-use super::frame::FrameRef;
+use super::frame::Frame;
 use crate::processor::error::Result;
 
 mod gifski;
@@ -54,7 +54,7 @@ pub enum AnyEncoder {
 
 pub trait Encoder {
 	fn info(&self) -> EncoderInfo;
-	fn add_frame(&mut self, frame: FrameRef<'_>) -> Result<()>;
+	fn add_frame(&mut self, frame: &Frame) -> Result<()>;
 	fn finish(self) -> Result<Vec<u8>>;
 }
 
@@ -68,7 +68,7 @@ impl Encoder for AnyEncoder {
 		}
 	}
 
-	fn add_frame(&mut self, frame: FrameRef<'_>) -> Result<()> {
+	fn add_frame(&mut self, frame: &Frame) -> Result<()> {
 		match self {
 			Self::Gifski(encoder) => encoder.add_frame(frame),
 			Self::Png(encoder) => encoder.add_frame(frame),

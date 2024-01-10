@@ -18,7 +18,7 @@ pub enum LogLevel {
 }
 
 impl LogLevel {
-	const fn from_i32(value: i32) -> Self {
+	pub const fn from_i32(value: i32) -> Self {
 		match value {
 			AV_LOG_QUIET => Self::Quiet,
 			AV_LOG_PANIC => Self::Panic,
@@ -33,7 +33,7 @@ impl LogLevel {
 		}
 	}
 
-	const fn as_str(self) -> &'static str {
+	pub const fn as_str(self) -> &'static str {
 		match self {
 			Self::Quiet => "quiet",
 			Self::Panic => "panic",
@@ -55,7 +55,7 @@ pub fn set_log_level(level: LogLevel) {
 }
 
 pub fn log_callback_set<F: Fn(LogLevel, Option<String>, String) + 'static>(callback: F) {
-    type Function = Box<dyn Fn(LogLevel, Option<String>, String)>;
+	type Function = Box<dyn Fn(LogLevel, Option<String>, String)>;
 	static mut LOG_CALLBACK: RwLock<Option<Function>> = RwLock::new(None);
 
 	unsafe extern "C" fn log_cb(

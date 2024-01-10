@@ -3,10 +3,10 @@ use std::borrow::Cow;
 use imgref::ImgVec;
 
 use crate::processor::job::decoder::{Decoder, DecoderBackend, DecoderInfo, LoopCount};
-use crate::processor::job::frame::FrameOwned;
+use crate::processor::job::frame::Frame;
 use crate::tests::utils::asset_bytes;
 
-fn decode(asset_name: &str, backend: DecoderBackend, expected_info: DecoderInfo, expected_frames: Vec<FrameOwned>) {
+fn decode(asset_name: &str, backend: DecoderBackend, expected_info: DecoderInfo, expected_frames: Vec<Frame>) {
 	let asset_bytes = asset_bytes(asset_name);
 
 	let start = std::time::Instant::now();
@@ -26,21 +26,9 @@ fn decode(asset_name: &str, backend: DecoderBackend, expected_info: DecoderInfo,
 	let mut idx = 0;
 	while let Some(frame) = decoder.decode().expect("frame decode error") {
 		let expected = expected_frames.get(idx).expect("frame count mismatch");
-		assert_eq!(
-			frame.as_ref().duration_ts,
-			expected.duration_ts,
-			"frame duration_ts mismatch: {idx}",
-		);
-		assert_eq!(
-			frame.as_ref().image.height(),
-			expected.image.height(),
-			"frame height mismatch: {idx}",
-		);
-		assert_eq!(
-			frame.as_ref().image.width(),
-			expected.image.width(),
-			"frame width mismatch: {idx}",
-		);
+		assert_eq!(frame.duration_ts, expected.duration_ts, "frame duration_ts mismatch: {idx}",);
+		assert_eq!(frame.image.height(), expected.image.height(), "frame height mismatch: {idx}",);
+		assert_eq!(frame.image.width(), expected.image.width(), "frame width mismatch: {idx}",);
 		idx += 1;
 	}
 
@@ -60,7 +48,7 @@ fn decode_ffmpeg_gif_test() {
 	};
 
 	let expected_frames = (0..93)
-		.map(|_| FrameOwned {
+		.map(|_| Frame {
 			duration_ts: 4,
 			image: ImgVec::new(vec![], 128, 128),
 		})
@@ -80,7 +68,7 @@ fn decode_libwebp_webp_test() {
 	};
 
 	let expected_frames = (0..93)
-		.map(|_| FrameOwned {
+		.map(|_| Frame {
 			duration_ts: 40,
 			image: ImgVec::new(vec![], 128, 128),
 		})
@@ -100,7 +88,7 @@ fn decode_libavif_avif_test() {
 	};
 
 	let expected_frames = (0..93)
-		.map(|_| FrameOwned {
+		.map(|_| Frame {
 			image: ImgVec::new(vec![], 128, 128),
 			duration_ts: 4,
 		})

@@ -14,12 +14,18 @@ unsafe impl Send for FilterGraph {}
 
 impl FilterGraph {
 	pub fn new() -> Result<Self, FfmpegError> {
+		#[cfg(feature = "task-abort")]
+		let _abort_guard = common::task::AbortGuard::new();
+
 		// Safety: the pointer returned from avfilter_graph_alloc is valid
 		unsafe { Self::wrap(avfilter_graph_alloc()) }
 	}
 
 	/// Safety: `ptr` must be a valid pointer to an `AVFilterGraph`.
 	unsafe fn wrap(ptr: *mut AVFilterGraph) -> Result<Self, FfmpegError> {
+		#[cfg(feature = "task-abort")]
+		let _abort_guard = common::task::AbortGuard::new();
+
 		Ok(Self(
 			SmartPtr::wrap_non_null(ptr, |ptr| unsafe { avfilter_graph_free(ptr) }).ok_or(FfmpegError::Alloc)?,
 		))
@@ -34,6 +40,9 @@ impl FilterGraph {
 	}
 
 	pub fn add(&mut self, filter: Filter, name: &str, args: &str) -> Result<FilterContext<'_>, FfmpegError> {
+		#[cfg(feature = "task-abort")]
+		let _abort_guard = common::task::AbortGuard::new();
+
 		let name = CString::new(name).expect("failed to convert name to CString");
 		let args = CString::new(args).expect("failed to convert args to CString");
 
@@ -229,6 +238,9 @@ unsafe impl Send for FilterContextSource<'_> {}
 
 impl FilterContextSource<'_> {
 	pub fn send_frame(&mut self, frame: &Frame) -> Result<(), FfmpegError> {
+		#[cfg(feature = "task-abort")]
+		let _abort_guard = common::task::AbortGuard::new();
+
 		// Safety: `frame` is a valid pointer, and `self.0` is a valid pointer.
 		unsafe {
 			match av_buffersrc_write_frame(self.0, frame.as_ptr()) {
@@ -239,6 +251,9 @@ impl FilterContextSource<'_> {
 	}
 
 	pub fn send_eof(&mut self, pts: Option<i64>) -> Result<(), FfmpegError> {
+		#[cfg(feature = "task-abort")]
+		let _abort_guard = common::task::AbortGuard::new();
+
 		// Safety: `self.0` is a valid pointer.
 		unsafe {
 			match if let Some(pts) = pts {
@@ -260,6 +275,9 @@ unsafe impl Send for FilterContextSink<'_> {}
 
 impl FilterContextSink<'_> {
 	pub fn receive_frame(&mut self) -> Result<Option<Frame>, FfmpegError> {
+		#[cfg(feature = "task-abort")]
+		let _abort_guard = common::task::AbortGuard::new();
+
 		let mut frame = Frame::new()?;
 
 		// Safety: `frame` is a valid pointer, and `self.0` is a valid pointer.

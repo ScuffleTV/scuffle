@@ -18,8 +18,9 @@ config = ["dep:config", "dep:serde", "logging", "dep:rust-s3"]
 ratelimiter = ["dep:fred"]
 global = ["context", "dep:fred", "dep:sqlx", "dep:async-nats"]
 http = ["dep:hyper", "dep:serde_json", "dep:bytes", "dep:http-body-util", "dep:pin-project", "dep:path-tree"]
+task = ["dep:tokio", "dep:thiserror"]
 
-default = ["logging", "grpc", "context", "prelude", "signal", "macros", "config", "dataloader", "database", "ratelimiter", "global", "http"]
+default = ["logging", "grpc", "context", "prelude", "signal", "macros", "config", "dataloader", "database", "ratelimiter", "global", "http", "task"]
 
 [dependencies]
 log = { version = "0.4", optional = true }

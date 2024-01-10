@@ -1,4 +1,4 @@
-use imgref::ImgRef;
+use imgref::ImgVec;
 use rgb::ComponentBytes;
 
 #[derive(Debug)]
@@ -29,8 +29,8 @@ impl AvifRgbImage {
 		Self(img, data)
 	}
 
-	pub fn data(&self) -> ImgRef<'_, rgb::RGBA8> {
-		self.1.as_ref()
+	pub fn data(&self) -> &ImgVec<rgb::RGBA8> {
+		&self.1
 	}
 }
 

@@ -1,9 +1,12 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
+
+use rgb::ComponentBytes;
+use sha2::Digest;
 
 use crate::processor::error::ProcessorError;
 use crate::processor::job::decoder::{Decoder, DecoderBackend};
 use crate::processor::job::encoder::{Encoder, EncoderFrontend, EncoderSettings};
-use crate::processor::job::frame_deduplicator;
 use crate::processor::job::resize::{ImageResizer, ImageResizerTarget};
 use crate::tests::utils::asset_bytes;
 
@@ -18,68 +21,71 @@ fn encode(asset_name: &str, backend: DecoderBackend, frontend: EncoderFrontend) 
 
 	let info = decoder.info();
 
-	let mut resizers = vec![(
-		ImageResizer::new(ImageResizerTarget {
-			height: 30,
-			width: 30,
-			..Default::default()
-		}),
-		vec![
-			frontend
-				.build(EncoderSettings {
-					fast: true,
-					loop_count: info.loop_count,
-					timescale: info.timescale,
-					static_image: false,
-				})
-				.expect("failed to build encoder"),
-		],
-	)];
+	let mut resizer = ImageResizer::new(ImageResizerTarget {
+		height: 30,
+		width: 30,
+		..Default::default()
+	});
 
-	let mut deduplicator = frame_deduplicator::FrameDeduplicator::new();
+	let mut frames = Vec::with_capacity(info.frame_count);
+	let mut frame_hashes = HashMap::new();
+	let mut frame_order = Vec::with_capacity(info.frame_count);
+	let mut count = 0;
 
-	loop {
-		let frame = match decoder.decode().expect("failed to decode") {
-			Some(frame) => match deduplicator.deduplicate(frame.as_ref()) {
-				Some(frame) => frame,
-				None => continue,
-			},
-			None => match deduplicator.flush() {
-				Some(frame) => frame,
-				None => break,
-			},
-		};
-
-		for (resizer, encoders) in resizers.iter_mut() {
-			let frame = resizer.resize(frame.as_ref()).expect("failed to resize");
-			for encoder in encoders.iter_mut() {
-				encoder.add_frame(frame.as_ref()).expect("failed to add frame");
-			}
-		}
-	}
-
-	for (_, encoders) in resizers.into_iter() {
-		for encoder in encoders.into_iter() {
-			let info = encoder.info();
-			dbg!(&info);
-			let output = encoder.finish().expect("failed to finish");
-			let output_path = format!(
-				"/tmp/{}x{}.{}",
-				info.width,
-				info.height,
-				match info.frontend {
-					EncoderFrontend::Gifski => "gif",
-					EncoderFrontend::LibAvif => "avif",
-					EncoderFrontend::LibWebp => "webp",
-					EncoderFrontend::Png => "png",
+	while let Some(frame) = decoder.decode().expect("failed to decode") {
+		let hash = sha2::Sha256::digest(frame.image.buf().as_bytes());
+		if let Some(idx) = frame_hashes.get(&hash) {
+			if let Some((last_idx, last_duration)) = frame_order.last_mut() {
+				if last_idx == idx {
+					*last_duration += frame.duration_ts;
+				} else {
+					frame_order.push((*idx, frame.duration_ts));
 				}
-			);
-			std::fs::write(&output_path, output)
-				.map_err(ProcessorError::FileCreate)
-				.expect("failed to write output");
-			println!("wrote output to {}", output_path);
+			} else {
+				frame_order.push((*idx, frame.duration_ts));
+			}
+		} else {
+			frame_hashes.insert(hash, count);
+			frame_order.push((count, frame.duration_ts));
+
+			count += 1;
+			frames.push(resizer.resize(&frame).expect("failed to resize"));
 		}
 	}
+
+	let mut encoder = frontend
+		.build(EncoderSettings {
+			fast: true,
+			loop_count: info.loop_count,
+			timescale: info.timescale,
+			static_image: false,
+		})
+		.expect("failed to build encoder");
+
+	for (idx, timing) in frame_order.into_iter() {
+		let resized = &mut frames[idx];
+		resized.duration_ts = timing;
+		encoder.add_frame(resized).expect("failed to add frame");
+	}
+
+	let info = encoder.info();
+	dbg!(&info);
+	let output = encoder.finish().expect("failed to finish");
+	let output_path = format!(
+		"/tmp/{}x{}.{}",
+		info.width,
+		info.height,
+		match info.frontend {
+			EncoderFrontend::Gifski => "gif",
+			EncoderFrontend::LibAvif => "avif",
+			EncoderFrontend::LibWebp => "webp",
+			EncoderFrontend::Png => "png",
+		}
+	);
+	std::fs::write(&output_path, output)
+		.map_err(ProcessorError::FileCreate)
+		.expect("failed to write output");
+	println!("wrote output to {}", output_path);
 
 	println!("encode time ({asset_name}): {:?}", start.elapsed());
 }

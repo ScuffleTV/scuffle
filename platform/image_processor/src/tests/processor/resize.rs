@@ -20,10 +20,10 @@ fn resize(asset_name: &str, backend: DecoderBackend) {
 	});
 
 	while let Some(frame) = decoder.decode().expect("frame decode error") {
-		let resized = resizer.resize(frame.as_ref()).expect("resize error");
+		let resized = resizer.resize(&frame).expect("resize error");
 
-		assert_eq!(resized.as_ref().image.width(), 30, "width mismatch");
-		assert_eq!(resized.as_ref().image.height(), 30, "height mismatch");
+		assert_eq!(resized.image.width(), 30, "width mismatch");
+		assert_eq!(resized.image.height(), 30, "height mismatch");
 	}
 
 	println!("decode time ({asset_name}): {:?}", start.elapsed());

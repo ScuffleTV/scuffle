@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use bytes::Bytes;
+use common::task::AsyncTask;
 use file_format::FileFormat;
 use futures::FutureExt;
 use prost::Message;
@@ -18,7 +19,6 @@ use crate::processor::utils::refresh_job;
 pub(crate) mod decoder;
 pub(crate) mod encoder;
 pub(crate) mod frame;
-pub(crate) mod frame_deduplicator;
 pub(crate) mod libavif;
 pub(crate) mod libwebp;
 pub(crate) mod process;
@@ -100,12 +100,18 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 		let url_prefix = format!("result/{}{}", self.job.task.output_prefix, self.job.id);
 
 		let job_c = self.job.clone();
-		let images = tokio::task::spawn_blocking(move || process::process_job(backend, &job_c, Cow::Borrowed(&input_data)))
-			.await
-			.unwrap_or_else(|e| {
-				tracing::error!(error = %e, "failed to spawn blocking task");
-				Err(ProcessorError::BlockingTaskSpawn)
-			})?;
+
+		tracing::info!("processing job");
+
+		let images = AsyncTask::spawn_blocking("process", move || {
+			process::process_job(backend, &job_c, Cow::Borrowed(&input_data))
+		})
+		.join()
+		.await
+		.map_err(|e| {
+			tracing::error!(err = %e, "failed to process job");
+			ProcessorError::BlockingTaskSpawn
+		})??;
 
 		for image in images.images.iter() {
 			// image upload

@@ -1,12 +1,12 @@
 use std::borrow::Cow;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use pb::scuffle::platform::internal::types::ImageFormat;
+use rgb::ComponentBytes;
+use sha2::Digest;
 
 use super::decoder::{Decoder, DecoderBackend, LoopCount};
 use super::encoder::{AnyEncoder, Encoder, EncoderFrontend, EncoderSettings};
-use super::frame::FrameOwned;
-use super::frame_deduplicator::FrameDeduplicator;
 use super::resize::{ImageResizer, ImageResizerTarget};
 use crate::database::Job;
 use crate::processor::error::{ProcessorError, Result};
@@ -63,15 +63,6 @@ impl Image {
 #[derive(Debug)]
 pub struct Images {
 	pub images: Vec<Image>,
-}
-
-struct ResizerStack {
-	resizer: ImageResizer,
-	first_frame: Option<FrameOwned>,
-	frame_count: usize,
-	scale: usize,
-	static_encoders: Vec<AnyEncoder>,
-	animation_encoders: Vec<AnyEncoder>,
 }
 
 pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> Result<Images> {
@@ -142,74 +133,102 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 	};
 
 	let mut resizers = scales
-		.into_iter()
+		.iter()
 		.map(|scale| {
-			Ok::<_, ProcessorError>(ResizerStack {
-				resizer: ImageResizer::new(ImageResizerTarget {
+			(
+				*scale,
+				ImageResizer::new(ImageResizerTarget {
 					height: base_height.ceil() as usize * scale,
 					width: base_width.ceil() as usize * scale,
 					algorithm: job.task.resize_algorithm(),
 					method: job.task.resize_method(),
 				}),
-				animation_encoders: if info.frame_count > 1 {
-					animation_formats
-						.iter()
-						.map(|&frontend| frontend.build(anim_settings))
-						.collect::<Result<Vec<_>, _>>()?
+				Vec::with_capacity(info.frame_count),
+			)
+		})
+		.collect::<Vec<_>>();
+
+	let mut frame_hashes = HashMap::new();
+	let mut frame_order = Vec::with_capacity(info.frame_count);
+	let mut count = 0;
+
+	tracing::debug!("decoding frames");
+
+	while let Some(frame) = decoder.decode()? {
+		let hash = sha2::Sha256::digest(frame.image.buf().as_bytes());
+		if let Some(idx) = frame_hashes.get(&hash) {
+			if let Some((last_idx, last_duration)) = frame_order.last_mut() {
+				if last_idx == idx {
+					*last_duration += frame.duration_ts;
 				} else {
-					Vec::new()
-				},
-				scale,
+					frame_order.push((*idx, frame.duration_ts));
+				}
+			} else {
+				frame_order.push((*idx, frame.duration_ts));
+			}
+		} else {
+			frame_hashes.insert(hash, count);
+			frame_order.push((count, frame.duration_ts));
+
+			count += 1;
+			for (_, resizer, frames) in resizers.iter_mut() {
+				frames.push(resizer.resize(&frame)?);
+			}
+		}
+	}
+
+	tracing::debug!("decoded frames: {count}");
+
+	// We no longer need the decoder so we can free it.
+	drop(decoder);
+
+	struct Stack {
+		scale: usize,
+		static_encoders: Vec<AnyEncoder>,
+		animation_encoders: Vec<AnyEncoder>,
+	}
+
+	let mut stacks = resizers
+		.iter_mut()
+		.map(|(scale, _, frames)| {
+			Ok(Stack {
+				scale: *scale,
 				static_encoders: static_formats
 					.iter()
 					.map(|&frontend| frontend.build(static_settings))
-					.collect::<Result<Vec<_>, _>>()?,
-				first_frame: None,
-				frame_count: 0,
+					.collect::<Result<Vec<_>>>()?,
+				animation_encoders: if frames.len() > 1 {
+					animation_formats
+						.iter()
+						.map(|&frontend| frontend.build(anim_settings))
+						.collect::<Result<Vec<_>>>()?
+				} else {
+					Vec::new()
+				},
 			})
 		})
-		.collect::<Result<Vec<_>, _>>()?;
+		.collect::<Result<Vec<_>>>()?;
 
-	let mut deduplicator = FrameDeduplicator::new();
-
-	loop {
-		let frame = match decoder.decode()? {
-			Some(frame) => match deduplicator.deduplicate(frame.as_ref()) {
-				Some(frame) => frame,
-				None => continue,
-			},
-			None => match deduplicator.flush() {
-				Some(frame) => frame,
-				None => break,
-			},
-		};
-
-		for stack in resizers.iter_mut() {
-			let frame = stack.resizer.resize(frame.as_ref())?;
-			stack.frame_count += 1;
-			if stack.frame_count != 1 {
-				if let Some(first_frame) = stack.first_frame.take() {
-					for encoder in stack.animation_encoders.iter_mut() {
-						encoder.add_frame(first_frame.as_ref())?;
-					}
-				}
-
-				for encoder in stack.animation_encoders.iter_mut() {
-					encoder.add_frame(frame.as_ref())?;
-				}
-			} else {
-				for encoder in stack.static_encoders.iter_mut() {
-					encoder.add_frame(frame.as_ref())?;
-				}
-
-				stack.first_frame = Some(frame.into_owned());
+	for (stack, frames) in stacks.iter_mut().zip(resizers.iter_mut().map(|(_, _, frames)| frames)) {
+		for encoder in stack.animation_encoders.iter_mut() {
+			for (idx, timing) in frame_order.iter() {
+				let frame = &mut frames[*idx];
+				frame.duration_ts = *timing;
+				encoder.add_frame(frame)?;
 			}
+
+			tracing::debug!("added frames to animation encoder: {count} => {:?}", encoder.info().frontend);
+		}
+
+		for encoder in stack.static_encoders.iter_mut() {
+			encoder.add_frame(&frames[0])?;
+			tracing::debug!("added frame to static encoder: 1 => {:?}", encoder.info().frontend);
 		}
 	}
 
 	let mut images = Vec::new();
 
-	for stack in resizers.into_iter() {
+	for stack in stacks.into_iter() {
 		for encoder in stack.animation_encoders.into_iter() {
 			let info = encoder.info();
 			let output = encoder.finish()?;

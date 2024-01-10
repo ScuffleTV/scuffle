@@ -576,6 +576,7 @@
 	}
 
 	.volume::-moz-range-thumb {
+		appearance: none;
 		width: 1rem;
 		height: 1rem;
 		border-radius: 50%;

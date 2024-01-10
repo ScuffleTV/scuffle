@@ -39,7 +39,7 @@ export function createGqlClient(): Client {
 					});
 				},
 				didAuthError(error) {
-					return error.graphQLErrors.some((e) => e.extensions?.kind === "Auth(InvalidToken)");
+					return error.response?.status === 401 || error.graphQLErrors.some((e) => e.extensions?.kind === "Auth(InvalidToken)");
 				},
 				async refreshAuth() {
 					sessionToken.set(null);
@@ -80,7 +80,7 @@ export function createGqlClient(): Client {
 						if (
 							e instanceof CloseEvent &&
 							e.code === 1002 &&
-							e.reason.startsWith("InvalidSession")
+							(e.reason.endsWith("invalid token") || e.reason.endsWith("session expired"))
 						) {
 							// Our token has expired, so we need to log out.
 							sessionToken.set(null);

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, onMount } from "svelte";
+	import { onDestroy, onMount, tick } from "svelte";
 	import init, { Player, type EventError, type Variant } from "@scuffle/player";
 	import Play from "$/components/icons/player/play.svelte";
 	import Pause from "$/components/icons/player/pause.svelte";
@@ -113,6 +113,23 @@
 		pip = false;
 	}
 
+	function playVideoEl() {
+		if (videoEl) {
+			videoEl.play().catch(() => {
+				// Play failed, probably because of autoplay restrictions
+				// Mute the video and try again
+				console.debug("[player] play failed, trying again muted");
+				volume = 0.0;
+				// Wait for one svelte tick to make sure the volume is set before trying again
+				tick().then(() => videoEl.play().catch((e) => {
+					console.error("[player] failed to play video", e);
+					// Setting state to paused so the user knows that they have to click play
+					state = PlayerState.Paused;
+				}));
+			});
+		}
+	}
+
 	onMount(() => {
 		document.addEventListener("enterpictureinpicture", pipEnabled);
 		document.addEventListener("leavepictureinpicture", pipDisabled);
@@ -121,8 +138,6 @@
 			document.removeEventListener("leavepictureinpicture", pipDisabled);
 		};
 	});
-
-	$: console.debug("[player] pip: ", pip);
 
 	$: {
 		if (player) {
@@ -165,10 +180,6 @@
 
 	function onStarted() {
 		console.debug("[player] started");
-		if (videoEl) {
-			videoEl.play();
-			player.toRealtime();
-		}
 	}
 
 	function onStopped() {
@@ -198,7 +209,7 @@
 			});
 
 			player.start();
-			videoEl.play();
+			playVideoEl();
 			console.debug("[player] initialized");
 		});
 
@@ -224,6 +235,7 @@
 			case PlayerState.Paused:
 				console.debug("[player] starting (user interaction)");
 				player?.start();
+				playVideoEl();
 				break;
 		}
 	}

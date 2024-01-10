@@ -39,7 +39,10 @@ export function createGqlClient(): Client {
 					});
 				},
 				didAuthError(error) {
-					return error.response?.status === 401 || error.graphQLErrors.some((e) => e.extensions?.kind === "Auth(InvalidToken)");
+					return (
+						error.response?.status === 401 ||
+						error.graphQLErrors.some((e) => e.extensions?.kind === "Auth(InvalidToken)")
+					);
 				},
 				async refreshAuth() {
 					sessionToken.set(null);

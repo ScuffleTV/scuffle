@@ -121,11 +121,13 @@
 				console.debug("[player] play failed, trying again muted");
 				volume = 0.0;
 				// Wait for one svelte tick to make sure the volume is set before trying again
-				tick().then(() => videoEl.play().catch((e) => {
-					console.error("[player] failed to play video", e);
-					// Setting state to paused so the user knows that they have to click play
-					state = PlayerState.Paused;
-				}));
+				tick().then(() =>
+					videoEl.play().catch((e) => {
+						console.error("[player] failed to play video", e);
+						// Setting state to paused so the user knows that they have to click play
+						state = PlayerState.Paused;
+					}),
+				);
 			});
 		}
 	}

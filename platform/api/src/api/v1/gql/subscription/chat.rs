@@ -10,6 +10,7 @@ use crate::api::v1::gql::error::Result;
 use crate::api::v1::gql::ext::ContextExt;
 use crate::api::v1::gql::models::chat_message::{ChatMessage, MessageType};
 use crate::api::v1::gql::models::ulid::GqlUlid;
+use crate::database;
 use crate::global::ApiGlobal;
 use crate::subscription::SubscriptionTopic;
 
@@ -41,12 +42,6 @@ impl<G: ApiGlobal> ChatSubscription<G> {
 		};
 
 		// TODO: check if user is allowed to read this chat
-		// let channel = global
-		//     .user_by_id_loader
-		//     .load_one(channel_id.into())
-		//     .await
-		//     .map_err_gql("failed to fetch user")?
-		//     .ok_or(GqlError::NotFound.with_message("user not found"))?;
 
 		let mut message_stream = global
 			.subscription_manager()
@@ -54,7 +49,24 @@ impl<G: ApiGlobal> ChatSubscription<G> {
 			.await
 			.map_err_gql("failed to subscribe to chat messages")?;
 
+		// load old messages not older than 10 minutes, max 100 messages
+		let not_older_than = chrono::Utc::now() - chrono::Duration::minutes(10);
+		let not_older_than = ulid::Ulid::from_parts(not_older_than.timestamp() as u64, u128::MAX);
+		let messages: Vec<database::ChatMessage> = sqlx::query_as(
+			"SELECT * FROM chat_messages WHERE channel_id = $1 AND deleted_at IS NULL AND id >= $2 ORDER BY id LIMIT 100",
+		)
+		.bind(common::database::Ulid::from(channel_id.to_ulid()))
+		.bind(common::database::Ulid::from(not_older_than))
+		.fetch_all(global.db().as_ref())
+		.await
+		.map_err_gql("failed to fetch chat messages")?;
+
+		dbg!(&messages);
+
 		Ok(stream!({
+			for message in messages {
+				yield Ok(message.into());
+			}
 			yield Ok(welcome_message);
 			while let Ok(message) = message_stream.recv().await {
 				let event = pb::scuffle::platform::internal::events::ChatMessage::decode(message.payload)

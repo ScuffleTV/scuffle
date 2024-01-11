@@ -145,8 +145,9 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 			}
 		}
 		// job completion
+		tracing::info!("publishing job completion event to {}", self.job.task.callback_subject);
 		self.global
-			.nats()
+			.jetstream()
 			.publish(
 				self.job.task.callback_subject.clone(),
 				pb::scuffle::platform::internal::events::ProcessedImage {

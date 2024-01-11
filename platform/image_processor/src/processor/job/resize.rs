@@ -1,9 +1,9 @@
 use anyhow::Context;
-use imgref::ImgRef;
+use imgref::Img;
 use pb::scuffle::platform::internal::image_processor::task::{ResizeAlgorithm, ResizeMethod};
 use rgb::ComponentBytes;
 
-use super::frame::{FrameCow, FrameRef};
+use super::frame::Frame;
 use crate::processor::error::{ProcessorError, Result};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -65,7 +65,9 @@ impl ImageResizer {
 	/// Resize the given frame to the target size, returning a reference to the
 	/// resized frame. After this function returns original frame can be
 	/// dropped, the returned frame is valid for the lifetime of the Resizer.
-	pub fn resize(&mut self, frame: FrameRef<'_>) -> Result<FrameCow<'_>> {
+	pub fn resize(&mut self, frame: &Frame) -> Result<Frame> {
+		let _abort_guard = common::task::AbortGuard::new();
+
 		// Safety: `data` is a valid pointer, and even tho we dont own it, we do not
 		// make mat mutable so we wont modify it.        `data` is valid for the
 		// lifetime of `frame`, which is the lifetime of the function.
@@ -171,15 +173,14 @@ impl ImageResizer {
 				.context("opencv imgproc copy make border")
 				.map_err(ProcessorError::ImageResize)?;
 
-				ImgRef::new(&self.padding_buffer, width, height)
+				Img::new(self.padding_buffer.clone(), width, height)
 			} else {
-				ImgRef::new(&self.buffer, width, height)
+				Img::new(self.buffer.clone(), width, height)
 			};
 
-		Ok(FrameRef {
+		Ok(Frame {
 			image,
 			duration_ts: frame.duration_ts,
-		}
-		.into())
+		})
 	}
 }

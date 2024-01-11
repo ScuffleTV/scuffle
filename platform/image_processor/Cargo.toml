@@ -39,7 +39,7 @@ common = { workspace = true, features = ["default"] }
 config = { workspace = true }
 pb = { workspace = true }
 binary-helper = { workspace = true }
-ffmpeg = { workspace = true }
+ffmpeg = { workspace = true, features = ["task-abort"] }
 
 [dev-dependencies]
 dotenvy = "0.15.7"

@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use bytes::Bytes;
+use common::task::AsyncTask;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::live_rendition_manifest::recording_data::RecordingThumbnail;
 use pb::scuffle::video::v1::types::{AudioConfig, RecordingConfig, Rendition as PbRendition, VideoConfig};
@@ -13,7 +14,6 @@ use ulid::Ulid;
 use video_common::database::{Rendition, S3Bucket, Visibility};
 
 use super::task::recording::{recording_task, recording_thumbnail_task, RecordingTask, RecordingThumbnailTask};
-use super::task::Task;
 use crate::global::TranscoderGlobal;
 
 pub struct PartialUpload {
@@ -30,7 +30,7 @@ pub struct Recording {
 	partial_uploads: HashMap<Rendition, PartialUpload>,
 	uploaders: HashMap<Rendition, mpsc::Sender<RecordingTask>>,
 	thumbnail_uploader: mpsc::Sender<RecordingThumbnailTask>,
-	tasks: Vec<Task>,
+	tasks: Vec<AsyncTask<anyhow::Result<()>>>,
 	renditions: HashSet<Rendition>,
 	previous_thumbnails: Vec<RecordingThumbnail>,
 }
@@ -136,29 +136,17 @@ impl Recording {
 
 		for (rendition, _) in &recording_renditions {
 			let (tx, rx) = mpsc::channel(16);
-			let task = tokio::spawn(recording_task(
-				global.clone(),
-				organization_id,
-				id,
-				*rendition,
-				bucket.clone(),
-				rx,
-			));
-
 			uploaders.insert(*rendition, tx);
-			tasks.push(Task::new(task, format!("recording({rendition})")));
+			tasks.push(AsyncTask::new(
+				format!("recording({rendition})"),
+				recording_task(global.clone(), organization_id, id, *rendition, bucket.clone(), rx),
+			));
 		}
 
 		let (tx, rx) = mpsc::channel(16);
-		tasks.push(Task::new(
-			tokio::spawn(recording_thumbnail_task(
-				global.clone(),
-				organization_id,
-				room_id,
-				bucket.clone(),
-				rx,
-			)),
+		tasks.push(AsyncTask::new(
 			"recording(thumbnail)",
+			recording_thumbnail_task(global.clone(), organization_id, room_id, bucket.clone(), rx),
 		));
 
 		Ok(Self {
@@ -189,7 +177,7 @@ impl Recording {
 		self.allow_dvr
 	}
 
-	pub fn tasks(&mut self) -> Vec<Task> {
+	pub fn tasks(&mut self) -> Vec<AsyncTask<anyhow::Result<()>>> {
 		std::mem::take(&mut self.tasks)
 	}
 

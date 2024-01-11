@@ -6,7 +6,7 @@ use libwebp_sys::WebPMuxAnimParams;
 use super::{Encoder, EncoderFrontend, EncoderInfo, EncoderSettings};
 use crate::processor::error::{ProcessorError, Result};
 use crate::processor::job::decoder::LoopCount;
-use crate::processor::job::frame::FrameRef;
+use crate::processor::job::frame::Frame;
 use crate::processor::job::libwebp::{zero_memory_default, WebPError};
 use crate::processor::job::smart_object::{SmartObject, SmartPtr};
 
@@ -33,6 +33,8 @@ fn wrap_error(status: i32, err: &'static str, message: &'static str) -> Result<(
 impl WebpEncoder {
 	pub fn new(settings: EncoderSettings) -> Result<Self> {
 		let mut config = zero_memory_default::<libwebp_sys::WebPConfig>();
+
+		config.thread_level = 1;
 
 		wrap_error(
 			unsafe { libwebp_sys::WebPConfigInit(&mut config) },
@@ -76,6 +78,8 @@ impl WebpEncoder {
 	}
 
 	fn flush_frame(&mut self, duration: u64) -> Result<()> {
+		let _abort_guard = common::task::AbortGuard::new();
+
 		// Safety: The picture is valid.
 		wrap_error(
 			unsafe {
@@ -101,7 +105,9 @@ impl Encoder for WebpEncoder {
 		self.info
 	}
 
-	fn add_frame(&mut self, frame: FrameRef<'_>) -> Result<()> {
+	fn add_frame(&mut self, frame: &Frame) -> Result<()> {
+		let _abort_guard = common::task::AbortGuard::new();
+
 		if self.first_duration.is_none() && self.encoder.is_none() {
 			self.picture.width = frame.image.width() as _;
 			self.picture.height = frame.image.height() as _;
@@ -172,6 +178,8 @@ impl Encoder for WebpEncoder {
 	}
 
 	fn finish(mut self) -> Result<Vec<u8>> {
+		let _abort_guard = common::task::AbortGuard::new();
+
 		let timestamp = self.timestamp();
 
 		if self.encoder.is_none() && self.first_duration.is_none() {

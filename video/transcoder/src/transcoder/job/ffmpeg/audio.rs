@@ -126,7 +126,7 @@ impl Transcoder {
 	}
 
 	fn handle_audio_decoder(&mut self) -> anyhow::Result<()> {
-		if let Some(mut decoder) = self.audio_decoder.take() {
+		if let Some(decoder) = self.audio_decoder.as_mut() {
 			while let Some(mut frame) = decoder.receive_frame().context("receive frame")? {
 				frame.set_pict_type(AVPictureType::AV_PICTURE_TYPE_NONE);
 				let frame_timestamp = frame.best_effort_timestamp();

@@ -1,12 +1,12 @@
 use std::borrow::Cow;
 
 use anyhow::{anyhow, Context as _};
-use imgref::ImgRef;
+use imgref::Img;
 
-use super::{Decoder, DecoderBackend, DecoderInfo, FrameRef, LoopCount};
+use super::{Decoder, DecoderBackend, DecoderInfo, LoopCount};
 use crate::database::Job;
 use crate::processor::error::{ProcessorError, Result};
-use crate::processor::job::frame::FrameCow;
+use crate::processor::job::frame::Frame;
 
 pub struct FfmpegDecoder<'data> {
 	input: ffmpeg::io::Input<std::io::Cursor<Cow<'data, [u8]>>>,
@@ -116,7 +116,7 @@ impl Decoder for FfmpegDecoder<'_> {
 		DecoderBackend::Ffmpeg
 	}
 
-	fn decode(&mut self) -> Result<Option<FrameCow<'_>>> {
+	fn decode(&mut self) -> Result<Option<Frame>> {
 		if self.done {
 			return Ok(None);
 		}
@@ -170,12 +170,12 @@ impl Decoder for FfmpegDecoder<'_> {
 					ProcessorError::FfmpegDecode(err)
 				})?;
 
-				let data = FrameRef {
-					image: ImgRef::new(cast_bytes_to_rgba(frame.data(0).unwrap()), self.info.width, self.info.height),
-					duration_ts: self.average_frame_duration_ts,
-				};
+				let data = cast_bytes_to_rgba(frame.data(0).unwrap()).to_vec();
 
-				return Ok(Some(FrameCow::Ref(data)));
+				return Ok(Some(Frame {
+					image: Img::new(data, self.info.width, self.info.height),
+					duration_ts: self.average_frame_duration_ts,
+				}));
 			} else if self.eof {
 				self.done = true;
 				return Ok(None);

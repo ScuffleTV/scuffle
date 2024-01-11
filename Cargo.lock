@@ -1481,6 +1481,7 @@ name = "ffmpeg"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "common",
  "crossbeam-channel",
  "ffmpeg-sys-next",
  "libc",

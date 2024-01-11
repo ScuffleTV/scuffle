@@ -1,13 +1,14 @@
 use anyhow::Context;
+use common::task::Task;
 
 use super::{Encoder, EncoderFrontend, EncoderInfo, EncoderSettings};
 use crate::processor::error::{ProcessorError, Result};
 use crate::processor::job::decoder::LoopCount;
-use crate::processor::job::frame::FrameRef;
+use crate::processor::job::frame::Frame;
 
 pub struct GifskiEncoder {
 	collector: gifski::Collector,
-	writer: std::thread::JoinHandle<Result<Vec<u8>>>,
+	writer: Task<Result<Vec<u8>>>,
 	info: EncoderInfo,
 }
 
@@ -18,6 +19,7 @@ impl GifskiEncoder {
 				LoopCount::Infinite => gifski::Repeat::Infinite,
 				LoopCount::Finite(count) => gifski::Repeat::Finite(count as u16),
 			},
+			fast: settings.fast,
 			..Default::default()
 		})
 		.context("failed to create gifski encoder")
@@ -25,7 +27,7 @@ impl GifskiEncoder {
 
 		Ok(Self {
 			collector,
-			writer: std::thread::spawn(move || {
+			writer: Task::spawn("gifski writer", move || {
 				let mut buffer = Vec::new();
 				writer
 					.write(&mut buffer, &mut gifski::progress::NoProgress {})
@@ -56,7 +58,9 @@ impl Encoder for GifskiEncoder {
 		self.info
 	}
 
-	fn add_frame(&mut self, frame: FrameRef<'_>) -> Result<()> {
+	fn add_frame(&mut self, frame: &Frame) -> Result<()> {
+		let _abort_guard = common::task::AbortGuard::new();
+
 		let frame = frame.to_owned();
 		self.info.height = frame.image.height();
 		self.info.width = frame.image.width();
@@ -70,7 +74,10 @@ impl Encoder for GifskiEncoder {
 	}
 
 	fn finish(self) -> Result<Vec<u8>> {
+		let _abort_guard = common::task::AbortGuard::new();
+
 		drop(self.collector);
+
 		self.writer
 			.join()
 			.map_err(|err| anyhow::anyhow!("failed to join gifski thread: {:?}", err))

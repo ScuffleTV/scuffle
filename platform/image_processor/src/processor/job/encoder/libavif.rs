@@ -4,7 +4,7 @@ use anyhow::Context;
 
 use super::{Encoder, EncoderFrontend, EncoderInfo, EncoderSettings};
 use crate::processor::error::{ProcessorError, Result};
-use crate::processor::job::frame::FrameRef;
+use crate::processor::job::frame::Frame;
 use crate::processor::job::libavif::AvifError;
 use crate::processor::job::smart_object::{SmartObject, SmartPtr};
 
@@ -29,7 +29,8 @@ impl AvifEncoder {
 
 		encoder.as_mut().maxThreads = 1;
 		encoder.as_mut().timescale = settings.timescale;
-		// TODO - tune these settings
+		encoder.as_mut().autoTiling = 1;
+		encoder.as_mut().speed = if settings.fast { 8 } else { 2 };
 
 		let mut image = SmartPtr::new(
 			NonNull::new(unsafe { libavif_sys::avifImageCreateEmpty() })
@@ -83,7 +84,9 @@ impl Encoder for AvifEncoder {
 		self.info
 	}
 
-	fn add_frame(&mut self, frame: FrameRef<'_>) -> Result<()> {
+	fn add_frame(&mut self, frame: &Frame) -> Result<()> {
+		let _abort_guard = common::task::AbortGuard::new();
+
 		if self.rgb.is_none() {
 			self.image.as_mut().width = frame.image.width() as u32;
 			self.image.as_mut().height = frame.image.height() as u32;
@@ -133,6 +136,8 @@ impl Encoder for AvifEncoder {
 	}
 
 	fn finish(mut self) -> Result<Vec<u8>> {
+		let _abort_guard = common::task::AbortGuard::new();
+
 		if self.rgb.is_none() {
 			return Err(ProcessorError::AvifEncode(anyhow::anyhow!("no frames added")));
 		}

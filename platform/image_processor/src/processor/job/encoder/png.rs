@@ -3,7 +3,7 @@ use rgb::ComponentBytes;
 
 use super::{Encoder, EncoderFrontend, EncoderInfo, EncoderSettings};
 use crate::processor::error::{ProcessorError, Result};
-use crate::processor::job::frame::FrameRef;
+use crate::processor::job::frame::Frame;
 
 pub struct PngEncoder {
 	result: Option<Vec<u8>>,
@@ -32,7 +32,9 @@ impl Encoder for PngEncoder {
 		self.info
 	}
 
-	fn add_frame(&mut self, frame: FrameRef<'_>) -> Result<()> {
+	fn add_frame(&mut self, frame: &Frame) -> Result<()> {
+		let _abort_guard = common::task::AbortGuard::new();
+
 		if self.result.is_some() {
 			return Err(ProcessorError::PngEncode(anyhow::anyhow!("encoder already finished")));
 		}

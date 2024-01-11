@@ -2,12 +2,12 @@ use std::borrow::Cow;
 use std::ptr::NonNull;
 
 use anyhow::{anyhow, Context};
-use imgref::ImgRef;
+use imgref::Img;
 
-use super::{Decoder, DecoderBackend, DecoderInfo, FrameRef, LoopCount};
+use super::{Decoder, DecoderBackend, DecoderInfo, LoopCount};
 use crate::database::Job;
 use crate::processor::error::{ProcessorError, Result};
-use crate::processor::job::frame::FrameCow;
+use crate::processor::job::frame::Frame;
 use crate::processor::job::libwebp::{zero_memory_default, WebPError};
 use crate::processor::job::smart_object::SmartPtr;
 
@@ -96,7 +96,9 @@ impl Decoder for WebpDecoder<'_> {
 		self.info
 	}
 
-	fn decode(&mut self) -> Result<Option<FrameCow<'_>>> {
+	fn decode(&mut self) -> Result<Option<Frame>> {
+		let _abort_guard = common::task::AbortGuard::new();
+
 		let mut buf = std::ptr::null_mut();
 		let previous_timestamp = self.timestamp;
 
@@ -124,12 +126,9 @@ impl Decoder for WebpDecoder<'_> {
 			return Err(ProcessorError::WebPDecode(anyhow!("input duration exceeds limit")));
 		}
 
-		Ok(Some(
-			FrameRef {
-				image: ImgRef::new(image, self.info.width, self.info.height),
-				duration_ts: (self.timestamp - previous_timestamp).max(0) as _,
-			}
-			.into(),
-		))
+		Ok(Some(Frame {
+			image: Img::new(image.to_vec(), self.info.width, self.info.height),
+			duration_ts: (self.timestamp - previous_timestamp).max(0) as _,
+		}))
 	}
 }

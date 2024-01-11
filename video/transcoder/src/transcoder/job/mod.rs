@@ -7,6 +7,7 @@ use anyhow::{Context, Result};
 use async_nats::jetstream::Message;
 use bytes::Bytes;
 use common::prelude::FutureTimeout;
+use common::task::AsyncTask;
 use futures::{FutureExt, StreamExt};
 use futures_util::TryFutureExt;
 use pb::ext::UlidExt;
@@ -28,7 +29,6 @@ use video_common::database::Rendition;
 
 use self::recording::Recording;
 use self::task::generic::GenericTask;
-use self::task::Task;
 use self::track::parser::TrackOut;
 use self::track::Track;
 use crate::global::TranscoderGlobal;
@@ -111,7 +111,7 @@ struct Job {
 
 	screenshot_recv: mpsc::Receiver<(Bytes, f64)>,
 
-	tasks: Vec<Task>,
+	tasks: Vec<AsyncTask<anyhow::Result<()>>>,
 
 	first_init_put: bool,
 	screenshot_idx: u32,
@@ -161,9 +161,9 @@ impl Job {
 			ffmpeg_outputs.insert(rendition, tx);
 
 			let tp = TrackParser::new(rx);
-			Task::new(
-				tokio::spawn(track_parser_task(tp, rendition, track_parser.clone())),
+			AsyncTask::spawn(
 				format!("track_parser({rendition})"),
+				track_parser_task(tp, rendition, track_parser.clone()),
 			)
 		}));
 
@@ -173,52 +173,42 @@ impl Job {
 			let (tx, rx) = mpsc::channel(16);
 			tracks.insert(rendition, Track::new(global, rendition, tx));
 
-			let task = tokio::spawn(track_task(
-				global.clone(),
-				organization_id,
-				room_id,
-				connection_id,
-				rendition,
-				rx,
-			));
-
-			Task::new(task, format!("rendition({rendition})"))
+			AsyncTask::spawn(
+				format!("rendition({rendition})"),
+				track_task(global.clone(), organization_id, room_id, connection_id, rendition, rx),
+			)
 		}));
 
 		let (frame_send, frame_recv) = mpsc::channel(1);
-		tasks.push(Task::new(
-			tokio::task::spawn_blocking({
-				let global = global.clone();
+		tasks.push(AsyncTask::spawn_blocking("ffmpeg", {
+			let global = global.clone();
 
-				let video_configs = result.video_output.clone();
-				let audio_configs = result.audio_output.clone();
+			let video_configs = result.video_output.clone();
+			let audio_configs = result.audio_output.clone();
 
-				move || {
-					Transcoder::new(
-						&global,
-						input_receiver,
-						frame_send,
-						ffmpeg_outputs,
-						video_configs,
-						audio_configs,
-					)?
-					.run()
-				}
-			}),
-			"ffmpeg",
-		));
+			move || {
+				Transcoder::new(
+					&global,
+					input_receiver,
+					frame_send,
+					ffmpeg_outputs,
+					video_configs,
+					audio_configs,
+				)?
+				.run()
+			}
+		}));
 
 		let (screenshot_send, screenshot_recv) = mpsc::channel(16);
-		tasks.push(Task::new(
-			tokio::task::spawn_blocking(|| screenshot::screenshot_task(frame_recv, screenshot_send)),
-			"screenshot",
-		));
+		tasks.push(AsyncTask::spawn_blocking("screenshot", || {
+			screenshot::screenshot_task(frame_recv, screenshot_send)
+		}));
 
 		let (generic_uploader, rx) = mpsc::channel(16);
 
-		tasks.push(Task::new(
-			tokio::spawn(generic_task(global.clone(), organization_id, room_id, connection_id, rx)),
+		tasks.push(AsyncTask::spawn(
 			"generic",
+			generic_task(global.clone(), organization_id, room_id, connection_id, rx),
 		));
 
 		tracing::debug!(endpoint = %message.grpc_endpoint, "trying to connect to ingest");
@@ -475,8 +465,11 @@ impl Job {
 		drop(self.generic_uploader);
 
 		// New tasks may have been added during shutdown, so we need to check again
-		for task in self.tasks.drain(..) {
-			task.wait().await?;
+		for mut task in self.tasks.drain(..) {
+			task.join()
+				.await
+				.with_context(|| format!("{}: panic'd", task.tag()))?
+				.with_context(|| format!("{}: ", task.tag()))?;
 		}
 
 		if let Some(shutdown) = self.ingest_shutdown.take() {

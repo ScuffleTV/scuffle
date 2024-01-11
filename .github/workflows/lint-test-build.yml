@@ -34,7 +34,7 @@ jobs:
   lint:
     needs: pre_job
     if: needs.pre_job.outputs.should_skip != 'true'
-    runs-on: scuffle-ci-ryzen-9-7950x3d
+    runs-on: scuffle-ci
     container: ghcr.io/scuffletv/ci/build:latest
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
   test:
     needs: pre_job
     if: needs.pre_job.outputs.should_skip != 'true'
-    runs-on: scuffle-ci-ryzen-9-7950x3d
+    runs-on: scuffle-ci
     container: ghcr.io/scuffletv/ci/build:latest
     services:
       cockroach:

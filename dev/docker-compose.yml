@@ -6,31 +6,38 @@ services:
   cockroach:
     image: ghcr.io/scuffletv/ci/cockroach:latest
     pull_policy: "always"
-    command: start-single-node --insecure --store=type=mem,size=0.25 --advertise-addr=0.0.0.0
+    command: start-single-node --insecure --advertise-addr=0.0.0.0
+    volumes:
+      - cockroach:/cockroach/cockroach-data
     ports:
-      - "5432:26257"
-      - "8080:8080"
+      - "127.0.0.1:5432:26257"
+      - "127.0.0.1:8080:8080"
 
   nats:
     image: ghcr.io/scuffletv/ci/nats:latest
     pull_policy: "always"
     ports:
-      - "4222:4222"
-      - "8222:8222"
-      - "6222:6222"
+      - "127.0.0.1:4222:4222"
+      - "127.0.0.1:8222:8222"
+      - "127.0.0.1:6222:6222"
+    volumes:
+      - nats:/data
     command:
-      - "-js"
+      - --jetstream
+      - --store_dir=/data
 
   minio:
     image: ghcr.io/scuffletv/ci/minio:latest
     pull_policy: "always"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       - "MINIO_ACCESS_KEY=root"
       - "MINIO_SECRET_KEY=scuffle123"
-    command: server /export --console-address ":9001"
+    volumes:
+      - minio:/data
+    command: server /data --console-address ":9001"
 
   createbuckets:
     image: minio/mc:latest
@@ -56,4 +63,10 @@ services:
     image: ghcr.io/scuffletv/ci/redis:latest
     pull_policy: "always"
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
+
+volumes:
+  cockroach:
+  nats:
+  minio:
+  redis:

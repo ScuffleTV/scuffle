@@ -125,7 +125,10 @@ impl Runner {
 			visibility_detector: VisibilityDetector::new(el),
 
 			timings: Default::default(),
-			flags: Default::default(),
+			flags: flags::Flags {
+				is_finished: false,
+				is_stopped: true,
+			},
 			player_url: None,
 			refresh_req: None,
 		}

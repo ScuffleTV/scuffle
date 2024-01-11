@@ -74,11 +74,11 @@ export function createGqlClient(): Client {
 				retryAttempts: 10,
 				on: {
 					connected: () => {
-						console.debug("Connected to websocket");
+						console.debug("[gql] connected to websocket");
 						websocketOpen.set(true);
 					},
 					closed: (e) => {
-						console.debug("Disconnected from websocket", e);
+						console.debug("[gql] disconnected from websocket", e);
 						websocketOpen.set(false);
 						if (
 							e instanceof CloseEvent &&

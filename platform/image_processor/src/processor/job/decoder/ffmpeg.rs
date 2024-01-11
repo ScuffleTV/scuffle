@@ -73,8 +73,11 @@ impl<'data> FfmpegDecoder<'data> {
 			return Err(ProcessorError::FfmpegDecode(anyhow!("input frame count exceeds limit")));
 		}
 
+		// actual duration 
+		// = duration * (time_base.num / time_base.den) * 1000
+		// = (duration * time_base.num * 1000) / time_base.den
 		if max_input_duration_ms > 0
-			&& (input_stream_duration * input_stream_time_base.den as i64 * 1000) / input_stream_time_base.num as i64
+			&& (input_stream_duration * input_stream_time_base.num as i64 * 1000) / input_stream_time_base.den as i64
 				> max_input_duration_ms as i64
 		{
 			return Err(ProcessorError::FfmpegDecode(anyhow!("input duration exceeds limit")));

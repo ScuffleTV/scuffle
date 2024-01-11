@@ -8,7 +8,8 @@ pub enum RateLimitResource {
 	AccessTokenTag,
 	AccessTokenUntag,
 
-	EventsSubscribe,
+	EventsFetch,
+	EventsAck,
 
 	PlaybackKeyPairGet,
 	PlaybackKeyPairCreate,
@@ -68,7 +69,8 @@ impl RateLimitResource {
 			Self::AccessTokenTag => "access_token:tag",
 			Self::AccessTokenUntag => "access_token:untag",
 
-			Self::EventsSubscribe => "events:subscribe",
+			Self::EventsFetch => "events:subscribe",
+			Self::EventsAck => "events:ack",
 
 			Self::PlaybackKeyPairGet => "playback_key_pair:get",
 			Self::PlaybackKeyPairCreate => "playback_key_pair:create",
@@ -131,7 +133,7 @@ impl FromStr for RateLimitResource {
 			"access_token:tag" => Ok(Self::AccessTokenTag),
 			"access_token:untag" => Ok(Self::AccessTokenUntag),
 
-			"events:subscribe" => Ok(Self::EventsSubscribe),
+			"events:subscribe" => Ok(Self::EventsFetch),
 
 			"playback_key_pair:get" => Ok(Self::PlaybackKeyPairGet),
 			"playback_key_pair:create" => Ok(Self::PlaybackKeyPairCreate),

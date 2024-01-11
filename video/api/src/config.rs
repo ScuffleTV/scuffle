@@ -132,7 +132,7 @@ impl Default for ApiConfig {
 			bind_address: "[::]:9080".to_string().parse().unwrap(),
 			tls: None,
 			events: EventsConfig::default(),
-			recording_delete_stream: "scuffle:video:recording_delete".to_string(),
+			recording_delete_stream: "scuffle-video-recording_delete".to_string(),
 			recording_delete_batch_size: 1000,
 			rate_limit_rules: RatelimitRules::default(),
 		}

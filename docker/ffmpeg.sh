@@ -22,7 +22,14 @@ apt-get install -y --no-install-recommends \
         libtool \
         autoconf \
         automake \
-        build-essential
+        build-essential \
+        libpng-dev \
+        libjpeg-dev \
+        libtiff-dev \
+        libpng-16-16 \
+        libjpeg62 \
+        libtiff6
+
 
 git clone https://github.com/ScuffleTV/external.git --depth 1 --recurse-submodule --shallow-submodules /tmp/external
 /tmp/external/build.sh --prefix /usr/local --build "x264 x265 svt-av1 libvpx opus dav1d ffmpeg opencv"

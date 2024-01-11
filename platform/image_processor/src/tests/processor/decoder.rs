@@ -58,6 +58,26 @@ fn decode_ffmpeg_gif_test() {
 }
 
 #[test]
+fn decode_ffmpeg_png_test() {
+	let expected_info = DecoderInfo {
+		timescale: 25,
+		frame_count: 1,
+		loop_count: LoopCount::Infinite,
+		height: 400,
+		width: 400,
+	};
+
+	let expected_frames = (0..1)
+		.map(|_| Frame {
+			duration_ts: 0,
+			image: ImgVec::new(vec![], 400, 400),
+		})
+		.collect();
+
+	decode("frog.png", DecoderBackend::Ffmpeg, expected_info, expected_frames);
+}
+
+#[test]
 fn decode_libwebp_webp_test() {
 	let expected_info = DecoderInfo {
 		timescale: 1000,

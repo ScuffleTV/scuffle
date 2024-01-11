@@ -25,7 +25,7 @@ impl_request_scopes!(
 	EventsFetchRequest,
 	(),
 	(Resource::Event, Permission::Read),
-	RateLimitResource::EventsSubscribe
+	RateLimitResource::EventsFetch
 );
 
 pub type Stream = Pin<Box<dyn futures_util::Stream<Item = tonic::Result<EventsFetchResponse>> + Send>>;

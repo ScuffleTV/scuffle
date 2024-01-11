@@ -19,7 +19,7 @@ impl_request_scopes!(
 	EventsAckRequest,
 	(),
 	(Resource::Event, Permission::Read),
-	RateLimitResource::EventsSubscribe
+	RateLimitResource::EventsAck
 );
 
 impl ApiRequest<EventsAckResponse> for tonic::Request<EventsAckRequest> {

@@ -26,6 +26,7 @@ export function getUser(client: Client) {
 									format
 									byteSize
 								}
+								endpoint
 							}
 							email
 							emailVerified

@@ -31,6 +31,7 @@ export async function load({ params, parent }: LayoutLoadEvent) {
 									format
 									byteSize
 								}
+								endpoint
 							}
 							channel {
 								title

@@ -29,6 +29,7 @@ export function searchQuery(client: Client, query: string, limit?: number, offse
 											format
 											byteSize
 										}
+										endpoint
 									}
 									channel {
 										title

@@ -69,6 +69,7 @@
 									format
 									byteSize
                                 }
+								endpoint
                             }
 						}
 					}
@@ -101,9 +102,9 @@
 {#if profilePicture && bestSupportedVariant}
 	<picture>
 		{#each profilePicture.variants as variant}
-			<source type={formatToMimeType(variant.format)} srcset={variant.url} media={`(min-width: ${variant.width}px)`} width={size} height={size} />
+			<source type={formatToMimeType(variant.format)} srcset="{profilePicture.endpoint}/{variant.url}" media={`(min-width: ${variant.width}px)`} width={size} height={size} />
 		{/each}
-		<img class="avatar" src={bestSupportedVariant.url} width={size} height={size} alt="avatar" />
+		<img class="avatar" src="{profilePicture.endpoint}/{bestSupportedVariant.url}" width={size} height={size} alt="avatar" />
 	</picture>
 {:else}
     <DefaultAvatar {userId} {displayColor} {size} />

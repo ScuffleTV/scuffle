@@ -226,6 +226,7 @@ type FollowStream {
 }
 
 type ImageUpload {
+	endpoint: String!
 	id: ULID!
 	variants: [ImageUploadVariant!]!
 }

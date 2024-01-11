@@ -53,7 +53,7 @@ impl<G: ApiGlobal> User<G> {
 		auth_guard::<_, G>(ctx, "totpEnabled", self.totp_enabled_, self.id.into()).await
 	}
 
-	async fn profile_picture(&self, ctx: &Context<'_>) -> Result<Option<ImageUpload>> {
+	async fn profile_picture(&self, ctx: &Context<'_>) -> Result<Option<ImageUpload<G>>> {
 		let Some(profile_picture_id) = self.profile_picture_ else {
 			return Ok(None);
 		};

@@ -6,6 +6,7 @@ use async_nats::jetstream::AckKind;
 use futures_util::StreamExt;
 use pb::ext::UlidExt;
 use pb::scuffle::platform::internal::events::ProcessedImage;
+use pb::scuffle::platform::internal::types::{uploaded_file_metadata, UploadedFileMetadata};
 use prost::Message;
 use tokio::select;
 
@@ -16,7 +17,7 @@ use crate::subscription::SubscriptionTopic;
 
 const PROFILE_PICTURE_CONSUMER_NAME: &str = "profile-picture-consumer";
 
-pub async fn run<G: ApiGlobal>(global: &Arc<G>) -> anyhow::Result<()> {
+pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 	let config = global.config::<ImageUploaderConfig>();
 
 	let profile_picture_stream = global
@@ -61,10 +62,16 @@ pub async fn run<G: ApiGlobal>(global: &Arc<G>) -> anyhow::Result<()> {
 						continue;
 					}
 				};
+				tracing::debug!("received profile picture job result: {:?}", job_result);
 
 				let mut tx = global.db().begin().await.context("failed to begin transaction")?;
 
-				let uploaded_file: UploadedFile = match sqlx::query_as("UPDATE uploaded_files SET pending = FALSE, updated_at = NOW() WHERE id = $1 AND pending = TRUE RETURNING *")
+				let uploaded_file: UploadedFile = match sqlx::query_as("UPDATE uploaded_files SET pending = FALSE, metadata = $1, updated_at = NOW() WHERE id = $2 AND pending = TRUE RETURNING *")
+					.bind(common::database::Protobuf(UploadedFileMetadata {
+						metadata: Some(uploaded_file_metadata::Metadata::Image(uploaded_file_metadata::Image {
+							versions: job_result.variants,
+						})),
+					}))
 					.bind(common::database::Ulid(job_result.job_id.into_ulid()))
 					.fetch_optional(tx.as_mut())
 					.await
@@ -77,7 +84,7 @@ pub async fn run<G: ApiGlobal>(global: &Arc<G>) -> anyhow::Result<()> {
 					}
 				};
 
-				let user_updated = sqlx::query("UPDATE users SET profile_picture = $1, pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $2 AND pending_profile_picture_id = $1")
+				let user_updated = sqlx::query("UPDATE users SET profile_picture_id = $1, pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $2 AND pending_profile_picture_id = $1")
 					.bind(uploaded_file.id)
 					.bind(uploaded_file.owner_id)
 					.execute(tx.as_mut())

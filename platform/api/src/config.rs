@@ -70,19 +70,23 @@ pub struct ImageUploaderConfig {
 	/// The S3 Bucket which contains the source images
 	pub bucket: S3BucketConfig,
 
-	/// Profile picture callback subject
+	/// Profile picture callback subject (can't contain `.`)
 	pub profile_picture_callback_subject: String,
 
 	/// Profile picture task priority, higher number means higher priority
 	pub profile_picture_task_priority: i32,
+
+	/// Public endpoint for downloads
+	pub public_endpoint: String,
 }
 
 impl Default for ImageUploaderConfig {
 	fn default() -> Self {
 		Self {
 			bucket: S3BucketConfig::default(),
-			profile_picture_callback_subject: "image_processor.profile_picture".to_string(),
+			profile_picture_callback_subject: "scuffle-platform-image_processor-profile_picture".to_string(),
 			profile_picture_task_priority: 2,
+			public_endpoint: "https://images.scuffle.tv/scuffle-image-processor-public".to_string(),
 		}
 	}
 }

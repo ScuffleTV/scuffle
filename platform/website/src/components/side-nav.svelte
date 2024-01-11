@@ -39,6 +39,7 @@
 										format
 										byteSize
 									}
+									endpoint
 								}
 								channel {
 									live {

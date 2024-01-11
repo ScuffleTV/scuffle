@@ -21,7 +21,7 @@ use platform_api::video_api::{
 	load_playback_keypair_private_key, setup_video_events_client, setup_video_playback_session_client,
 	setup_video_room_client, VideoEventsClient, VideoPlaybackSessionClient, VideoRoomClient,
 };
-use platform_api::video_event_handler;
+use platform_api::{video_event_handler, image_upload_callback};
 use tokio::select;
 
 #[derive(Debug, Clone, Default, config::Config, serde::Deserialize)]
@@ -302,11 +302,14 @@ pub async fn main() {
 
 		let video_event_handler = video_event_handler::run(global.clone());
 
+		let image_upload_callback = image_upload_callback::run(global.clone());
+
 		select! {
 			r = grpc_future => r.context("grpc server stopped unexpectedly")?,
 			r = api_future => r.context("api server stopped unexpectedly")?,
 			r = subscription_manager => r.context("subscription manager stopped unexpectedly")?,
 			r = video_event_handler => r.context("video event handler stopped unexpectedly")?,
+			r = image_upload_callback => r.context("image upload callback handler stopped unexpectedly")?,
 		}
 
 		Ok(())

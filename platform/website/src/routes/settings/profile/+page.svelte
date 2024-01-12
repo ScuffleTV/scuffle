@@ -131,7 +131,6 @@
 	function subToProfilePicture(userId: string | null) {
 		if (!userId) return;
 		profilePictureSub?.unsubscribe();
-		console.log("subbing");
 		profilePictureSub = pipe(
 			client.subscription(
 				graphql(`
@@ -147,9 +146,7 @@
 			),
 			skip(1), // We have to ignore the first message here because it arrives as soon as we subscribe
 			subscribe(({ data }) => {
-				console.log("data2", data);
 				if (data?.userProfilePicture.profilePicture?.id && $user) {
-					console.log("false");
 					$user.profilePicturePending = false;
 				}
 			}),
@@ -172,7 +169,6 @@
 				.then(() => {
 					status = Status.Unchanged;
 					if ($user) {
-						console.log("setting to true");
 						$user.profilePicturePending = true;
 					}
 				})
@@ -199,6 +195,8 @@
 			{ requestPolicy: "network-only" },
 		).toPromise().then(({data}) => {
 			if (data && $user) {
+				profilePictureSub?.unsubscribe();
+				$user.profilePicturePending = false;
 				$user.profilePicture = null;
 			}
 		});

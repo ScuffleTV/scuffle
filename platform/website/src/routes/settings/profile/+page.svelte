@@ -182,6 +182,28 @@
 		}
 	}
 
+	function removeProfilePicture() {
+		client.mutation(
+			graphql(`
+				mutation RemoveProfilePicture {
+					user {
+						resp: removeProfilePicture {
+							profilePicture {
+								id
+							}
+						}
+					}
+				}
+			`),
+			{},
+			{ requestPolicy: "network-only" },
+		).toPromise().then(({data}) => {
+			if (data && $user) {
+				$user.profilePicture = null;
+			}
+		});
+	}
+
 	$: {
 		if (avatarFiles && avatarFiles[0]) {
 			status = Status.Saving;
@@ -232,7 +254,7 @@
 						bind:files={avatarFiles}
 						hidden
 					/>
-					<button class="button secondary">
+					<button class="button secondary" on:click={removeProfilePicture} disabled={!$user.profilePicture}>
 						<Fa icon={faTrashAlt} />
 						Remove Picture
 					</button>

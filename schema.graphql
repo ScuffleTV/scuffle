@@ -459,6 +459,10 @@ type UserMutation {
 		"""
 		newPassword: String!
 	): ChangePasswordResponse!
+	"""
+	Remove the profile picture of the currently logged in user.
+	"""
+	removeProfilePicture: User!
 	twoFa: TwoFaMutation!
 }
 

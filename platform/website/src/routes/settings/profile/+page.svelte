@@ -14,7 +14,9 @@
 	import { Turnstile } from "svelte-turnstile";
 	import ProfilePicture from "$/components/user/profile-picture.svelte";
 	import Spinner from "$/components/spinner.svelte";
-	import { pipe, skip, subscribe, type Subscription } from "wonka";
+	import { pipe, subscribe, type Subscription } from "wonka";
+	import { FileStatus } from "$/gql/graphql";
+	import Dialog from "$/components/dialog.svelte";
 
 	const recommendedColors = ["#ff7a00", "#ffe457", "#57ff86", "#00ffd1", "#5786ff", "#8357ff"];
 
@@ -125,35 +127,38 @@
 		}
 	}
 
-	let profilePictureSub: Subscription;
+	let fileId: string | null = null;
+	let fileSub: Subscription;
+	let fileError: string | null = null;
 
-	// This subscription is only here to update the pending state
-	function subToProfilePicture(userId: string | null) {
-		if (!userId) return;
-		profilePictureSub?.unsubscribe();
-		profilePictureSub = pipe(
+	function subToFileStatus(fileId: string | null) {
+		fileSub?.unsubscribe();
+		if (!fileId) return;
+		fileSub = pipe(
 			client.subscription(
 				graphql(`
-					subscription PendingChange($userId: ULID!) {
-						userProfilePicture(userId: $userId) {
-							profilePicture {
-								id
-							}
+					subscription FileStatus($fileId: ULID!) {
+						fileStatus(fileId: $fileId) {
+							fileId
+							status
+							reason
 						}
 					}
 				`),
-				{ userId },
+				{ fileId },
 			),
-			skip(1), // We have to ignore the first message here because it arrives as soon as we subscribe
 			subscribe(({ data }) => {
-				if (data?.userProfilePicture.profilePicture?.id && $user) {
-					$user.profilePicturePending = false;
+				if (data) {
+					if (data.fileStatus.status === FileStatus.Failure) {
+						fileError = data.fileStatus.reason ?? null;
+					}
+					if ($user) $user.profilePicturePending = false;
 				}
 			}),
 		);
 	}
 
-	$: subToProfilePicture($userId);
+	$: subToFileStatus(fileId);
 
 	let turnstileToken: string | null = null;
 
@@ -166,14 +171,17 @@
 				turnstileToken,
 			)
 				.then((res) => res.json())
-				.then(() => {
+				.then((res) => {
 					status = Status.Unchanged;
-					if ($user) {
-						$user.profilePicturePending = true;
+					if ($user) $user.profilePicturePending = true;
+					if (res.success) {
+						fileId = res.fileId ?? null;
+					} else {
+						fileError = res.message ?? null;
 					}
 				})
 				.catch((err) => {
-					console.error(err);
+					fileError = err;
 				});
 		}
 	}
@@ -195,7 +203,6 @@
 			{ requestPolicy: "network-only" },
 		).toPromise().then(({data}) => {
 			if (data && $user) {
-				profilePictureSub?.unsubscribe();
 				$user.profilePicturePending = false;
 				$user.profilePicture = null;
 			}
@@ -211,6 +218,12 @@
 </script>
 
 {#if $user}
+	{#if fileError}
+		<Dialog>
+			<h1>Failed to upload</h1>
+			<p>{fileError}</p>
+		</Dialog>
+	{/if}
 	<SectionContainer>
 		<Section title="Profile Picture" details="Personalize your account with a profile picture.">
 			<!-- Putting sr-only here to prevent it from showing but still render it. aria-hidden is true to make the screenreader ignore the element. -->

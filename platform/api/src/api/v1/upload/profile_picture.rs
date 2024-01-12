@@ -241,6 +241,7 @@ impl UploadType for ProfilePicture {
 		Ok(make_response!(
 			StatusCode::OK,
 			json!({
+				"success": true,
 				"file_id": file_id.to_string(),
 			})
 		))

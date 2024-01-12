@@ -82,7 +82,7 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 			tracing::warn!(err = %e, "job failed");
 			tracing::debug!("publishing job failure event to {}", self.job.task.callback_subject);
 			self.global
-				.jetstream()
+				.nats()
 				.publish(
 					self.job.task.callback_subject.clone(),
 					pb::scuffle::platform::internal::events::ProcessedImage {
@@ -183,7 +183,7 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 		// job completion
 		tracing::debug!("publishing job completion event to {}", self.job.task.callback_subject);
 		self.global
-			.jetstream()
+			.nats()
 			.publish(
 				self.job.task.callback_subject.clone(),
 				pb::scuffle::platform::internal::events::ProcessedImage {

@@ -33,7 +33,7 @@ pub enum ProcessorError {
 	S3Upload(s3::error::S3Error),
 
 	#[error("publish to nats: {0}")]
-	NatsPublish(#[from] async_nats::jetstream::context::PublishError),
+	NatsPublish(#[from] async_nats::PublishError),
 
 	#[error("image: {0}")]
 	FileFormat(std::io::Error),

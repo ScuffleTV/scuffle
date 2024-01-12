@@ -62,7 +62,7 @@ impl ApiRequest<EventsAckResponse> for tonic::Request<EventsAckRequest> {
 			None => return Err(tonic::Status::invalid_argument("missing action")),
 		};
 
-		global.jetstream().publish(reply, ack_kind.into()).await.map_err(|err| {
+		global.nats().publish(reply, ack_kind.into()).await.map_err(|err| {
 			tracing::error!(err = %err, "failed to publish ack");
 			tonic::Status::internal("failed to publish ack")
 		})?;

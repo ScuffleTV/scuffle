@@ -16,6 +16,7 @@ export function getUser(client: Client) {
 								isGray
 							}
 							username
+							profilePicturePending
 							profilePicture {
 								id
 								variants {

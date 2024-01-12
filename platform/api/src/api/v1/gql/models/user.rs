@@ -21,6 +21,7 @@ pub struct User<G: ApiGlobal> {
 	pub display_color: DisplayColor,
 	pub username: String,
 	pub channel: Channel<G>,
+	pub profile_picture_pending: bool,
 
 	// Private fields
 	#[graphql(skip)]
@@ -79,6 +80,7 @@ impl<G: ApiGlobal> From<database::User> for User<G> {
 			display_name: value.display_name,
 			display_color: value.display_color.into(),
 			channel: value.channel.into(),
+			profile_picture_pending: value.pending_profile_picture_id.is_some(),
 			email_: value.email,
 			email_verified_: value.email_verified,
 			last_login_at_: value.last_login_at.into(),

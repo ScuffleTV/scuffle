@@ -37,8 +37,6 @@
 
 	$: variants = sortVariants(profilePicture?.variants);
 
-	$: console.log("variants", variants);
-
 	// Finds the best supported image variant
 	// First looks for a gif, then a static png
 	function bestSupported(variants: ImageUploadVariant[]) {
@@ -129,11 +127,10 @@
 
 	picture {
 		line-height: 0;
-		background-color: $bgColorLight;
-		border-radius: 50%;
 	}
 
     .avatar {
         border-radius: 50%;
+		background-color: $bgColorLight;
     }
 </style>

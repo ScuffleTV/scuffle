@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Color from "$/components/settings/profile/color.svelte";
-	import { user } from "$/store/auth";
+	import { user, userId } from "$/store/auth";
 	import { faPalette, faTrashAlt, faUpload } from "@fortawesome/free-solid-svg-icons";
 	import { graphql } from "$gql";
 	import Fa from "svelte-fa";
@@ -10,12 +10,11 @@
 	import SectionContainer from "$/components/settings/section-container.svelte";
 	import Field, { FieldStatusType, type FieldStatus } from "$/components/form/field.svelte";
 	import { uploadFile } from "$/lib/fileUpload";
-	import { PUBLIC_CF_TURNSTILE_KEY, PUBLIC_GQL_ENDPOINT, PUBLIC_UPLOAD_ENDPOINT } from "$env/static/public";
+	import { PUBLIC_CF_TURNSTILE_KEY, PUBLIC_UPLOAD_ENDPOINT } from "$env/static/public";
 	import { Turnstile } from "svelte-turnstile";
 	import ProfilePicture from "$/components/user/profile-picture.svelte";
 	import Spinner from "$/components/spinner.svelte";
-
-	// TODO: Add invisible turnstile captcha
+	import { pipe, skip, subscribe, type Subscription } from "wonka";
 
 	const recommendedColors = ["#ff7a00", "#ffe457", "#57ff86", "#00ffd1", "#5786ff", "#8357ff"];
 
@@ -34,12 +33,6 @@
 
 	let displayColor = $user?.displayColor.color;
 	let displayColorInput: HTMLInputElement;
-
-	let profilePicturePending = false;
-
-	$: if ($user?.profilePicture) {
-		profilePicturePending = false;
-	}
 
 	let avatarFiles: FileList;
 	let avatarInput: HTMLInputElement;
@@ -132,13 +125,49 @@
 		}
 	}
 
+	let profilePictureSub: Subscription;
+
+	// This subscription is only here to update the pending state
+	function subToProfilePicture(userId: string | null) {
+		if (!userId) return;
+		profilePictureSub?.unsubscribe();
+		console.log("subbing");
+		profilePictureSub = pipe(
+			client.subscription(
+				graphql(`
+					subscription PendingChange($userId: ULID!) {
+						userProfilePicture(userId: $userId) {
+							profilePicture {
+                                id
+                            }
+						}
+					}
+				`),
+				{ userId },
+			),
+			skip(1), // We have to ignore the first message here because it arrives as soon as we subscribe
+			subscribe(({ data }) => {
+				console.log("data2", data);
+				if (data?.userProfilePicture.profilePicture?.id && $user) {
+					console.log("false");
+					$user.profilePicturePending = false;
+				}
+			}),
+		);
+	}
+
+	$: subToProfilePicture($userId);
+
 	let turnstileToken: string | null = null;
 
 	function uploadProfilePicture() {
 		if (turnstileToken) {
 			uploadFile(`${PUBLIC_UPLOAD_ENDPOINT}/profile-picture`, { set_active: true }, avatarFiles[0], turnstileToken).then((res) => res.json()).then(() => {
 				status = Status.Unchanged;
-				profilePicturePending = true;
+				if ($user) {
+					console.log("setting to true");
+					$user.profilePicturePending = true;
+				}
 			}).catch((err) => {
 				console.error(err);
 			});
@@ -165,7 +194,7 @@
 				/>
 			</div>
 			<div class="input big">
-				{#if profilePicturePending}
+				{#if $user.profilePicturePending}
 					<div class="profile-picture-pending">
 						<Spinner />
 					</div>
@@ -174,7 +203,7 @@
 				{/if}
 				<div class="buttons">
 					<!-- Pseudo button that clicks the hidden input -->
-					<button class="button primary" on:click={() => avatarInput.click()} disabled={!turnstileToken}>
+					<button class="button primary" on:click={() => avatarInput.click()} disabled={!turnstileToken || $user.profilePicturePending}>
 						<Fa icon={faUpload} />
 						Upload Picture
 					</button>

@@ -18,3 +18,9 @@ export const authDialog = writable<AuthDialog>({
 export const currentTwoFaRequest = writable<string | null>(null);
 export const sessionToken = writable<string | null>(undefined);
 export const user = writable<User | null>(null);
+
+// This is a separate store for the user id so that we can only subscribe to id changes instead of the whole user store
+export const userId = writable<string | null>(null);
+user.subscribe((user) => {
+	userId.set(user?.id ?? null);
+});

@@ -393,6 +393,7 @@ type User {
 	id: ULID!
 	lastLoginAt: DateRFC3339!
 	profilePicture: ImageUpload
+	profilePicturePending: Boolean!
 	totpEnabled: Boolean!
 	username: String!
 }

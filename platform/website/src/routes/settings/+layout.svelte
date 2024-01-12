@@ -8,9 +8,9 @@
 
 	$: tabs = [
 		{ name: "Profile", pathname: "/settings/profile" },
-		{ name: "Account", pathname: "/settings/account", showWarning: $user?.channel.live },
+		{ name: "Account", pathname: "/settings/account", showWarning: !!$user?.channel.live },
 		{ name: "Notifications", pathname: "/settings/notifications" },
-		{ name: "Billing", pathname: "/settings/billing", showWarning: $user?.channel.live },
+		{ name: "Billing", pathname: "/settings/billing", showWarning: !!$user?.channel.live },
 	];
 
 	$: if ($sessionToken === null) {

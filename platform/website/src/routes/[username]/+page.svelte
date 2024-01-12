@@ -5,7 +5,7 @@
 	import Player from "$/components/player.svelte";
 	import { formatDuration, viewersToString } from "$/lib/utils";
 	import { browser, dev } from "$app/environment";
-	import { user } from "$/store/auth";
+	import { user, userId } from "$/store/auth";
 	import { onMount } from "svelte";
 	import DisplayName from "$/components/user/display-name.svelte";
 	import FollowButton from "$/components/user/follow-button.svelte";
@@ -113,11 +113,11 @@
 							{/if}
 						</div>
 					</div>
-					{#if $user?.id !== channelId}
+					{#if $userId !== channelId}
 						<FollowButton {channelId} bind:following={data.following} />
 					{/if}
 				</div>
-				{#if $user?.id !== channelId}
+				{#if $userId !== channelId}
 					<SubscribeButton />
 				{/if}
 			</div>

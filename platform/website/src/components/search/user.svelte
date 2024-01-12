@@ -13,7 +13,12 @@
 
 <a on:click={() => dispatch("close")} href="/{user.username}">
 	<div class="avatar">
-		<ProfilePicture userId={user.id} profilePicture={user.profilePicture} displayColor={user.displayColor} size={2.5 * 16} />
+		<ProfilePicture
+			userId={user.id}
+			profilePicture={user.profilePicture}
+			displayColor={user.displayColor}
+			size={2.5 * 16}
+		/>
 	</div>
 	<div class="text-container">
 		<span class="name ellipsis">

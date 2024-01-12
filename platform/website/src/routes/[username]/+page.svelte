@@ -102,7 +102,12 @@
 					<div class="user">
 						<!-- Wrapper div -->
 						<div class="avatar">
-							<ProfilePicture userId={channelId} bind:displayColor={data.user.displayColor} bind:profilePicture={data.user.profilePicture} size={40} />
+							<ProfilePicture
+								userId={channelId}
+								bind:displayColor={data.user.displayColor}
+								bind:profilePicture={data.user.profilePicture}
+								size={40}
+							/>
 						</div>
 						<div class="container">
 							<h1 class="name">

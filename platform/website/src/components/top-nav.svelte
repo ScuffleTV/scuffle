@@ -69,7 +69,11 @@
 		{#if $user}
 			<LiveIndicator />
 			<DropDown>
-				<ProfilePicture userId={$user.id} displayColor={$user.displayColor} profilePicture={$user.profilePicture} />
+				<ProfilePicture
+					userId={$user.id}
+					displayColor={$user.displayColor}
+					profilePicture={$user.profilePicture}
+				/>
 				<svelte:fragment slot="dropdown">
 					<li>
 						<a href="/{$user.username}">

@@ -138,8 +138,8 @@
 					subscription PendingChange($userId: ULID!) {
 						userProfilePicture(userId: $userId) {
 							profilePicture {
-                                id
-                            }
+								id
+							}
 						}
 					}
 				`),
@@ -162,15 +162,23 @@
 
 	function uploadProfilePicture() {
 		if (turnstileToken) {
-			uploadFile(`${PUBLIC_UPLOAD_ENDPOINT}/profile-picture`, { set_active: true }, avatarFiles[0], turnstileToken).then((res) => res.json()).then(() => {
-				status = Status.Unchanged;
-				if ($user) {
-					console.log("setting to true");
-					$user.profilePicturePending = true;
-				}
-			}).catch((err) => {
-				console.error(err);
-			});
+			uploadFile(
+				`${PUBLIC_UPLOAD_ENDPOINT}/profile-picture`,
+				{ set_active: true },
+				avatarFiles[0],
+				turnstileToken,
+			)
+				.then((res) => res.json())
+				.then(() => {
+					status = Status.Unchanged;
+					if ($user) {
+						console.log("setting to true");
+						$user.profilePicturePending = true;
+					}
+				})
+				.catch((err) => {
+					console.error(err);
+				});
 		}
 	}
 
@@ -199,11 +207,20 @@
 						<Spinner />
 					</div>
 				{:else}
-					<ProfilePicture userId={$user.id} displayColor={$user.displayColor} profilePicture={$user.profilePicture} size={6 * 16} />
+					<ProfilePicture
+						userId={$user.id}
+						displayColor={$user.displayColor}
+						profilePicture={$user.profilePicture}
+						size={6 * 16}
+					/>
 				{/if}
 				<div class="buttons">
 					<!-- Pseudo button that clicks the hidden input -->
-					<button class="button primary" on:click={() => avatarInput.click()} disabled={!turnstileToken || $user.profilePicturePending}>
+					<button
+						class="button primary"
+						on:click={() => avatarInput.click()}
+						disabled={!turnstileToken || $user.profilePicturePending}
+					>
 						<Fa icon={faUpload} />
 						Upload Picture
 					</button>

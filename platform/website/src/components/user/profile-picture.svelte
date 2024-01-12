@@ -1,15 +1,20 @@
 <script lang="ts">
-    import { graphql } from "$/gql";
-    import { pipe, subscribe, type Subscription } from "wonka";
-	import { ImageUploadFormat, type DisplayColor, type ImageUpload, type ImageUploadVariant } from "$/gql/graphql";
-    import { getContextClient } from "@urql/svelte";
+	import { graphql } from "$/gql";
+	import { pipe, subscribe, type Subscription } from "wonka";
+	import {
+		ImageUploadFormat,
+		type DisplayColor,
+		type ImageUpload,
+		type ImageUploadVariant,
+	} from "$/gql/graphql";
+	import { getContextClient } from "@urql/svelte";
 	import { onDestroy } from "svelte";
 	import { websocketOpen } from "$/store/websocket";
 	import DefaultAvatar from "./default-avatar.svelte";
 	import { groupBy } from "$/lib/utils";
 
-    export let userId: string;
-    export let profilePicture: ImageUpload | null | undefined;
+	export let userId: string;
+	export let profilePicture: ImageUpload | null | undefined;
 	export let displayColor: DisplayColor;
 	export let size: number = 48;
 
@@ -26,13 +31,17 @@
 	// Sorts the variants by scale and format
 	function sortVariants(variants?: ImageUploadVariant[]) {
 		if (!variants) return [];
-		return Object.values(groupBy(variants, (v) => FORMAT_SORT_ORDER.indexOf(v.format))).map((v) => v.sort((a, b) => a.scale - b.scale));
+		return Object.values(groupBy(variants, (v) => FORMAT_SORT_ORDER.indexOf(v.format))).map((v) =>
+			v.sort((a, b) => a.scale - b.scale),
+		);
 	}
 
 	function variantsToSrcset(variants: ImageUploadVariant[]) {
-		return variants.reduce((res, a) => {
-			return res + `${profilePicture?.endpoint}/${a.url} ${a.scale}x, `;
-		}, "").slice(0, -2);
+		return variants
+			.reduce((res, a) => {
+				return res + `${profilePicture?.endpoint}/${a.url} ${a.scale}x, `;
+			}, "")
+			.slice(0, -2);
 	}
 
 	$: variants = sortVariants(profilePicture?.variants);
@@ -57,12 +66,12 @@
 			case ImageUploadFormat.PngStatic:
 				return "image/png";
 			case ImageUploadFormat.Webp:
-				case ImageUploadFormat.WebpStatic:
+			case ImageUploadFormat.WebpStatic:
 				return "image/webp";
 		}
 	}
 
-    const client = getContextClient();
+	const client = getContextClient();
 
 	let sub: Subscription;
 
@@ -74,17 +83,17 @@
 					subscription ProfilePicture($userId: ULID!) {
 						userProfilePicture(userId: $userId) {
 							profilePicture {
-                                id
-                                variants {
+								id
+								variants {
 									width
 									height
-                                    scale
-                                    url
+									scale
+									url
 									format
 									byteSize
-                                }
+								}
 								endpoint
-                            }
+							}
 						}
 					}
 				`),
@@ -114,12 +123,23 @@
 {#if profilePicture && bestSupportedVariant && variants}
 	<picture>
 		{#each variants as variantsOfFormat}
-			<source type={formatToMimeType(variantsOfFormat[0].format)} srcset={variantsToSrcset(variantsOfFormat)} width={size} height={size} />
+			<source
+				type={formatToMimeType(variantsOfFormat[0].format)}
+				srcset={variantsToSrcset(variantsOfFormat)}
+				width={size}
+				height={size}
+			/>
 		{/each}
-		<img class="avatar" src="{profilePicture.endpoint}/{bestSupportedVariant.url}" width={size} height={size} alt="avatar" />
+		<img
+			class="avatar"
+			src="{profilePicture.endpoint}/{bestSupportedVariant.url}"
+			width={size}
+			height={size}
+			alt="avatar"
+		/>
 	</picture>
 {:else}
-    <DefaultAvatar {userId} {displayColor} {size} />
+	<DefaultAvatar {userId} {displayColor} {size} />
 {/if}
 
 <style lang="scss">
@@ -129,8 +149,8 @@
 		line-height: 0;
 	}
 
-    .avatar {
-        border-radius: 50%;
+	.avatar {
+		border-radius: 50%;
 		background-color: $bgColorLight;
-    }
+	}
 </style>

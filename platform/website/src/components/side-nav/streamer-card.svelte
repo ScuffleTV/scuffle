@@ -47,7 +47,7 @@
 	in:fade={{ duration: 200 }}
 >
 	<div class="avatar">
-		<ProfilePicture userId={id} profilePicture={profilePicture} displayColor={displayColor} size={2 * 16} />
+		<ProfilePicture userId={id} {profilePicture} {displayColor} size={2 * 16} />
 	</div>
 	{#if !collapsed}
 		<div class="text-container">

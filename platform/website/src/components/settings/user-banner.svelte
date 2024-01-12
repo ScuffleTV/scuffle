@@ -6,7 +6,12 @@
 
 {#if $user}
 	<div class="user-banner">
-		<ProfilePicture userId={$user.id} bind:displayColor={$user.displayColor} bind:profilePicture={$user.profilePicture} size={6 * 16} />
+		<ProfilePicture
+			userId={$user.id}
+			bind:displayColor={$user.displayColor}
+			bind:profilePicture={$user.profilePicture}
+			size={6 * 16}
+		/>
 		<div class="user-info">
 			<span class="display-name">
 				<DisplayName userId={$user.id} bind:displayName={$user.displayName} />

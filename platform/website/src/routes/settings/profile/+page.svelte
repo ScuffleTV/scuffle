@@ -209,7 +209,7 @@
 					</button>
 					<input
 						type="file"
-						accept="image/jpeg, image/png, image/webp, image/gif, image/avif"
+						accept="image/webp, image/avif, image/avif-sequence, image/gif, image/png, image/apng, image/jls, image/jpeg, image/jxl, image/bmp, image/heic, image/heic-sequence, image/heif, image/heif-sequence, application/mp4, video/mp4, video/x-flv, video/x-matroska, video/avi, video/quicktime, video/webm, video/mp2t"
 						name="file"
 						bind:this={avatarInput}
 						bind:files={avatarFiles}

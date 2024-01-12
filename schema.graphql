@@ -219,6 +219,26 @@ type DisplayColor {
 	isGray: Boolean!
 }
 
+enum FileStatus {
+	FAILURE
+	SUCCESS
+}
+
+type FileStatusStream {
+	"""
+	The ID of the file.
+	"""
+	fileId: ULID!
+	"""
+	Only set if status is `Failure`.
+	"""
+	reason: String
+	"""
+	The status of the file.
+	"""
+	status: FileStatus!
+}
+
 type FollowStream {
 	channelId: ULID!
 	following: Boolean!
@@ -335,6 +355,7 @@ type Subscription {
 		"""
 		channelId: ULID!
 	): ChatMessage!
+	fileStatus(fileId: ULID!): FileStatusStream!
 	noop: Boolean!
 	userDisplayColor(userId: ULID!): UserDisplayColorStream!
 	userDisplayName(userId: ULID!): UserDisplayNameStream!

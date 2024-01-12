@@ -3,12 +3,14 @@ use futures_util::Stream;
 
 use self::channel::ChannelSubscription;
 use self::chat::ChatSubscription;
+use self::file::FileSubscription;
 use self::user::UserSubscription;
 use super::models::ulid::GqlUlid;
 use crate::global::ApiGlobal;
 
 mod channel;
 mod chat;
+mod file;
 mod user;
 
 #[derive(SimpleObject)]
@@ -20,15 +22,16 @@ struct FollowStream {
 
 #[derive(MergedSubscription)]
 pub struct Subscription<G: ApiGlobal>(
-	UserSubscription<G>,
 	ChannelSubscription<G>,
 	ChatSubscription<G>,
+	FileSubscription<G>,
+	UserSubscription<G>,
 	NoopSubscription,
 );
 
 impl<G: ApiGlobal> Default for Subscription<G> {
 	fn default() -> Self {
-		Self(Default::default(), Default::default(), Default::default(), Default::default())
+		Self(Default::default(), Default::default(), Default::default(), Default::default(), Default::default())
 	}
 }
 

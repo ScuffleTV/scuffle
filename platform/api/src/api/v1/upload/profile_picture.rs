@@ -18,7 +18,7 @@ use crate::config::{ApiConfig, ImageUploaderConfig};
 use crate::database::{FileType, RolePermission};
 use crate::global::ApiGlobal;
 
-fn create_task(task_id: Ulid, input_path: &str, config: &ImageUploaderConfig, owner_id: Ulid) -> image_processor::Task {
+fn create_task(file_id: Ulid, input_path: &str, config: &ImageUploaderConfig, owner_id: Ulid) -> image_processor::Task {
 	image_processor::Task {
 		input_path: input_path.to_string(),
 		base_height: 128, // 128, 256, 384, 512
@@ -43,7 +43,7 @@ fn create_task(task_id: Ulid, input_path: &str, config: &ImageUploaderConfig, ow
 		upscale: true, // For profile pictures we want to have a consistent size
 		scales: vec![1, 2, 3, 4],
 		resize_method: image_processor::task::ResizeMethod::PadCenter as i32,
-		output_prefix: format!("{owner_id}/{task_id}"),
+		output_prefix: format!("{owner_id}/{file_id}"),
 	}
 }
 
@@ -160,14 +160,14 @@ impl UploadType for ProfilePicture {
 		let image_format = AcceptedFormats::from_content_type(content_type)
 			.ok_or((StatusCode::BAD_REQUEST, "invalid content-type header"))?;
 
-		let task_id = Ulid::new();
+		let file_id = Ulid::new();
 
 		let config = global.config::<ImageUploaderConfig>();
 
 		let input_path = format!(
 			"{}/profile_pictures/{}/source.{}",
 			auth.session.user_id,
-			task_id,
+			file_id,
 			image_format.ext()
 		);
 
@@ -183,10 +183,10 @@ impl UploadType for ProfilePicture {
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to begin transaction"))?;
 
 		sqlx::query("INSERT INTO image_jobs (id, priority, task) VALUES ($1, $2, $3)")
-			.bind(common::database::Ulid(task_id))
+			.bind(common::database::Ulid(file_id))
 			.bind(config.profile_picture_task_priority)
 			.bind(common::database::Protobuf(create_task(
-				task_id,
+				file_id,
 				&input_path,
 				config,
 				auth.session.user_id.0,
@@ -196,7 +196,7 @@ impl UploadType for ProfilePicture {
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to insert image job"))?;
 
 		sqlx::query("INSERT INTO uploaded_files(id, owner_id, uploader_id, name, type, metadata, total_size, pending, path) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)")
-            .bind(common::database::Ulid(task_id)) // id
+            .bind(common::database::Ulid(file_id)) // id
             .bind(auth.session.user_id) // owner_id
             .bind(auth.session.user_id) // uploader_id
             .bind(name.unwrap_or_else(|| format!("untitled.{}", image_format.ext()))) // name
@@ -215,7 +215,7 @@ impl UploadType for ProfilePicture {
 
 		if self.set_active {
 			sqlx::query("UPDATE users SET pending_profile_picture_id = $1 WHERE id = $2")
-				.bind(common::database::Ulid(task_id))
+				.bind(common::database::Ulid(file_id))
 				.bind(auth.session.user_id)
 				.execute(tx.as_mut())
 				.await
@@ -241,7 +241,7 @@ impl UploadType for ProfilePicture {
 		Ok(make_response!(
 			StatusCode::OK,
 			json!({
-				"task_id": task_id.to_string(),
+				"file_id": file_id.to_string(),
 			})
 		))
 	}

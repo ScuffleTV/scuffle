@@ -6,6 +6,18 @@ import "scuffle/types/ulid.proto";
 import "scuffle/platform/internal/types/processed_image_variant.proto";
 
 message ProcessedImage {
+  message Success {
+    repeated scuffle.platform.internal.types.ProcessedImageVariant variants = 1;
+  }
+
+  message Failure {
+    string reason = 1;
+  }
+
   scuffle.types.Ulid job_id = 1;
-  repeated scuffle.platform.internal.types.ProcessedImageVariant variants = 2;
+
+  oneof result {
+    Success success = 2;
+    Failure failure = 3;
+  }
 }

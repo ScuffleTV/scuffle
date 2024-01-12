@@ -125,6 +125,10 @@
 {/if}
 
 <style lang="scss">
+	picture {
+		line-height: 0;
+	}
+
     .avatar {
         border-radius: 50%;
     }

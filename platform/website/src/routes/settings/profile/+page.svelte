@@ -13,6 +13,7 @@
 	import { PUBLIC_CF_TURNSTILE_KEY, PUBLIC_GQL_ENDPOINT, PUBLIC_UPLOAD_ENDPOINT } from "$env/static/public";
 	import { Turnstile } from "svelte-turnstile";
 	import ProfilePicture from "$/components/user/profile-picture.svelte";
+	import Spinner from "$/components/spinner.svelte";
 
 	// TODO: Add invisible turnstile captcha
 
@@ -33,6 +34,12 @@
 
 	let displayColor = $user?.displayColor.color;
 	let displayColorInput: HTMLInputElement;
+
+	let profilePicturePending = false;
+
+	$: if ($user?.profilePicture) {
+		profilePicturePending = false;
+	}
 
 	let avatarFiles: FileList;
 	let avatarInput: HTMLInputElement;
@@ -129,8 +136,9 @@
 
 	function uploadProfilePicture() {
 		if (turnstileToken) {
-			uploadFile(`${PUBLIC_UPLOAD_ENDPOINT}/profile-picture`, { set_active: true }, avatarFiles[0], turnstileToken).then((res) => res.json()).then((res) => {
-				console.log(res);
+			uploadFile(`${PUBLIC_UPLOAD_ENDPOINT}/profile-picture`, { set_active: true }, avatarFiles[0], turnstileToken).then((res) => res.json()).then(() => {
+				status = Status.Unchanged;
+				profilePicturePending = true;
 			}).catch((err) => {
 				console.error(err);
 			});
@@ -146,15 +154,24 @@
 </script>
 
 {#if $user}
-	<Turnstile
-		appearance="interaction-only"
-		siteKey={PUBLIC_CF_TURNSTILE_KEY}
-		on:turnstile-callback={(e) => (turnstileToken = e.detail.token)}
-	/>
 	<SectionContainer>
 		<Section title="Profile Picture" details="Personalize your account with a profile picture.">
+			<!-- Putting sr-only here to prevent it from showing but still render it. aria-hidden is true to make the screenreader ignore the element. -->
+			<div class="sr-only" aria-hidden="true">
+				<Turnstile
+					appearance="interaction-only"
+					siteKey={PUBLIC_CF_TURNSTILE_KEY}
+					on:turnstile-callback={(e) => (turnstileToken = e.detail.token)}
+				/>
+			</div>
 			<div class="input big">
-				<ProfilePicture userId={$user.id} displayColor={$user.displayColor} profilePicture={$user.profilePicture} size={6 * 16} />
+				{#if profilePicturePending}
+					<div class="profile-picture-pending">
+						<Spinner />
+					</div>
+				{:else}
+					<ProfilePicture userId={$user.id} displayColor={$user.displayColor} profilePicture={$user.profilePicture} size={6 * 16} />
+				{/if}
 				<div class="buttons">
 					<!-- Pseudo button that clicks the hidden input -->
 					<button class="button primary" on:click={() => avatarInput.click()} disabled={!turnstileToken}>
@@ -225,6 +242,16 @@
 <style lang="scss">
 	@import "../../../assets/styles/variables.scss";
 	@import "../../../assets/styles/settings.scss";
+
+	.profile-picture-pending {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		height: 6rem;
+		width: 6rem;
+		border-radius: 50%;
+		background-color: $bgColorLight;
+	}
 
 	.input.display-color {
 		& > .display-name {

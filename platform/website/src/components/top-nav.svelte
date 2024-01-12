@@ -12,7 +12,6 @@
 	} from "@fortawesome/free-solid-svg-icons";
 	import DropDown from "./drop-down.svelte";
 	import { logout } from "$/lib/auth";
-	import DefaultAvatar from "./user/default-avatar.svelte";
 	import { getContextClient } from "@urql/svelte";
 	import Search from "./top-nav/search.svelte";
 	import Logo from "./icons/logo.svelte";
@@ -75,7 +74,7 @@
 					<li>
 						<a href="/{$user.username}">
 							<Fa icon={faUser} />
-							Profile
+							Channel
 						</a>
 					</li>
 					<li>

@@ -125,8 +125,12 @@
 {/if}
 
 <style lang="scss">
+	@import "../../assets/styles/variables.scss";
+
 	picture {
 		line-height: 0;
+		background-color: $bgColorLight;
+		border-radius: 50%;
 	}
 
     .avatar {

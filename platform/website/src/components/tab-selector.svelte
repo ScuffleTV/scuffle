@@ -55,7 +55,7 @@
 		user-select: none;
 
 		& > a {
-			padding: 0.4rem 1rem;
+			padding: 0.25rem 0.5rem;
 			border: none;
 			border-radius: 0.25rem;
 			background-color: none;

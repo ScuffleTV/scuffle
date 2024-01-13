@@ -64,7 +64,7 @@ impl Scalar {
 				width,
 				height,
 				pixel_format,
-				32,
+				1,
 			);
 		}
 

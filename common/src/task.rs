@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 thread_local! {
 	static ABORT: RefCell<Arc<AtomicBool>> = RefCell::new(Arc::new(AtomicBool::new(false)));
-	static ABORT_PANICED: Cell<bool> = Cell::new(false);
+	static ABORT_PANICED: Cell<bool> = const { Cell::new(false) };
 }
 
 #[derive(Debug, thiserror::Error)]

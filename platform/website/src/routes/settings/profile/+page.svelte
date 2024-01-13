@@ -182,6 +182,7 @@
 				})
 				.catch((err) => {
 					fileError = err;
+					status = Status.Unchanged;
 				});
 		}
 	}

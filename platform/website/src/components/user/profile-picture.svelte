@@ -20,13 +20,21 @@
 
 	// From least supported to best supported
 	const FORMAT_SORT_ORDER = [
-		ImageUploadFormat.Avif,
 		ImageUploadFormat.AvifStatic,
-		ImageUploadFormat.Webp,
 		ImageUploadFormat.WebpStatic,
-		ImageUploadFormat.Gif,
 		ImageUploadFormat.PngStatic,
+		ImageUploadFormat.Avif,
+		ImageUploadFormat.Webp,
+		ImageUploadFormat.Gif,
 	];
+
+	function isVariantStatic(variant?: ImageUploadVariant) {
+		return (
+			variant?.format === ImageUploadFormat.AvifStatic ||
+			variant?.format === ImageUploadFormat.WebpStatic ||
+			variant?.format === ImageUploadFormat.PngStatic
+		);
+	}
 
 	// Sorts the variants by scale and format
 	function sortVariants(variants?: ImageUploadVariant[]) {
@@ -44,17 +52,30 @@
 			.slice(0, -2);
 	}
 
+	function variantsToMedia(variants: ImageUploadVariant[]) {
+		// Always true
+		let media = "(min-width: 0px)";
+		if (isVariantStatic(variants[0]) && animated) {
+			media += " and (prefers-reduced-motion: reduce)";
+		}
+		return media;
+	}
+
 	$: variants = sortVariants(profilePicture?.variants);
 
 	// Finds the best supported image variant
 	// First looks for a gif, then a static png
-	function bestSupported(variants: ImageUploadVariant[]) {
-		const gif = variants.find((v) => v.format === ImageUploadFormat.Gif);
+	function bestSupported(variants: ImageUploadVariant[][]) {
+		const gifs = variants.find((v) => v[0].format === ImageUploadFormat.Gif);
+		const gif = gifs ? gifs[0] : null;
 		if (gif) return gif;
-		return variants.find((v) => v.format === ImageUploadFormat.PngStatic);
+		const pngs = variants.find((v) => v[0].format === ImageUploadFormat.PngStatic);
+		return pngs ? pngs[0] : null;
 	}
 
-	$: bestSupportedVariant = profilePicture ? bestSupported(profilePicture.variants) : undefined;
+	$: bestSupportedVariant = bestSupported(variants);
+
+	$: animated = variants.some((v) => !isVariantStatic(v[0]));
 
 	function formatToMimeType(format: ImageUploadFormat) {
 		switch (format) {
@@ -128,6 +149,7 @@
 				srcset={variantsToSrcset(variantsOfFormat)}
 				width={size}
 				height={size}
+				media={variantsToMedia(variantsOfFormat)}
 			/>
 		{/each}
 		<img

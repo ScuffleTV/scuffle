@@ -41,7 +41,8 @@ impl<'data> FfmpegDecoder<'data> {
 		let input_stream_duration = input_stream.duration().unwrap_or(0);
 		let input_stream_frames = input_stream
 			.nb_frames()
-			.ok_or_else(|| ProcessorError::FfmpegDecode(anyhow!("no frame count")))?.max(1);
+			.ok_or_else(|| ProcessorError::FfmpegDecode(anyhow!("no frame count")))?
+			.max(1);
 
 		if input_stream_time_base.den == 0 || input_stream_time_base.num == 0 {
 			return Err(ProcessorError::FfmpegDecode(anyhow!("stream time base is 0")));

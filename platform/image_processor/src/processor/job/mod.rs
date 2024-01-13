@@ -92,14 +92,14 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 				self.global.config().source_bucket.name,
 				self.job.task.input_path
 			);
-	
+
 			let response = self
 				.global
 				.s3_source_bucket()
 				.get_object(&self.job.task.input_path)
 				.await
 				.map_err(ProcessorError::S3Download)?;
-	
+
 			if (200..299).contains(&response.status_code()) {
 				Ok(response.bytes().clone())
 			} else {

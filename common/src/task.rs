@@ -186,7 +186,8 @@ where
 		set_abort(abort);
 
 		// The reason this is allowed to be asserted is because we're catching the panic
-		// and returning None instead of propagating it, if the panic was caused by a task abort.
+		// and returning None instead of propagating it, if the panic was caused by a
+		// task abort.
 		match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
 			Ok(r) => Some(r),
 			Err(err) => {

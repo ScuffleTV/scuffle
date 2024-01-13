@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 thread_local! {
 	static ABORT: RefCell<Arc<AtomicBool>> = RefCell::new(Arc::new(AtomicBool::new(false)));
-	static ABORT_PANICED: Cell<bool> = Cell::new(false);
+	static ABORT_PANICED: Cell<bool> = const { Cell::new(false) };
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -186,7 +186,8 @@ where
 		set_abort(abort);
 
 		// The reason this is allowed to be asserted is because we're catching the panic
-		// and returning None instead of propagating it, if the panic was caused by a task abort.
+		// and returning None instead of propagating it, if the panic was caused by a
+		// task abort.
 		match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
 			Ok(r) => Some(r),
 			Err(err) => {

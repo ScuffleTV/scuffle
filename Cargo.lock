@@ -3437,6 +3437,7 @@ dependencies = [
  "pb",
  "png",
  "prost",
+ "reqwest",
  "rgb",
  "rust-s3",
  "scopeguard",

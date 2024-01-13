@@ -70,6 +70,12 @@ pub enum ProcessorError {
 
 	#[error("gifski encode: {0}")]
 	GifskiEncode(anyhow::Error),
+
+	#[error("http download disabled")]
+	HttpDownloadDisabled,
+
+	#[error("http download: {0}")]
+	HttpDownload(#[from] reqwest::Error),
 }
 
 pub type Result<T, E = ProcessorError> = std::result::Result<T, E>;

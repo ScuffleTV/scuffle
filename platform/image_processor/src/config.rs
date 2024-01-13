@@ -15,6 +15,9 @@ pub struct ImageProcessorConfig {
 
 	/// Instance ID (defaults to a random ULID)
 	pub instance_id: Ulid,
+
+	/// Allow http downloads
+	pub allow_http: bool,
 }
 
 impl Default for ImageProcessorConfig {
@@ -24,6 +27,7 @@ impl Default for ImageProcessorConfig {
 			target_bucket: S3BucketConfig::default(),
 			concurrency: num_cpus::get(),
 			instance_id: Ulid::new(),
+			allow_http: true,
 		}
 	}
 }

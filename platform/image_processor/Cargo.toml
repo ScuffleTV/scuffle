@@ -34,6 +34,7 @@ gifski = "1.13"
 png = "0.17"
 num_cpus = "1.16"
 bytes = "1.0"
+reqwest = { version = "0.11" }
 
 common = { workspace = true, features = ["default"] }
 config = { workspace = true }

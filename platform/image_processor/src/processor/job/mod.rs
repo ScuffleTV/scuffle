@@ -72,23 +72,39 @@ pub async fn handle_job(
 
 impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 	async fn download_source(&self) -> Result<Bytes> {
-		tracing::info!(
-			"downloading {}/{}",
-			self.global.config().source_bucket.name,
-			self.job.id.to_string(),
-		);
+		if self.job.task.input_path.starts_with("http://") || self.job.task.input_path.starts_with("https://") {
+			if !self.global.config().allow_http {
+				return Err(ProcessorError::HttpDownloadDisabled);
+			}
 
-		let response = self
-			.global
-			.s3_source_bucket()
-			.get_object(&self.job.task.input_path)
-			.await
-			.map_err(ProcessorError::S3Download)?;
+			tracing::info!("downloading {}", self.job.task.input_path);
 
-		if (200..299).contains(&response.status_code()) {
-			Ok(response.bytes().clone())
+			let response = reqwest::get(&self.job.task.input_path)
+				.await
+				.map_err(ProcessorError::HttpDownload)?;
+
+			response.error_for_status_ref().map_err(ProcessorError::HttpDownload)?;
+
+			Ok(response.bytes().await.map_err(ProcessorError::HttpDownload)?)
 		} else {
-			Err(ProcessorError::S3Download(s3::error::S3Error::HttpFail))
+			tracing::info!(
+				"downloading {}/{}",
+				self.global.config().source_bucket.name,
+				self.job.task.input_path
+			);
+	
+			let response = self
+				.global
+				.s3_source_bucket()
+				.get_object(&self.job.task.input_path)
+				.await
+				.map_err(ProcessorError::S3Download)?;
+	
+			if (200..299).contains(&response.status_code()) {
+				Ok(response.bytes().clone())
+			} else {
+				Err(ProcessorError::S3Download(s3::error::S3Error::HttpFail))
+			}
 		}
 	}
 

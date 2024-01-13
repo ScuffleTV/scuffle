@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Color from "$/components/settings/profile/color.svelte";
-	import { user, userId } from "$/store/auth";
+	import { user } from "$/store/auth";
 	import { faPalette, faTrashAlt, faUpload } from "@fortawesome/free-solid-svg-icons";
 	import { graphql } from "$gql";
 	import Fa from "svelte-fa";
@@ -16,7 +16,7 @@
 	import Spinner from "$/components/spinner.svelte";
 	import { pipe, subscribe, type Subscription } from "wonka";
 	import { FileStatus } from "$/gql/graphql";
-	import Dialog from "$/components/dialog.svelte";
+	import ErrorDialog from "$/components/error-dialog.svelte";
 
 	const recommendedColors = ["#ff7a00", "#ffe457", "#57ff86", "#00ffd1", "#5786ff", "#8357ff"];
 
@@ -127,11 +127,10 @@
 		}
 	}
 
-	let fileId: string | null = null;
 	let fileSub: Subscription;
 	let fileError: string | null = null;
 
-	function subToFileStatus(fileId: string | null) {
+	function subToFileStatus(fileId?: string | null) {
 		fileSub?.unsubscribe();
 		if (!fileId) return;
 		fileSub = pipe(
@@ -142,6 +141,7 @@
 							fileId
 							status
 							reason
+							friendlyMessage
 						}
 					}
 				`),
@@ -150,15 +150,16 @@
 			subscribe(({ data }) => {
 				if (data) {
 					if (data.fileStatus.status === FileStatus.Failure) {
-						fileError = data.fileStatus.reason ?? null;
+						console.error("file upload failed: ", data.fileStatus.reason);
+						fileError = data.fileStatus.friendlyMessage ?? data.fileStatus.reason ?? null;
 					}
-					if ($user) $user.profilePicturePending = false;
+					if ($user) $user.pendingProfilePictureId = null;
 				}
 			}),
 		);
 	}
 
-	$: subToFileStatus(fileId);
+	$: subToFileStatus($user?.pendingProfilePictureId);
 
 	let turnstileToken: string | null = null;
 
@@ -173,9 +174,8 @@
 				.then((res) => res.json())
 				.then((res) => {
 					status = Status.Unchanged;
-					if ($user) $user.profilePicturePending = true;
 					if (res.success) {
-						fileId = res.fileId ?? null;
+						if ($user) $user.pendingProfilePictureId = res.file_id ?? null;
 					} else {
 						fileError = res.message ?? null;
 					}
@@ -203,7 +203,7 @@
 			{ requestPolicy: "network-only" },
 		).toPromise().then(({data}) => {
 			if (data && $user) {
-				$user.profilePicturePending = false;
+				$user.pendingProfilePictureId = null;
 				$user.profilePicture = null;
 			}
 		});
@@ -219,10 +219,7 @@
 
 {#if $user}
 	{#if fileError}
-		<Dialog>
-			<h1>Failed to upload</h1>
-			<p>{fileError}</p>
-		</Dialog>
+		<ErrorDialog heading="Failed to upload" message={fileError} on:close={() => (fileError = null)} />
 	{/if}
 	<SectionContainer>
 		<Section title="Profile Picture" details="Personalize your account with a profile picture.">
@@ -235,7 +232,7 @@
 				/>
 			</div>
 			<div class="input big">
-				{#if $user.profilePicturePending}
+				{#if $user.pendingProfilePictureId}
 					<div class="profile-picture-pending">
 						<Spinner />
 					</div>
@@ -252,7 +249,7 @@
 					<button
 						class="button primary"
 						on:click={() => avatarInput.click()}
-						disabled={!turnstileToken || $user.profilePicturePending}
+						disabled={!turnstileToken || !!$user.pendingProfilePictureId}
 					>
 						<Fa icon={faUpload} />
 						Upload Picture

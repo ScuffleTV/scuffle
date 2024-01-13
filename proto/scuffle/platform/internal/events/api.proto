@@ -55,6 +55,7 @@ message UploadedFileStatus {
 
   message Failure {
     string reason = 1;
+    string friendly_message = 2;
   }
 
   scuffle.types.Ulid file_id = 1;

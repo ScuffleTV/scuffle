@@ -90,6 +90,7 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 						result: Some(pb::scuffle::platform::internal::events::processed_image::Result::Failure(
 							pb::scuffle::platform::internal::events::processed_image::Failure {
 								reason: format!("{}", e),
+								friendly_message: e.friendly_message(),
 							},
 						)),
 					}

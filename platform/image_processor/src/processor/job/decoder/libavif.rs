@@ -1,11 +1,11 @@
 use std::borrow::Cow;
 use std::ptr::NonNull;
 
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 
 use super::{Decoder, DecoderBackend, DecoderInfo, LoopCount};
 use crate::database::Job;
-use crate::processor::error::{ProcessorError, Result};
+use crate::processor::error::{ProcessorError, Result, DecoderError};
 use crate::processor::job::frame::Frame;
 use crate::processor::job::libavif::{AvifError, AvifRgbImage};
 use crate::processor::job::smart_object::SmartPtr;
@@ -26,6 +26,7 @@ impl<'data> AvifDecoder<'data> {
 			NonNull::new(unsafe { libavif_sys::avifDecoderCreate() })
 				.ok_or(AvifError::OutOfMemory)
 				.context("failed to create avif decoder")
+				.map_err(DecoderError::Other)
 				.map_err(ProcessorError::AvifDecode)?,
 			|ptr| {
 				// Safety: The decoder is valid.
@@ -50,6 +51,7 @@ impl<'data> AvifDecoder<'data> {
 		let io = NonNull::new(unsafe { libavif_sys::avifIOCreateMemoryReader(data.as_ptr(), data.len()) })
 			.ok_or(AvifError::OutOfMemory)
 			.context("failed to create avif io")
+			.map_err(DecoderError::Other)
 			.map_err(ProcessorError::AvifDecode)?;
 
 		// Set the io pointer.
@@ -58,6 +60,7 @@ impl<'data> AvifDecoder<'data> {
 		// Parse the data.
 		AvifError::from_code(unsafe { libavif_sys::avifDecoderParse(decoder.as_ptr()) })
 			.context("failed to parse avif")
+			.map_err(DecoderError::Other)
 			.map_err(ProcessorError::AvifDecode)?;
 
 		let image = AvifRgbImage::new(decoder.as_ref());
@@ -77,15 +80,15 @@ impl<'data> AvifDecoder<'data> {
 		let max_input_duration_ms = job.task.limits.as_ref().map(|l| l.max_input_duration_ms).unwrap_or(0);
 
 		if max_input_width != 0 && info.width > max_input_width as usize {
-			return Err(ProcessorError::AvifDecode(anyhow!("input width exceeds limit")));
+			return Err(ProcessorError::AvifDecode(DecoderError::TooWide(info.width as i32)));
 		}
 
 		if max_input_height != 0 && info.height > max_input_height as usize {
-			return Err(ProcessorError::AvifDecode(anyhow!("input height exceeds limit")));
+			return Err(ProcessorError::AvifDecode(DecoderError::TooHigh(info.height as i32)));
 		}
 
 		if max_input_frame_count != 0 && info.frame_count > max_input_frame_count as usize {
-			return Err(ProcessorError::AvifDecode(anyhow!("input frame count exceeds limit")));
+			return Err(ProcessorError::AvifDecode(DecoderError::TooManyFrames(info.frame_count as i64)));
 		}
 
 		Ok(Self {
@@ -117,13 +120,14 @@ impl Decoder for AvifDecoder<'_> {
 
 		AvifError::from_code(unsafe { libavif_sys::avifImageYUVToRGB(self.decoder.as_ref().image, &mut *self.img) })
 			.context("failed to convert YUV to RGB")
+			.map_err(DecoderError::Other)
 			.map_err(ProcessorError::AvifDecode)?;
 
 		let duration_ts = self.decoder.as_ref().imageTiming.durationInTimescales;
 		self.total_duration += duration_ts;
 
 		if self.max_input_duration != 0 && self.total_duration > self.max_input_duration {
-			return Err(ProcessorError::AvifDecode(anyhow!("input duration exceeds limit")));
+			return Err(ProcessorError::AvifDecode(DecoderError::TooLong(self.total_duration as i64)));
 		}
 
 		Ok(Some(Frame {

@@ -129,7 +129,7 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 								.context("failed to publish profile picture update event")?;
 						}
 					},
-					processed_image::Result::Failure(processed_image::Failure { reason }) => {
+					processed_image::Result::Failure(processed_image::Failure { reason, friendly_message }) => {
 						let uploaded_file: UploadedFile = match sqlx::query_as("UPDATE uploaded_files SET pending = FALSE, failed = $1, updated_at = NOW() WHERE id = $2 AND pending = TRUE RETURNING *")
 							.bind(reason.clone())
 							.bind(common::database::Ulid(job_id.into_ulid()))
@@ -151,7 +151,8 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 								pb::scuffle::platform::internal::events::UploadedFileStatus {
 									file_id: Some(uploaded_file.id.0.into()),
 									status: Some(pb::scuffle::platform::internal::events::uploaded_file_status::Status::Failure(pb::scuffle::platform::internal::events::uploaded_file_status::Failure {
-										reason
+										reason,
+										friendly_message,
 									})),
 								}.encode_to_vec().into(),
 							)

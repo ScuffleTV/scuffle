@@ -232,6 +232,10 @@ type FileStatusStream {
 	"""
 	Only set if status is `Failure`.
 	"""
+	friendlyMessage: String
+	"""
+	Only set if status is `Failure`.
+	"""
 	reason: String
 	"""
 	The status of the file.
@@ -413,8 +417,8 @@ type User {
 	emailVerified: Boolean!
 	id: ULID!
 	lastLoginAt: DateRFC3339!
+	pendingProfilePictureId: ULID
 	profilePicture: ImageUpload
-	profilePicturePending: Boolean!
 	totpEnabled: Boolean!
 	username: String!
 }

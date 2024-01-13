@@ -93,19 +93,6 @@ function formatSmallNumber(number: number): string {
 	return `${number}`;
 }
 
-// This is a groupBy function for arrays
-// The official function sadly has bad browser support: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/groupBy
-export function groupBy<T>(a: T[], f: (x: T) => number) {
-	return a.reduce((res: { [key: string]: T[] }, x) => {
-		const key = f(x);
-		if (!res[key]) {
-			res[key] = [];
-		}
-		res[key].push(x);
-		return res;
-	}, {});
-}
-
 export function mouseTrap(el: HTMLElement, cb: (e: MouseEvent) => void) {
 	const state = {
 		cb,

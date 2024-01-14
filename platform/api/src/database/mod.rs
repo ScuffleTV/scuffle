@@ -8,6 +8,7 @@ mod search_result;
 mod session;
 mod two_fa_request;
 mod uploaded_file;
+mod uploaded_file_status;
 mod user;
 
 pub use category::*;
@@ -20,4 +21,5 @@ pub use search_result::*;
 pub use session::*;
 pub use two_fa_request::*;
 pub use uploaded_file::*;
+pub use uploaded_file_status::*;
 pub use user::*;

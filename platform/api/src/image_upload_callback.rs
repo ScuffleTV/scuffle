@@ -73,7 +73,7 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 
 				match job_result {
 					processed_image::Result::Success(processed_image::Success { variants }) => {
-						let uploaded_file: UploadedFile = match common::database::query("UPDATE uploaded_files SET pending = FALSE, metadata = $1, updated_at = NOW() WHERE id = $2 AND pending = TRUE RETURNING *")
+						let uploaded_file: UploadedFile = match common::database::query("UPDATE uploaded_files SET status = 'completed', metadata = $1, updated_at = NOW() WHERE id = $2 AND status = 'queued' RETURNING *")
 							.bind(common::database::Protobuf(UploadedFileMetadata {
 								metadata: Some(uploaded_file_metadata::Metadata::Image(uploaded_file_metadata::Image {
 									versions: variants,
@@ -118,13 +118,15 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 							continue;
 						}
 
+						let owner_id = uploaded_file.owner_id.ok_or_else(|| anyhow::anyhow!("uploaded file owner id is null"))?;
+
 						if user_updated {
 							global
 								.nats()
 								.publish(
-									SubscriptionTopic::UserProfilePicture(uploaded_file.owner_id),
+									SubscriptionTopic::UserProfilePicture(owner_id),
 									pb::scuffle::platform::internal::events::UserProfilePicture {
-										user_id: Some(uploaded_file.owner_id.into()),
+										user_id: Some(owner_id.into()),
 										profile_picture_id: Some(uploaded_file.id.into()),
 									}.encode_to_vec().into(),
 								)
@@ -133,7 +135,7 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 						}
 					},
 					processed_image::Result::Failure(processed_image::Failure { reason, friendly_message }) => {
-						let uploaded_file: UploadedFile = match common::database::query("UPDATE uploaded_files SET pending = FALSE, failed = $1, updated_at = NOW() WHERE id = $2 AND pending = TRUE RETURNING *")
+						let uploaded_file: UploadedFile = match common::database::query("UPDATE uploaded_files SET status = 'failed', failed = $1, updated_at = NOW() WHERE id = $2 AND status = 'queued' RETURNING *")
 							.bind(reason.clone())
 							.bind(job_id.into_ulid())
 							.build_query_as()

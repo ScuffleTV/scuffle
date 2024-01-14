@@ -1,4 +1,8 @@
-CREATE TYPE file_type AS ENUM ('custom_thumbnail', 'profile_picture', 'offline_banner', 'role_badge', 'channel_role_badge');
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE TYPE file_type AS ENUM ('custom_thumbnail', 'profile_picture', 'offline_banner', 'role_badge', 'channel_role_badge', 'category_cover', 'category_artwork');
+
+CREATE TYPE uploaded_file_status AS ENUM ('unqueued', 'queued', 'failed', 'completed');
 
 CREATE TABLE users (
     id UUID NOT NULL PRIMARY KEY,
@@ -47,13 +51,13 @@ CREATE TABLE users (
 
 CREATE TABLE uploaded_files (
     id UUID NOT NULL PRIMARY KEY,
-    owner_id UUID NOT NULL,
-    uploader_id UUID NOT NULL,
+    owner_id UUID,
+    uploader_id UUID,
     name VARCHAR(256) NOT NULL,
     type file_type NOT NULL,
     metadata BYTES NOT NULL,
     total_size INT8 NOT NULL,
-    pending BOOLEAN NOT NULL DEFAULT TRUE,
+    status uploadedfilestatus NOT NULL,
     path VARCHAR(256) NOT NULL,
     failed TEXT,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -95,9 +99,30 @@ CREATE TABLE recordings (
 
 CREATE TABLE categories (
     id UUID NOT NULL PRIMARY KEY,
-    name VARCHAR(64) NOT NULL,
-    revision INT4 NOT NULL DEFAULT 0,
+    igdb_id INT4,
+
+    -- Searchable
+    name TEXT NOT NULL,
+    aliases TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
+    keywords TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
+
+    -- Non-searchable
+    storyline TEXT,
+    summary TEXT,
+    over_18 BOOLEAN NOT NULL DEFAULT FALSE,
+    cover_id UUID,
+    rating FLOAT8 NOT NULL DEFAULT 0.0,
+    artwork_ids UUID[] NOT NULL DEFAULT '{}'::UUID[],
+    igdb_similar_game_ids INT4[] NOT NULL DEFAULT '{}'::INT4[],
+    websites TEXT[] NOT NULL DEFAULT '{}'::TEXT[],
+
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE igdb_image (
+    image_id VARCHAR(64) NOT NULL PRIMARY KEY,
+    uploaded_file_id UUID NOT NULL,
+    category_id UUID
 );
 
 CREATE TABLE chat_messages (
@@ -206,6 +231,14 @@ CREATE INDEX recordings_start_at_idx ON recordings (start_at);
 
 -- We want to be able to search for categories by name (fuzzy search)
 CREATE INVERTED INDEX categories_name_idx ON categories (name gin_trgm_ops);
+CREATE INVERTED INDEX categories_aliases_idx ON categories (aliases);
+CREATE INVERTED INDEX categories_keywords_idx ON categories (keywords);
+
+-- We want to be able to search for categories by IGDB ID
+CREATE UNIQUE INDEX categories_igdb_id_idx ON categories (igdb_id) WHERE igdb_id IS NOT NULL;
+
+-- We want to be able to search for categories by rating
+CREATE INDEX categories_rating_idx ON categories (rating DESC);
 
 -- Image Upload Indexes
 

@@ -51,6 +51,7 @@ pin-project = "1.1"
 base64 = "0.21"
 postgres-from-row = "0.5"
 postgres-types = "0.2"
+fred = { version = "8.0", features = ["enable-rustls", "sentinel-client", "dns"] }
 
 config = { workspace = true }
 pb = { workspace = true }

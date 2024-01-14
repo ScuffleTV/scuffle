@@ -13,4 +13,8 @@ pub enum FileType {
 	RoleBadge,
 	#[postgres(name = "channel_role_badge")]
 	ChannelRoleBadge,
+	#[postgres(name = "category_cover")]
+	CategoryCover,
+	#[postgres(name = "category_artwork")]
+	CategoryArtwork,
 }

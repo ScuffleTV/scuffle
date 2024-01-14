@@ -7,6 +7,7 @@ use crate::api::v1::gql::error::ext::{OptionExt, ResultExt};
 use crate::api::v1::gql::error::{GqlError, Result};
 use crate::api::v1::gql::ext::ContextExt;
 use crate::api::v1::gql::models::ulid::GqlUlid;
+use crate::database::UploadedFileStatus;
 use crate::global::ApiGlobal;
 use crate::subscription::SubscriptionTopic;
 
@@ -63,7 +64,7 @@ impl<G: ApiGlobal> FileSubscription<G> {
 			.map_err_gql("failed to subscribe to file status")?;
 
 		Ok(async_stream::stream!({
-			if !file.pending {
+			if file.status != UploadedFileStatus::Queued {
 				// When file isn't pending anymore, just yield once with the status from the db
 				let status = if file.failed.is_some() {
 					FileStatus::Failure

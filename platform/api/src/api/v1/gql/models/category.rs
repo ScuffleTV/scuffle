@@ -17,7 +17,7 @@ impl From<database::Category> for Category {
 		Self {
 			id: value.id.into(),
 			name: value.name,
-			revision: value.revision,
+			revision: 1,
 			updated_at: value.updated_at.into(),
 		}
 	}

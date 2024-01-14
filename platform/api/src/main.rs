@@ -3,13 +3,14 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_graphql::SDLExportOptions;
-use binary_helper::global::{setup_database, setup_nats};
+use binary_helper::global::{setup_database, setup_nats, setup_redis};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
+use common::config::RedisConfig;
 use common::context::Context;
 use common::dataloader::DataLoader;
 use common::global::*;
 use common::grpc::TlsSettings;
-use platform_api::config::{ApiConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
+use platform_api::config::{ApiConfig, IgDbConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
 use platform_api::dataloader::category::CategoryByIdLoader;
 use platform_api::dataloader::global_state::GlobalStateLoader;
 use platform_api::dataloader::role::RoleByIdLoader;
@@ -21,7 +22,7 @@ use platform_api::video_api::{
 	load_playback_keypair_private_key, setup_video_events_client, setup_video_playback_session_client,
 	setup_video_room_client, VideoEventsClient, VideoPlaybackSessionClient, VideoRoomClient,
 };
-use platform_api::{image_upload_callback, video_event_handler};
+use platform_api::{igdb_cron, image_upload_callback, video_event_handler};
 use tokio::select;
 
 #[derive(Debug, Clone, Default, config::Config, serde::Deserialize)]
@@ -46,6 +47,12 @@ struct ExtConfig {
 
 	/// The video api config
 	video_api: VideoApiConfig,
+
+	/// The IGDB config
+	igdb: IgDbConfig,
+
+	/// Redis Config
+	redis: RedisConfig,
 }
 
 impl binary_helper::config::ConfigExtention for ExtConfig {
@@ -97,11 +104,20 @@ struct GlobalState {
 	video_room_client: VideoRoomClient,
 	video_playback_session_client: VideoPlaybackSessionClient,
 	video_events_client: VideoEventsClient,
+	
+	redis: Arc<fred::clients::RedisPool>,
 
 	playback_private_key: Option<jwt_next::asymmetric::AsymmetricKeyWithDigest<jwt_next::asymmetric::SigningKey>>,
 }
 
 impl_global_traits!(GlobalState);
+
+impl common::global::GlobalRedis for GlobalState {
+	#[inline(always)]
+	fn redis(&self) -> &Arc<fred::clients::RedisPool> {
+		&self.redis
+	}
+}
 
 impl common::global::GlobalConfigProvider<ApiConfig> for GlobalState {
 	#[inline(always)]
@@ -135,6 +151,13 @@ impl common::global::GlobalConfigProvider<VideoApiConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &VideoApiConfig {
 		&self.config.extra.video_api
+	}
+}
+
+impl common::global::GlobalConfigProvider<IgDbConfig> for GlobalState {
+	#[inline(always)]
+	fn provide_config(&self) -> &IgDbConfig {
+		&self.config.extra.igdb
 	}
 }
 
@@ -252,12 +275,15 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			.map(load_playback_keypair_private_key)
 			.transpose()?;
 
+		let redis = setup_redis(&config.extra.redis).await?;
+
 		Ok(Self {
 			ctx,
 			config,
 			nats,
 			jetstream,
 			db,
+			redis,
 			category_by_id_loader,
 			global_state_loader,
 			role_by_id_loader,
@@ -300,6 +326,7 @@ pub async fn main() {
 		let video_event_handler = video_event_handler::run(global.clone());
 
 		let image_upload_callback = image_upload_callback::run(global.clone());
+		let igdb_cron = igdb_cron::run(global.clone());
 
 		select! {
 			r = grpc_future => r.context("grpc server stopped unexpectedly")?,
@@ -307,6 +334,7 @@ pub async fn main() {
 			r = subscription_manager => r.context("subscription manager stopped unexpectedly")?,
 			r = video_event_handler => r.context("video event handler stopped unexpectedly")?,
 			r = image_upload_callback => r.context("image upload callback handler stopped unexpectedly")?,
+			r = igdb_cron => r.context("igdb cron stopped unexpectedly")?,
 		}
 
 		Ok(())

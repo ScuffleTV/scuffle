@@ -17,7 +17,7 @@ use crate::api::auth::AuthData;
 use crate::api::error::ApiError;
 use crate::api::Body;
 use crate::config::{ApiConfig, ImageUploaderConfig};
-use crate::database::{FileType, RolePermission};
+use crate::database::{FileType, RolePermission, UploadedFileStatus};
 use crate::global::ApiGlobal;
 
 fn create_task(file_id: Ulid, input_path: &str, config: &ImageUploaderConfig, owner_id: Ulid) -> image_processor::Task {
@@ -197,7 +197,7 @@ impl UploadType for ProfilePicture {
 			.await
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to insert image job"))?;
 
-		common::database::query("INSERT INTO uploaded_files(id, owner_id, uploader_id, name, type, metadata, total_size, pending, path) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)")
+		common::database::query("INSERT INTO uploaded_files(id, owner_id, uploader_id, name, type, metadata, total_size, path, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)")
             .bind(file_id) // id
             .bind(auth.session.user_id) // owner_id
             .bind(auth.session.user_id) // uploader_id
@@ -209,8 +209,8 @@ impl UploadType for ProfilePicture {
 				})),
 			})) // metadata
             .bind(file.len() as i64) // total_size
-            .bind(true) // pending
             .bind(&input_path) // path
+			.bind(UploadedFileStatus::Queued) // status
 			.build()
             .execute(&tx)
             .await

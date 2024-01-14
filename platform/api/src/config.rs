@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use common::config::{S3BucketConfig, TlsConfig};
 
@@ -78,6 +79,12 @@ pub struct ImageUploaderConfig {
 
 	/// Public endpoint for downloads
 	pub public_endpoint: String,
+
+	/// Igdb image callback subject
+	pub igdb_image_callback_subject: String,
+
+	/// Igdb image task priority, higher number means higher priority
+	pub igdb_image_task_priority: i32,
 }
 
 impl Default for ImageUploaderConfig {
@@ -87,6 +94,8 @@ impl Default for ImageUploaderConfig {
 			profile_picture_callback_subject: "scuffle-platform-image_processor-profile_picture".to_string(),
 			profile_picture_task_priority: 2,
 			public_endpoint: "https://images.scuffle.tv/scuffle-image-processor-public".to_string(),
+			igdb_image_callback_subject: "image_processor.igdb_image".to_string(),
+			igdb_image_task_priority: 1,
 		}
 	}
 }
@@ -137,4 +146,35 @@ pub struct VideoApiPlaybackKeypairConfig {
 
 	/// Path to the playback private key for the video api
 	pub private_key: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
+#[serde(default)]
+pub struct IgDbConfig {
+	/// The IGDB Client ID
+	pub client_id: String,
+
+	/// The IGDB Client Secret
+	pub client_secret: String,
+
+	/// Process Images
+	pub process_images: bool,
+
+	/// Refresh Interval
+	pub refresh_interval: Duration,
+
+	/// Igdb Cron Subject
+	pub igdb_cron_subject: String,
+}
+
+impl Default for IgDbConfig {
+	fn default() -> Self {
+		Self {
+			client_id: "igdb_client_id".to_string(),
+			client_secret: "igdb_client_secret".to_string(),
+			process_images: false,
+			refresh_interval: Duration::from_secs(6 * 60 * 60), // 6 hours
+			igdb_cron_subject: "scuffle-platform-igdb_cron".to_string(),
+		}
+	}
 }

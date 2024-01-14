@@ -32,6 +32,7 @@ impl Mp4a {
 		}
 	}
 
+	#[allow(clippy::useless_asref)]
 	pub fn codec(&self) -> io::Result<AudioCodec> {
 		let info = self
 			.esds

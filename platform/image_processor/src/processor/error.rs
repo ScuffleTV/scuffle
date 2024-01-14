@@ -1,6 +1,20 @@
 use file_format::FileFormat;
 
 #[derive(Debug, thiserror::Error)]
+pub enum DecoderError {
+	#[error("input too long: {0}ms")]
+	TooLong(i64),
+	#[error("too many frames: {0}frms")]
+	TooManyFrames(i64),
+	#[error("input too high: {0}px")]
+	TooHigh(i32),
+	#[error("input too wide: {0}px")]
+	TooWide(i32),
+	#[error("{0}")]
+	Other(anyhow::Error),
+}
+
+#[derive(Debug, thiserror::Error)]
 pub enum ProcessorError {
 	#[error("semaphore ticket acquire: {0}")]
 	SemaphoreAcquire(#[from] tokio::sync::AcquireError),
@@ -33,7 +47,7 @@ pub enum ProcessorError {
 	S3Upload(s3::error::S3Error),
 
 	#[error("publish to nats: {0}")]
-	NatsPublish(#[from] async_nats::client::PublishError),
+	NatsPublish(#[from] async_nats::PublishError),
 
 	#[error("image: {0}")]
 	FileFormat(std::io::Error),
@@ -42,19 +56,19 @@ pub enum ProcessorError {
 	UnsupportedInputFormat(FileFormat),
 
 	#[error("ffmpeg decode: {0}")]
-	FfmpegDecode(anyhow::Error),
+	FfmpegDecode(DecoderError),
 
 	#[error("timelimit exceeded")]
 	TimeLimitExceeded,
 
 	#[error("avif decode: {0}")]
-	AvifDecode(anyhow::Error),
+	AvifDecode(DecoderError),
 
 	#[error("avif encode: {0}")]
 	AvifEncode(anyhow::Error),
 
 	#[error("webp decode: {0}")]
-	WebPDecode(anyhow::Error),
+	WebPDecode(DecoderError),
 
 	#[error("webp encode: {0}")]
 	WebPEncode(anyhow::Error),
@@ -76,6 +90,39 @@ pub enum ProcessorError {
 
 	#[error("http download: {0}")]
 	HttpDownload(#[from] reqwest::Error),
+}
+
+impl ProcessorError {
+	pub fn friendly_message(&self) -> String {
+		let msg = match self {
+			ProcessorError::LostJob => Some("The job was lost"),
+			ProcessorError::InvalidJobState => Some("The job is in an invalid state"),
+			ProcessorError::DirectoryCreate(_) => Some("Failed to create directory"),
+			ProcessorError::FileRead(_) => Some("Failed to read file"),
+			ProcessorError::FileCreate(_) => Some("Failed to create file"),
+			ProcessorError::S3Download(_) => Some("Failed to download file"),
+			ProcessorError::S3Upload(_) => Some("Failed to upload file"),
+			ProcessorError::FileFormat(_) => Some("Failed to read file format"),
+			ProcessorError::UnsupportedInputFormat(_) => {
+				Some("Unsupported input format. Please use one of the supported formats.")
+			}
+			ProcessorError::TimeLimitExceeded => Some("The job took too long to process the file"),
+			ProcessorError::AvifEncode(_) => Some("Failed to reencode image to AVIF"),
+			ProcessorError::WebPEncode(_) => Some("Failed to reencode image to WebP"),
+			ProcessorError::PngEncode(_) => Some("Failed to reencode image to PNG"),
+			ProcessorError::ImageResize(_) => Some("Failed to resize image"),
+			ProcessorError::GifskiEncode(_) => Some("Failed to reencode image to GIF"),
+			ProcessorError::FfmpegDecode(e) | ProcessorError::AvifDecode(e) | ProcessorError::WebPDecode(e) => match e {
+				DecoderError::TooLong(_) => Some("The file is too long"),
+				DecoderError::TooManyFrames(_) => Some("The file has too many frames"),
+				DecoderError::TooWide(_) => Some("The image is too wide"),
+				DecoderError::TooHigh(_) => Some("The image is too high"),
+				DecoderError::Other(_) => None,
+			},
+			_ => None,
+		};
+		msg.map(|m| m.to_string()).unwrap_or_else(|| format!("{}", self))
+	}
 }
 
 pub type Result<T, E = ProcessorError> = std::result::Result<T, E>;

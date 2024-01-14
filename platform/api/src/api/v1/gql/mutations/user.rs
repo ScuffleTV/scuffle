@@ -1,4 +1,4 @@
-use async_graphql::{Context, Object};
+use async_graphql::{ComplexObject, Context, SimpleObject};
 use bytes::Bytes;
 use common::database::Ulid;
 use pb::scuffle::platform::internal::two_fa::two_fa_request_action::{Action, ChangePassword};
@@ -21,6 +21,8 @@ use crate::subscription::SubscriptionTopic;
 
 mod two_fa;
 
+#[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct UserMutation<G: ApiGlobal> {
 	two_fa: two_fa::TwoFaMutation<G>,
 }
@@ -33,7 +35,7 @@ impl<G: ApiGlobal> Default for UserMutation<G> {
 	}
 }
 
-#[Object]
+#[ComplexObject]
 impl<G: ApiGlobal> UserMutation<G> {
 	/// Change the email address of the currently logged in user.
 	async fn email<'ctx>(
@@ -182,6 +184,40 @@ impl<G: ApiGlobal> UserMutation<G> {
 		Ok(user.into())
 	}
 
+	/// Remove the profile picture of the currently logged in user.
+	async fn remove_profile_picture(&self, ctx: &Context<'_>) -> Result<User<G>> {
+		let global = ctx.get_global::<G>();
+		let request_context = ctx.get_req_context();
+
+		let auth = request_context
+			.auth(global)
+			.await?
+			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
+
+		let user: database::User = sqlx::query_as(
+			"UPDATE users SET profile_picture_id = NULL, pending_profile_picture_id = NULL WHERE id = $1 RETURNING *",
+		)
+		.bind(auth.session.user_id)
+		.fetch_one(global.db().as_ref())
+		.await?;
+
+		global
+			.nats()
+			.publish(
+				SubscriptionTopic::UserProfilePicture(user.id.0),
+				pb::scuffle::platform::internal::events::UserProfilePicture {
+					user_id: Some(user.id.0.into()),
+					profile_picture_id: None,
+				}
+				.encode_to_vec()
+				.into(),
+			)
+			.await
+			.map_err_gql("failed to publish message")?;
+
+		Ok(user.into())
+	}
+
 	async fn password<'ctx>(
 		&self,
 		ctx: &Context<'_>,
@@ -316,10 +352,5 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.map_err_gql("failed to publish message")?;
 
 		Ok(follow)
-	}
-
-	#[inline(always)]
-	async fn two_fa(&self) -> &two_fa::TwoFaMutation<G> {
-		&self.two_fa
 	}
 }

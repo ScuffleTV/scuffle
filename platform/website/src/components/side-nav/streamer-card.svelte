@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { viewersToString } from "$lib/utils";
 	import { page } from "$app/stores";
-	import type { DisplayColor } from "$/gql/graphql";
-	import DefaultAvatar from "../user/default-avatar.svelte";
+	import type { DisplayColor, ImageUpload } from "$/gql/graphql";
 	import { fade } from "svelte/transition";
+	import ProfilePicture from "../user/profile-picture.svelte";
 
 	export let id: string;
 	export let username: string;
 	export let displayName: string;
 	export let displayColor: DisplayColor;
+	export let profilePicture: ImageUpload | null | undefined = undefined;
 	// typescript pain
 	export let channel: {
 		live?:
@@ -46,7 +47,7 @@
 	in:fade={{ duration: 200 }}
 >
 	<div class="avatar">
-		<DefaultAvatar userId={id} {displayColor} size={2 * 16} />
+		<ProfilePicture userId={id} {profilePicture} {displayColor} size={2 * 16} />
 	</div>
 	{#if !collapsed}
 		<div class="text-container">

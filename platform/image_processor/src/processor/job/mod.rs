@@ -35,39 +35,8 @@ pub async fn handle_job(
 	_ticket: SemaphorePermit<'_>,
 	job: database::Job,
 ) -> Result<()> {
-	let mut interval = tokio::time::interval(std::time::Duration::from_secs(15));
-
-	let job_id = job.id.0;
-	let max_processing_time_ms = job.task.limits.as_ref().map(|l| l.max_processing_time_ms);
-
 	let job = Job { global, job };
-
-	let time_limit = async {
-		if let Some(max_processing_time_ms) = max_processing_time_ms {
-			tokio::time::sleep(std::time::Duration::from_millis(max_processing_time_ms as u64)).await;
-			Err(ProcessorError::TimeLimitExceeded)
-		} else {
-			Ok(())
-		}
-	};
-
-	let mut process = std::pin::pin!(job.process());
-	let time_limit = std::pin::pin!(time_limit);
-	let mut time_limit = time_limit.fuse();
-
-	loop {
-		select! {
-			_ = interval.tick() => {
-				refresh_job(global, job_id).await?;
-			},
-			Err(e) = &mut time_limit => {
-				return Err(e);
-			},
-			r = &mut process => {
-				return r;
-			},
-		}
-	}
+	job.process().await
 }
 
 impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
@@ -109,6 +78,74 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 	}
 
 	pub(crate) async fn process(self) -> Result<()> {
+		if let Err(e) = self.process_with_timeout().await {
+			tracing::warn!(err = %e, "job failed");
+			tracing::debug!("publishing job failure event to {}", self.job.task.callback_subject);
+			self.global
+				.nats()
+				.publish(
+					self.job.task.callback_subject.clone(),
+					pb::scuffle::platform::internal::events::ProcessedImage {
+						job_id: Some(self.job.id.0.into()),
+						result: Some(pb::scuffle::platform::internal::events::processed_image::Result::Failure(
+							pb::scuffle::platform::internal::events::processed_image::Failure {
+								reason: format!("{}", e),
+								friendly_message: e.friendly_message(),
+							},
+						)),
+					}
+					.encode_to_vec()
+					.into(),
+				)
+				.await
+				.map_err(|e| {
+					tracing::error!(err = %e, "failed to publish event");
+					e
+				})?;
+		}
+
+		// delete job
+		utils::delete_job(&self.global, self.job.id.0).await?;
+
+		Ok(())
+	}
+
+	async fn process_with_timeout(&self) -> Result<()> {
+		let mut interval = tokio::time::interval(std::time::Duration::from_secs(15));
+
+		let job_id = self.job.id.0;
+		let max_processing_time_ms = self.job.task.limits.as_ref().map(|l| l.max_processing_time_ms);
+
+		let time_limit = async {
+			if let Some(max_processing_time_ms) = max_processing_time_ms {
+				tokio::time::sleep(std::time::Duration::from_millis(max_processing_time_ms as u64)).await;
+				Err(ProcessorError::TimeLimitExceeded)
+			} else {
+				Ok(())
+			}
+		};
+
+		let global = self.global.clone();
+		let mut process = std::pin::pin!(self.inner_process());
+		let time_limit = std::pin::pin!(time_limit);
+		let mut time_limit = time_limit.fuse();
+
+		loop {
+			select! {
+				_ = interval.tick() => {
+					refresh_job(&global, job_id).await?;
+				},
+				Err(e) = &mut time_limit => {
+					return Err(e);
+				},
+				r = &mut process => {
+					return r;
+				},
+			}
+		}
+	}
+
+	async fn inner_process(&self) -> Result<()> {
 		let input_data = self.download_source().await?;
 
 		let backend = DecoderBackend::from_format(FileFormat::from_bytes(&input_data))?;
@@ -145,24 +182,29 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 			}
 		}
 		// job completion
+		tracing::debug!("publishing job completion event to {}", self.job.task.callback_subject);
 		self.global
 			.nats()
 			.publish(
 				self.job.task.callback_subject.clone(),
 				pb::scuffle::platform::internal::events::ProcessedImage {
 					job_id: Some(self.job.id.0.into()),
-					variants: images
-						.images
-						.iter()
-						.map(|i| pb::scuffle::platform::internal::types::ProcessedImageVariant {
-							path: i.url(&url_prefix),
-							format: i.request.1.into(),
-							width: i.width as u32,
-							height: i.height as u32,
-							byte_size: i.data.len() as u32,
-							scale: i.request.0 as u32,
-						})
-						.collect(),
+					result: Some(pb::scuffle::platform::internal::events::processed_image::Result::Success(
+						pb::scuffle::platform::internal::events::processed_image::Success {
+							variants: images
+								.images
+								.iter()
+								.map(|i| pb::scuffle::platform::internal::types::ProcessedImageVariant {
+									path: i.url(&url_prefix),
+									format: i.request.1.into(),
+									width: i.width as u32,
+									height: i.height as u32,
+									byte_size: i.data.len() as u32,
+									scale: i.request.0 as u32,
+								})
+								.collect(),
+						},
+					)),
 				}
 				.encode_to_vec()
 				.into(),
@@ -172,9 +214,6 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 				tracing::error!(err = %e, "failed to publish event");
 				e
 			})?;
-
-		// delete job
-		utils::delete_job(self.global, self.job.id.0).await?;
 
 		Ok(())
 	}

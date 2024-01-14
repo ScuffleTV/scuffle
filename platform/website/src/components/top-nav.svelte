@@ -12,12 +12,12 @@
 	} from "@fortawesome/free-solid-svg-icons";
 	import DropDown from "./drop-down.svelte";
 	import { logout } from "$/lib/auth";
-	import DefaultAvatar from "./user/default-avatar.svelte";
 	import { getContextClient } from "@urql/svelte";
 	import Search from "./top-nav/search.svelte";
 	import Logo from "./icons/logo.svelte";
 	import ResponsiveContainer from "../components/responsive-container.svelte";
 	import LiveIndicator from "./top-nav/live-indicator.svelte";
+	import ProfilePicture from "./user/profile-picture.svelte";
 
 	const client = getContextClient();
 
@@ -69,12 +69,16 @@
 		{#if $user}
 			<LiveIndicator />
 			<DropDown>
-				<DefaultAvatar userId={$user.id} displayColor={$user.displayColor} />
+				<ProfilePicture
+					userId={$user.id}
+					displayColor={$user.displayColor}
+					profilePicture={$user.profilePicture}
+				/>
 				<svelte:fragment slot="dropdown">
 					<li>
 						<a href="/{$user.username}">
 							<Fa icon={faUser} />
-							Profile
+							Channel
 						</a>
 					</li>
 					<li>

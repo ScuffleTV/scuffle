@@ -8,7 +8,8 @@
 	import FollowButton from "$/components/user/follow-button.svelte";
 	import SubscribeButton from "$/components/user/subscribe-button.svelte";
 	import BrandIcon from "$/components/icons/brand-icon.svelte";
-	import { user } from "$/store/auth";
+	import { user, userId } from "$/store/auth";
+	import ProfilePicture from "$/components/user/profile-picture.svelte";
 
 	export let data: LayoutData;
 	$: channelId = data.user.id;
@@ -42,8 +43,9 @@
 				<div class="user-info">
 					<!-- Wrapper div -->
 					<div class="avatar">
-						<DefaultAvatar
+						<ProfilePicture
 							userId={channelId}
+							bind:profilePicture={data.user.profilePicture}
 							bind:displayColor={data.user.displayColor}
 							size={3.5 * 16}
 						/>
@@ -74,7 +76,7 @@
 			<div class="row">
 				<TabSelector tabs={offlineTabs} />
 				<div class="buttons">
-					{#if $user?.id !== channelId}
+					{#if $userId !== channelId}
 						<FollowButton {channelId} bind:following={data.following} />
 						<SubscribeButton />
 					{/if}

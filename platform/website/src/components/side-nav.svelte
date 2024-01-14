@@ -7,12 +7,12 @@
 	import { page } from "$app/stores";
 	import { getContextClient } from "@urql/svelte";
 	import { graphql } from "$/gql";
-	import { user } from "$/store/auth";
+	import { user, userId } from "$/store/auth";
 	import LoadingStreamerCard from "./side-nav/loading-streamer-card.svelte";
 
 	const client = getContextClient();
 
-	async function queryFollowing(userId: string | undefined, limit: number) {
+	async function queryFollowing(userId: string | null, limit: number) {
 		if (!userId) return null;
 
 		const res = await client
@@ -28,6 +28,18 @@
 									color
 									hue
 									isGray
+								}
+								profilePicture {
+									id
+									variants {
+										width
+										height
+										scale
+										url
+										format
+										byteSize
+									}
+									endpoint
 								}
 								channel {
 									live {
@@ -52,7 +64,7 @@
 	let followingLimit = 5;
 	let following: Awaited<ReturnType<typeof queryFollowing>>;
 
-	$: queryFollowing($user?.id, followingLimit).then((res) => {
+	$: queryFollowing($userId, followingLimit).then((res) => {
 		following = res;
 	});
 

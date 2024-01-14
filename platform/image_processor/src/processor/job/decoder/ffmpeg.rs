@@ -5,7 +5,7 @@ use imgref::Img;
 
 use super::{Decoder, DecoderBackend, DecoderInfo, LoopCount};
 use crate::database::Job;
-use crate::processor::error::{ProcessorError, Result};
+use crate::processor::error::{ProcessorError, Result, DecoderError};
 use crate::processor::job::frame::Frame;
 
 pub struct FfmpegDecoder<'data> {
@@ -28,12 +28,13 @@ impl<'data> FfmpegDecoder<'data> {
 	pub fn new(job: &Job, data: Cow<'data, [u8]>) -> Result<Self> {
 		let input = ffmpeg::io::Input::seekable(std::io::Cursor::new(data))
 			.context("input")
+			.map_err(DecoderError::Other)
 			.map_err(ProcessorError::FfmpegDecode)?;
 
 		let input_stream = input
 			.streams()
 			.best(ffmpeg::ffi::AVMediaType::AVMEDIA_TYPE_VIDEO)
-			.ok_or_else(|| ProcessorError::FfmpegDecode(anyhow!("no video stream")))?;
+			.ok_or_else(|| ProcessorError::FfmpegDecode(DecoderError::Other(anyhow!("no video stream"))))?;
 
 		let input_stream_index = input_stream.index();
 
@@ -41,19 +42,20 @@ impl<'data> FfmpegDecoder<'data> {
 		let input_stream_duration = input_stream.duration().unwrap_or(0);
 		let input_stream_frames = input_stream
 			.nb_frames()
-			.ok_or_else(|| ProcessorError::FfmpegDecode(anyhow!("no frame count")))?
+			.ok_or_else(|| ProcessorError::FfmpegDecode(DecoderError::Other(anyhow!("no frame count"))))?
 			.max(1);
 
 		if input_stream_time_base.den == 0 || input_stream_time_base.num == 0 {
-			return Err(ProcessorError::FfmpegDecode(anyhow!("stream time base is 0")));
+			return Err(ProcessorError::FfmpegDecode(DecoderError::Other(anyhow!("stream time base is 0"))));
 		}
 
 		let decoder = match ffmpeg::decoder::Decoder::new(&input_stream)
 			.context("video decoder")
+			.map_err(DecoderError::Other)
 			.map_err(ProcessorError::FfmpegDecode)?
 		{
 			ffmpeg::decoder::Decoder::Video(decoder) => decoder,
-			_ => return Err(ProcessorError::FfmpegDecode(anyhow!("not a video decoder"))),
+			_ => return Err(ProcessorError::FfmpegDecode(DecoderError::Other(anyhow!("not a video decoder")))),
 		};
 
 		let max_input_width = job.task.limits.as_ref().map(|l| l.max_input_width).unwrap_or(0) as i32;
@@ -62,22 +64,23 @@ impl<'data> FfmpegDecoder<'data> {
 		let max_input_duration_ms = job.task.limits.as_ref().map(|l| l.max_input_duration_ms).unwrap_or(0) as i32;
 
 		if max_input_width > 0 && decoder.width() > max_input_width {
-			return Err(ProcessorError::FfmpegDecode(anyhow!("input width exceeds limit")));
+			return Err(ProcessorError::FfmpegDecode(DecoderError::TooWide(decoder.width())));
 		}
 
 		if max_input_height > 0 && decoder.height() > max_input_height {
-			return Err(ProcessorError::FfmpegDecode(anyhow!("input height exceeds limit")));
+			return Err(ProcessorError::FfmpegDecode(DecoderError::TooHigh(decoder.height())));
 		}
 
 		if max_input_frame_count > 0 && input_stream_frames > max_input_frame_count as i64 {
-			return Err(ProcessorError::FfmpegDecode(anyhow!("input frame count exceeds limit")));
+			return Err(ProcessorError::FfmpegDecode(DecoderError::TooManyFrames(input_stream_frames)));
 		}
 
-		if max_input_duration_ms > 0
-			&& (input_stream_duration * input_stream_time_base.den as i64 * 1000) / input_stream_time_base.num as i64
-				> max_input_duration_ms as i64
-		{
-			return Err(ProcessorError::FfmpegDecode(anyhow!("input duration exceeds limit")));
+		// actual duration 
+		// = duration * (time_base.num / time_base.den) * 1000
+		// = (duration * time_base.num * 1000) / time_base.den
+		let duration = (input_stream_duration * input_stream_time_base.num as i64 * 1000) / input_stream_time_base.den as i64;
+		if max_input_duration_ms > 0 && duration > max_input_duration_ms as i64 {
+			return Err(ProcessorError::FfmpegDecode(DecoderError::TooLong(duration)));
 		}
 
 		let scaler = ffmpeg::scalar::Scalar::new(
@@ -89,6 +92,7 @@ impl<'data> FfmpegDecoder<'data> {
 			ffmpeg::ffi::AVPixelFormat::AV_PIX_FMT_RGBA,
 		)
 		.context("scaler")
+		.map_err(DecoderError::Other)
 		.map_err(ProcessorError::FfmpegDecode)?;
 
 		Ok(Self {
@@ -142,17 +146,18 @@ impl Decoder for FfmpegDecoder<'_> {
 					})
 					.transpose()
 					.context("receive packet")
+					.map_err(DecoderError::Other)
 					.map_err(ProcessorError::FfmpegDecode)?;
 
 				if let Some(packet) = packet {
 					self.decoder.send_packet(&packet).context("send packet").map_err(|err| {
 						self.done = true;
-						ProcessorError::FfmpegDecode(err)
+						ProcessorError::FfmpegDecode(DecoderError::Other(err))
 					})?;
 				} else {
 					self.decoder.send_eof().context("send eof").map_err(|err| {
 						self.done = true;
-						ProcessorError::FfmpegDecode(err)
+						ProcessorError::FfmpegDecode(DecoderError::Other(err))
 					})?;
 					self.eof = true;
 				}
@@ -162,13 +167,13 @@ impl Decoder for FfmpegDecoder<'_> {
 
 			let frame = self.decoder.receive_frame().context("receive frame").map_err(|err| {
 				self.done = true;
-				ProcessorError::FfmpegDecode(err)
+				ProcessorError::FfmpegDecode(DecoderError::Other(err))
 			})?;
 
 			if let Some(frame) = frame {
 				let frame = self.scaler.process(&frame).context("scaler run").map_err(|err| {
 					self.done = true;
-					ProcessorError::FfmpegDecode(err)
+					ProcessorError::FfmpegDecode(DecoderError::Other(err))
 				})?;
 
 				let data = cast_bytes_to_rgba(frame.data(0).unwrap()).to_vec();

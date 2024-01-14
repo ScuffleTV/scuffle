@@ -21,6 +21,7 @@ pub struct User<G: ApiGlobal> {
 	pub display_color: DisplayColor,
 	pub username: String,
 	pub channel: Channel<G>,
+	pub pending_profile_picture_id: Option<GqlUlid>,
 
 	// Private fields
 	#[graphql(skip)]
@@ -53,7 +54,7 @@ impl<G: ApiGlobal> User<G> {
 		auth_guard::<_, G>(ctx, "totpEnabled", self.totp_enabled_, self.id.into()).await
 	}
 
-	async fn profile_picture(&self, ctx: &Context<'_>) -> Result<Option<ImageUpload>> {
+	async fn profile_picture(&self, ctx: &Context<'_>) -> Result<Option<ImageUpload<G>>> {
 		let Some(profile_picture_id) = self.profile_picture_ else {
 			return Ok(None);
 		};
@@ -79,6 +80,7 @@ impl<G: ApiGlobal> From<database::User> for User<G> {
 			display_name: value.display_name,
 			display_color: value.display_color.into(),
 			channel: value.channel.into(),
+			pending_profile_picture_id: value.pending_profile_picture_id.map(|u| u.0.into()),
 			email_: value.email,
 			email_verified_: value.email_verified,
 			last_login_at_: value.last_login_at.into(),

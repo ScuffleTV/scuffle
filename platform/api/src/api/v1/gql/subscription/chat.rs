@@ -61,8 +61,6 @@ impl<G: ApiGlobal> ChatSubscription<G> {
 		.await
 		.map_err_gql("failed to fetch chat messages")?;
 
-		dbg!(&messages);
-
 		Ok(stream!({
 			for message in messages {
 				yield Ok(message.into());

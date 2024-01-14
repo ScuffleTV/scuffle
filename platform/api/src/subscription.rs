@@ -80,6 +80,7 @@ pub enum SubscriptionTopic {
 	UserDisplayColor(Ulid),
 	UserFollows(Ulid),
 	UserProfilePicture(Ulid),
+	UploadedFileStatus(Ulid),
 }
 
 impl std::fmt::Display for SubscriptionTopic {
@@ -93,6 +94,7 @@ impl std::fmt::Display for SubscriptionTopic {
 			Self::UserDisplayColor(user_id) => write!(f, "user.{user_id}.display_color"),
 			Self::UserFollows(user_id) => write!(f, "user.{user_id}.follows"),
 			Self::UserProfilePicture(user_id) => write!(f, "user.{user_id}.profile_picture"),
+			Self::UploadedFileStatus(file_id) => write!(f, "file.{file_id}.status"),
 		}
 	}
 }

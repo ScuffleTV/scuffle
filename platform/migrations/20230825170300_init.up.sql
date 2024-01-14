@@ -1,4 +1,4 @@
-CREATE TYPE file_type AS ENUM ('custom_thumbnail', 'profile_picture', 'offline_banner', 'role_badge', 'channel_role_badge');
+CREATE TYPE filetype AS ENUM ('custom_thumbnail', 'profile_picture', 'offline_banner', 'role_badge', 'channel_role_badge');
 
 CREATE TABLE users (
     id UUID NOT NULL PRIMARY KEY,
@@ -50,7 +50,7 @@ CREATE TABLE uploaded_files (
     owner_id UUID NOT NULL,
     uploader_id UUID NOT NULL,
     name VARCHAR(256) NOT NULL,
-    type file_type NOT NULL,
+    type filetype NOT NULL,
     metadata BYTES NOT NULL,
     total_size INT8 NOT NULL,
     pending BOOLEAN NOT NULL DEFAULT TRUE,

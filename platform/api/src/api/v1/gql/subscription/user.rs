@@ -36,9 +36,9 @@ struct UserDisplayColorStream {
 }
 
 #[derive(SimpleObject)]
-struct UserProfilePictureStream {
+struct UserProfilePictureStream<G: ApiGlobal> {
 	pub user_id: GqlUlid,
-	pub profile_picture: Option<ImageUpload>,
+	pub profile_picture: Option<ImageUpload<G>>,
 }
 
 #[Subscription]
@@ -138,7 +138,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 		&self,
 		ctx: &'ctx Context<'ctx>,
 		user_id: GqlUlid,
-	) -> Result<impl Stream<Item = Result<UserProfilePictureStream>> + 'ctx> {
+	) -> Result<impl Stream<Item = Result<UserProfilePictureStream<G>>> + 'ctx> {
 		let global = ctx.get_global::<G>();
 
 		let Some(profile_picture_id) = global

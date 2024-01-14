@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
 use bytes::Bytes;
+use pb::scuffle::platform::internal::image_processor::task;
 use pb::scuffle::platform::internal::types::ImageFormat;
 use rgb::ComponentBytes;
 use sha2::Digest;
@@ -11,6 +12,7 @@ use super::encoder::{AnyEncoder, Encoder, EncoderFrontend, EncoderSettings};
 use super::resize::{ImageResizer, ImageResizerTarget};
 use crate::database::Job;
 use crate::processor::error::{ProcessorError, Result};
+use crate::processor::job::scaling::{ScalingOptions, Ratio};
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -22,12 +24,12 @@ pub struct Image {
 	pub encoder: EncoderFrontend,
 	pub data: Bytes,
 	pub loop_count: LoopCount,
-	pub request: (usize, ImageFormat),
+	pub request: ImageFormat,
 }
 
 impl Image {
 	pub fn file_extension(&self) -> &'static str {
-		match self.request.1 {
+		match self.request {
 			ImageFormat::Avif | ImageFormat::AvifStatic => "avif",
 			ImageFormat::Webp | ImageFormat::WebpStatic => "webp",
 			ImageFormat::Gif => "gif",
@@ -36,7 +38,7 @@ impl Image {
 	}
 
 	pub fn content_type(&self) -> &'static str {
-		match self.request.1 {
+		match self.request {
 			ImageFormat::Avif | ImageFormat::AvifStatic => "image/avif",
 			ImageFormat::Webp | ImageFormat::WebpStatic => "image/webp",
 			ImageFormat::Gif => "image/gif",
@@ -46,18 +48,19 @@ impl Image {
 
 	pub fn is_static(&self) -> bool {
 		matches!(
-			self.request.1,
+			self.request,
 			ImageFormat::AvifStatic | ImageFormat::WebpStatic | ImageFormat::PngStatic
 		)
 	}
 
 	pub fn url(&self, prefix: &str) -> String {
 		format!(
-			"{}/{}{}x.{}",
-			prefix.trim_end_matches('/'),
-			self.is_static().then_some("static_").unwrap_or_default(),
-			self.request.0,
-			self.file_extension()
+			"{prefix}/{static_prefix}{width}x{height}.{ext}",
+			prefix = prefix.trim_end_matches('/'),
+			static_prefix = self.is_static().then_some("static_").unwrap_or_default(),
+			width = self.width,
+			height = self.height,
+			ext = self.file_extension()
 		)
 	}
 }
@@ -73,7 +76,10 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 	let info = decoder.info();
 
 	let formats = job.task.formats().collect::<HashSet<_>>();
-	let scales = job.task.scales.iter().map(|s| *s as usize).collect::<HashSet<_>>();
+	let mut scales = job.task.scales.iter().cloned().map(|s| s as usize).collect::<Vec<_>>();
+
+	// Sorts the scales from smallest to largest.
+	scales.sort();
 
 	if formats.is_empty() || scales.is_empty() {
 		tracing::debug!("no formats or scales specified");
@@ -119,32 +125,50 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 		static_image: true,
 	};
 
-	let (base_width, base_height) = if job.task.upscale {
-		(job.task.base_width as f64, job.task.base_height as f64)
-	} else {
-		let largest_scale = scales.iter().max().copied().unwrap_or(1);
-
-		let width = info.width as f64 / largest_scale as f64;
-		let height = info.height as f64 / largest_scale as f64;
-
-		if width > job.task.base_width as f64 && height > job.task.base_height as f64 {
-			(job.task.base_width as f64, job.task.base_height as f64)
-		} else {
-			(width, height)
-		}
+	let (preserve_aspect_height, preserve_aspect_width) = match job.task.resize_method() {
+		task::ResizeMethod::Fit => (true, true),
+		task::ResizeMethod::Stretch => (false, false),
+		task::ResizeMethod::PadBottomLeft => (false, false),
+		task::ResizeMethod::PadBottomRight => (false, false),
+		task::ResizeMethod::PadTopLeft => (false, false),
+		task::ResizeMethod::PadTopRight => (false, false),
+		task::ResizeMethod::PadCenter => (false, false),
+		task::ResizeMethod::PadCenterLeft => (false, false),
+		task::ResizeMethod::PadCenterRight => (false, false),
+		task::ResizeMethod::PadTopCenter => (false, false),
+		task::ResizeMethod::PadBottomCenter => (false, false),
+		task::ResizeMethod::PadTop => (false, true),
+		task::ResizeMethod::PadBottom => (false, true),
+		task::ResizeMethod::PadLeft => (true, false),
+		task::ResizeMethod::PadRight => (true, false),
 	};
+	
+	let upscale = job.task.upscale().into();
 
+	let scales = ScalingOptions {
+		input_height: info.height,
+		input_width: info.width,
+		input_image_scaling: job.task.input_image_scaling,
+		clamp_aspect_ratio: job.task.clamp_aspect_ratio,
+		scales,
+		aspect_ratio: job.task.aspect_ratio.as_ref().map(|r| Ratio::new(r.numerator as usize, r.denominator as usize)).unwrap_or(Ratio::ONE),
+		upscale,
+		preserve_aspect_height,
+		preserve_aspect_width,
+	}.compute();
+
+	// let base_width = input_width as f64 / job.task.aspect_width as f64;
 	let mut resizers = scales
 		.iter()
 		.map(|scale| {
 			(
-				*scale,
+				scale.clone(),
 				ImageResizer::new(ImageResizerTarget {
-					height: base_height.ceil() as usize * scale,
-					width: base_width.ceil() as usize * scale,
+					height: scale.height,
+					width: scale.width,
 					algorithm: job.task.resize_algorithm(),
 					method: job.task.resize_method(),
-					upscale: job.task.upscale,
+					upscale: upscale.is_yes(),
 				}),
 				Vec::with_capacity(info.frame_count),
 			)
@@ -186,16 +210,14 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 	drop(decoder);
 
 	struct Stack {
-		scale: usize,
 		static_encoders: Vec<AnyEncoder>,
 		animation_encoders: Vec<AnyEncoder>,
 	}
 
 	let mut stacks = resizers
-		.iter_mut()
-		.map(|(scale, _, frames)| {
+		.iter()
+		.map(|(_, _, frames)| {
 			Ok(Stack {
-				scale: *scale,
 				static_encoders: static_formats
 					.iter()
 					.map(|&frontend| frontend.build(static_settings))
@@ -243,15 +265,12 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 				encoder: info.frontend,
 				data: output.into(),
 				loop_count: info.loop_count,
-				request: (
-					stack.scale,
-					match info.frontend {
-						EncoderFrontend::Gifski => ImageFormat::Gif,
-						EncoderFrontend::LibAvif => ImageFormat::Avif,
-						EncoderFrontend::LibWebp => ImageFormat::Webp,
-						EncoderFrontend::Png => unreachable!(),
-					},
-				),
+				request: match info.frontend {
+					EncoderFrontend::Gifski => ImageFormat::Gif,
+					EncoderFrontend::LibAvif => ImageFormat::Avif,
+					EncoderFrontend::LibWebp => ImageFormat::Webp,
+					EncoderFrontend::Png => unreachable!(),
+				},
 			});
 		}
 
@@ -266,15 +285,12 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 				encoder: info.frontend,
 				data: output.into(),
 				loop_count: info.loop_count,
-				request: (
-					stack.scale,
-					match info.frontend {
-						EncoderFrontend::LibAvif => ImageFormat::AvifStatic,
-						EncoderFrontend::LibWebp => ImageFormat::WebpStatic,
-						EncoderFrontend::Png => ImageFormat::PngStatic,
-						EncoderFrontend::Gifski => unreachable!(),
-					},
-				),
+				request: match info.frontend {
+					EncoderFrontend::LibAvif => ImageFormat::AvifStatic,
+					EncoderFrontend::LibWebp => ImageFormat::WebpStatic,
+					EncoderFrontend::Png => ImageFormat::PngStatic,
+					EncoderFrontend::Gifski => unreachable!(),
+				},
 			});
 		}
 	}

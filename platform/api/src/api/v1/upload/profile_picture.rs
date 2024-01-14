@@ -23,8 +23,11 @@ use crate::global::ApiGlobal;
 fn create_task(file_id: Ulid, input_path: &str, config: &ImageUploaderConfig, owner_id: Ulid) -> image_processor::Task {
 	image_processor::Task {
 		input_path: input_path.to_string(),
-		base_height: 128, // 128, 256, 384, 512
-		base_width: 128,  // 128, 256, 384, 512
+		aspect_ratio: Some(image_processor::task::Ratio {
+			numerator: 1,
+			denominator: 1,
+		}),
+		clamp_aspect_ratio: true,
 		formats: vec![
 			ImageFormat::PngStatic as i32,
 			ImageFormat::AvifStatic as i32,
@@ -42,8 +45,14 @@ fn create_task(file_id: Ulid, input_path: &str, config: &ImageUploaderConfig, ow
 			max_processing_time_ms: 60 * 1000, // 60 seconds
 		}),
 		resize_algorithm: image_processor::task::ResizeAlgorithm::Lanczos3 as i32,
-		upscale: true, // For profile pictures we want to have a consistent size
-		scales: vec![1, 2, 3, 4],
+		upscale: image_processor::task::Upscale::NoPreserveSource as i32,
+		input_image_scaling: true,
+		scales: vec![
+			64,
+			128,
+			256,
+			384,
+		],
 		resize_method: image_processor::task::ResizeMethod::PadCenter as i32,
 		output_prefix: format!("{owner_id}/{file_id}"),
 	}

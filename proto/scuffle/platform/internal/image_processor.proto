@@ -7,7 +7,7 @@ import "scuffle/platform/internal/types/image_format.proto";
 message Task {
   enum ResizeMethod {
     Fit = 0;
-    Exact = 1;
+    Stretch = 1;
     PadBottomLeft = 2;
     PadBottomRight = 3;
     PadTopLeft = 4;
@@ -35,17 +35,30 @@ message Task {
 
   string input_path = 1;
 
-  uint32 base_width = 2;
-  uint32 base_height = 3;
+  message Ratio {
+    uint32 numerator = 1;
+    uint32 denominator = 2;
+  }
 
-  repeated scuffle.platform.internal.types.ImageFormat formats = 4;
-  ResizeMethod resize_method = 5;
-  ResizeAlgorithm resize_algorithm = 6;
-  repeated uint32 scales = 7;
+  Ratio aspect_ratio = 2;
+  bool clamp_aspect_ratio = 3;
 
-  bool upscale = 8;
+  enum Upscale {
+    Yes = 0;
+    No = 1;
+    NoPreserveSource = 2;
+  }
 
-  string output_prefix = 9;
+  Upscale upscale = 4;
+
+  repeated scuffle.platform.internal.types.ImageFormat formats = 5;
+  ResizeMethod resize_method = 6;
+  ResizeAlgorithm resize_algorithm = 7;
+  
+  bool input_image_scaling = 8;
+  repeated uint32 scales = 9;
+
+  string output_prefix = 10;
 
   message Limits {
     uint32 max_processing_time_ms = 1;
@@ -55,7 +68,7 @@ message Task {
     uint32 max_input_duration_ms = 5;
   }
 
-  optional Limits limits = 10;
+  optional Limits limits = 11;
 
-  string callback_subject = 11;
+  string callback_subject = 12;
 }

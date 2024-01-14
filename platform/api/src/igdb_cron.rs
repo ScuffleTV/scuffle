@@ -587,9 +587,13 @@ fn create_task(
 ) -> image_processor::Task {
 	image_processor::Task {
 		callback_subject: config.callback_subject.clone(),
-		upscale: false,
+		upscale: image_processor::task::Upscale::NoPreserveSource as i32,
 		output_prefix: format!("categories/{category_id}/{id}"),
-		scales: vec![1],
+		scales: vec![
+			720,
+			1080,
+		],
+		input_image_scaling: true,
 		limits: Some(image_processor::task::Limits {
 			max_processing_time_ms: 60000,
 			..Default::default()
@@ -601,8 +605,11 @@ fn create_task(
 		],
 		input_path: path,
 		resize_method: image_processor::task::ResizeMethod::Fit as i32,
-		base_height: 1080,
-		base_width: 1920,
+		clamp_aspect_ratio: false,
+		aspect_ratio: Some(image_processor::task::Ratio {
+			numerator: 1,
+			denominator: 1,
+		}),
 		resize_algorithm: image_processor::task::ResizeAlgorithm::Lanczos3 as i32,
 	}
 }

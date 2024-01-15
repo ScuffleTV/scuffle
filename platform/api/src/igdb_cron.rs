@@ -61,6 +61,7 @@ async fn cron<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> anyhow::Res
 			.publish(config.igdb_cron_subject.clone(), Bytes::new())
 			.await
 			.context("publish")?;
+		tracing::debug!("igdb cron");
 		timer.tick().await;
 	}
 }
@@ -337,7 +338,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 						failed: None,
 						name: format!("igdb/cover/{}.jpg", cover.image_id),
 						owner_id: None,
-						path: format!("https://images.igdb.com/igdb/image/upload/t_cover_big/{}.jpg", cover.image_id),
+						path: format!("https://images.igdb.com/igdb/image/upload/t_cover_big_2x/{}.jpg", cover.image_id),
 						status: UploadedFileStatus::Unqueued,
 						metadata: UploadedFileMetadata {
 							metadata: Some(uploaded_file_metadata::Metadata::Image(uploaded_file_metadata::Image {
@@ -355,7 +356,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 						failed: None,
 						name: format!("igdb/artwork/{}.jpg", artwork.image_id),
 						owner_id: None,
-						path: format!("https://images.igdb.com/igdb/image/upload/t_1080p/{}.jpg", artwork.image_id),
+						path: format!("https://images.igdb.com/igdb/image/upload/t_1080p_2x/{}.jpg", artwork.image_id),
 						status: UploadedFileStatus::Unqueued,
 						metadata: UploadedFileMetadata {
 							metadata: Some(uploaded_file_metadata::Metadata::Image(uploaded_file_metadata::Image {
@@ -493,7 +494,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			if !unqueued.is_empty() {
 				let image_processor_config = global.config::<ImageUploaderConfig>();
 				common::database::query("INSERT INTO image_jobs (id, priority, task) ")
-					.push_values(unqueued, |mut sep, item| {
+					.push_values(&unqueued, |mut sep, item| {
 						sep.push_bind(item.id);
 						sep.push_bind(image_processor_config.igdb_image_task_priority);
 						sep.push_bind(common::database::Protobuf(create_task(
@@ -506,6 +507,13 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 					.push("ON CONFLICT (id) DO NOTHING;")
 					.build()
 					.execute(&tx).await.context("insert image_jobs")?;
+
+				common::database::query("UPDATE uploaded_files SET status = 'queued' WHERE id = ANY($1)")
+					.bind(unqueued.iter().map(|x| x.id).collect::<Vec<_>>())
+					.build()
+					.execute(&tx)
+					.await
+					.context("update uploaded_files")?;
 			}
 		}
 

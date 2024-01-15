@@ -9,7 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 tokio = { version = "1.35", features = ["full"] }
-tracing = "0.1"
+tracing = { version = "0.2", git = "https://github.com/tokio-rs/tracing.git" }
 anyhow = "1.0"
 sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
 sqlx-core = "0.7"

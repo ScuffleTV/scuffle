@@ -188,26 +188,29 @@
 	}
 
 	function removeProfilePicture() {
-		client.mutation(
-			graphql(`
-				mutation RemoveProfilePicture {
-					user {
-						resp: removeProfilePicture {
-							profilePicture {
-								id
+		client
+			.mutation(
+				graphql(`
+					mutation RemoveProfilePicture {
+						user {
+							resp: removeProfilePicture {
+								profilePicture {
+									id
+								}
 							}
 						}
 					}
+				`),
+				{},
+				{ requestPolicy: "network-only" },
+			)
+			.toPromise()
+			.then(({ data }) => {
+				if (data && $user) {
+					$user.pendingProfilePictureId = null;
+					$user.profilePicture = null;
 				}
-			`),
-			{},
-			{ requestPolicy: "network-only" },
-		).toPromise().then(({data}) => {
-			if (data && $user) {
-				$user.pendingProfilePictureId = null;
-				$user.profilePicture = null;
-			}
-		});
+			});
 	}
 
 	$: {
@@ -220,7 +223,11 @@
 
 {#if $user}
 	{#if fileError}
-		<ErrorDialog heading="Failed to upload" message={fileError} on:close={() => (fileError = null)} />
+		<ErrorDialog
+			heading="Failed to upload"
+			message={fileError}
+			on:close={() => (fileError = null)}
+		/>
 	{/if}
 	<SectionContainer>
 		<Section title="Profile Picture" details="Personalize your account with a profile picture.">
@@ -263,7 +270,11 @@
 						bind:files={avatarFiles}
 						hidden
 					/>
-					<button class="button secondary" on:click={removeProfilePicture} disabled={!$user.profilePicture}>
+					<button
+						class="button secondary"
+						on:click={removeProfilePicture}
+						disabled={!$user.profilePicture}
+					>
 						<Fa icon={faTrashAlt} />
 						Remove Picture
 					</button>

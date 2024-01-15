@@ -11,7 +11,7 @@ libc = "0.2"
 bytes = { optional = true, version = "1" }
 tokio = { optional = true, version = "1" }
 crossbeam-channel = { optional = true, version = "0.5" }
-tracing = { optional = true, version = "0.1" }
+tracing = { version = "0.2", git = "https://github.com/tokio-rs/tracing.git", optional = true }
 common = { workspace = true, optional = true }
 
 [features]

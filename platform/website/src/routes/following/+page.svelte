@@ -11,7 +11,9 @@
 				displayName: "TroyKomodo",
 				channel: {
 					title: "working on https://github.com/ScuffleTV/scuffle",
-					liveViewerCount: 1,
+					live: {
+						liveViewerCount: 1100,
+					},
 				},
 			},
 			avatar:

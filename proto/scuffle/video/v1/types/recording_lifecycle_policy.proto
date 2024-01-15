@@ -12,9 +12,7 @@ message RecordingLifecyclePolicy {
   int32 after_days = 1;
 
   // Enum of possible actions to perform after the specified number of days.
-  enum Action {
-    DELETE = 0;
-  }
+  enum Action { DELETE = 0; }
 
   // The action to perform after the specified number of days.
   Action action = 2;

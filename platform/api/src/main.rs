@@ -21,7 +21,7 @@ use platform_api::video_api::{
 	load_playback_keypair_private_key, setup_video_events_client, setup_video_playback_session_client,
 	setup_video_room_client, VideoEventsClient, VideoPlaybackSessionClient, VideoRoomClient,
 };
-use platform_api::{video_event_handler, image_upload_callback};
+use platform_api::{image_upload_callback, video_event_handler};
 use tokio::select;
 
 #[derive(Debug, Clone, Default, config::Config, serde::Deserialize)]

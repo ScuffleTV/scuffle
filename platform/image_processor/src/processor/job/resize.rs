@@ -12,6 +12,7 @@ pub struct ImageResizerTarget {
 	pub height: usize,
 	pub algorithm: ResizeAlgorithm,
 	pub method: ResizeMethod,
+	pub upscale: bool,
 }
 
 pub const fn algo_to_opencv(algo: ResizeAlgorithm) -> i32 {
@@ -41,6 +42,8 @@ impl std::fmt::Debug for ImageResizer {
 /// The caller must ensure that the returned Mat is dropped before self is
 /// dropped.
 unsafe fn make_mat(buffer: &[rgb::RGBA8], width: usize, height: usize) -> Result<opencv::core::Mat> {
+	assert!(buffer.len() >= width * height, "buffer is too small");
+
 	let data = buffer.as_bytes().as_ptr() as *mut std::ffi::c_void;
 	opencv::core::Mat::new_rows_cols_with_data(
 		height as i32,
@@ -77,7 +80,7 @@ impl ImageResizer {
 		let (width, height) = if self.target.method == ResizeMethod::Exact {
 			(self.target.width, self.target.height)
 		} else {
-			let (width, height) = if frame.image.width() > frame.image.height() {
+			let (mut width, mut height) = if frame.image.width() > frame.image.height() {
 				let width = self.target.width as f64;
 				let height = frame.image.height() as f64 / frame.image.width() as f64 * width;
 				(width, height)
@@ -86,6 +89,14 @@ impl ImageResizer {
 				let width = frame.image.width() as f64 / frame.image.height() as f64 * height;
 				(width, height)
 			};
+
+			if width > self.target.width as f64 {
+				height = height / width * self.target.width as f64;
+				width = self.target.width as f64;
+			} else if height > self.target.height as f64 {
+				width = width / height * self.target.height as f64;
+				height = self.target.height as f64;
+			}
 
 			let (width, height) = (width.round() as usize, height.round() as usize);
 
@@ -173,9 +184,9 @@ impl ImageResizer {
 				.context("opencv imgproc copy make border")
 				.map_err(ProcessorError::ImageResize)?;
 
-				Img::new(self.padding_buffer.clone(), width, height)
+				Img::new(self.padding_buffer[..width * height].to_vec(), width, height)
 			} else {
-				Img::new(self.buffer.clone(), width, height)
+				Img::new(self.buffer[..width * height].to_vec(), width, height)
 			};
 
 		Ok(Frame {

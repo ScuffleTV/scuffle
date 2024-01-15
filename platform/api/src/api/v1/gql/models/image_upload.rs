@@ -1,13 +1,13 @@
-use async_graphql::{Enum, SimpleObject, ComplexObject, Context};
+use async_graphql::{ComplexObject, Context, Enum, SimpleObject};
 use pb::scuffle::platform::internal::types::uploaded_file_metadata::{self, Image as PbImage};
 use ulid::Ulid;
 
 use super::ulid::GqlUlid;
 use crate::api::v1::gql::error::{GqlError, Result};
+use crate::api::v1::gql::ext::ContextExt;
 use crate::config::ImageUploaderConfig;
 use crate::database::UploadedFile;
 use crate::global::ApiGlobal;
-use crate::api::v1::gql::ext::ContextExt;
 
 #[derive(SimpleObject, Clone)]
 #[graphql(complex)]

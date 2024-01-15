@@ -558,7 +558,7 @@ dependencies = [
  "tokio",
  "tonic",
  "tower-layer",
- "tracing 0.1.40",
+ "tracing 0.2.0",
  "ulid",
 ]
 
@@ -901,7 +901,7 @@ dependencies = [
  "serde_yaml",
  "thiserror",
  "toml 0.8.8",
- "tracing 0.1.40",
+ "tracing 0.2.0",
  "ulid",
  "uuid",
 ]
@@ -1486,7 +1486,7 @@ dependencies = [
  "ffmpeg-sys-next",
  "libc",
  "tokio",
- "tracing 0.1.40",
+ "tracing 0.2.0",
 ]
 
 [[package]]
@@ -3406,7 +3406,7 @@ dependencies = [
  "tokio-stream",
  "tonic",
  "totp-rs",
- "tracing 0.1.40",
+ "tracing 0.2.0",
  "ulid",
  "uuid",
 ]
@@ -3448,7 +3448,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tonic",
- "tracing 0.1.40",
+ "tracing 0.2.0",
  "ulid",
 ]
 
@@ -3948,7 +3948,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "tokio",
- "tracing 0.1.40",
+ "tracing 0.2.0",
  "uuid",
 ]
 
@@ -5683,7 +5683,7 @@ dependencies = [
  "tokio-stream",
  "tonic",
  "tower",
- "tracing 0.1.40",
+ "tracing 0.2.0",
  "ulid",
  "url",
  "uuid",
@@ -5735,7 +5735,7 @@ dependencies = [
  "sqlx",
  "sqlx-postgres",
  "tokio",
- "tracing 0.1.40",
+ "tracing 0.2.0",
  "ulid",
  "uuid",
 ]
@@ -5777,7 +5777,7 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tonic",
- "tracing 0.1.40",
+ "tracing 0.2.0",
  "ulid",
  "url",
  "uuid",
@@ -5822,7 +5822,7 @@ dependencies = [
  "tokio-rustls 0.25.0",
  "tokio-stream",
  "tonic",
- "tracing 0.1.40",
+ "tracing 0.2.0",
  "transmuxer",
  "ulid",
  "uuid",
@@ -5906,7 +5906,7 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tonic",
- "tracing 0.1.40",
+ "tracing 0.2.0",
  "transmuxer",
  "ulid",
  "uuid",

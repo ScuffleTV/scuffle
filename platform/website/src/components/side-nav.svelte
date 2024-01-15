@@ -7,7 +7,7 @@
 	import { page } from "$app/stores";
 	import { getContextClient } from "@urql/svelte";
 	import { graphql } from "$/gql";
-	import { user, userId } from "$/store/auth";
+	import { userId } from "$/store/auth";
 	import LoadingStreamerCard from "./side-nav/loading-streamer-card.svelte";
 
 	const client = getContextClient();

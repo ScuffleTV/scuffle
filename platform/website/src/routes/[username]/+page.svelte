@@ -5,7 +5,7 @@
 	import Player from "$/components/player.svelte";
 	import { formatDuration, viewersToString } from "$/lib/utils";
 	import { browser, dev } from "$app/environment";
-	import { user, userId } from "$/store/auth";
+	import { userId } from "$/store/auth";
 	import { onMount } from "svelte";
 	import DisplayName from "$/components/user/display-name.svelte";
 	import FollowButton from "$/components/user/follow-button.svelte";
@@ -78,12 +78,13 @@
 <div class="content">
 	<div class="user-container" class:dev class:top-nav-hidden={$topNavHidden}>
 		{#if data.user.channel.live}
-			<Player
+			<!-- <Player
 				edgeEndpoint={data.user.channel.live.edgeEndpoint}
 				organizationId={data.user.channel.live.organizationId}
 				roomId={data.user.channel.live.roomId}
 				playerToken={data.user.channel.live.playerToken ?? undefined}
-			/>
+			/> -->
+			<Player live={data.user.channel.live} />
 		{/if}
 		<div class="under-player" class:hide-on-mobile={!chatCollapsed}>
 			<div class="row title-row">

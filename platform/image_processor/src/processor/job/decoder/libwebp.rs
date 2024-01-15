@@ -6,7 +6,7 @@ use imgref::Img;
 
 use super::{Decoder, DecoderBackend, DecoderInfo, LoopCount};
 use crate::database::Job;
-use crate::processor::error::{ProcessorError, Result, DecoderError};
+use crate::processor::error::{DecoderError, ProcessorError, Result};
 use crate::processor::job::frame::Frame;
 use crate::processor::job::libwebp::{zero_memory_default, WebPError};
 use crate::processor::job::smart_object::SmartPtr;
@@ -53,7 +53,9 @@ impl<'data> WebpDecoder<'data> {
 
 		// Safety: both pointers are valid and the decoder is valid.
 		if unsafe { libwebp_sys::WebPAnimDecoderGetInfo(decoder.as_ptr(), &mut info) } == 0 {
-			return Err(ProcessorError::WebPDecode(DecoderError::Other(anyhow!("failed to get webp info"))));
+			return Err(ProcessorError::WebPDecode(DecoderError::Other(anyhow!(
+				"failed to get webp info"
+			))));
 		}
 
 		if max_input_width != 0 && info.canvas_width > max_input_width {
@@ -65,7 +67,9 @@ impl<'data> WebpDecoder<'data> {
 		}
 
 		if max_input_frame_count != 0 && info.frame_count > max_input_frame_count {
-			return Err(ProcessorError::WebPDecode(DecoderError::TooManyFrames(info.frame_count as i64)));
+			return Err(ProcessorError::WebPDecode(DecoderError::TooManyFrames(
+				info.frame_count as i64,
+			)));
 		}
 
 		Ok(Self {

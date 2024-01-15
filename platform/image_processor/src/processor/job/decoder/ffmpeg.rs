@@ -2,10 +2,11 @@ use std::borrow::Cow;
 
 use anyhow::{anyhow, Context as _};
 use imgref::Img;
+use rgb::RGBA8;
 
 use super::{Decoder, DecoderBackend, DecoderInfo, LoopCount};
 use crate::database::Job;
-use crate::processor::error::{ProcessorError, Result, DecoderError};
+use crate::processor::error::{DecoderError, ProcessorError, Result};
 use crate::processor::job::frame::Frame;
 
 pub struct FfmpegDecoder<'data> {
@@ -24,8 +25,14 @@ const fn cast_bytes_to_rgba(bytes: &[u8]) -> &[rgb::RGBA8] {
 	unsafe { std::slice::from_raw_parts(bytes.as_ptr() as *const _, bytes.len() / 4) }
 }
 
+static FFMPEG_LOGGING_INITIALIZED: std::sync::Once = std::sync::Once::new();
+
 impl<'data> FfmpegDecoder<'data> {
 	pub fn new(job: &Job, data: Cow<'data, [u8]>) -> Result<Self> {
+		FFMPEG_LOGGING_INITIALIZED.call_once(|| {
+			ffmpeg::log::log_callback_tracing();
+		});
+
 		let input = ffmpeg::io::Input::seekable(std::io::Cursor::new(data))
 			.context("input")
 			.map_err(DecoderError::Other)
@@ -46,7 +53,9 @@ impl<'data> FfmpegDecoder<'data> {
 			.max(1);
 
 		if input_stream_time_base.den == 0 || input_stream_time_base.num == 0 {
-			return Err(ProcessorError::FfmpegDecode(DecoderError::Other(anyhow!("stream time base is 0"))));
+			return Err(ProcessorError::FfmpegDecode(DecoderError::Other(anyhow!(
+				"stream time base is 0"
+			))));
 		}
 
 		let decoder = match ffmpeg::decoder::Decoder::new(&input_stream)
@@ -55,7 +64,11 @@ impl<'data> FfmpegDecoder<'data> {
 			.map_err(ProcessorError::FfmpegDecode)?
 		{
 			ffmpeg::decoder::Decoder::Video(decoder) => decoder,
-			_ => return Err(ProcessorError::FfmpegDecode(DecoderError::Other(anyhow!("not a video decoder")))),
+			_ => {
+				return Err(ProcessorError::FfmpegDecode(DecoderError::Other(anyhow!(
+					"not a video decoder"
+				))));
+			}
 		};
 
 		let max_input_width = job.task.limits.as_ref().map(|l| l.max_input_width).unwrap_or(0) as i32;
@@ -75,10 +88,11 @@ impl<'data> FfmpegDecoder<'data> {
 			return Err(ProcessorError::FfmpegDecode(DecoderError::TooManyFrames(input_stream_frames)));
 		}
 
-		// actual duration 
+		// actual duration
 		// = duration * (time_base.num / time_base.den) * 1000
 		// = (duration * time_base.num * 1000) / time_base.den
-		let duration = (input_stream_duration * input_stream_time_base.num as i64 * 1000) / input_stream_time_base.den as i64;
+		let duration =
+			(input_stream_duration * input_stream_time_base.num as i64 * 1000) / input_stream_time_base.den as i64;
 		if max_input_duration_ms > 0 && duration > max_input_duration_ms as i64 {
 			return Err(ProcessorError::FfmpegDecode(DecoderError::TooLong(duration)));
 		}
@@ -176,7 +190,22 @@ impl Decoder for FfmpegDecoder<'_> {
 					ProcessorError::FfmpegDecode(DecoderError::Other(err))
 				})?;
 
-				let data = cast_bytes_to_rgba(frame.data(0).unwrap()).to_vec();
+				let mut data = vec![RGBA8::default(); frame.width() * frame.height()];
+
+				// The frame has padding, so we need to copy the data.
+				let frame_data = frame.data(0).unwrap();
+				let frame_linesize = frame.linesize(0).unwrap();
+
+				if frame_linesize == frame.width() as i32 * 4 {
+					// No padding, so we can just copy the data.
+					data.copy_from_slice(cast_bytes_to_rgba(frame_data));
+				} else {
+					// The frame has padding, so we need to copy the data.
+					for (i, row) in data.chunks_exact_mut(frame.width()).enumerate() {
+						let row_data = &frame_data[i * frame_linesize as usize..][..frame.width() * 4];
+						row.copy_from_slice(cast_bytes_to_rgba(row_data));
+					}
+				}
 
 				return Ok(Some(Frame {
 					image: Img::new(data, self.info.width, self.info.height),

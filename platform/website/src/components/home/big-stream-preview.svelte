@@ -15,7 +15,7 @@
 	let chatStatus = writable(ChatStatus.Connecting);
 	let playing = false;
 
-	$: viewers = viewersToString(user.channel.liveViewerCount ?? 0, true);
+	$: viewers = viewersToString(user.channel.live?.liveViewerCount ?? 0, true);
 
 	function onPlayClick() {
 		playing = true;
@@ -37,8 +37,8 @@
 		<span class="viewers">{viewers}</span>
 	</div>
 	<a class="video" href="/{user.username}">
-		{#if playing}
-			<Player roomId={user.channel.roomId} showPip={false} showTheater={false} />
+		{#if playing && user.channel.live}
+			<Player live={user.channel.live} showPip={false} showTheater={false} />
 		{:else}
 			<img src={preview} alt="Stream Thumbnail" class="blurred" aria-hidden="true" />
 			<img src={preview} alt="Stream Thumbnail" class="thumbnail" />

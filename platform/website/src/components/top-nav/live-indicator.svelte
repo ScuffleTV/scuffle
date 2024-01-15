@@ -26,7 +26,16 @@
 			),
 			subscribe((res) => {
 				if ($user && res.data) {
-					$user.channel.live = res.data.channelLive.live;
+					// This is just for type safety
+					// The problem here is that we want to save that the user is live but we have no more information than just that they are live
+					$user.channel.live = res.data.channelLive.live
+						? {
+								roomId: "",
+								liveViewerCount: 0,
+								edgeEndpoint: "",
+								organizationId: "",
+							}
+						: null;
 				}
 			}),
 		);

@@ -97,8 +97,12 @@ pub fn log_callback_unset() {
 
 #[cfg(feature = "tracing")]
 pub fn log_callback_tracing() {
-	log_callback_set(|level, class, msg| {
+	log_callback_set(|mut level, class, msg| {
 		let class = class.unwrap_or_else(|| "ffmpeg".to_owned());
+
+		if msg == "deprecated pixel format used, make sure you did set range correctly" {
+			level = LogLevel::Debug;
+		}
 
 		match level {
 			LogLevel::Trace => tracing::trace!("{}: {class} @ {msg}", level.as_str()),

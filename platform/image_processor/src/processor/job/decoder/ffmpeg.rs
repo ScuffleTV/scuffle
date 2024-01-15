@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use anyhow::{anyhow, Context as _};
 use imgref::Img;
+use rgb::RGBA8;
 
 use super::{Decoder, DecoderBackend, DecoderInfo, LoopCount};
 use crate::database::Job;
@@ -24,8 +25,15 @@ const fn cast_bytes_to_rgba(bytes: &[u8]) -> &[rgb::RGBA8] {
 	unsafe { std::slice::from_raw_parts(bytes.as_ptr() as *const _, bytes.len() / 4) }
 }
 
+
+static FFMPEG_LOGGING_INITIALIZED: std::sync::Once = std::sync::Once::new();
+
 impl<'data> FfmpegDecoder<'data> {
 	pub fn new(job: &Job, data: Cow<'data, [u8]>) -> Result<Self> {
+		FFMPEG_LOGGING_INITIALIZED.call_once(|| {
+			ffmpeg::log::log_callback_tracing();
+		});
+
 		let input = ffmpeg::io::Input::seekable(std::io::Cursor::new(data))
 			.context("input")
 			.map_err(DecoderError::Other)
@@ -176,7 +184,22 @@ impl Decoder for FfmpegDecoder<'_> {
 					ProcessorError::FfmpegDecode(DecoderError::Other(err))
 				})?;
 
-				let data = cast_bytes_to_rgba(frame.data(0).unwrap()).to_vec();
+				let mut data = vec![RGBA8::default(); frame.width() * frame.height()];
+
+				// The frame has padding, so we need to copy the data.
+				let frame_data = frame.data(0).unwrap();
+				let frame_linesize = frame.linesize(0).unwrap();
+
+				if frame_linesize == frame.width() as i32 * 4 {
+					// No padding, so we can just copy the data.
+					data.copy_from_slice(cast_bytes_to_rgba(frame_data));
+				} else {
+					// The frame has padding, so we need to copy the data.
+					for (i, row) in data.chunks_exact_mut(frame.width()).enumerate() {
+						let row_data = &frame_data[i * frame_linesize as usize..][..frame.width() * 4];
+						row.copy_from_slice(cast_bytes_to_rgba(row_data));
+					}
+				}
 
 				return Ok(Some(Frame {
 					image: Img::new(data, self.info.width, self.info.height),

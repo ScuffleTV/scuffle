@@ -52,7 +52,7 @@ impl Image {
 	pub fn url(&self, prefix: &str) -> String {
 		format!(
 			"{}/{}{}x.{}",
-			prefix,
+			prefix.trim_end_matches('/'),
 			self.is_static().then_some("static_").unwrap_or_default(),
 			self.request.0,
 			self.file_extension()
@@ -126,9 +126,9 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 		let height = info.height as f64 / largest_scale as f64;
 
 		if width > job.task.base_width as f64 && height > job.task.base_height as f64 {
-			(width, height)
-		} else {
 			(job.task.base_width as f64, job.task.base_height as f64)
+		} else {
+			(width, height)
 		}
 	};
 
@@ -142,6 +142,7 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 					width: base_width.ceil() as usize * scale,
 					algorithm: job.task.resize_algorithm(),
 					method: job.task.resize_method(),
+					upscale: job.task.upscale,
 				}),
 				Vec::with_capacity(info.frame_count),
 			)

@@ -40,11 +40,7 @@ pub async fn run(global: Arc<impl ImageProcessorGlobal>) -> Result<()> {
 
 				futures.push(handle_job(&global, ticket, job));
 			},
-			Some(r) = futures.next() => {
-				if let Err(err) = r {
-					tracing::error!("task failed: {:#}", err);
-				}
-			},
+			Some(_) = futures.next() => {},
 			_ = &mut done => break,
 		}
 	}

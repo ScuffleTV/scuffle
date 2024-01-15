@@ -31,7 +31,13 @@ pub struct Subscription<G: ApiGlobal>(
 
 impl<G: ApiGlobal> Default for Subscription<G> {
 	fn default() -> Self {
-		Self(Default::default(), Default::default(), Default::default(), Default::default(), Default::default())
+		Self(
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		)
 	}
 }
 

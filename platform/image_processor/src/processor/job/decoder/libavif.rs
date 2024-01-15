@@ -5,7 +5,7 @@ use anyhow::Context;
 
 use super::{Decoder, DecoderBackend, DecoderInfo, LoopCount};
 use crate::database::Job;
-use crate::processor::error::{ProcessorError, Result, DecoderError};
+use crate::processor::error::{DecoderError, ProcessorError, Result};
 use crate::processor::job::frame::Frame;
 use crate::processor::job::libavif::{AvifError, AvifRgbImage};
 use crate::processor::job::smart_object::SmartPtr;
@@ -88,7 +88,9 @@ impl<'data> AvifDecoder<'data> {
 		}
 
 		if max_input_frame_count != 0 && info.frame_count > max_input_frame_count as usize {
-			return Err(ProcessorError::AvifDecode(DecoderError::TooManyFrames(info.frame_count as i64)));
+			return Err(ProcessorError::AvifDecode(DecoderError::TooManyFrames(
+				info.frame_count as i64,
+			)));
 		}
 
 		Ok(Self {

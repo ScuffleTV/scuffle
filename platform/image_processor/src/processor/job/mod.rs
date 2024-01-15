@@ -32,11 +32,7 @@ pub(crate) struct Job<'a, G: ImageProcessorGlobal> {
 }
 
 #[tracing::instrument(skip(global, _ticket, job), fields(job_id = %job.id.0), level = "info")]
-pub async fn handle_job(
-	global: &Arc<impl ImageProcessorGlobal>,
-	_ticket: SemaphorePermit<'_>,
-	job: database::Job,
-) {
+pub async fn handle_job(global: &Arc<impl ImageProcessorGlobal>, _ticket: SemaphorePermit<'_>, job: database::Job) {
 	let job = Job { global, job };
 	if let Err(err) = job.process().in_current_span().await {
 		tracing::error!(err = %err, "job failed");
@@ -56,7 +52,10 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 				.await
 				.map_err(ProcessorError::HttpDownload)?
 				.error_for_status()
-				.map_err(ProcessorError::HttpDownload)?.bytes().await.map_err(ProcessorError::HttpDownload)?)
+				.map_err(ProcessorError::HttpDownload)?
+				.bytes()
+				.await
+				.map_err(ProcessorError::HttpDownload)?)
 		} else {
 			tracing::debug!(
 				"downloading {}/{}",
@@ -108,7 +107,7 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 		}
 
 		// delete job
-		utils::delete_job(&self.global, self.job.id.0).await?;
+		utils::delete_job(self.global, self.job.id.0).await?;
 
 		Ok(())
 	}

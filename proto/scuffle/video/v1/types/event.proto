@@ -123,7 +123,8 @@ message Event {
     message TranscoderDisconnected {
       // The ULID of the connection that the transcoder was disconnected from.
       scuffle.types.Ulid connection_id = 1;
-      // If the disconnection was clean. Meaning everything was transferred correctly.
+      // If the disconnection was clean. Meaning everything was transferred
+      // correctly.
       bool clean = 2;
     }
 

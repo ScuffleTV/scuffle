@@ -6,8 +6,9 @@ use prost::Message;
 use crate::api::v1::gql::error::ext::{OptionExt, ResultExt};
 use crate::api::v1::gql::error::{GqlError, Result};
 use crate::api::v1::gql::ext::ContextExt;
+use crate::api::v1::gql::models::ulid::GqlUlid;
+use crate::global::ApiGlobal;
 use crate::subscription::SubscriptionTopic;
-use crate::{api::v1::gql::models::ulid::GqlUlid, global::ApiGlobal};
 
 pub struct FileSubscription<G: ApiGlobal>(std::marker::PhantomData<G>);
 

@@ -184,9 +184,9 @@ impl ImageResizer {
 				.context("opencv imgproc copy make border")
 				.map_err(ProcessorError::ImageResize)?;
 
-				Img::new(self.padding_buffer[..width*height].to_vec(), width, height)
+				Img::new(self.padding_buffer[..width * height].to_vec(), width, height)
 			} else {
-				Img::new(self.buffer[..width*height].to_vec(), width, height)
+				Img::new(self.buffer[..width * height].to_vec(), width, height)
 			};
 
 		Ok(Frame {

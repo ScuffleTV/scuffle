@@ -25,21 +25,12 @@ pub struct Channel<G: ApiGlobal> {
 	pub custom_thumbnail_id: Option<GqlUlid>,
 	pub offline_banner_id: Option<GqlUlid>,
 	pub category_id: Option<GqlUlid>,
+	pub live: Option<ChannelLive<G>>,
 	pub last_live_at: Option<DateRFC3339>,
 
 	// Private fields
 	#[graphql(skip)]
 	stream_key_: Option<String>,
-
-	// Keep the database channel around for the live resolver
-	#[graphql(skip)]
-	db_: database::Channel,
-
-	#[graphql(skip)]
-	active_connection_id_: Option<ulid::Ulid>,
-
-	#[graphql(skip)]
-	_phantom: std::marker::PhantomData<G>,
 }
 
 #[ComplexObject]
@@ -85,32 +76,11 @@ impl<G: ApiGlobal> Channel<G> {
 
 		Ok(followers)
 	}
-
-	async fn live(&self, ctx: &Context<'_>) -> Result<Option<ChannelLive<G>>> {
-		let global = ctx.get_global::<G>();
-		let video_api_config: &VideoApiConfig = global.provide_config();
-
-		if self.active_connection_id_.is_some() {
-			Ok(Some(ChannelLive {
-				edge_endpoint: video_api_config.edge_endpoint.clone(),
-				organization_id: video_api_config.organization_id.into(),
-				room_id: self.db_.room_id.0.into(),
-				live_viewer_count_: self.db_.live_viewer_count,
-				live_viewer_count_updated_at_: self.db_.live_viewer_count_updated_at.map(DateRFC3339),
-				channel_id: self.id.0,
-				_phantom: std::marker::PhantomData,
-			}))
-		} else {
-			Ok(None)
-		}
-	}
 }
 
 #[derive(Clone, SimpleObject)]
 #[graphql(complex)]
 pub struct ChannelLive<G: ApiGlobal> {
-	pub edge_endpoint: String,
-	pub organization_id: GqlUlid,
 	pub room_id: GqlUlid,
 
 	// Live viewer count has a custom resolver
@@ -205,13 +175,28 @@ impl<G: ApiGlobal> ChannelLive<G> {
 
 		Ok(Some(token.as_str().to_string()))
 	}
+
+	async fn edge_endpoint(&self, ctx: &Context<'_>) -> Result<String> {
+		let global = ctx.get_global::<G>();
+
+		let video_api_config: &VideoApiConfig = global.provide_config();
+
+		Ok(video_api_config.edge_endpoint.clone())
+	}
+
+	async fn organization_id(&self, ctx: &Context<'_>) -> Result<GqlUlid> {
+		let global = ctx.get_global::<G>();
+
+		let video_api_config: &VideoApiConfig = global.provide_config();
+
+		Ok(video_api_config.organization_id.into())
+	}
 }
 
 impl<G: ApiGlobal> From<database::Channel> for Channel<G> {
 	fn from(value: database::Channel) -> Self {
 		let stream_key_ = value.get_stream_key();
 		Self {
-			db_: value.clone(),
 			id: value.id.0.into(),
 			title: value.title,
 			description: value.description,
@@ -219,10 +204,15 @@ impl<G: ApiGlobal> From<database::Channel> for Channel<G> {
 			custom_thumbnail_id: value.custom_thumbnail_id.map(|v| Into::into(v.0)),
 			offline_banner_id: value.offline_banner_id.map(|v| Into::into(v.0)),
 			category_id: value.category_id.map(|v| Into::into(v.0)),
+			live: value.active_connection_id.map(|_| ChannelLive {
+				room_id: value.room_id.0.into(),
+				live_viewer_count_: value.live_viewer_count,
+				live_viewer_count_updated_at_: value.live_viewer_count_updated_at.map(DateRFC3339),
+				channel_id: value.id.0,
+				_phantom: std::marker::PhantomData,
+			}),
 			last_live_at: value.last_live_at.map(DateRFC3339),
 			stream_key_,
-			active_connection_id_: value.active_connection_id.map(|u| u.0),
-			_phantom: std::marker::PhantomData,
 		}
 	}
 }

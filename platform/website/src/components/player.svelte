@@ -17,6 +17,7 @@
 	import { authDialog } from "$/store/auth";
 	import { dev } from "$app/environment";
 	import DebugOverlay from "./player/debug-overlay.svelte";
+	import type { ChannelLive } from "$/gql/graphql";
 
 	function loadVolume() {
 		const storedVolume = localStorage.getItem("player_volume");
@@ -46,10 +47,10 @@
 		}
 	}
 
-	function autoVariantName(selected: number) {
+	function autoVariantName(selected: number, current: number) {
 		let name = "auto";
 		if (selected === -1 && player?.variants) {
-			const variant = player.variants.at(player.variantId);
+			const variant = player.variants.at(current);
 			if (variant) {
 				name += ` (${friendlyVariantName(variant)})`;
 			}
@@ -57,10 +58,11 @@
 		return name;
 	}
 
-	export let edgeEndpoint: string;
-	export let organizationId: string;
-	export let roomId: string;
-	export let playerToken: string | undefined = undefined;
+	// export let edgeEndpoint: string;
+	// export let organizationId: string;
+	// export let roomId: string;
+	// export let playerToken: string | undefined = undefined;
+	export let live: ChannelLive;
 
 	export let controls = true;
 	export let showPip = true;
@@ -179,11 +181,11 @@
 	onMount(() => {
 		init().then(() => {
 			player = new Player(videoEl, {
-				server: edgeEndpoint,
-				organization_id: organizationId,
+				server: live.edgeEndpoint,
+				organization_id: live.organizationId,
 				abr_default_bandwidth: loadBandwithEstimate() ?? undefined,
 			});
-			player.loadRoom(roomId, playerToken);
+			player.loadRoom(live.roomId, live.playerToken ?? undefined);
 
 			player.on("manifestloaded", onManifestLoaded);
 			player.on("variant", onVariantChange);
@@ -389,7 +391,7 @@
 			<div>
 				{#if variants}
 					<select bind:value={selectedVariant} disabled={state === PlayerState.Error}>
-						<option value={-1}>{autoVariantName(selectedVariant)}</option>
+						<option value={-1}>{autoVariantName(selectedVariant, currentVariant)}</option>
 						{#each variants as variant, index}
 							<option value={index} selected={index === selectedVariant}
 								>{friendlyVariantName(variant)}</option
@@ -439,7 +441,12 @@
 		</div>
 	{/if}
 	{#if debugOverlay}
-		<DebugOverlay {player} {playerToken} {videoEl} on:close={() => (debugOverlay = false)} />
+		<DebugOverlay
+			{player}
+			playerToken={live.playerToken ?? undefined}
+			{videoEl}
+			on:close={() => (debugOverlay = false)}
+		/>
 	{/if}
 </div>
 

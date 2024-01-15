@@ -2,7 +2,6 @@
 	import type { User } from "$/gql/graphql";
 	import { viewersToString } from "$/lib/utils";
 	import { createEventDispatcher } from "svelte";
-	import DefaultAvatar from "../user/default-avatar.svelte";
 	import ProfilePicture from "../user/profile-picture.svelte";
 
 	const dispatch = createEventDispatcher();

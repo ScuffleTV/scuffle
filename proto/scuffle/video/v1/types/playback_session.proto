@@ -47,23 +47,17 @@ message PlaybackSession {
   // The origin of the user that created the playback session.
   optional string origin = 11;
 
-  enum Device {
-    UNKNOWN_DEVICE = 0;
-  }
+  enum Device { UNKNOWN_DEVICE = 0; }
 
   // The device of the user that created the playback session.
   Device device = 12;
 
-  enum Platform {
-    UNKNOWN_PLATFORM = 0;
-  }
+  enum Platform { UNKNOWN_PLATFORM = 0; }
 
   // The platform of the user that created the playback session.
   Platform platform = 13;
 
-  enum Browser {
-    UNKNOWN_BROWSER = 0;
-  }
+  enum Browser { UNKNOWN_BROWSER = 0; }
 
   // The browser of the user that created the playback session.
   Browser browser = 14;

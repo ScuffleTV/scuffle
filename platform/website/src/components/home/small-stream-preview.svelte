@@ -11,7 +11,7 @@
 
 	export let user: User;
 
-	$: viewers = viewersToString(user.channel.liveViewerCount ?? 0, true);
+	$: viewers = viewersToString(user.channel.live?.liveViewerCount ?? 0, true);
 
 	let timeout: number | NodeJS.Timeout;
 	let focused: boolean = false;
@@ -39,9 +39,10 @@
 	on:blur={onBlur}
 	aria-label="{user.displayName} streaming {user.channel.title} with {viewers}"
 >
-	{#if focused}
+	{#if focused && user.channel.live}
 		<div class="video">
-			<Player roomId={user.channel.roomId} controls={false} initMuted />
+			<!-- <Player roomId={user.channel.live.roomId} edgeEndpoint={user.channel.live.edgeEndpoint} organizationId={user.channel.live.organizationId} playerToken={user.channel.live.playerToken ?? undefined} controls={false} initMuted /> -->
+			<Player live={user.channel.live} controls={false} initMuted />
 		</div>
 	{:else}
 		<img src={preview} alt="Stream Thumbnail" class="thumbnail" />

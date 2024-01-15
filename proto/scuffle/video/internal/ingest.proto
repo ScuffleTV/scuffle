@@ -44,9 +44,7 @@ message IngestWatchResponse {
     SHUTDOWN_TRANSCODER = 1;
   }
 
-  enum Ready {
-    READY = 0;
-  }
+  enum Ready { READY = 0; }
 
   oneof message {
     Media media = 1;

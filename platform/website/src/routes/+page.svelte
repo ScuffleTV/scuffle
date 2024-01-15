@@ -20,7 +20,9 @@
 				displayName: "TroyKomodo",
 				channel: {
 					title: "working on https://github.com/ScuffleTV/scuffle",
-					liveViewerCount: 1,
+					live: {
+						liveViewerCount: 1,
+					},
 				},
 			},
 			avatar:
@@ -35,7 +37,9 @@
 				channel: {
 					title:
 						"RERUN: Sparg0 vs MuteAce - Group B Ultimate Summit 6 - SSBU Singles | Cloud vs Peach",
-					liveViewerCount: 1100,
+					live: {
+						liveViewerCount: 1100,
+					},
 				},
 			},
 			avatar:
@@ -49,7 +53,9 @@
 				displayName: "xQc",
 				channel: {
 					title: "LIVE👏CLICK👏NOW👏DRAMA👏NEWS👏PAGMAN",
-					liveViewerCount: 75300,
+					live: {
+						liveViewerCount: 1100,
+					},
 				},
 			},
 			avatar:
@@ -63,7 +69,9 @@
 				displayName: "PewDiePie",
 				channel: {
 					title: "Enjoy @PewDiePie ∞  Stream (See link in description of latest video for PROOF)",
-					liveViewerCount: 1_200_000,
+					live: {
+						liveViewerCount: 1100,
+					},
 				},
 			},
 			avatar:
@@ -77,7 +85,9 @@
 				displayName: "Bob Ross",
 				channel: {
 					title: "A Happy Little Weekend Marathon! - The Joy of Painting with Bob Ross",
-					liveViewerCount: 1_200_000,
+					live: {
+						liveViewerCount: 1100,
+					},
 				},
 			},
 			avatar:
@@ -91,7 +101,9 @@
 				displayName: "Ottomated",
 				channel: {
 					title: "Ludwig told me to re-make Steam from scratch...",
-					liveViewerCount: 1,
+					live: {
+						liveViewerCount: 1100,
+					},
 				},
 			},
 			avatar:
@@ -105,7 +117,9 @@
 				displayName: "Supinic",
 				channel: {
 					title: "super secret smol sunday stream",
-					liveViewerCount: 1100,
+					live: {
+						liveViewerCount: 1100,
+					},
 				},
 			},
 			avatar:
@@ -119,7 +133,9 @@
 				displayName: "NymN",
 				channel: {
 					title: "PotFriend Fan Club | !twitter !pobox !youtube",
-					liveViewerCount: 1100,
+					live: {
+						liveViewerCount: 1100,
+					},
 				},
 			},
 			avatar:
@@ -133,7 +149,9 @@
 				displayName: "realSport",
 				channel: {
 					title: "REAL SPORTS WITH BRYANT GUMBEL",
-					liveViewerCount: 1_200_000,
+					live: {
+						liveViewerCount: 1100,
+					},
 				},
 			},
 			avatar:
@@ -147,7 +165,9 @@
 				displayName: "rainbolt",
 				channel: {
 					title: "GEOGUESSER WITH CHAT",
-					liveViewerCount: 100,
+					live: {
+						liveViewerCount: 1100,
+					},
 				},
 			},
 			avatar:
@@ -161,7 +181,9 @@
 				displayName: "AMOURANTH",
 				channel: {
 					title: "🟢--DROPS ON--🔥 + COSPLAY! 💦 ! s--> my fun links",
-					liveViewerCount: 1100,
+					live: {
+						liveViewerCount: 1100,
+					},
 				},
 			},
 			avatar:

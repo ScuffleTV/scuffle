@@ -1,14 +1,13 @@
 <script lang="ts">
 	import Chatroom from "$/components/chat/chatroom.svelte";
 	import type { LayoutData } from "./$types";
-	import DefaultAvatar from "$/components/user/default-avatar.svelte";
 	import TabSelector from "$/components/tab-selector.svelte";
 	import DisplayName from "$/components/user/display-name.svelte";
 	import { followersToString } from "$/lib/utils";
 	import FollowButton from "$/components/user/follow-button.svelte";
 	import SubscribeButton from "$/components/user/subscribe-button.svelte";
 	import BrandIcon from "$/components/icons/brand-icon.svelte";
-	import { user, userId } from "$/store/auth";
+	import { userId } from "$/store/auth";
 	import ProfilePicture from "$/components/user/profile-picture.svelte";
 
 	export let data: LayoutData;

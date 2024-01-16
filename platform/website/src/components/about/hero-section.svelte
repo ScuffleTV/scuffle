@@ -2,20 +2,7 @@
 	import { faDiscord } from "@fortawesome/free-brands-svg-icons";
 	import { faRightToBracket } from "@fortawesome/free-solid-svg-icons";
 	import Fa from "svelte-fa";
-
-	let live: HTMLElement;
-	let transform: { calcX: number; calcY: number } = { calcX: 0, calcY: 0 };
-
-	const constrain = 50;
-	function mouseMove(e: MouseEvent) {
-		let box = live.getBoundingClientRect();
-		console.log(box);
-		transform.calcX = -(e.clientY - box.y - box.height / 2) / constrain;
-		transform.calcY = (e.clientX - box.x - box.width / 2) / constrain;
-	}
 </script>
-
-<svelte:window on:mousemove={mouseMove} />
 
 <div class="hero-section" role="none">
 	<svg class="background-noise" xmlns="http://www.w3.org/2000/svg">
@@ -47,13 +34,6 @@
 				Join
 			</a>
 		</div>
-	</div>
-	<div
-		class="live"
-		bind:this={live}
-		style="--calcX: {transform.calcX}deg; --calcY: {transform.calcY}deg"
-	>
-		<span>LIVE</span>
 	</div>
 </div>
 
@@ -116,6 +96,22 @@
 
 		position: relative;
 
+		&::before {
+			content: "";
+			position: absolute;
+			top: 0;
+			left: 0;
+			bottom: 0;
+			right: 0;
+
+			background: url("/scuffle-about-4-t.png") no-repeat;
+			background-size: cover;
+			background-position: center;
+
+			opacity: 0.5;
+			z-index: -1;
+		}
+
 		.background-noise {
 			position: absolute;
 			top: 0;
@@ -139,15 +135,18 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 1rem;
+		max-width: 80rem;
+		width: 100%;
 
 		& > .big-text {
-			font-size: 4.5rem;
+			font-size: 3rem;
 			font-weight: 300;
 			color: $textColor;
 			line-height: 1.1;
 
 			& > .bold {
 				font-weight: 800;
+				font-size: 1.5em;
 			}
 		}
 
@@ -161,61 +160,6 @@
 		}
 	}
 
-	.live {
-		transform: rotateX(var(--calcX)) rotateY(var(--calcY));
-
-		border-radius: 2rem;
-		padding: 2rem 5rem;
-		position: relative;
-
-		span {
-			color: $liveColor;
-			font-size: 12rem;
-			font-weight: 700;
-			letter-spacing: 1rem;
-			filter: drop-shadow(0 0 1.5rem rgba($liveColor, 0.5));
-		}
-		// When you want to see how this magic works, remove the background-color from the ::before pseudo-element
-
-		// This covers the whole element except for a border of 1px on each side
-		&::before {
-			content: "";
-			position: absolute;
-			top: 1px;
-			left: 1px;
-			bottom: 1px;
-			right: 1px;
-			border-radius: 2rem;
-			background-color: $bgColor2;
-		}
-
-		overflow: hidden;
-
-		// This lies behind the cover and is used to create the border
-		&::after {
-			content: "";
-			position: absolute;
-			top: -100%;
-			left: -25%;
-			bottom: -100%;
-			right: -25%;
-			z-index: -1;
-
-			background: conic-gradient(transparent, $liveColor);
-
-			@keyframes spin {
-				from {
-					transform: rotate(0deg);
-				}
-				to {
-					transform: rotate(360deg);
-				}
-			}
-
-			animation: spin 10s linear infinite;
-		}
-	}
-
 	@media screen and (max-width: $mobileBreakpoint) {
 		.hero-section {
 			padding: 2rem;
@@ -224,7 +168,7 @@
 
 		.text-cta {
 			& > .big-text {
-				font-size: 3rem;
+				font-size: 2.25rem;
 			}
 
 			.buttons {

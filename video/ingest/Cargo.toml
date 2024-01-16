@@ -9,7 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0"
-tracing = { version = "0.2", git = "https://github.com/tokio-rs/tracing.git" }
+tracing = "0.1"
 rustls = "0.22"
 rustls-pemfile = "2.0"
 tokio-rustls = "0.25"

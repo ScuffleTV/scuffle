@@ -16,7 +16,7 @@ num-derive = "0.4"
 tokio = "1.35"
 futures = "0.3"
 async-trait = "0.1"
-tracing = { version = "0.2", git = "https://github.com/tokio-rs/tracing.git" }
+tracing = "0.1"
 
 bytesio = { workspace = true, features = ["default"] }
 amf0 = { workspace = true }

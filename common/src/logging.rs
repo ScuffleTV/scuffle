@@ -2,10 +2,11 @@ use std::str::FromStr;
 
 use once_cell::sync::OnceCell;
 use tracing_subscriber::prelude::*;
-use tracing_subscriber::reload::Handle;
 use tracing_subscriber::EnvFilter;
 
-static RELOAD_HANDLE: OnceCell<Handle<EnvFilter>> = OnceCell::new();
+type ReloadHandle = Box<dyn Fn(&str) -> Result<(), LoggingError> + Sync + Send>;
+
+static RELOAD_HANDLE: OnceCell<ReloadHandle> = OnceCell::new();
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -20,7 +21,7 @@ pub enum Mode {
 #[derive(Debug, thiserror::Error)]
 pub enum LoggingError {
 	#[error("invalid logging mode: {0}")]
-	InvalidMode(String),
+	InvalidMode(#[from] tracing_subscriber::filter::ParseError),
 	#[error("failed to init logger: {0}")]
 	Init(#[from] tracing_subscriber::util::TryInitError),
 	#[error("failed to reload logger: {0}")]
@@ -29,26 +30,84 @@ pub enum LoggingError {
 
 pub fn init(level: &str, mode: Mode) -> Result<(), LoggingError> {
 	let reload = RELOAD_HANDLE.get_or_try_init(|| {
-		let env_filter = EnvFilter::from_str(level).expect("failed to parse log level");
-
-		let filter = tracing_subscriber::fmt()
-			.with_line_number(true)
-			.with_file(true)
-			.with_env_filter(env_filter)
-			.with_filter_reloading();
-
-		let handle = filter.reload_handle();
+		let env_filter = EnvFilter::from_str(level)?;
 
 		match mode {
-			Mode::Default => filter.finish().try_init(),
-			Mode::Json => filter.json().finish().try_init(),
-			Mode::Pretty => filter.pretty().finish().try_init(),
-			Mode::Compact => filter.compact().finish().try_init(),
+			Mode::Default => {
+				let filter = tracing_subscriber::fmt()
+					.with_line_number(true)
+					.with_file(true)
+					.with_env_filter(env_filter)
+					.with_filter_reloading();
+
+				let handle = filter.reload_handle();
+
+				filter.finish().try_init()?;
+
+				Ok::<_, LoggingError>(Box::new(move |level: &str| {
+					let level = EnvFilter::from_str(level)?;
+					handle.reload(level)?;
+					Ok(())
+				}) as ReloadHandle)
+			}
+			Mode::Json => {
+				let filter = tracing_subscriber::fmt()
+					.json()
+					.with_line_number(true)
+					.with_file(true)
+					.with_env_filter(env_filter)
+					.with_filter_reloading();
+
+				let handle = filter.reload_handle();
+
+				filter.finish().try_init()?;
+
+				Ok(Box::new(move |level: &str| {
+					let level = EnvFilter::from_str(level)?;
+					handle.reload(level)?;
+					Ok(())
+				}) as ReloadHandle)
+			}
+			Mode::Pretty => {
+				let filter = tracing_subscriber::fmt()
+					.pretty()
+					.with_line_number(true)
+					.with_file(true)
+					.with_env_filter(env_filter)
+					.with_filter_reloading();
+
+				let handle = filter.reload_handle();
+
+				filter.finish().try_init()?;
+
+				Ok(Box::new(move |level: &str| {
+					let level = EnvFilter::from_str(level)?;
+					handle.reload(level)?;
+					Ok(())
+				}) as ReloadHandle)
+			}
+			Mode::Compact => {
+				let filter = tracing_subscriber::fmt()
+					.compact()
+					.with_line_number(true)
+					.with_file(true)
+					.with_env_filter(env_filter)
+					.with_filter_reloading();
+
+				let handle = filter.reload_handle();
+
+				filter.finish().try_init()?;
+
+				Ok(Box::new(move |level: &str| {
+					let level = EnvFilter::from_str(level)?;
+					handle.reload(level)?;
+					Ok(())
+				}) as ReloadHandle)
+			}
 		}
-		.map(|_| handle)
 	})?;
 
-	reload.reload(level)?;
+	reload(level)?;
 
 	Ok(())
 }

@@ -98,7 +98,7 @@ struct GlobalState {
 	video_playback_session_client: VideoPlaybackSessionClient,
 	video_events_client: VideoEventsClient,
 
-	playback_private_key: Option<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>>,
+	playback_private_key: Option<jwt_next::asymmetric::AsymmetricKeyWithDigest<jwt_next::asymmetric::SigningKey>>,
 }
 
 impl_global_traits!(GlobalState);
@@ -187,7 +187,9 @@ impl platform_api::global::ApiState for GlobalState {
 		&self.video_events_client
 	}
 
-	fn playback_private_key(&self) -> &Option<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>> {
+	fn playback_private_key(
+		&self,
+	) -> &Option<jwt_next::asymmetric::AsymmetricKeyWithDigest<jwt_next::asymmetric::SigningKey>> {
 		&self.playback_private_key
 	}
 }

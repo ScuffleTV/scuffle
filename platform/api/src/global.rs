@@ -27,7 +27,9 @@ pub trait ApiState {
 	fn video_playback_session_client(&self) -> &VideoPlaybackSessionClient;
 	fn video_events_client(&self) -> &VideoEventsClient;
 
-	fn playback_private_key(&self) -> &Option<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>>;
+	fn playback_private_key(
+		&self,
+	) -> &Option<jwt_next::asymmetric::AsymmetricKeyWithDigest<jwt_next::asymmetric::SigningKey>>;
 }
 
 pub trait ApiGlobal:

@@ -4,8 +4,8 @@ use chrono::{Duration, TimeZone, Utc};
 use common::http::ext::*;
 use hmac::{Hmac, Mac};
 use hyper::StatusCode;
-use jwt::asymmetric::VerifyingKey;
-use jwt::{asymmetric, AlgorithmType, SignWithKey, Token, VerifyWithKey};
+use jwt_next::asymmetric::VerifyingKey;
+use jwt_next::{asymmetric, AlgorithmType, SignWithKey, Token, VerifyWithKey};
 use sha2::Sha256;
 use ulid::Ulid;
 use video_common::database::{PlaybackKeyPair, Rendition};
@@ -49,8 +49,8 @@ impl TokenClaims {
 		organization_id: Ulid,
 		target_id: TargetId,
 		token: &str,
-	) -> Result<Token<jwt::Header, Self, jwt::Verified>> {
-		let token: Token<jwt::Header, Self, _> = Token::parse_unverified(token).map_err(|e| {
+	) -> Result<Token<jwt_next::Header, Self, jwt_next::Verified>> {
+		let token: Token<jwt_next::Header, Self, _> = Token::parse_unverified(token).map_err(|e| {
 			tracing::error!(error = %e, "failed to parse token");
 			(StatusCode::BAD_REQUEST, "invalid token, could not parse")
 		})?;
@@ -253,7 +253,7 @@ impl MediaClaims {
 		let key: Hmac<Sha256> = Hmac::new_from_slice(global.config::<EdgeConfig>().media_key.as_bytes())
 			.map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
 
-		let token: Token<jwt::Header, Self, _> = token
+		let token: Token<jwt_next::Header, Self, _> = token
 			.verify_with_key(&key)
 			.map_err(|_| (StatusCode::BAD_REQUEST, "invalid token, could not parse"))?;
 
@@ -304,7 +304,7 @@ impl ScreenshotClaims {
 		let key: Hmac<Sha256> = Hmac::new_from_slice(global.config::<EdgeConfig>().media_key.as_bytes())
 			.map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
 
-		let token: Token<jwt::Header, Self, _> = token
+		let token: Token<jwt_next::Header, Self, _> = token
 			.verify_with_key(&key)
 			.map_err(|_| (StatusCode::BAD_REQUEST, "invalid token, could not parse"))?;
 
@@ -374,7 +374,7 @@ impl SessionClaims {
 		let key: Hmac<Sha256> = Hmac::new_from_slice(global.config::<EdgeConfig>().session_key.as_bytes())
 			.map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "failed to create hmac"))?;
 
-		let token: Token<jwt::Header, Self, _> = token
+		let token: Token<jwt_next::Header, Self, _> = token
 			.verify_with_key(&key)
 			.map_err(|_| (StatusCode::BAD_REQUEST, "invalid token, could not parse"))?;
 

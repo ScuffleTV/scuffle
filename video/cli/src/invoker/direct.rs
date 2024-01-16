@@ -45,14 +45,11 @@ impl DirectBackend {
 				.ok_or_else(|| anyhow::anyhow!("the organization does not exist"))?;
 
 			Some(AccessToken {
-				organization_id: organization_id.into(),
-				scopes: vec![
-					AccessTokenScope {
-						permission: vec![access_token_scope::Permission::Admin as i32],
-						resource: None,
-					}
-					.into(),
-				],
+				organization_id,
+				scopes: vec![AccessTokenScope {
+					permission: vec![access_token_scope::Permission::Admin as i32],
+					resource: None,
+				}],
 				..Default::default()
 			})
 		} else {

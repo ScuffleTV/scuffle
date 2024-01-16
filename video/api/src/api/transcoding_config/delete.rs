@@ -90,7 +90,7 @@ impl ApiRequest<TranscodingConfigDeleteResponse> for tonic::Request<TranscodingC
 			})?;
 
 			deleted_ids.iter().for_each(|id| {
-				ids_to_delete.remove(&id);
+				ids_to_delete.remove(id);
 			});
 
 			deleted_ids

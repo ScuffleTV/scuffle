@@ -76,7 +76,7 @@ impl ApiRequest<PlaybackKeyPairDeleteResponse> for tonic::Request<PlaybackKeyPai
 		}
 
 		deleted_ids.iter().for_each(|id| {
-			ids_to_delete.remove(&id);
+			ids_to_delete.remove(id);
 		});
 
 		Ok(tonic::Response::new(PlaybackKeyPairDeleteResponse {

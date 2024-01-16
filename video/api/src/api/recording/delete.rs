@@ -255,7 +255,7 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 			.collect::<HashMap<_, _>>();
 
 		deleted_ids.iter().for_each(|id| {
-			ids_to_delete.remove(&id);
+			ids_to_delete.remove(id);
 		});
 
 		common::database::query("DELETE FROM ")

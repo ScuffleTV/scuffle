@@ -41,7 +41,7 @@ impl<'args> QueryBuilder<'args> {
 
 	pub fn separated(&mut self, sep: &'args str) -> Separated<'_, 'args> {
 		Separated {
-			sep: sep.as_ref(),
+			sep,
 			first: true,
 			query_builder: self,
 		}

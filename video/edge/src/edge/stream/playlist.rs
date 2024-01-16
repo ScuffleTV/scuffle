@@ -289,7 +289,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 			playlist.thumbnails = recording_thumbnails
 				.into_iter()
 				.map(|t| ThumbnailRange {
-					id: format!("{}.{}.jpg", t.idx, Ulid::from(t.id)),
+					id: format!("{}.{}.jpg", t.idx, t.id),
 					start_time: normalize_float(t.start_time as f64),
 					idx: t.idx as u32,
 				})
@@ -304,7 +304,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 				.zip(recording_rendition.segment_start_times.iter().copied())
 				.zip(recording_rendition.segment_end_times.iter().copied())
 				.zip(recording_rendition.segment_ids.iter().copied())
-				.map(|(((idx, start_time), end_time), id)| (idx as u32, start_time, end_time, Ulid::from(id)))
+				.map(|(((idx, start_time), end_time), id)| (idx as u32, start_time, end_time, id))
 				.take_while(|(idx, _, _, _)| active_idx.map(|aidx| *idx < aidx).unwrap_or(true))
 				.enumerate()
 			{

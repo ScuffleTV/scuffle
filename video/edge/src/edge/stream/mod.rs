@@ -105,10 +105,9 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 
 	let room = room.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
-	let connection_id = Ulid::from(
-		room.active_ingest_connection_id
-			.ok_or((StatusCode::NOT_FOUND, "room not found"))?,
-	);
+	let connection_id = room
+		.active_ingest_connection_id
+		.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
 	let audio_output = room.audio_output.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
@@ -751,10 +750,9 @@ async fn room_screenshot<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respon
 
 	let room = room.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
-	let connection_id = Ulid::from(
-		room.active_ingest_connection_id
-			.ok_or((StatusCode::NOT_FOUND, "room not found"))?,
-	);
+	let connection_id = room
+		.active_ingest_connection_id
+		.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
 	if room.visibility != Visibility::Public && token.is_none() {
 		return Err((StatusCode::UNAUTHORIZED, "room is private, token is required").into());

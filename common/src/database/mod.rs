@@ -15,5 +15,5 @@ pub fn json<T>(row: Json<T>) -> T {
 
 #[inline]
 pub fn non_null_vec<T>(vec: Vec<Option<T>>) -> Vec<T> {
-	vec.into_iter().filter_map(|x| x).collect()
+	vec.into_iter().flatten().collect()
 }

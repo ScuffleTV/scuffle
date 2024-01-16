@@ -221,7 +221,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 			.await?
 			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
-		let user_id: Ulid = auth.session.user_id.into();
+		let user_id: Ulid = auth.session.user_id;
 
 		let mut subscription = global
 			.subscription_manager()

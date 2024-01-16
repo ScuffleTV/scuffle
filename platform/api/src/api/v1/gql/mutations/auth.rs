@@ -167,7 +167,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 
 		let user = global
 			.user_by_id_loader()
-			.load(request.user_id.into())
+			.load(request.user_id)
 			.await
 			.map_err_ignored_gql("failed to fetch user")?
 			.ok_or(GqlError::NotFound("user"))?;

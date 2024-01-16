@@ -49,7 +49,7 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
 			) RETURNING *
 			"#,
 		)
-		.bind(Ulid::from(ulid::Ulid::new()))
+		.bind(ulid::Ulid::new())
 		.bind(user_id)
 		.bind(expires_at)
 		.build_query_as()

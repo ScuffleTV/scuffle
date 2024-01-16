@@ -97,7 +97,7 @@ impl ApiRequest<S3BucketDeleteResponse> for tonic::Request<S3BucketDeleteRequest
 			})?;
 
 			deleted_ids.iter().for_each(|id| {
-				ids_to_delete.remove(&id);
+				ids_to_delete.remove(id);
 			});
 
 			deleted_ids

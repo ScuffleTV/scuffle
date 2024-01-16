@@ -21,7 +21,7 @@ pub async fn auth_guard<T, G: ApiGlobal>(
 	let auth = request_context.auth(global).await?;
 
 	if let Some(auth) = auth {
-		if Ulid::from(auth.session.user_id) == user_id || auth.user_permissions.has_permission(RolePermission::Admin) {
+		if auth.session.user_id == user_id || auth.user_permissions.has_permission(RolePermission::Admin) {
 			return Ok(field_value);
 		}
 	}

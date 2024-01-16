@@ -1039,7 +1039,7 @@ impl Connection {
 
 		self.bytes_tracker.clear();
 
-		if !self.send_update(Update { bitrate: bitrate as i32 }) {
+		if !self.send_update(Update { bitrate: bitrate as i64 }) {
 			self.error = Some(IngestError::FailedToUpdateBitrate);
 			tracing::error!("failed to send bitrate update");
 			false

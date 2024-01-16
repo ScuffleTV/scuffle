@@ -37,7 +37,7 @@ fn generate_key(org_id: Ulid, room_id: Ulid) -> String {
 	format!(
 		"live_{}_{}",
 		org_id,
-		base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(format!("{}+{}", room_id, Uuid::from(room_id).simple()))
+		base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(format!("{}+{}", room_id, room_id))
 	)
 }
 

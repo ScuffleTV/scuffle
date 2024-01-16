@@ -8,7 +8,7 @@ use ulid::Ulid;
 use crate::global::IngestGlobal;
 
 pub struct Update {
-	pub bitrate: i32,
+	pub bitrate: i64,
 }
 
 pub async fn update_db<G: IngestGlobal>(

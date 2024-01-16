@@ -4,6 +4,10 @@
 	import Fa from "svelte-fa";
 </script>
 
+<svelte:head>
+	<title>Scuffle</title>
+</svelte:head>
+
 <div class="hero-section" role="none">
 	<svg class="background-noise" xmlns="http://www.w3.org/2000/svg">
 		<filter id="noiseFilter">
@@ -92,7 +96,7 @@
 		align-items: center;
 		gap: 4rem;
 		flex-wrap: wrap;
-		justify-content: space-evenly;
+		justify-content: center;
 
 		position: relative;
 
@@ -104,7 +108,12 @@
 			bottom: 0;
 			right: 0;
 
-			background: url("/scuffle-about-4-t.png") no-repeat;
+			background: image-set(
+				url("/about/1x.avif") type("image/avif"),
+				url("/about/1x.webp") type("image/webp"),
+				url("/about/1x.jpg") type("image/jpg"),
+			);
+			background-repeat: no-repeat;
 			background-size: cover;
 			background-position: center;
 

@@ -19,6 +19,7 @@ futures-util = "0.3"
 rustls = "0.22"
 rustls-pemfile = "2.0"
 fred = { version = "8.0.0", features = ["enable-rustls", "sentinel-client", "dns"] }
+tokio-postgres-rustls = "0.11"
 
 config = { workspace = true }
 common = { workspace = true, features = ["default"] }

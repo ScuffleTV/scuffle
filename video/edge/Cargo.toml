@@ -46,6 +46,3 @@ pb = { workspace = true }
 video-common = { workspace = true }
 video-player-types = { workspace = true }
 binary-helper = { workspace = true }
-
-[dev-dependencies]
-dotenvy = "0.15"

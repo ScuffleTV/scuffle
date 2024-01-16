@@ -22,7 +22,6 @@ tonic = "0.10"
 futures = "0.3"
 thiserror = "1.0"
 file-format = "0.23"
-itertools = "0.12"
 scopeguard = "1.2"
 rgb = "0.8"
 imgref = "1.10"
@@ -42,6 +41,3 @@ config = { workspace = true }
 pb = { workspace = true }
 binary-helper = { workspace = true }
 ffmpeg = { workspace = true, features = ["task-abort", "tracing"] }
-
-[dev-dependencies]
-dotenvy = "0.15.7"

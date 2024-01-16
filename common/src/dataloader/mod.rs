@@ -129,14 +129,14 @@ impl<L: Loader<S>, S: Send + Sync + Default + BuildHasher + 'static> DataLoader<
 	}
 
 	#[inline(always)]
-	pub async fn load_many(&self, keys: impl Iterator<Item = L::Key>) -> LoaderOutput<L, S> {
+	pub async fn load_many(&self, keys: impl IntoIterator<Item = L::Key>) -> LoaderOutput<L, S> {
 		self.load_many_with_cache(NoCache, keys).await
 	}
 
 	pub async fn load_many_with_cache<C: Cache<L, S>>(
 		&self,
 		mut cache: C,
-		keys: impl Iterator<Item = L::Key>,
+		keys: impl IntoIterator<Item = L::Key>,
 	) -> LoaderOutput<L, S> {
 		let mut results = HashMap::default();
 

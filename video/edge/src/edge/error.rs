@@ -13,7 +13,9 @@ pub enum EdgeError {
 	#[error("internal server error: {0}")]
 	InternalServer(&'static str),
 	#[error("database error: {0}")]
-	Database(#[from] sqlx::Error),
+	Database(#[from] common::database::tokio_postgres::Error),
+	#[error("database pool error: {0}")]
+	DatabasePool(#[from] common::database::deadpool_postgres::PoolError),
 	#[error("json error: {0}")]
 	ParseJson(#[from] serde_json::Error),
 	#[error("prost error: {0}")]

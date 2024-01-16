@@ -173,27 +173,32 @@ impl UploadType for ProfilePicture {
 			image_format.ext()
 		);
 
-		let mut tx = global
+		let mut client = global
 			.db()
-			.begin()
+			.get()
 			.await
-			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to begin transaction"))?;
+			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to get database connection"))?;
+		let tx = client
+			.transaction()
+			.await
+			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to start transaction"))?;
 
-		sqlx::query("INSERT INTO image_jobs (id, priority, task) VALUES ($1, $2, $3)")
-			.bind(common::database::Ulid(file_id))
+		common::database::query("INSERT INTO image_jobs (id, priority, task) VALUES ($1, $2, $3)")
+			.bind(file_id)
 			.bind(config.profile_picture_task_priority)
 			.bind(common::database::Protobuf(create_task(
 				file_id,
 				&input_path,
 				config,
-				auth.session.user_id.0,
+				auth.session.user_id,
 			)))
-			.execute(tx.as_mut())
+			.build()
+			.execute(&tx)
 			.await
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to insert image job"))?;
 
-		sqlx::query("INSERT INTO uploaded_files(id, owner_id, uploader_id, name, type, metadata, total_size, pending, path) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)")
-            .bind(common::database::Ulid(file_id)) // id
+		common::database::query("INSERT INTO uploaded_files(id, owner_id, uploader_id, name, type, metadata, total_size, pending, path) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)")
+            .bind(file_id) // id
             .bind(auth.session.user_id) // owner_id
             .bind(auth.session.user_id) // uploader_id
             .bind(name.unwrap_or_else(|| format!("untitled.{}", image_format.ext()))) // name
@@ -206,15 +211,17 @@ impl UploadType for ProfilePicture {
             .bind(file.len() as i64) // total_size
             .bind(true) // pending
             .bind(&input_path) // path
-            .execute(tx.as_mut())
+			.build()
+            .execute(&tx)
             .await
             .map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to insert uploaded file"))?;
 
 		if self.set_active {
-			sqlx::query("UPDATE users SET pending_profile_picture_id = $1 WHERE id = $2")
-				.bind(common::database::Ulid(file_id))
+			common::database::query("UPDATE users SET pending_profile_picture_id = $1 WHERE id = $2")
+				.bind(file_id)
 				.bind(auth.session.user_id)
-				.execute(tx.as_mut())
+				.build()
+				.execute(&tx)
 				.await
 				.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to update user"))?;
 		}

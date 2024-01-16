@@ -86,7 +86,7 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 				.publish(
 					self.job.task.callback_subject.clone(),
 					pb::scuffle::platform::internal::events::ProcessedImage {
-						job_id: Some(self.job.id.0.into()),
+						job_id: Some(self.job.id.into()),
 						result: Some(pb::scuffle::platform::internal::events::processed_image::Result::Failure(
 							pb::scuffle::platform::internal::events::processed_image::Failure {
 								reason: e.to_string(),
@@ -106,7 +106,7 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 		}
 
 		// delete job
-		utils::delete_job(self.global, self.job.id.0).await?;
+		utils::delete_job(self.global, self.job.id).await?;
 
 		Ok(())
 	}
@@ -114,7 +114,7 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 	async fn process_with_timeout(&self) -> Result<()> {
 		let mut interval = tokio::time::interval(std::time::Duration::from_secs(15));
 
-		let job_id = self.job.id.0;
+		let job_id = self.job.id;
 		let max_processing_time_ms = self.job.task.limits.as_ref().map(|l| l.max_processing_time_ms);
 
 		let time_limit = async {
@@ -208,7 +208,7 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 			.publish(
 				self.job.task.callback_subject.clone(),
 				pb::scuffle::platform::internal::events::ProcessedImage {
-					job_id: Some(self.job.id.0.into()),
+					job_id: Some(self.job.id.into()),
 					result: Some(pb::scuffle::platform::internal::events::processed_image::Result::Success(
 						pb::scuffle::platform::internal::events::processed_image::Success {
 							variants: images

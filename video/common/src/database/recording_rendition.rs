@@ -1,8 +1,9 @@
-use common::database::Ulid;
+use postgres_from_row::FromRow;
+use ulid::Ulid;
 
 use super::{DatabaseTable, Rendition};
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, FromRow)]
 pub struct RecordingRendition {
 	/// The organization this recording rendition belongs to (primary key)
 	pub organization_id: Ulid,

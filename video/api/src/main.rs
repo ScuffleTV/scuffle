@@ -33,7 +33,7 @@ struct GlobalState {
 	config: AppConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 	redis: Arc<fred::clients::RedisPool>,
 	access_token_loader: DataLoader<dataloaders::AccessTokenLoader>,
 	recording_state_loader: DataLoader<dataloaders::RecordingStateLoader>,

@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use common::database::Ulid;
 use pb::scuffle::video::v1::types::{event, Event};
 use pb::scuffle::video::v1::{EventsAckRequest, EventsFetchRequest};
 use prost::Message;
@@ -63,19 +62,21 @@ async fn handle_room_event<G: ApiGlobal>(global: &Arc<G>, event: event::Room, ti
 					.await
 					.context("failed to fetch playback session count")?;
 
-			let (channel_id,): (common::database::Ulid,) = sqlx::query_as("UPDATE users SET channel_active_connection_id = $1, channel_live_viewer_count = $2, channel_live_viewer_count_updated_at = NOW(), channel_last_live_at = $3 WHERE channel_room_id = $4 RETURNING id")
-				.bind(Ulid::from(connection_id.into_ulid()))
+			let channel_id = common::database::query("UPDATE users SET channel_active_connection_id = $1, channel_live_viewer_count = $2, channel_live_viewer_count_updated_at = NOW(), channel_last_live_at = $3 WHERE channel_room_id = $4 RETURNING id")
+				.bind(connection_id.into_ulid())
 				.bind(live_viewer_count)
 				.bind(chrono::NaiveDateTime::from_timestamp_millis(timestamp))
-				.bind(Ulid::from(room_id.into_ulid()))
-				.fetch_one(global.db().as_ref())
+				.bind(room_id.into_ulid())
+				.build_query_single_scalar()
+				.fetch_one(global.db())
 				.await?;
+
 			global
 				.nats()
 				.publish(
-					SubscriptionTopic::ChannelLive(channel_id.0),
+					SubscriptionTopic::ChannelLive(channel_id),
 					pb::scuffle::platform::internal::events::ChannelLive {
-						channel_id: Some(channel_id.0.into()),
+						channel_id: Some(channel_id.into()),
 						live: true,
 					}
 					.encode_to_vec()
@@ -88,18 +89,20 @@ async fn handle_room_event<G: ApiGlobal>(global: &Arc<G>, event: event::Room, ti
 			connection_id: Some(connection_id),
 			..
 		}) => {
-			let res: Option<(common::database::Ulid,)> = sqlx::query_as("UPDATE users SET channel_active_connection_id = NULL, channel_live_viewer_count = 0, channel_live_viewer_count_updated_at = NOW() WHERE channel_room_id = $1 AND channel_active_connection_id = $2 RETURNING id")
-				.bind(Ulid::from(room_id.into_ulid()))
-				.bind(Ulid::from(connection_id.into_ulid()))
-				.fetch_optional(global.db().as_ref())
+			let res = common::database::query("UPDATE users SET channel_active_connection_id = NULL, channel_live_viewer_count = 0, channel_live_viewer_count_updated_at = NOW() WHERE channel_room_id = $1 AND channel_active_connection_id = $2 RETURNING id")
+				.bind(room_id.into_ulid())
+				.bind(connection_id.into_ulid())
+				.build_query_single_scalar()
+				.fetch_optional(global.db())
 				.await?;
-			if let Some((channel_id,)) = res {
+
+			if let Some(channel_id) = res {
 				global
 					.nats()
 					.publish(
-						SubscriptionTopic::ChannelLive(channel_id.0),
+						SubscriptionTopic::ChannelLive(channel_id),
 						pb::scuffle::platform::internal::events::ChannelLive {
-							channel_id: Some(channel_id.0.into()),
+							channel_id: Some(channel_id.into()),
 							live: false,
 						}
 						.encode_to_vec()

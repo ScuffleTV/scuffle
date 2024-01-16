@@ -1,8 +1,9 @@
-use common::database::Ulid;
+use postgres_from_row::FromRow;
+use ulid::Ulid;
 
 use super::{DatabaseTable, Rendition};
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, FromRow)]
 pub struct RecordingRenditionSegment {
 	/// The organization this recording rendition segment belongs to (primary
 	/// key)

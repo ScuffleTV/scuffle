@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use async_graphql::{Context, Object, Union};
 use chrono::{Duration, Utc};
-use common::database::{TraitProtobuf, Ulid};
 use pb::scuffle::platform::internal::two_fa::two_fa_request_action::{Action, Login};
 use pb::scuffle::platform::internal::two_fa::TwoFaRequestAction;
 use prost::Message;
@@ -91,7 +90,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 
 		if user.totp_enabled {
 			let request_id = ulid::Ulid::new();
-			sqlx::query(
+			common::database::query(
 				r#"
 				INSERT INTO two_fa_requests (
 					id,
@@ -103,7 +102,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 					$3
 				)"#,
 			)
-			.bind(Ulid::from(request_id))
+			.bind(request_id)
 			.bind(user.id)
 			.bind(
 				TwoFaRequestAction {
@@ -111,7 +110,8 @@ impl<G: ApiGlobal> AuthMutation<G> {
 				}
 				.encode_to_vec(),
 			)
-			.execute(global.db().as_ref())
+			.build()
+			.execute(global.db())
 			.await?;
 			Ok(TwoFaResponse::TwoFaRequest(TwoFaRequest { id: request_id.into() }))
 		} else {
@@ -129,9 +129,9 @@ impl<G: ApiGlobal> AuthMutation<G> {
 			}
 
 			Ok(TwoFaResponse::Success(Session {
-				id: session.id.0.into(),
+				id: session.id.into(),
 				token,
-				user_id: session.user_id.0.into(),
+				user_id: session.user_id.into(),
 				expires_at: session.expires_at.into(),
 				last_used_at: session.last_used_at.into(),
 			}))
@@ -149,7 +149,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		let request_context = ctx.get_req_context();
 
 		// TODO: Make this a dataloader
-		let request: database::TwoFaRequest = sqlx::query_as(
+		let request: database::TwoFaRequest = common::database::query(
 			r#"
 			SELECT
 				*
@@ -159,8 +159,9 @@ impl<G: ApiGlobal> AuthMutation<G> {
 				id = $1
 			"#,
 		)
-		.bind(Ulid::from(id.to_ulid()))
-		.fetch_optional(global.db().as_ref())
+		.bind(id.to_ulid())
+		.build_query_as()
+		.fetch_optional(global.db())
 		.await?
 		.ok_or(GqlError::NotFound("2fa request"))?;
 
@@ -179,7 +180,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 			.into());
 		}
 
-		sqlx::query(
+		common::database::query(
 			r#"
 			DELETE FROM
 				two_fa_requests
@@ -188,10 +189,11 @@ impl<G: ApiGlobal> AuthMutation<G> {
 			"#,
 		)
 		.bind(request.id)
-		.execute(global.db().as_ref())
+		.build()
+		.execute(global.db())
 		.await?;
 
-		match request.action.into_inner().action {
+		match request.action.action {
 			Some(Action::Login(action)) => {
 				let update_context = action.update_context;
 				let session = action.execute(global, user.id).await?;
@@ -207,9 +209,9 @@ impl<G: ApiGlobal> AuthMutation<G> {
 				}
 
 				Ok(Some(TwoFaRequestFulfillResponse::Login(Session {
-					id: session.id.0.into(),
+					id: session.id.into(),
 					token,
-					user_id: session.user_id.0.into(),
+					user_id: session.user_id.into(),
 					expires_at: session.expires_at.into(),
 					last_used_at: session.last_used_at.into(),
 				})))
@@ -240,7 +242,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		})?;
 
 		// TODO: maybe look to batch this
-		let session: database::Session = sqlx::query_as(
+		let session: database::Session = common::database::query(
 			r#"
 				UPDATE
 					user_sessions
@@ -252,8 +254,9 @@ impl<G: ApiGlobal> AuthMutation<G> {
 					*
 				"#,
 		)
-		.bind(Ulid::from(jwt.session_id))
-		.fetch_optional(global.db().as_ref())
+		.bind(jwt.session_id)
+		.build_query_as()
+		.fetch_optional(global.db())
 		.await?
 		.map_err_gql(GqlError::InvalidInput {
 			fields: vec!["sessionToken"],
@@ -271,9 +274,9 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		}
 
 		Ok(Session {
-			id: session.id.0.into(),
+			id: session.id.into(),
 			token: session_token,
-			user_id: session.user_id.0.into(),
+			user_id: session.user_id.into(),
 			expires_at: session.expires_at.into(),
 			last_used_at: session.last_used_at.into(),
 		})
@@ -347,10 +350,12 @@ impl<G: ApiGlobal> AuthMutation<G> {
 
 		// TODO: what do we do when the next step fails? delete the room again?
 
-		let mut tx = global.db().begin().await?;
+		let mut client = global.db().get().await?;
+
+		let tx = client.transaction().await?;
 
 		// TODO: maybe look to batch this
-		let user: database::User = sqlx::query_as(
+		let user: database::User = common::database::query(
 			r#"
 			INSERT INTO users (
 				id,
@@ -373,22 +378,23 @@ impl<G: ApiGlobal> AuthMutation<G> {
 			) RETURNING *
 			"#,
 		)
-		.bind(Ulid::from(ulid::Ulid::new()))
+		.bind(ulid::Ulid::new())
 		.bind(username)
 		.bind(display_name)
 		.bind(database::User::generate_display_color())
 		.bind(database::User::hash_password(&password))
 		.bind(email)
-		.bind(Ulid::from(channel_room_id))
+		.bind(channel_room_id)
 		.bind(res.stream_key)
-		.fetch_one(&mut *tx)
+		.build_query_as()
+		.fetch_one(&tx)
 		.await?;
 
 		let login_duration = validity.unwrap_or(60 * 60 * 24 * 7); // 7 days
 		let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
 
 		// TODO: maybe look to batch this
-		let session: database::Session = sqlx::query_as(
+		let session: database::Session = common::database::query(
 			r#"
 			INSERT INTO user_sessions (
 				id,
@@ -401,10 +407,11 @@ impl<G: ApiGlobal> AuthMutation<G> {
 			) RETURNING *
 			"#,
 		)
-		.bind(Ulid::from(ulid::Ulid::new()))
+		.bind(ulid::Ulid::new())
 		.bind(user.id)
 		.bind(expires_at)
-		.fetch_one(&mut *tx)
+		.build_query_as()
+		.fetch_one(&tx)
 		.await?;
 
 		let jwt = AuthJwtPayload::from(session.clone());
@@ -412,6 +419,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		let token = jwt.serialize(global).map_err_gql("failed to serialize JWT")?;
 
 		tx.commit().await?;
+		drop(client);
 
 		// We need to update the request context with the new session
 		if update_context.unwrap_or(true) {
@@ -431,9 +439,9 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		}
 
 		Ok(Session {
-			id: session.id.0.into(),
+			id: session.id.into(),
 			token,
-			user_id: session.user_id.0.into(),
+			user_id: session.user_id.into(),
 			expires_at: session.expires_at.into(),
 			last_used_at: session.last_used_at.into(),
 		})
@@ -465,11 +473,10 @@ impl<G: ApiGlobal> AuthMutation<G> {
 				.map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?
 				.session
 				.id
-				.0
 		};
 
 		// TODO: maybe look to batch this
-		sqlx::query(
+		common::database::query(
 			r#"
 			DELETE FROM
 				user_sessions
@@ -477,8 +484,9 @@ impl<G: ApiGlobal> AuthMutation<G> {
 				id = $1
 			"#,
 		)
-		.bind(Ulid::from(session_id))
-		.execute(global.db().as_ref())
+		.bind(session_id)
+		.build()
+		.execute(global.db())
 		.await?;
 
 		if session_token.is_none() {

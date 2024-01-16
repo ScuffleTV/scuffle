@@ -6,6 +6,7 @@ use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, FailedResource, Resource};
 use pb::scuffle::video::v1::{RecordingConfigDeleteRequest, RecordingConfigDeleteResponse};
 use tonic::Status;
+use ulid::Ulid;
 use video_common::database::{AccessToken, DatabaseTable};
 
 use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
@@ -26,7 +27,7 @@ impl ApiRequest<RecordingConfigDeleteResponse> for tonic::Request<RecordingConfi
 		access_token: &AccessToken,
 	) -> tonic::Result<tonic::Response<RecordingConfigDeleteResponse>> {
 		// Check if any rooms are using the recording config
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
+		let mut qb = common::database::QueryBuilder::default();
 
 		let req = self.get_ref();
 
@@ -50,14 +51,19 @@ impl ApiRequest<RecordingConfigDeleteResponse> for tonic::Request<RecordingConfi
 		qb.push("(SELECT DISTINCT recording_config_id AS id FROM ")
 			.push(<video_common::database::Room as DatabaseTable>::NAME)
 			.push(" WHERE recording_config_id = ANY(")
-			.push_bind(ids_to_delete.iter().copied().map(common::database::Ulid).collect::<Vec<_>>())
+			.push_bind(ids_to_delete.iter().copied().collect::<Vec<_>>())
 			.push(") AND organization_id = ")
 			.push_bind(access_token.organization_id)
 			.push(") UNION (SELECT DISTINCT recording_config_id AS id FROM ")
 			.push(<video_common::database::Recording as DatabaseTable>::NAME)
 			.push(" WHERE recording_config_id = ANY($1) AND organization_id = $2)");
 
-		let used_configs: Vec<common::database::Ulid> = qb.build_query_scalar().fetch_all(global.db().as_ref()).await.map_err(|err| {
+		let client = global.db().get().await.map_err(|err| {
+			tracing::error!(err = %err, "failed to get db client");
+			Status::internal("internal server error")
+		})?;
+
+		let used_configs: Vec<Ulid> = qb.build_query_single_scalar().fetch_all(&client).await.map_err(|err| {
 			tracing::error!(err = %err, "failed to check if any {}s are being used", <RecordingConfigDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME);
 			Status::internal(format!("failed to check if any {}s are being used", <RecordingConfigDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME))
 		})?;
@@ -65,34 +71,33 @@ impl ApiRequest<RecordingConfigDeleteResponse> for tonic::Request<RecordingConfi
 		let mut failed_deletes = used_configs
 			.into_iter()
 			.map(|id| {
-				ids_to_delete.remove(&id.0);
-				(id.0, "recording config in use")
+				ids_to_delete.remove(&id);
+				(id, "recording config in use")
 			})
 			.collect::<HashMap<_, _>>();
 
 		let deleted_ids = if !ids_to_delete.is_empty() {
 			// Delete the recording config
-			let mut qb = sqlx::query_builder::QueryBuilder::default();
+			let mut qb = common::database::QueryBuilder::default();
 
 			qb.push("DELETE FROM ")
 				.push(<RecordingConfigDeleteRequest as TonicRequest>::Table::NAME)
 				.push(" WHERE id = ANY(")
-				.push_bind(ids_to_delete.iter().copied().map(common::database::Ulid).collect::<Vec<_>>())
+				.push_bind(ids_to_delete.iter().copied().collect::<Vec<_>>())
 				.push(") AND organization_id = ")
 				.push_bind(access_token.organization_id)
 				.push(" RETURNING id");
 
-			let deleted_ids: Vec<common::database::Ulid> =
-				qb.build_query_scalar().fetch_all(global.db().as_ref()).await.map_err(|err| {
-					tracing::error!(err = %err, "failed to delete {}", <RecordingConfigDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME);
-					Status::internal(format!(
-						"failed to delete {}",
-						<RecordingConfigDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME
-					))
-				})?;
+			let deleted_ids: Vec<Ulid> = qb.build_query_single_scalar().fetch_all(&client).await.map_err(|err| {
+				tracing::error!(err = %err, "failed to delete {}", <RecordingConfigDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME);
+				Status::internal(format!(
+					"failed to delete {}",
+					<RecordingConfigDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME
+				))
+			})?;
 
 			deleted_ids.iter().for_each(|id| {
-				ids_to_delete.remove(&id.0);
+				ids_to_delete.remove(&id);
 			});
 
 			deleted_ids
@@ -100,14 +105,16 @@ impl ApiRequest<RecordingConfigDeleteResponse> for tonic::Request<RecordingConfi
 			Default::default()
 		};
 
+		drop(client);
+
 		for id in deleted_ids.iter().copied() {
 			video_common::events::emit(
 				global.nats(),
 				&global.config().events.stream_name,
-				access_token.organization_id.0,
+				access_token.organization_id,
 				Target::RecordingConfig,
 				event::Event::RecordingConfig(event::RecordingConfig {
-					recording_config_id: Some(id.0.into()),
+					recording_config_id: Some(id.into()),
 					event: Some(event::recording_config::Event::Deleted(event::recording_config::Deleted {})),
 				}),
 			)
@@ -119,7 +126,7 @@ impl ApiRequest<RecordingConfigDeleteResponse> for tonic::Request<RecordingConfi
 		});
 
 		Ok(tonic::Response::new(RecordingConfigDeleteResponse {
-			ids: deleted_ids.into_iter().map(|id| id.0.into()).collect(),
+			ids: deleted_ids.into_iter().map(|id| id.into()).collect(),
 			failed_deletes: failed_deletes
 				.into_iter()
 				.map(|(id, reason)| FailedResource {

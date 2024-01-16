@@ -2,7 +2,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use common::context::{Context, Handler};
+use common::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
+use common::database::Pool;
 use common::logging;
+use postgres_from_row::tokio_postgres::NoTls;
 use tokio::sync::{mpsc, Mutex};
 use ulid::Ulid;
 
@@ -14,7 +17,7 @@ pub struct GlobalState {
 	config: IngestConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 	requests: Mutex<HashMap<Ulid, mpsc::Sender<IncomingTranscoder>>>,
 }
 
@@ -41,7 +44,7 @@ impl common::global::GlobalNats for GlobalState {
 }
 
 impl common::global::GlobalDb for GlobalState {
-	fn db(&self) -> &Arc<sqlx::PgPool> {
+	fn db(&self) -> &Arc<common::database::Pool> {
 		&self.db
 	}
 }
@@ -70,9 +73,17 @@ pub async fn mock_global_state(config: IngestConfig) -> (Arc<GlobalState>, Handl
 	let jetstream = async_nats::jetstream::new(nats.clone());
 
 	let db = Arc::new(
-		sqlx::PgPool::connect(&database_uri)
-			.await
-			.expect("failed to connect to database"),
+		Pool::builder(common::database::deadpool_postgres::Manager::from_config(
+			database_uri.parse().unwrap(),
+			NoTls,
+			ManagerConfig {
+				recycling_method: RecyclingMethod::Fast,
+			},
+		))
+		.config(PoolConfig::default())
+		.runtime(Runtime::Tokio1)
+		.build()
+		.expect("failed to create pool"),
 	);
 
 	let global = Arc::new(GlobalState {

@@ -2,8 +2,8 @@ use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use chrono::{DateTime, Utc};
-use common::database::Ulid;
 use rand::Rng;
+use ulid::Ulid;
 
 use super::Channel;
 
@@ -17,7 +17,7 @@ pub enum TotpError {
 	Generate,
 }
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, postgres_from_row::FromRow)]
 pub struct User {
 	/// The unique identifier for the user.
 	pub id: Ulid,
@@ -52,7 +52,7 @@ pub struct User {
 	pub roles: Vec<Ulid>,
 
 	/// Channel
-	#[sqlx(flatten)]
+	#[from_row(flatten)]
 	pub channel: Channel,
 }
 

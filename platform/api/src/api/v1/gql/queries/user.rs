@@ -48,7 +48,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 
 		global
 			.user_by_id_loader()
-			.load(auth.session.user_id.0)
+			.load(auth.session.user_id)
 			.await
 			.map_err_ignored_gql("failed to fetch user")?
 			.map_err_gql(GqlError::NotFound("user"))
@@ -93,16 +93,17 @@ impl<G: ApiGlobal> UserQuery<G> {
 		&self,
 		ctx: &Context<'_>,
 		#[graphql(desc = "The search query.")] query: String,
-		#[graphql(desc = "The result limit, default: 5", validator(minimum = 0, maximum = 50))] limit: Option<i32>,
-		#[graphql(desc = "The result offset, default: 0", validator(minimum = 0, maximum = 950))] offset: Option<i32>,
+		#[graphql(desc = "The result limit, default: 5", validator(minimum = 0, maximum = 50))] limit: Option<i64>,
+		#[graphql(desc = "The result offset, default: 0", validator(minimum = 0, maximum = 950))] offset: Option<i64>,
 	) -> Result<UserSearchResults<G>> {
 		let global = ctx.get_global::<G>();
 
-		let users: Vec<database::SearchResult<database::User>> = sqlx::query_as("SELECT users.*, similarity(username, $1), COUNT(*) OVER() AS total_count FROM users WHERE username % $1 ORDER BY similarity DESC LIMIT $2 OFFSET $3")
+		let users: Vec<database::SearchResult<database::User>> = common::database::query("SELECT users.*, similarity(username, $1), COUNT(*) OVER() AS total_count FROM users WHERE username % $1 ORDER BY similarity DESC LIMIT $2 OFFSET $3")
 			.bind(query)
 			.bind(limit.unwrap_or(5))
 			.bind(offset.unwrap_or(0))
-			.fetch_all(global.db().as_ref())
+			.build_query_as()
+			.fetch_all(global.db())
 			.await
 			.map_err_gql("failed to search users")?;
 
@@ -119,7 +120,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 			.await?
 			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
-		let (is_following,): (bool,) = sqlx::query_as(
+		let is_following = common::database::query(
 			r#"
 			SELECT
 				following
@@ -131,10 +132,11 @@ impl<G: ApiGlobal> UserQuery<G> {
 			"#,
 		)
 		.bind(auth.session.user_id)
-		.bind(channel_id.to_uuid())
-		.fetch_optional(global.db().as_ref())
+		.bind(channel_id.to_ulid())
+		.build_query_single_scalar::<bool>()
+		.fetch_optional(global.db())
 		.await?
-		.unwrap_or((false,));
+		.unwrap_or_default();
 
 		Ok(is_following)
 	}
@@ -154,12 +156,12 @@ impl<G: ApiGlobal> UserQuery<G> {
 			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
 		// TODO: Also allow users with permission
-		if id.to_ulid() != auth.session.user_id.0 {
+		if id.to_ulid() != auth.session.user_id {
 			return Err(GqlError::Unauthorized { field: "following" }.into());
 		}
 
 		// This query is not very good, we should have some paging mechinsm with ids.
-		let channels: Vec<database::User> = sqlx::query_as(
+		let channels: Vec<database::User> = common::database::query(
 			r#"
 			SELECT
 				users.*
@@ -178,9 +180,10 @@ impl<G: ApiGlobal> UserQuery<G> {
 			LIMIT $2
 			"#,
 		)
-		.bind(id.to_uuid())
+		.bind(id.to_ulid())
 		.bind(limit.map(|l| l as i64))
-		.fetch_all(global.db().as_ref())
+		.build_query_as()
+		.fetch_all(global.db())
 		.await?;
 
 		Ok(channels.into_iter().map(Into::into).collect())

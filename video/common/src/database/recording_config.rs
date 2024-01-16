@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
-use common::database::{Protobuf, Ulid};
+use common::database::{json, protobuf_vec};
 use pb::scuffle::video::v1::types::{RecordingLifecyclePolicy, Rendition as PbRendition};
+use postgres_from_row::FromRow;
+use ulid::Ulid;
 
 use super::{DatabaseTable, Rendition};
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, FromRow)]
 pub struct RecordingConfig {
 	/// The organization this recording config belongs to (primary key)
 	pub organization_id: Ulid,
@@ -16,7 +18,8 @@ pub struct RecordingConfig {
 	pub renditions: Vec<Rendition>,
 
 	/// The lifecycle policies this recording config uses
-	pub lifecycle_policies: Vec<Protobuf<RecordingLifecyclePolicy>>,
+	#[from_row(from_fn = "protobuf_vec")]
+	pub lifecycle_policies: Vec<RecordingLifecyclePolicy>,
 
 	/// The date and time the recording config was last updated
 	pub updated_at: chrono::DateTime<chrono::Utc>,
@@ -24,8 +27,8 @@ pub struct RecordingConfig {
 	/// The S3 bucket this recording config uses
 	pub s3_bucket_id: Ulid,
 
-	#[sqlx(json)]
 	/// Tags associated with the recording config
+	#[from_row(from_fn = "json")]
 	pub tags: HashMap<String, String>,
 }
 
@@ -40,11 +43,11 @@ impl RecordingConfig {
 		renditions.sort();
 
 		pb::scuffle::video::v1::types::RecordingConfig {
-			id: Some(self.id.0.into()),
+			id: Some(self.id.into()),
 			renditions,
-			s3_bucket_id: Some(self.s3_bucket_id.0.into()),
-			lifecycle_policies: self.lifecycle_policies.into_iter().map(|p| p.0).collect(),
-			created_at: self.id.0.timestamp_ms() as i64,
+			s3_bucket_id: Some(self.s3_bucket_id.into()),
+			lifecycle_policies: self.lifecycle_policies,
+			created_at: self.id.timestamp_ms() as i64,
 			updated_at: self.updated_at.timestamp_millis(),
 			tags: Some(self.tags.into()),
 		}

@@ -52,12 +52,13 @@ impl<G: ApiGlobal> ChatSubscription<G> {
 		// load old messages not older than 10 minutes, max 100 messages
 		let not_older_than = chrono::Utc::now() - chrono::Duration::minutes(10);
 		let not_older_than = ulid::Ulid::from_parts(not_older_than.timestamp() as u64, u128::MAX);
-		let messages: Vec<database::ChatMessage> = sqlx::query_as(
+		let messages: Vec<database::ChatMessage> = common::database::query(
 			"SELECT * FROM chat_messages WHERE channel_id = $1 AND deleted_at IS NULL AND id >= $2 ORDER BY id LIMIT 100",
 		)
-		.bind(common::database::Ulid::from(channel_id.to_ulid()))
-		.bind(common::database::Ulid::from(not_older_than))
-		.fetch_all(global.db().as_ref())
+		.bind(channel_id.to_ulid())
+		.bind(not_older_than)
+		.build_query_as()
+		.fetch_all(global.db())
 		.await
 		.map_err_gql("failed to fetch chat messages")?;
 

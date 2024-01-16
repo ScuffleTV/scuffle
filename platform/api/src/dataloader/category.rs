@@ -2,16 +2,15 @@ use std::sync::Arc;
 
 use common::dataloader::{DataLoader, Loader, LoaderOutput};
 use ulid::Ulid;
-use uuid::Uuid;
 
 use crate::database::Category;
 
 pub struct CategoryByIdLoader {
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 }
 
 impl CategoryByIdLoader {
-	pub fn new(db: Arc<sqlx::PgPool>) -> DataLoader<Self> {
+	pub fn new(db: Arc<common::database::Pool>) -> DataLoader<Self> {
 		DataLoader::new(Self { db })
 	}
 }
@@ -22,14 +21,15 @@ impl Loader for CategoryByIdLoader {
 	type Value = Category;
 
 	async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
-		let results: Vec<Self::Value> = sqlx::query_as("SELECT * FROM categories WHERE id = ANY($1)")
-			.bind(keys.iter().copied().map(Uuid::from).collect::<Vec<_>>())
-			.fetch_all(self.db.as_ref())
+		let results: Vec<Self::Value> = common::database::query("SELECT * FROM categories WHERE id = ANY($1)")
+			.bind(keys)
+			.build_query_as()
+			.fetch_all(&self.db)
 			.await
 			.map_err(|e| {
 				tracing::error!(err = %e, "failed to fetch categories by id");
 			})?;
 
-		Ok(results.into_iter().map(|r| (r.id.0, r)).collect())
+		Ok(results.into_iter().map(|r| (r.id, r)).collect())
 	}
 }

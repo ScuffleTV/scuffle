@@ -20,8 +20,8 @@ impl_request_scopes!(
 pub fn build_query(
 	req: &RoomGetRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<sqlx::QueryBuilder<'static, sqlx::Postgres>> {
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+) -> tonic::Result<common::database::QueryBuilder<'static>> {
+	let mut qb = common::database::QueryBuilder::default();
 	qb.push("SELECT * FROM ")
 		.push(<RoomGetRequest as TonicRequest>::Table::NAME)
 		.push(" WHERE ");
@@ -32,12 +32,12 @@ pub fn build_query(
 
 	if let Some(transcoding_config_id) = req.transcoding_config_id.as_ref() {
 		seperated.push("transcoding_config_id = ");
-		seperated.push_bind_unseparated(common::database::Ulid(transcoding_config_id.into_ulid()));
+		seperated.push_bind_unseparated(transcoding_config_id.into_ulid());
 	}
 
 	if let Some(recording_config_id) = req.recording_config_id.as_ref() {
 		seperated.push("recording_config_id = ");
-		seperated.push_bind_unseparated(common::database::Ulid(recording_config_id.into_ulid()));
+		seperated.push_bind_unseparated(recording_config_id.into_ulid());
 	}
 
 	if let Some(status) = req.status {
@@ -69,13 +69,10 @@ impl ApiRequest<RoomGetResponse> for tonic::Request<RoomGetRequest> {
 	) -> tonic::Result<tonic::Response<RoomGetResponse>> {
 		let req = self.get_ref();
 
-		let mut query_builder = build_query(req, access_token)?;
+		let query_builder = build_query(req, access_token)?;
 
-		let results: Vec<video_common::database::Room> = query_builder
-			.build_query_as()
-			.fetch_all(global.db().as_ref())
-			.await
-			.map_err(|err| {
+		let results: Vec<video_common::database::Room> =
+			query_builder.build_query_as().fetch_all(global.db()).await.map_err(|err| {
 				tracing::error!(err = %err, "failed to fetch {}s", <RoomGetRequest as TonicRequest>::Table::FRIENDLY_NAME);
 				Status::internal(format!(
 					"failed to fetch {}s",

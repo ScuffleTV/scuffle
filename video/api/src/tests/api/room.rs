@@ -27,7 +27,7 @@ async fn test_room_get_qb() {
 	let test_cases = vec![
 		(
 			RoomGetRequest {
-				ids: vec![access_token.id.0.into()],
+				ids: vec![access_token.id.into()],
 				transcoding_config_id: None,
 				recording_config_id: None,
 				visibility: None,
@@ -38,7 +38,7 @@ async fn test_room_get_qb() {
 		),
 		(
 			RoomGetRequest {
-				ids: vec![access_token.id.0.into()],
+				ids: vec![access_token.id.into()],
 				transcoding_config_id: None,
 				recording_config_id: None,
 				visibility: None,
@@ -46,7 +46,7 @@ async fn test_room_get_qb() {
 				search_options: Some(SearchOptions {
 					limit: 1,
 					reverse: true,
-					after_id: Some(access_token.id.0.into()),
+					after_id: Some(access_token.id.into()),
 					tags: None,
 				}),
 			},
@@ -55,8 +55,8 @@ async fn test_room_get_qb() {
 		(
 			RoomGetRequest {
 				ids: vec![],
-				transcoding_config_id: Some(access_token.id.0.into()),
-				recording_config_id: Some(access_token.id.0.into()),
+				transcoding_config_id: Some(access_token.id.into()),
+				recording_config_id: Some(access_token.id.into()),
 				visibility: None,
 				status: None,
 				search_options: None,
@@ -123,10 +123,10 @@ async fn test_room_get_qb() {
 async fn test_room_create_qb() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording_config =
-		create_recording_config(&global, access_token.organization_id.0, s3_bucket.id.0, HashMap::new()).await;
-	let transcoding_config = create_transcoding_config(&global, access_token.organization_id.0, HashMap::new()).await;
+		create_recording_config(&global, access_token.organization_id, s3_bucket.id, HashMap::new()).await;
+	let transcoding_config = create_transcoding_config(&global, access_token.organization_id, HashMap::new()).await;
 
 	let test_cases = vec![
 		(
@@ -142,8 +142,8 @@ async fn test_room_create_qb() {
 		),
 		(
 			RoomCreateRequest {
-				transcoding_config_id: Some(transcoding_config.id.0.into()),
-				recording_config_id: Some(recording_config.id.0.into()),
+				transcoding_config_id: Some(transcoding_config.id.into()),
+				recording_config_id: Some(recording_config.id.into()),
 				visibility: pb::scuffle::video::v1::types::Visibility::Public as i32,
 				tags: None,
 			},
@@ -155,7 +155,7 @@ async fn test_room_create_qb() {
 
 	for (req, expected) in test_cases {
 		assert!(room::create::validate(&req).is_ok());
-		let result = room::create::build_query(&req, &global, &access_token).await;
+		let result = room::create::build_query(&req, global.db(), &access_token).await;
 		assert_query_matches(result, expected);
 	}
 
@@ -166,18 +166,18 @@ async fn test_room_create_qb() {
 async fn test_room_modify_qb() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording_config =
-		create_recording_config(&global, access_token.organization_id.0, s3_bucket.id.0, HashMap::new()).await;
-	let transcoding_config = create_transcoding_config(&global, access_token.organization_id.0, HashMap::new()).await;
-	let room = create_room(&global, access_token.organization_id.0).await;
+		create_recording_config(&global, access_token.organization_id, s3_bucket.id, HashMap::new()).await;
+	let transcoding_config = create_transcoding_config(&global, access_token.organization_id, HashMap::new()).await;
+	let room = create_room(&global, access_token.organization_id).await;
 
 	let test_cases = vec![
 		(
 			RoomModifyRequest {
-				id: Some(room.id.0.into()),
-				recording_config_id: Some(recording_config.id.0.into()),
-				transcoding_config_id: Some(transcoding_config.id.0.into()),
+				id: Some(room.id.into()),
+				recording_config_id: Some(recording_config.id.into()),
+				transcoding_config_id: Some(transcoding_config.id.into()),
 				tags: Some(Tags {
 					tags: vec![("example_tag".to_string(), "example_value".to_string())]
 						.into_iter()
@@ -191,7 +191,7 @@ async fn test_room_modify_qb() {
 		),
 		(
 			RoomModifyRequest {
-				id: Some(room.id.0.into()),
+				id: Some(room.id.into()),
 				recording_config_id: Some(Ulid::nil().into()),
 				transcoding_config_id: Some(Ulid::nil().into()),
 				tags: None,
@@ -205,7 +205,7 @@ async fn test_room_modify_qb() {
 
 	for (req, expected) in test_cases {
 		assert!(room::modify::validate(&req).is_ok());
-		let result = room::modify::build_query(&req, &global, &access_token).await;
+		let result = room::modify::build_query(&req, global.db(), &access_token).await;
 		assert_query_matches(result, expected);
 	}
 
@@ -218,7 +218,7 @@ async fn test_room_pair_tag_qb() {
 
 	let test_cases = vec![(
 		RoomTagRequest {
-			id: Some(access_token.id.0.into()),
+			id: Some(access_token.id.into()),
 			tags: Some(Tags {
 				tags: vec![("example_tag".to_string(), "example_value".to_string())]
 					.into_iter()
@@ -245,11 +245,11 @@ async fn test_room_pair_untag_qb() {
 
 	let test_cases = vec![(
 		RoomUntagRequest {
-			id: Some(access_token.id.0.into()),
+			id: Some(access_token.id.into()),
 			tags: vec!["example_tag".to_string()],
 		},
 		Ok(
-			"WITH rt AS (SELECT id, tags - $1 AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM rooms WHERE id = $2 AND organization_id = $3 GROUP BY id, organization_id) UPDATE rooms AS t SET tags = CASE WHEN rt.status = 0 THEN rt.new_tags ELSE tags END, updated_at = CASE WHEN rt.status = 0 THEN now() ELSE updated_at END FROM rt WHERE t.id = rt.id RETURNING t.tags AS tags, rt.status AS status;",
+			"WITH rt AS (SELECT id, tags - $1::TEXT[] AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM rooms WHERE id = $2 AND organization_id = $3 GROUP BY id, organization_id) UPDATE rooms AS t SET tags = CASE WHEN rt.status = 0 THEN rt.new_tags ELSE tags END, updated_at = CASE WHEN rt.status = 0 THEN now() ELSE updated_at END FROM rt WHERE t.id = rt.id RETURNING t.tags AS tags, rt.status AS status;",
 		),
 	)];
 
@@ -266,17 +266,17 @@ async fn test_room_pair_untag_qb() {
 async fn test_room_create() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording_config =
-		create_recording_config(&global, access_token.organization_id.0, s3_bucket.id.0, HashMap::new()).await;
-	let transcoding_config = create_transcoding_config(&global, access_token.organization_id.0, HashMap::new()).await;
+		create_recording_config(&global, access_token.organization_id, s3_bucket.id, HashMap::new()).await;
+	let transcoding_config = create_transcoding_config(&global, access_token.organization_id, HashMap::new()).await;
 
 	let resp: RoomCreateResponse = process_request(
 		&global,
 		&access_token,
 		RoomCreateRequest {
-			recording_config_id: Some(recording_config.id.0.into()),
-			transcoding_config_id: Some(transcoding_config.id.0.into()),
+			recording_config_id: Some(recording_config.id.into()),
+			transcoding_config_id: Some(transcoding_config.id.into()),
 			visibility: pb::scuffle::video::v1::types::Visibility::Public as i32,
 			tags: Some(Tags {
 				tags: vec![("example_tag".to_string(), "example_value".to_string())]
@@ -292,12 +292,12 @@ async fn test_room_create() {
 	assert!(!resp.stream_key.is_empty(), "stream key should be returned");
 	assert_eq!(
 		resp.room.as_ref().unwrap().recording_config_id,
-		Some(recording_config.id.0.into()),
+		Some(recording_config.id.into()),
 		"recording config id should match"
 	);
 	assert_eq!(
 		resp.room.as_ref().unwrap().transcoding_config_id,
-		Some(transcoding_config.id.0.into()),
+		Some(transcoding_config.id.into()),
 		"transcoding config id should match"
 	);
 	assert_eq!(
@@ -348,25 +348,25 @@ async fn test_room_create() {
 async fn test_room_get() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording_config =
-		create_recording_config(&global, access_token.organization_id.0, s3_bucket.id.0, HashMap::new()).await;
-	let transcoding_config = create_transcoding_config(&global, access_token.organization_id.0, HashMap::new()).await;
+		create_recording_config(&global, access_token.organization_id, s3_bucket.id, HashMap::new()).await;
+	let transcoding_config = create_transcoding_config(&global, access_token.organization_id, HashMap::new()).await;
 
 	let rooms = vec![
-		create_room(&global, access_token.organization_id.0).await,
-		create_room(&global, access_token.organization_id.0).await,
-		create_room(&global, access_token.organization_id.0).await,
-		create_room(&global, access_token.organization_id.0).await,
-		create_room(&global, access_token.organization_id.0).await,
-		create_room(&global, access_token.organization_id.0).await,
+		create_room(&global, access_token.organization_id).await,
+		create_room(&global, access_token.organization_id).await,
+		create_room(&global, access_token.organization_id).await,
+		create_room(&global, access_token.organization_id).await,
+		create_room(&global, access_token.organization_id).await,
+		create_room(&global, access_token.organization_id).await,
 	];
 
 	let resp: RoomGetResponse = process_request(
 		&global,
 		&access_token,
 		RoomGetRequest {
-			ids: vec![rooms[0].id.0.into(), rooms[1].id.0.into(), rooms[2].id.0.into()],
+			ids: vec![rooms[0].id.into(), rooms[1].id.into(), rooms[2].id.into()],
 			transcoding_config_id: None,
 			recording_config_id: None,
 			visibility: None,
@@ -383,7 +383,7 @@ async fn test_room_get() {
 		&global,
 		&access_token,
 		RoomGetRequest {
-			ids: vec![rooms[0].id.0.into(), rooms[1].id.0.into(), rooms[2].id.0.into()],
+			ids: vec![rooms[0].id.into(), rooms[1].id.into(), rooms[2].id.into()],
 			transcoding_config_id: None,
 			recording_config_id: None,
 			visibility: None,
@@ -391,7 +391,7 @@ async fn test_room_get() {
 			search_options: Some(SearchOptions {
 				limit: 1,
 				reverse: true,
-				after_id: Some(rooms[2].id.0.into()),
+				after_id: Some(rooms[2].id.into()),
 				tags: None,
 			}),
 		},
@@ -401,11 +401,12 @@ async fn test_room_get() {
 
 	assert_eq!(resp.rooms.len(), 1, "should return 1 room");
 
-	sqlx::query("UPDATE rooms SET visibility = $1 WHERE id = $2 AND organization_id = $3")
+	common::database::query("UPDATE rooms SET visibility = $1 WHERE id = $2 AND organization_id = $3")
 		.bind(Visibility::from(pb::scuffle::video::v1::types::Visibility::Private))
 		.bind(rooms[0].id)
 		.bind(access_token.organization_id)
-		.execute(global.db().as_ref())
+		.build()
+		.execute(global.db())
 		.await
 		.unwrap();
 
@@ -425,7 +426,7 @@ async fn test_room_get() {
 	.unwrap();
 
 	assert_eq!(resp.rooms.len(), 1, "should return 1 room");
-	assert_eq!(resp.rooms[0].id, Some(rooms[0].id.0.into()), "should return the correct room");
+	assert_eq!(resp.rooms[0].id, Some(rooms[0].id.into()), "should return the correct room");
 
 	let resp: RoomGetResponse = process_request(
 		&global,
@@ -461,11 +462,12 @@ async fn test_room_get() {
 
 	assert_eq!(resp.rooms.len(), 0, "should return 0 rooms");
 
-	sqlx::query("UPDATE rooms SET status = $1 WHERE id = $2 AND organization_id = $3")
+	common::database::query("UPDATE rooms SET status = $1 WHERE id = $2 AND organization_id = $3")
 		.bind(RoomStatus::from(pb::scuffle::video::v1::types::RoomStatus::Ready))
 		.bind(rooms[0].id)
 		.bind(access_token.organization_id)
-		.execute(global.db().as_ref())
+		.build()
+		.execute(global.db())
 		.await
 		.unwrap();
 
@@ -485,16 +487,17 @@ async fn test_room_get() {
 	.unwrap();
 
 	assert_eq!(resp.rooms.len(), 1, "should return 1 room");
-	assert_eq!(resp.rooms[0].id, Some(rooms[0].id.0.into()), "should return the correct room");
+	assert_eq!(resp.rooms[0].id, Some(rooms[0].id.into()), "should return the correct room");
 
-	sqlx::query(
+	common::database::query(
 		"UPDATE rooms SET recording_config_id = $1, transcoding_config_id = $2 WHERE id = $3 AND organization_id = $4",
 	)
 	.bind(recording_config.id)
 	.bind(transcoding_config.id)
 	.bind(rooms[0].id)
 	.bind(access_token.organization_id)
-	.execute(global.db().as_ref())
+	.build()
+	.execute(global.db())
 	.await
 	.unwrap();
 
@@ -503,8 +506,8 @@ async fn test_room_get() {
 		&access_token,
 		RoomGetRequest {
 			ids: vec![],
-			transcoding_config_id: Some(transcoding_config.id.0.into()),
-			recording_config_id: Some(recording_config.id.0.into()),
+			transcoding_config_id: Some(transcoding_config.id.into()),
+			recording_config_id: Some(recording_config.id.into()),
 			visibility: None,
 			status: None,
 			search_options: None,
@@ -522,20 +525,20 @@ async fn test_room_get() {
 async fn test_room_modify() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording_config =
-		create_recording_config(&global, access_token.organization_id.0, s3_bucket.id.0, HashMap::new()).await;
-	let transcoding_config = create_transcoding_config(&global, access_token.organization_id.0, HashMap::new()).await;
+		create_recording_config(&global, access_token.organization_id, s3_bucket.id, HashMap::new()).await;
+	let transcoding_config = create_transcoding_config(&global, access_token.organization_id, HashMap::new()).await;
 
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let room = create_room(&global, access_token.organization_id).await;
 
 	let resp: RoomModifyResponse = process_request(
 		&global,
 		&access_token,
 		RoomModifyRequest {
-			id: Some(room.id.0.into()),
-			recording_config_id: Some(recording_config.id.0.into()),
-			transcoding_config_id: Some(transcoding_config.id.0.into()),
+			id: Some(room.id.into()),
+			recording_config_id: Some(recording_config.id.into()),
+			transcoding_config_id: Some(transcoding_config.id.into()),
 			tags: Some(Tags {
 				tags: vec![("example_tag".to_string(), "example_value".to_string())]
 					.into_iter()
@@ -549,17 +552,17 @@ async fn test_room_modify() {
 
 	assert_eq!(
 		resp.room.as_ref().unwrap().id,
-		Some(room.id.0.into()),
+		Some(room.id.into()),
 		"should return the correct room"
 	);
 	assert_eq!(
 		resp.room.as_ref().unwrap().recording_config_id,
-		Some(recording_config.id.0.into()),
+		Some(recording_config.id.into()),
 		"recording config id should match"
 	);
 	assert_eq!(
 		resp.room.as_ref().unwrap().transcoding_config_id,
-		Some(transcoding_config.id.0.into()),
+		Some(transcoding_config.id.into()),
 		"transcoding config id should match"
 	);
 	assert_eq!(
@@ -582,7 +585,7 @@ async fn test_room_modify() {
 		&global,
 		&access_token,
 		RoomModifyRequest {
-			id: Some(room.id.0.into()),
+			id: Some(room.id.into()),
 			recording_config_id: Some(Ulid::nil().into()),
 			transcoding_config_id: Some(Ulid::nil().into()),
 			tags: None,
@@ -594,7 +597,7 @@ async fn test_room_modify() {
 
 	assert_eq!(
 		resp.room.as_ref().unwrap().id,
-		Some(room.id.0.into()),
+		Some(room.id.into()),
 		"should return the correct room"
 	);
 	assert!(
@@ -623,13 +626,13 @@ async fn test_room_modify() {
 async fn test_room_tag() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let room = create_room(&global, access_token.organization_id).await;
 
 	let resp: RoomTagResponse = process_request(
 		&global,
 		&access_token,
 		RoomTagRequest {
-			id: Some(room.id.0.into()),
+			id: Some(room.id.into()),
 			tags: Some(Tags {
 				tags: vec![("example_tag".to_string(), "example_value".to_string())]
 					.into_iter()
@@ -651,7 +654,7 @@ async fn test_room_tag() {
 		&global,
 		&access_token,
 		RoomTagRequest {
-			id: Some(room.id.0.into()),
+			id: Some(room.id.into()),
 			tags: Some(Tags {
 				tags: vec![("example_tag2".to_string(), "example_value2".to_string())]
 					.into_iter()
@@ -678,7 +681,7 @@ async fn test_room_tag() {
 		&global,
 		&access_token,
 		RoomTagRequest {
-			id: Some(room.id.0.into()),
+			id: Some(room.id.into()),
 			tags: Some(Tags {
 				tags: vec![("example_tag".to_string(), "new_value".to_string())]
 					.into_iter()
@@ -708,13 +711,13 @@ async fn test_room_tag() {
 async fn test_room_untag() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let room = create_room(&global, access_token.organization_id).await;
 
 	let resp: RoomTagResponse = process_request(
 		&global,
 		&access_token,
 		RoomTagRequest {
-			id: Some(room.id.0.into()),
+			id: Some(room.id.into()),
 			tags: Some(Tags {
 				tags: vec![("example_tag".to_string(), "example_value".to_string())]
 					.into_iter()
@@ -736,7 +739,7 @@ async fn test_room_untag() {
 		&global,
 		&access_token,
 		RoomUntagRequest {
-			id: Some(room.id.0.into()),
+			id: Some(room.id.into()),
 			tags: vec!["example_tag".to_string()],
 		},
 	)
@@ -752,13 +755,13 @@ async fn test_room_untag() {
 async fn test_room_delete() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let room = create_room(&global, access_token.organization_id).await;
 
 	let resp: RoomDeleteResponse = process_request(
 		&global,
 		&access_token,
 		RoomDeleteRequest {
-			ids: vec![room.id.0.into()],
+			ids: vec![room.id.into()],
 		},
 	)
 	.await
@@ -771,7 +774,7 @@ async fn test_room_delete() {
 		&global,
 		&access_token,
 		RoomDeleteRequest {
-			ids: vec![room.id.0.into()],
+			ids: vec![room.id.into()],
 		},
 	)
 	.await
@@ -779,11 +782,7 @@ async fn test_room_delete() {
 
 	assert!(resp.ids.is_empty(), "no rooms should be deleted");
 	assert_eq!(resp.failed_deletes.len(), 1, "1 room should fail to delete");
-	assert_eq!(
-		resp.failed_deletes[0].id,
-		Some(room.id.0.into()),
-		"failed delete should match"
-	);
+	assert_eq!(resp.failed_deletes[0].id, Some(room.id.into()), "failed delete should match");
 	assert_eq!(resp.failed_deletes[0].reason, "room not found", "failed delete should match");
 
 	utils::teardown(global, handler).await;
@@ -793,18 +792,21 @@ async fn test_room_delete() {
 async fn test_room_disconnect() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let room = create_room(&global, access_token.organization_id).await;
 
 	let active_ingest_connection_id = Ulid::new();
 
-	sqlx::query("UPDATE rooms SET status = $1, active_ingest_connection_id = $2 WHERE id = $3 AND organization_id = $4")
-		.bind(RoomStatus::from(pb::scuffle::video::v1::types::RoomStatus::Ready))
-		.bind(common::database::Ulid(active_ingest_connection_id))
-		.bind(room.id)
-		.bind(access_token.organization_id)
-		.execute(global.db().as_ref())
-		.await
-		.unwrap();
+	common::database::query(
+		"UPDATE rooms SET status = $1, active_ingest_connection_id = $2 WHERE id = $3 AND organization_id = $4",
+	)
+	.bind(RoomStatus::from(pb::scuffle::video::v1::types::RoomStatus::Ready))
+	.bind(active_ingest_connection_id)
+	.bind(room.id)
+	.bind(access_token.organization_id)
+	.build()
+	.execute(global.db())
+	.await
+	.unwrap();
 
 	let mut subscription = global
 		.nats()
@@ -816,7 +818,7 @@ async fn test_room_disconnect() {
 		&global,
 		&access_token,
 		RoomDisconnectRequest {
-			ids: vec![room.id.0.into()],
+			ids: vec![room.id.into()],
 		},
 	)
 	.await
@@ -846,13 +848,13 @@ async fn test_room_disconnect() {
 async fn test_room_reset_keys() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let room = create_room(&global, access_token.organization_id).await;
 
 	let resp: RoomResetKeyResponse = process_request(
 		&global,
 		&access_token,
 		RoomResetKeyRequest {
-			ids: vec![room.id.0.into()],
+			ids: vec![room.id.into()],
 		},
 	)
 	.await
@@ -861,15 +863,16 @@ async fn test_room_reset_keys() {
 	assert_eq!(resp.rooms.len(), 1, "1 room should be reset");
 	assert!(resp.failed_resets.is_empty(), "no rooms should fail to reset keys");
 
-	let key: String = sqlx::query_scalar("SELECT stream_key FROM rooms WHERE id = $1 AND organization_id = $2")
+	let key: String = common::database::query("SELECT stream_key FROM rooms WHERE id = $1 AND organization_id = $2")
 		.bind(room.id)
 		.bind(access_token.organization_id)
-		.fetch_one(global.db().as_ref())
+		.build_query_single_scalar()
+		.fetch_one(global.db())
 		.await
 		.unwrap();
 
 	assert_ne!(key, room.stream_key, "stream key should be different");
-	assert_eq!(resp.rooms[0].id, Some(room.id.0.into()), "room should match");
+	assert_eq!(resp.rooms[0].id, Some(room.id.into()), "room should match");
 	assert_eq!(resp.rooms[0].key, key, "room should match");
 
 	utils::teardown(global, handler).await;
@@ -882,7 +885,7 @@ async fn test_room_boilerplate() {
 	let no_scopes_token =
 		utils::create_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
 
-	let room = create_room(&global, main_access_token.organization_id.0).await;
+	let room = create_room(&global, main_access_token.organization_id).await;
 
 	let server = RoomServer::<GlobalState>::new();
 
@@ -902,7 +905,7 @@ async fn test_room_boilerplate() {
 			&global,
 			&main_access_token,
 			RoomGetRequest {
-				ids: vec![room.id.0.into()],
+				ids: vec![room.id.into()],
 				..Default::default()
 			},
 		))
@@ -971,7 +974,7 @@ async fn test_room_boilerplate() {
 			&global,
 			&main_access_token,
 			RoomModifyRequest {
-				id: Some(room.id.0.into()),
+				id: Some(room.id.into()),
 				tags: Some(Tags {
 					tags: vec![("example_tag".to_string(), "example_value".to_string())]
 						.into_iter()
@@ -1013,7 +1016,7 @@ async fn test_room_boilerplate() {
 			&global,
 			&main_access_token,
 			RoomTagRequest {
-				id: Some(room.id.0.into()),
+				id: Some(room.id.into()),
 				tags: Some(Tags {
 					tags: vec![("example_tag".to_string(), "example_value".to_string())]
 						.into_iter()
@@ -1054,7 +1057,7 @@ async fn test_room_boilerplate() {
 			&global,
 			&main_access_token,
 			RoomUntagRequest {
-				id: Some(room.id.0.into()),
+				id: Some(room.id.into()),
 				tags: vec!["example_tag".to_string()],
 			},
 		))
@@ -1091,7 +1094,7 @@ async fn test_room_boilerplate() {
 			&global,
 			&main_access_token,
 			RoomResetKeyRequest {
-				ids: vec![room.id.0.into()],
+				ids: vec![room.id.into()],
 			},
 		))
 		.await
@@ -1123,7 +1126,7 @@ async fn test_room_boilerplate() {
 			&global,
 			&main_access_token,
 			RoomDisconnectRequest {
-				ids: vec![room.id.0.into()],
+				ids: vec![room.id.into()],
 			},
 		))
 		.await
@@ -1159,7 +1162,7 @@ async fn test_room_boilerplate() {
 			&global,
 			&main_access_token,
 			RoomDeleteRequest {
-				ids: vec![room.id.0.into()],
+				ids: vec![room.id.into()],
 			},
 		))
 		.await

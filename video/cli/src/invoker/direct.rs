@@ -8,6 +8,7 @@ use binary_helper::impl_global_traits;
 use common::config::RedisConfig;
 use common::context::Context;
 use common::dataloader::DataLoader;
+use common::global::GlobalDb;
 use common::logging;
 use common::prelude::FutureTimeout;
 use futures_util::stream::BoxStream;
@@ -35,16 +36,13 @@ impl DirectBackend {
 		logging::init(&global.config.logging.level, global.config.logging.mode).expect("failed to init logging");
 
 		let access_token = if let Some(organization_id) = organization_id {
-			sqlx::query("SELECT * FROM organizations WHERE id = $1")
-				.bind(common::database::Ulid(organization_id))
-				.fetch_optional(global.db.as_ref())
+			common::database::query("SELECT * FROM organizations WHERE id = $1")
+				.bind(organization_id)
+				.build()
+				.fetch_optional(global.db())
 				.await
 				.context("failed to fetch the organization from the database")?
-				.ok_or_else(|| {
-					anyhow::anyhow!(
-						"the organization specified ({organization_id}) does not exist, consider creating an organization first"
-					)
-				})?;
+				.ok_or_else(|| anyhow::anyhow!("the organization does not exist"))?;
 
 			Some(AccessToken {
 				organization_id: organization_id.into(),
@@ -83,16 +81,17 @@ impl DirectBackend {
 
 	async fn create_organization(&self, req: OrganizationCreateRequest) -> anyhow::Result<Organization> {
 		let org: video_common::database::Organization =
-			sqlx::query_as("INSERT INTO organizations (id, name, tags) VALUES ($1, $2, $3) RETURNING *")
-				.bind(common::database::Ulid(Ulid::new()))
+			common::database::query("INSERT INTO organizations (id, name, tags) VALUES ($1, $2, $3) RETURNING *")
+				.bind(Ulid::new())
 				.bind(req.name)
-				.bind(sqlx::types::Json(req.tags))
-				.fetch_one(self.global.db.as_ref())
+				.bind(common::database::Json(req.tags))
+				.build_query_as()
+				.fetch_one(self.global.db())
 				.await
 				.context("failed to create the organization")?;
 
 		Ok(Organization {
-			id: org.id.0,
+			id: org.id,
 			name: org.name,
 			tags: org.tags,
 			updated_at: org.updated_at,
@@ -104,14 +103,19 @@ impl DirectBackend {
 		let mut failed = Vec::new();
 
 		for id in req.ids {
-			let result = sqlx::query("DELETE FROM organizations WHERE id = $1")
-				.bind(common::database::Ulid(id))
-				.execute(self.global.db.as_ref())
-				.await;
+			let result = self
+				.global
+				.db()
+				.get()
+				.await
+				.context("failed to get db client")?
+				.execute("DELETE FROM organizations WHERE id = $1", &[&id])
+				.await
+				.context("failed to delete the organization");
 
 			match result {
-				Ok(org) => {
-					if org.rows_affected() == 0 {
+				Ok(count) => {
+					if count == 0 {
 						failed.push(DeleteResponseFailed {
 							id,
 							error: "the organization does not exist".into(),
@@ -131,7 +135,7 @@ impl DirectBackend {
 	}
 
 	async fn get_organization(&self, req: OrganizationGetRequest) -> anyhow::Result<Vec<Organization>> {
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
+		let mut qb = common::database::QueryBuilder::default();
 
 		qb.push("SELECT * FROM organizations");
 
@@ -143,7 +147,7 @@ impl DirectBackend {
 			qb.push(" WHERE ");
 			first = false;
 			qb.push("tags @> ");
-			qb.push_bind(sqlx::types::Json(tags.tags));
+			qb.push_bind(common::database::Json(tags.tags));
 		}
 
 		if let Some(after_id) = search_options.after_id {
@@ -154,7 +158,7 @@ impl DirectBackend {
 			}
 
 			qb.push("id > ");
-			qb.push_bind(common::database::Ulid(after_id.into_ulid()));
+			qb.push_bind(after_id.into_ulid());
 		}
 
 		if search_options.reverse {
@@ -168,14 +172,14 @@ impl DirectBackend {
 
 		let orgs: Vec<video_common::database::Organization> = qb
 			.build_query_as()
-			.fetch_all(self.global.db.as_ref())
+			.fetch_all(self.global.db())
 			.await
 			.context("failed to fetch organizations")?;
 
 		Ok(orgs
 			.into_iter()
 			.map(|org| Organization {
-				id: org.id.0,
+				id: org.id,
 				name: org.name,
 				tags: org.tags,
 				updated_at: org.updated_at,
@@ -184,7 +188,7 @@ impl DirectBackend {
 	}
 
 	async fn modify_organization(&self, req: OrganizationModifyRequest) -> anyhow::Result<Organization> {
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
+		let mut qb = common::database::QueryBuilder::default();
 
 		qb.push("UPDATE organizations SET ");
 
@@ -202,20 +206,20 @@ impl DirectBackend {
 			}
 
 			qb.push("tags = ");
-			qb.push_bind(sqlx::types::Json(tags));
+			qb.push_bind(common::database::Json(tags));
 		}
 
 		qb.push(" WHERE id = ");
-		qb.push_bind(common::database::Ulid(req.id));
+		qb.push_bind(req.id);
 
 		let org: video_common::database::Organization = qb
 			.build_query_as()
-			.fetch_one(self.global.db.as_ref())
+			.fetch_one(self.global.db())
 			.await
 			.context("failed to modify the organization")?;
 
 		Ok(Organization {
-			id: org.id.0,
+			id: org.id,
 			name: org.name,
 			tags: org.tags,
 			updated_at: org.updated_at,
@@ -224,30 +228,32 @@ impl DirectBackend {
 
 	async fn tag_organization(&self, req: OrganizationTagRequest) -> anyhow::Result<TagResponse> {
 		let org: video_common::database::Organization =
-			sqlx::query_as("UPDATE organizations SET tags = tags || $1 WHERE id = $2 RETURNING *")
-				.bind(sqlx::types::Json(req.tags))
-				.bind(common::database::Ulid(req.id))
-				.fetch_one(self.global.db.as_ref())
+			common::database::query("UPDATE organizations SET tags = tags || $1 WHERE id = $2 RETURNING *")
+				.bind(common::database::Json(req.tags))
+				.bind(req.id)
+				.build_query_as()
+				.fetch_one(self.global.db())
 				.await
 				.context("failed to tag the organization")?;
 
 		Ok(TagResponse {
-			id: org.id.0,
+			id: org.id,
 			tags: org.tags,
 		})
 	}
 
 	async fn untag_organization(&self, req: OrganizationUntagRequest) -> anyhow::Result<TagResponse> {
 		let org: video_common::database::Organization =
-			sqlx::query_as("UPDATE organizations SET tags = tags - $1 WHERE id = $2 RETURNING *")
-				.bind(sqlx::types::Json(req.tags))
-				.bind(common::database::Ulid(req.id))
-				.fetch_one(self.global.db.as_ref())
+			common::database::query("UPDATE organizations SET tags = tags - $1::text[] WHERE id = $2 RETURNING *")
+				.bind(req.tags)
+				.bind(req.id)
+				.build_query_as()
+				.fetch_one(self.global.db())
 				.await
 				.context("failed to untag the organization")?;
 
 		Ok(TagResponse {
-			id: org.id.0,
+			id: org.id,
 			tags: org.tags,
 		})
 	}
@@ -282,7 +288,7 @@ struct GlobalState {
 	nats: async_nats::Client,
 	config: AppConfig,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 	redis: Arc<fred::clients::RedisPool>,
 	access_token_loader: DataLoader<dataloaders::AccessTokenLoader>,
 	recording_state_loader: DataLoader<dataloaders::RecordingStateLoader>,

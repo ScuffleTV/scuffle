@@ -13,6 +13,7 @@ tracing = "0.1"
 rustls = "0.22"
 rustls-pemfile = "2.0"
 tokio-rustls = "0.25"
+postgres-from-row = "0.5"
 tokio = { version = "1.35", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 hyper = { version = "1.1", features = ["full"] }
@@ -31,8 +32,6 @@ serde_json = "1.0"
 uuid = { version = "1.6", features = ["v4"] }
 url = "2.5"
 async-nats = "0.33"
-sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
-sqlx-postgres = "0.7"
 hmac = "0.12"
 jwt-next = "0.17"
 ulid = { version = "1.1", features = ["uuid", "serde"] }

@@ -80,7 +80,7 @@ struct GlobalState {
 	config: AppConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 
 	category_by_id_loader: DataLoader<CategoryByIdLoader>,
 	global_state_loader: DataLoader<GlobalStateLoader>,

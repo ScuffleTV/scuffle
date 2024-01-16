@@ -1,101 +1,49 @@
-#[repr(transparent)]
+use bytes::BytesMut;
+use postgres_types::{accepts, to_sql_checked, IsNull};
+
+#[derive(Debug, Clone)]
 pub struct Protobuf<T>(pub T);
 
-impl<T> Clone for Protobuf<T>
-where
-	T: Clone,
-{
-	fn clone(&self) -> Self {
-		Self(self.0.clone())
+impl<T: prost::Message + Default> postgres_types::FromSql<'_> for Protobuf<T> {
+	accepts!(BYTEA);
+
+	fn from_sql(_ty: &postgres_types::Type, raw: &[u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+		Ok(Self(T::decode(raw)?))
 	}
 }
 
-pub trait TraitProtobuf<T> {
-	fn into_inner(self) -> T;
-}
+impl<T: prost::Message> postgres_types::ToSql for Protobuf<T> {
+	to_sql_checked!();
 
-pub trait TraitProtobufVec<T> {
-	fn into_vec(self) -> Vec<T>;
-}
+	fn to_sql(
+		&self,
+		ty: &postgres_types::Type,
+		w: &mut BytesMut,
+	) -> Result<IsNull, Box<dyn std::error::Error + Sync + Send>> {
+		<&[u8] as postgres_types::ToSql>::to_sql(&&*self.0.encode_to_vec(), ty, w)
+	}
 
-impl<T> TraitProtobuf<T> for Protobuf<T> {
-	fn into_inner(self) -> T {
-		self.0
+	fn accepts(ty: &postgres_types::Type) -> bool {
+		<&[u8] as postgres_types::ToSql>::accepts(ty)
 	}
 }
 
-impl<T> TraitProtobufVec<T> for Vec<Protobuf<T>> {
-	fn into_vec(self) -> Vec<T> {
-		self.into_iter().map(|a| a.into_inner()).collect()
-	}
+#[inline]
+pub fn protobuf<T>(row: Protobuf<T>) -> T {
+	row.0
 }
 
-impl<T: std::fmt::Debug> std::fmt::Debug for Protobuf<T> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		self.0.fmt(f)
-	}
+#[inline]
+pub fn protobuf_vec<T>(row: Vec<Protobuf<T>>) -> Vec<T> {
+	row.into_iter().map(|protobuf| protobuf.0).collect()
 }
 
-impl<T: std::default::Default> Default for Protobuf<T> {
-	fn default() -> Self {
-		Self(T::default())
-	}
+#[inline]
+pub fn protobuf_opt<T>(row: Option<Protobuf<T>>) -> Option<T> {
+	row.map(protobuf)
 }
 
-impl<T> sqlx::Type<sqlx::Postgres> for Protobuf<T> {
-	fn type_info() -> sqlx::postgres::PgTypeInfo {
-		<Vec<u8> as sqlx::Type<sqlx::Postgres>>::type_info()
-	}
-}
-
-impl<T> sqlx::postgres::PgHasArrayType for Protobuf<T> {
-	fn array_type_info() -> sqlx::postgres::PgTypeInfo {
-		<Vec<u8> as sqlx::postgres::PgHasArrayType>::array_type_info()
-	}
-}
-
-impl<T: prost::Message> sqlx::Encode<'_, sqlx::Postgres> for Protobuf<T> {
-	fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> sqlx::encode::IsNull {
-		<Vec<u8> as sqlx::Encode<sqlx::Postgres>>::encode_by_ref(&self.0.encode_to_vec(), buf)
-	}
-}
-
-impl<T: prost::Message + std::default::Default> sqlx::Decode<'_, sqlx::Postgres> for Protobuf<T> {
-	fn decode(value: sqlx::postgres::PgValueRef<'_>) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-		let bytes = <Vec<u8> as sqlx::Decode<sqlx::Postgres>>::decode(value)?;
-		let inner = T::decode(bytes.as_slice())?;
-		Ok(Self(inner))
-	}
-}
-
-impl<T> AsRef<T> for Protobuf<T> {
-	fn as_ref(&self) -> &T {
-		&self.0
-	}
-}
-
-impl<T> AsMut<T> for Protobuf<T> {
-	fn as_mut(&mut self) -> &mut T {
-		&mut self.0
-	}
-}
-
-impl<T> std::ops::Deref for Protobuf<T> {
-	type Target = T;
-
-	fn deref(&self) -> &Self::Target {
-		&self.0
-	}
-}
-
-impl<T> std::ops::DerefMut for Protobuf<T> {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.0
-	}
-}
-
-impl<T> From<T> for Protobuf<T> {
-	fn from(inner: T) -> Self {
-		Self(inner)
-	}
+#[inline]
+pub fn protobuf_vec_opt<T>(row: Option<Vec<Protobuf<T>>>) -> Option<Vec<T>> {
+	row.map(protobuf_vec)
 }

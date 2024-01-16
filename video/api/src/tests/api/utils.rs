@@ -25,18 +25,12 @@ where
 }
 
 // Helper function for asserting query matches
-pub fn assert_query_matches(
-	result: tonic::Result<sqlx::query_builder::QueryBuilder<'_, sqlx::Postgres>>,
-	expected: Result<&str, &str>,
-) {
+pub fn assert_query_matches(result: tonic::Result<common::database::QueryBuilder<'_>>, expected: Result<&str, &str>) {
 	match (result, expected) {
-		(Ok(result), Ok(expected)) => assert_eq!(result.into_sql(), expected),
+		(Ok(result), Ok(expected)) => assert_eq!(result.sql(), expected),
 		(Err(result), Err(expected)) => assert_eq!(result.message(), expected),
 		(Err(result), Ok(expected)) => panic!("query does not match: {result:#?} != {expected:#?}"),
-		(Ok(result), Err(expected)) => panic!(
-			"query does not match: {result:#?} != {expected:#?}",
-			result = result.into_sql()
-		),
+		(Ok(result), Err(expected)) => panic!("query does not match: {result:#?} != {expected:#?}", result = result.sql()),
 	}
 }
 
@@ -47,34 +41,37 @@ pub async fn create_playback_session(
 ) -> Vec<video_common::database::PlaybackSession> {
 	let mut results = Vec::new();
 
+	let client = global.db().get().await.unwrap();
+
 	for inserts in &inserts.chunks(u16::MAX as usize / 5) {
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
+		let mut qb = common::database::QueryBuilder::default();
 
 		qb.push("INSERT INTO playback_sessions (id, organization_id, room_id, recording_id, user_id, ip_address) ");
 
 		qb.push_values(inserts, |mut qb, values| {
-			qb.push_bind(common::database::Ulid(Ulid::new()));
-			qb.push_bind(common::database::Ulid(organization_id));
-			qb.push_bind(values.0.map(common::database::Ulid));
-			qb.push_bind(values.1.map(common::database::Ulid));
+			qb.push_bind(Ulid::new());
+			qb.push_bind(organization_id);
+			qb.push_bind(values.0);
+			qb.push_bind(values.1);
 			qb.push_bind(values.2);
 			qb.push_bind(values.3);
 		});
 
 		qb.push(" RETURNING *");
 
-		results.extend(qb.build_query_as().fetch_all(global.db().as_ref()).await.unwrap());
+		results.extend(qb.build_query_as().fetch_all(&client).await.unwrap());
 	}
 
 	results
 }
 
 pub async fn create_room(global: &Arc<GlobalState>, organization_id: Ulid) -> video_common::database::Room {
-	sqlx::query_as("INSERT INTO rooms (id, organization_id, stream_key) VALUES ($1, $2, $3) RETURNING *")
-		.bind(common::database::Ulid(Ulid::new()))
-		.bind(common::database::Ulid(organization_id))
+	common::database::query("INSERT INTO rooms (id, organization_id, stream_key) VALUES ($1, $2, $3) RETURNING *")
+		.bind(Ulid::new())
+		.bind(organization_id)
 		.bind(create_stream_key())
-		.fetch_one(global.db().as_ref())
+		.build_query_as()
+		.fetch_one(global.db())
 		.await
 		.unwrap()
 }
@@ -87,16 +84,7 @@ pub async fn create_recording(
 	recording_config_id: Option<Ulid>,
 	tags: HashMap<String, String>,
 ) -> video_common::database::Recording {
-	sqlx::query_as("INSERT INTO recordings (id, organization_id, s3_bucket_id, room_id, recording_config_id, tags) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *")
-		.bind(common::database::Ulid(Ulid::new()))
-		.bind(common::database::Ulid(organization_id))
-		.bind(common::database::Ulid(s3_bucket_id))
-		.bind(room_id.map(common::database::Ulid))
-		.bind(recording_config_id.map(common::database::Ulid))
-		.bind(sqlx::types::Json(tags))
-		.fetch_one(global.db().as_ref())
-		.await
-		.unwrap()
+	common::database::query("INSERT INTO recordings (id, organization_id, s3_bucket_id, room_id, recording_config_id, tags) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *").bind(Ulid::new()).bind(organization_id).bind(s3_bucket_id).bind(room_id).bind(recording_config_id).bind(common::database::Json(tags)).build_query_as().fetch_one(global.db()).await.unwrap()
 }
 
 pub async fn create_recording_thumbnail(
@@ -107,22 +95,24 @@ pub async fn create_recording_thumbnail(
 ) -> Vec<video_common::database::RecordingThumbnail> {
 	let mut results = Vec::new();
 
+	let client = global.db().get().await.unwrap();
+
 	for inserts in &inserts.chunks(u16::MAX as usize / 5) {
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
+		let mut qb = common::database::QueryBuilder::default();
 
 		qb.push("INSERT INTO recording_thumbnails (organization_id, recording_id, idx, id, start_time) ");
 
 		qb.push_values(inserts, |mut qb, values| {
-			qb.push_bind(common::database::Ulid(organization_id));
-			qb.push_bind(common::database::Ulid(recording_id));
+			qb.push_bind(organization_id);
+			qb.push_bind(recording_id);
 			qb.push_bind(values.0);
-			qb.push_bind(common::database::Ulid(Ulid::new()));
+			qb.push_bind(Ulid::new());
 			qb.push_bind(values.1);
 		});
 
 		qb.push(" RETURNING *");
 
-		results.extend(qb.build_query_as().fetch_all(global.db().as_ref()).await.unwrap());
+		results.extend(qb.build_query_as().fetch_all(&client).await.unwrap());
 	}
 
 	results
@@ -136,26 +126,28 @@ pub async fn create_recording_segment(
 ) -> Vec<video_common::database::RecordingRenditionSegment> {
 	let mut results = Vec::new();
 
-	for inserts in &inserts.chunks(u16::MAX as usize / 7) {
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
+	let client = global.db().get().await.unwrap();
+
+	for inserts in &inserts.chunks(u16::MAX as usize / 14) {
+		let mut qb = common::database::QueryBuilder::default();
 
 		qb.push(
 			"INSERT INTO recording_rendition_segments (organization_id, recording_id, rendition, idx, id, start_time, end_time) ",
 		);
 
 		qb.push_values(inserts, |mut qb, values| {
-			qb.push_bind(common::database::Ulid(organization_id));
-			qb.push_bind(common::database::Ulid(recording_id));
+			qb.push_bind(organization_id);
+			qb.push_bind(recording_id);
 			qb.push_bind(values.0);
 			qb.push_bind(values.1);
-			qb.push_bind(common::database::Ulid(Ulid::new()));
+			qb.push_bind(Ulid::new());
 			qb.push_bind(values.2);
 			qb.push_bind(values.3);
 		});
 
 		qb.push(" RETURNING *");
 
-		results.extend(qb.build_query_as().fetch_all(global.db().as_ref()).await.unwrap());
+		results.extend(qb.build_query_as().fetch_all(&client).await.unwrap());
 	}
 
 	results
@@ -167,14 +159,15 @@ pub async fn create_recording_config(
 	s3_bucket_id: Ulid,
 	tags: HashMap<String, String>,
 ) -> video_common::database::RecordingConfig {
-	sqlx::query_as(
+	common::database::query(
 		"INSERT INTO recording_configs (id, organization_id, s3_bucket_id, tags) VALUES ($1, $2, $3, $4) RETURNING *",
 	)
-	.bind(common::database::Ulid(Ulid::new()))
-	.bind(common::database::Ulid(organization_id))
-	.bind(common::database::Ulid(s3_bucket_id))
-	.bind(sqlx::types::Json(tags))
-	.fetch_one(global.db().as_ref())
+	.bind(Ulid::new())
+	.bind(organization_id)
+	.bind(s3_bucket_id)
+	.bind(common::database::Json(tags))
+	.build_query_as()
+	.fetch_one(global.db())
 	.await
 	.unwrap()
 }
@@ -184,11 +177,12 @@ pub async fn create_transcoding_config(
 	organization_id: Ulid,
 	tags: HashMap<String, String>,
 ) -> video_common::database::TranscodingConfig {
-	sqlx::query_as("INSERT INTO transcoding_configs (id, organization_id, tags) VALUES ($1, $2, $3) RETURNING *")
-		.bind(common::database::Ulid(Ulid::new()))
-		.bind(common::database::Ulid(organization_id))
-		.bind(sqlx::types::Json(tags))
-		.fetch_one(global.db().as_ref())
+	common::database::query("INSERT INTO transcoding_configs (id, organization_id, tags) VALUES ($1, $2, $3) RETURNING *")
+		.bind(Ulid::new())
+		.bind(organization_id)
+		.bind(common::database::Json(tags))
+		.build_query_as()
+		.fetch_one(global.db())
 		.await
 		.unwrap()
 }
@@ -198,20 +192,21 @@ pub async fn create_s3_bucket(
 	organization_id: Ulid,
 	tags: HashMap<String, String>,
 ) -> video_common::database::S3Bucket {
-	sqlx::query_as(
-        "INSERT INTO s3_buckets (id, organization_id, name, region, access_key_id, secret_access_key, managed, tags) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
-    )
-    .bind(common::database::Ulid(Ulid::new()))
-    .bind(common::database::Ulid(organization_id))
-    .bind("test".to_string())
-    .bind("us-east-1".to_string())
-    .bind("test".to_string())
-    .bind("test".to_string())
-    .bind(false)
-	.bind(sqlx::types::Json(tags))
-    .fetch_one(global.db().as_ref())
-    .await
-    .unwrap()
+	common::database::query(
+		"INSERT INTO s3_buckets (id, organization_id, name, region, access_key_id, secret_access_key, managed, tags) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
+	)
+	.bind(Ulid::new())
+	.bind(organization_id)
+	.bind("test")
+	.bind("us-east-1")
+	.bind("test")
+	.bind("test")
+	.bind(false)
+	.bind(common::database::Json(tags))
+	.build_query_as()
+	.fetch_one(global.db())
+	.await
+	.unwrap()
 }
 
 pub async fn create_playback_keypair(
@@ -221,16 +216,17 @@ pub async fn create_playback_keypair(
 ) -> video_common::database::PlaybackKeyPair {
 	let (key, fingerprint) = validate_public_key(include_str!("../certs/ec384/public.pem")).unwrap();
 
-	sqlx::query_as(
-		"INSERT INTO playback_key_pairs (id, organization_id, public_key, fingerprint, updated_at, tags) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+	common::database::query(
+	"INSERT INTO playback_key_pairs (id, organization_id, public_key, fingerprint, updated_at, tags) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
 	)
-	.bind(common::database::Ulid(Ulid::new()))
-	.bind(common::database::Ulid(organization_id))
-	.bind(key)
+	.bind(Ulid::new())
+	.bind(organization_id)
+	.bind(key.into_bytes())
 	.bind(fingerprint)
 	.bind(chrono::Utc::now())
-	.bind(sqlx::types::Json(tags))
-	.fetch_one(global.db().as_ref())
+	.bind(common::database::Json(tags))
+	.build_query_as()
+	.fetch_one(global.db())
 	.await
 	.unwrap()
 }

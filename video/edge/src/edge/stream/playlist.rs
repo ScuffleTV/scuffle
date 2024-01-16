@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
-use common::database::PgNonNullVec;
+use common::database::non_null_vec;
 use common::http::ext::*;
 use hyper::StatusCode;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::LiveRenditionManifest;
 use pb::scuffle::video::v1::types::{AudioConfig, VideoConfig};
 use ulid::Ulid;
-use uuid::Uuid;
 use video_common::database::{Recording, RecordingThumbnail, Rendition, Visibility};
 use video_player_types::{
 	RenditionPlaylist, RenditionPlaylistRendition, RenditionPlaylistSegment, RenditionPlaylistSegmentPart,
@@ -20,19 +19,23 @@ use crate::edge::error::Result;
 use crate::edge::stream::tokens::MediaClaims;
 use crate::global::EdgeGlobal;
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, postgres_from_row::FromRow)]
 struct RecordingExt {
 	pub public_url: String,
-	#[sqlx(flatten)]
+	#[from_row(flatten)]
 	pub recording: Recording,
 }
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, postgres_from_row::FromRow)]
 struct RecordingRenditionExt {
-	pub segment_ids: PgNonNullVec<Uuid>,
-	pub segment_indexes: PgNonNullVec<i32>,
-	pub segment_start_times: PgNonNullVec<f32>,
-	pub segment_end_times: PgNonNullVec<f32>,
+	#[from_row(from_fn = "non_null_vec")]
+	pub segment_ids: Vec<Ulid>,
+	#[from_row(from_fn = "non_null_vec")]
+	pub segment_indexes: Vec<i32>,
+	#[from_row(from_fn = "non_null_vec")]
+	pub segment_start_times: Vec<f32>,
+	#[from_row(from_fn = "non_null_vec")]
+	pub segment_end_times: Vec<f32>,
 }
 
 #[inline(always)]
@@ -41,15 +44,15 @@ fn normalize_float(f: f64) -> f64 {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn room_playlist<A: AsRef<AudioConfig>, V: AsRef<VideoConfig>, G: EdgeGlobal>(
+pub fn room_playlist<G: EdgeGlobal>(
 	global: &Arc<G>,
 	id: Ulid,
 	organization_id: Ulid,
 	connection_id: Ulid,
 	room_id: Ulid,
 	was_authenticated: bool,
-	audio_output: impl Iterator<Item = A>,
-	video_output: impl Iterator<Item = V>,
+	audio_output: &[AudioConfig],
+	video_output: &[VideoConfig],
 ) -> Result<SessionPlaylist> {
 	let session = SessionClaims {
 		id,
@@ -62,25 +65,27 @@ pub fn room_playlist<A: AsRef<AudioConfig>, V: AsRef<VideoConfig>, G: EdgeGlobal
 
 	Ok(SessionPlaylist {
 		audio_tracks: audio_output
+			.iter()
 			.map(|a| RoomPlaylistTrack {
-				name: Rendition::from(a.as_ref().rendition()).to_string(),
-				bitrate: a.as_ref().bitrate as u32,
-				codec: a.as_ref().codec.clone(),
+				name: Rendition::from(a.rendition()).to_string(),
+				bitrate: a.bitrate as u32,
+				codec: a.codec.clone(),
 				other: RoomPlaylistTrackAudio {
-					channels: a.as_ref().channels as u32,
-					sample_rate: a.as_ref().sample_rate as u32,
+					channels: a.channels as u32,
+					sample_rate: a.sample_rate as u32,
 				},
 			})
 			.collect(),
 		video_tracks: video_output
+			.iter()
 			.map(|v| RoomPlaylistTrack {
-				name: Rendition::from(v.as_ref().rendition()).to_string(),
-				bitrate: v.as_ref().bitrate as u32,
-				codec: v.as_ref().codec.clone(),
+				name: Rendition::from(v.rendition()).to_string(),
+				bitrate: v.bitrate as u32,
+				codec: v.codec.clone(),
 				other: RoomPlaylistTrackVideo {
-					frame_rate: v.as_ref().fps as u32,
-					width: v.as_ref().width as u32,
-					height: v.as_ref().height as u32,
+					frame_rate: v.fps as u32,
+					width: v.width as u32,
+					height: v.height as u32,
 				},
 			})
 			.collect(),
@@ -89,14 +94,14 @@ pub fn room_playlist<A: AsRef<AudioConfig>, V: AsRef<VideoConfig>, G: EdgeGlobal
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn recording_playlist<A: AsRef<AudioConfig>, V: AsRef<VideoConfig>, G: EdgeGlobal>(
+pub fn recording_playlist<G: EdgeGlobal>(
 	global: &Arc<G>,
 	id: Ulid,
 	organization_id: Ulid,
 	recording_id: Ulid,
 	was_authenticated: bool,
-	audio_output: impl Iterator<Item = A>,
-	video_output: impl Iterator<Item = V>,
+	audio_output: &[AudioConfig],
+	video_output: &[VideoConfig],
 ) -> Result<SessionPlaylist> {
 	let session = SessionClaims {
 		id,
@@ -109,25 +114,27 @@ pub fn recording_playlist<A: AsRef<AudioConfig>, V: AsRef<VideoConfig>, G: EdgeG
 
 	Ok(SessionPlaylist {
 		audio_tracks: audio_output
+			.iter()
 			.map(|a| RoomPlaylistTrack {
-				name: Rendition::from(a.as_ref().rendition()).to_string(),
-				bitrate: a.as_ref().bitrate as u32,
-				codec: a.as_ref().codec.clone(),
+				name: Rendition::from(a.rendition()).to_string(),
+				bitrate: a.bitrate as u32,
+				codec: a.codec.clone(),
 				other: RoomPlaylistTrackAudio {
-					channels: a.as_ref().channels as u32,
-					sample_rate: a.as_ref().sample_rate as u32,
+					channels: a.channels as u32,
+					sample_rate: a.sample_rate as u32,
 				},
 			})
 			.collect(),
 		video_tracks: video_output
+			.iter()
 			.map(|v| RoomPlaylistTrack {
-				name: Rendition::from(v.as_ref().rendition()).to_string(),
-				bitrate: v.as_ref().bitrate as u32,
-				codec: v.as_ref().codec.clone(),
+				name: Rendition::from(v.rendition()).to_string(),
+				bitrate: v.bitrate as u32,
+				codec: v.codec.clone(),
 				other: RoomPlaylistTrackVideo {
-					frame_rate: v.as_ref().fps as u32,
-					width: v.as_ref().width as u32,
-					height: v.as_ref().height as u32,
+					frame_rate: v.fps as u32,
+					width: v.width as u32,
+					height: v.height as u32,
 				},
 			})
 			.collect(),
@@ -137,6 +144,7 @@ pub fn recording_playlist<A: AsRef<AudioConfig>, V: AsRef<VideoConfig>, G: EdgeG
 
 pub async fn rendition_playlist<G: EdgeGlobal>(
 	global: &Arc<G>,
+	client: &common::database::tokio_postgres::Client,
 	session: &SessionClaims,
 	config: &HlsConfig,
 	rendition: Rendition,
@@ -184,7 +192,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 	};
 
 	let recording_data = if let Some((recording_id, skip, active_idx)) = recording_data {
-		sqlx::query_as(
+		common::database::query(
 			r#"
             SELECT
                 s.public_url,
@@ -199,9 +207,10 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
                 AND r.allow_dvr = TRUE
         	"#,
 		)
-		.bind(Uuid::from(recording_id))
-		.bind(Uuid::from(organization_id))
-		.fetch_optional(global.db().as_ref())
+		.bind(recording_id)
+		.bind(organization_id)
+		.build_query_as()
+		.fetch_optional(client)
 		.await
 		.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?
 		.and_then(|r: RecordingExt| {
@@ -230,7 +239,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 		);
 
 		if !*skip {
-			let recording_rendition: RecordingRenditionExt = sqlx::query_as(
+			let recording_rendition: RecordingRenditionExt = common::database::query(
 				r#"
                 WITH filtered_renditions AS (
                     SELECT recording_id, rendition
@@ -254,14 +263,15 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
                     r.rendition;
                 "#,
 			)
-			.bind(Uuid::from(*recording_id))
+			.bind(recording_id)
 			.bind(rendition)
-			.fetch_optional(global.db().as_ref())
+			.build_query_as()
+			.fetch_optional(client)
 			.await
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?
 			.ok_or((StatusCode::NOT_FOUND, "recording no longer exists"))?;
 
-			let recording_thumbnails: Vec<RecordingThumbnail> = sqlx::query_as(
+			let recording_thumbnails: Vec<RecordingThumbnail> = common::database::query(
 				r#"
                 SELECT
                     *
@@ -270,8 +280,9 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
                     recording_id = $1
                 "#,
 			)
-			.bind(Uuid::from(*recording_id))
-			.fetch_all(global.db().as_ref())
+			.bind(recording_id)
+			.build_query_as()
+			.fetch_all(client)
 			.await
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?;
 

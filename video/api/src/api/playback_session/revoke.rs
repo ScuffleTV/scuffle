@@ -25,7 +25,7 @@ impl ApiRequest<PlaybackSessionRevokeResponse> for tonic::Request<PlaybackSessio
 		global: &Arc<G>,
 		access_token: &AccessToken,
 	) -> tonic::Result<tonic::Response<PlaybackSessionRevokeResponse>> {
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
+		let mut qb = common::database::QueryBuilder::default();
 
 		let req = self.get_ref();
 
@@ -48,7 +48,7 @@ impl ApiRequest<PlaybackSessionRevokeResponse> for tonic::Request<PlaybackSessio
 
 			seperated
 				.push("id < ")
-				.push_bind_unseparated(common::database::Ulid(Ulid::from_parts(before as u64, 0)));
+				.push_bind_unseparated(Ulid::from_parts(before as u64, 0));
 		}
 
 		if !req.ids.is_empty() {
@@ -57,7 +57,6 @@ impl ApiRequest<PlaybackSessionRevokeResponse> for tonic::Request<PlaybackSessio
 				.iter()
 				.copied()
 				.map(pb::scuffle::types::Ulid::into_ulid)
-				.map(common::database::Ulid)
 				.collect::<HashSet<_>>();
 
 			seperated
@@ -88,22 +87,25 @@ impl ApiRequest<PlaybackSessionRevokeResponse> for tonic::Request<PlaybackSessio
 			Some(playback_session_target::Target::RecordingId(recording_id)) => {
 				seperated
 					.push("recording_id = ")
-					.push_bind_unseparated(common::database::Ulid(recording_id.into_ulid()));
+					.push_bind_unseparated(recording_id.into_ulid());
 			}
 			Some(playback_session_target::Target::RoomId(room_id)) => {
-				seperated
-					.push("room_id = ")
-					.push_bind_unseparated(common::database::Ulid(room_id.into_ulid()));
+				seperated.push("room_id = ").push_bind_unseparated(room_id.into_ulid());
 			}
 			None => {}
 		}
 
-		let mut tx = global.db().begin().await.map_err(|e| {
+		let mut client = global.db().get().await.map_err(|err| {
+			tracing::error!(err = %err, "failed to get db client");
+			tonic::Status::internal("internal server error")
+		})?;
+
+		let tx = client.transaction().await.map_err(|e| {
 			tracing::error!(err = %e, "beginning transaction");
 			tonic::Status::internal("playback session revoke failed")
 		})?;
 
-		let result = qb.build().execute(tx.as_mut()).await.map_err(|e| {
+		let result = qb.build().execute(&tx).await.map_err(|e| {
 			tracing::error!(err = %e, "revoking playback sessions");
 			tonic::Status::internal("playback session revoke failed")
 		})?;
@@ -112,24 +114,24 @@ impl ApiRequest<PlaybackSessionRevokeResponse> for tonic::Request<PlaybackSessio
 			&& req.before.map_or(true, |b| {
 				chrono::Utc.timestamp_millis_opt(b).unwrap() > chrono::Utc::now() - chrono::Duration::minutes(10)
 			}) {
-			sqlx::query("INSERT INTO playback_session_revocations(organization_id, room_id, recording_id, user_id, revoke_before) VALUES ($1, $2, $3, $4, $5)")
-				.bind(access_token.organization_id)
-				.bind(req.target.and_then(|t| match t.target {
-					Some(playback_session_target::Target::RoomId(room_id)) => Some(common::database::Ulid(room_id.into_ulid())),
+			common::database::query("INSERT INTO playback_session_revocations(organization_id, room_id, recording_id, user_id, revoke_before) VALUES ($1, $2, $3, $4, $5)")
+			.bind(access_token.organization_id)
+			.bind(req.target.and_then(|t| match t.target {
+					Some(playback_session_target::Target::RoomId(room_id)) => Some(room_id.into_ulid()),
+					_ => None,
+			}))
+			.bind(req.target.and_then(|t| match t.target {
+					Some(playback_session_target::Target::RecordingId(recording_id)) => Some(recording_id.into_ulid()),
 					_ => None,
 				}))
-				.bind(req.target.and_then(|t| match t.target {
-					Some(playback_session_target::Target::RecordingId(recording_id)) => Some(common::database::Ulid(recording_id.into_ulid())),
-					_ => None,
-				}))
-				.bind(req.user_id.as_ref())
-				.bind(req.before.map_or_else(chrono::Utc::now, |b| chrono::Utc.timestamp_millis_opt(b).unwrap()))
-				.execute(tx.as_mut())
-				.await
-				.map_err(|e| {
-					tracing::error!(err = %e, "playback session revoke failed");
-					tonic::Status::internal("playback session revoke failed")
-				})?;
+			.bind(&req.user_id)
+			.bind(req.before.map_or_else(chrono::Utc::now, |b| chrono::Utc.timestamp_millis_opt(b).unwrap()))
+			.build()
+			.execute(&tx)
+			.await.map_err(|e| {
+				tracing::error!(err = %e, "playback session revoke failed");
+				tonic::Status::internal("playback session revoke failed")
+			})?;
 		}
 
 		tx.commit().await.map_err(|e| {
@@ -137,8 +139,6 @@ impl ApiRequest<PlaybackSessionRevokeResponse> for tonic::Request<PlaybackSessio
 			tonic::Status::internal("playback session revoke failed")
 		})?;
 
-		Ok(tonic::Response::new(PlaybackSessionRevokeResponse {
-			revoked: result.rows_affected(),
-		}))
+		Ok(tonic::Response::new(PlaybackSessionRevokeResponse { revoked: result }))
 	}
 }

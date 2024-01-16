@@ -31,8 +31,8 @@ pub fn validate(req: &S3BucketCreateRequest) -> tonic::Result<()> {
 pub fn build_query<'a>(
 	req: &'a S3BucketCreateRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<sqlx::QueryBuilder<'a, sqlx::Postgres>> {
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+) -> tonic::Result<common::database::QueryBuilder<'a>> {
+	let mut qb = common::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<S3BucketCreateRequest as TonicRequest>::Table::NAME)
@@ -70,7 +70,7 @@ pub fn build_query<'a>(
 	validate_access_key_id(&req.access_key_id)?;
 	validate_secret_access_key(&req.secret_access_key)?;
 
-	seperated.push_bind(common::database::Ulid(Ulid::new()));
+	seperated.push_bind(Ulid::new());
 	seperated.push_bind(access_token.organization_id);
 	seperated.push_bind(&req.name);
 	seperated.push_bind(&req.region);
@@ -78,7 +78,7 @@ pub fn build_query<'a>(
 	seperated.push_bind(&req.access_key_id);
 	seperated.push_bind(&req.secret_access_key);
 	seperated.push_bind(&req.public_url);
-	seperated.push_bind(sqlx::types::Json(req.tags.clone().unwrap_or_default().tags));
+	seperated.push_bind(common::database::Json(req.tags.clone().unwrap_or_default().tags));
 	seperated.push_bind(false);
 
 	qb.push(") RETURNING *");
@@ -96,13 +96,10 @@ impl ApiRequest<S3BucketCreateResponse> for tonic::Request<S3BucketCreateRequest
 
 		validate(req)?;
 
-		let mut query_builder = build_query(req, access_token)?;
+		let query_builder = build_query(req, access_token)?;
 
-		let result: video_common::database::S3Bucket = query_builder
-			.build_query_as()
-			.fetch_one(global.db().as_ref())
-			.await
-			.map_err(|err| {
+		let result: video_common::database::S3Bucket =
+			query_builder.build_query_as().fetch_one(global.db()).await.map_err(|err| {
 				tracing::error!(err = %err, "failed to create {}", <S3BucketCreateRequest as TonicRequest>::Table::FRIENDLY_NAME);
 				Status::internal(format!(
 					"failed to create {}",
@@ -113,10 +110,10 @@ impl ApiRequest<S3BucketCreateResponse> for tonic::Request<S3BucketCreateRequest
 		video_common::events::emit(
 			global.nats(),
 			&global.config().events.stream_name,
-			access_token.organization_id.0,
+			access_token.organization_id,
 			Target::S3Bucket,
 			event::Event::S3Bucket(event::S3Bucket {
-				s3_bucket_id: Some(result.id.0.into()),
+				s3_bucket_id: Some(result.id.into()),
 				event: Some(event::s3_bucket::Event::Created(event::s3_bucket::Created {})),
 			}),
 		)

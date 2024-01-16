@@ -5,6 +5,7 @@ use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, Resource};
 use pb::scuffle::video::v1::{PlaybackKeyPairModifyRequest, PlaybackKeyPairModifyResponse};
+use tonic::Status;
 use video_common::database::{AccessToken, DatabaseTable};
 
 use super::utils::validate_public_key;
@@ -28,8 +29,8 @@ pub fn validate(req: &PlaybackKeyPairModifyRequest) -> tonic::Result<()> {
 pub fn build_query(
 	req: &PlaybackKeyPairModifyRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<sqlx::QueryBuilder<'static, sqlx::Postgres>> {
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+) -> tonic::Result<common::database::QueryBuilder<'static>> {
+	let mut qb = common::database::QueryBuilder::default();
 
 	qb.push("UPDATE ")
 		.push(<PlaybackKeyPairModifyRequest as TonicRequest>::Table::NAME)
@@ -40,13 +41,13 @@ pub fn build_query(
 	if let Some(tags) = &req.tags {
 		seperated
 			.push("tags = ")
-			.push_bind_unseparated(sqlx::types::Json(tags.tags.clone()));
+			.push_bind_unseparated(common::database::Json(tags.tags.clone()));
 	}
 
 	if let Some(public_key) = &req.public_key {
 		let (cert, fingerprint) = validate_public_key(public_key)?;
 
-		seperated.push("public_key = ").push_bind_unseparated(cert);
+		seperated.push("public_key = ").push_bind_unseparated(cert.into_bytes());
 		seperated.push("fingerprint = ").push_bind_unseparated(fingerprint);
 	}
 
@@ -56,7 +57,7 @@ pub fn build_query(
 
 	seperated.push("updated_at = ").push_bind_unseparated(chrono::Utc::now());
 
-	qb.push(" WHERE id = ").push_bind(common::database::Ulid(req.id.into_ulid()));
+	qb.push(" WHERE id = ").push_bind(req.id.into_ulid());
 	qb.push(" AND organization_id = ").push_bind(access_token.organization_id);
 	qb.push(" RETURNING *");
 
@@ -73,15 +74,12 @@ impl ApiRequest<PlaybackKeyPairModifyResponse> for tonic::Request<PlaybackKeyPai
 
 		validate(req)?;
 
-		let mut query = build_query(req, access_token)?;
+		let query = build_query(req, access_token)?;
 
-		let result: Option<video_common::database::PlaybackKeyPair> = query
-			.build_query_as()
-			.fetch_optional(global.db().as_ref())
-			.await
-			.map_err(|err| {
+		let result: Option<video_common::database::PlaybackKeyPair> =
+			query.build_query_as().fetch_optional(global.db()).await.map_err(|err| {
 				tracing::error!(err = %err, "failed to modify {}", <PlaybackKeyPairModifyRequest as TonicRequest>::Table::FRIENDLY_NAME);
-				tonic::Status::internal(format!(
+				Status::internal(format!(
 					"failed to modify {}",
 					<PlaybackKeyPairModifyRequest as TonicRequest>::Table::FRIENDLY_NAME
 				))
@@ -92,10 +90,10 @@ impl ApiRequest<PlaybackKeyPairModifyResponse> for tonic::Request<PlaybackKeyPai
 				video_common::events::emit(
 					global.nats(),
 					&global.config().events.stream_name,
-					access_token.organization_id.0,
+					access_token.organization_id,
 					Target::PlaybackKeyPair,
 					event::Event::PlaybackKeyPair(event::PlaybackKeyPair {
-						playback_key_pair_id: Some(result.id.0.into()),
+						playback_key_pair_id: Some(result.id.into()),
 						event: Some(event::playback_key_pair::Event::Modified(
 							event::playback_key_pair::Modified {},
 						)),

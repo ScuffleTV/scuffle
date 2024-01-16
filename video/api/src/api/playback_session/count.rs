@@ -16,7 +16,7 @@ impl_request_scopes!(
 	RateLimitResource::PlaybackSessionCount
 );
 
-#[derive(sqlx::FromRow)]
+#[derive(postgres_from_row::FromRow)]
 pub struct PlaybackSessionCountQueryResp {
 	total_count: i64,
 	deduped: i64,
@@ -25,8 +25,8 @@ pub struct PlaybackSessionCountQueryResp {
 pub fn build_query<'a>(
 	req: &'a PlaybackSessionCountRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<sqlx::query_builder::QueryBuilder<'a, sqlx::Postgres>> {
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+) -> tonic::Result<common::database::QueryBuilder<'a>> {
+	let mut qb = common::database::QueryBuilder::default();
 
 	let filter = req
 		.filter
@@ -53,12 +53,11 @@ pub fn build_query<'a>(
 
 			match target {
 				playback_session_target::Target::RecordingId(recording_id) => {
-					qb.push("recording_id = ")
-						.push_bind(common::database::Ulid(recording_id.into_ulid()));
+					qb.push("recording_id = ").push_bind(recording_id.into_ulid());
 					qb.push(" AND room_id IS NULL");
 				}
 				playback_session_target::Target::RoomId(room_id) => {
-					qb.push("room_id = ").push_bind(common::database::Ulid(room_id.into_ulid()));
+					qb.push("room_id = ").push_bind(room_id.into_ulid());
 					qb.push(" AND recording_id IS NULL");
 				}
 			}
@@ -76,13 +75,10 @@ impl ApiRequest<PlaybackSessionCountResponse> for tonic::Request<PlaybackSession
 	) -> tonic::Result<tonic::Response<PlaybackSessionCountResponse>> {
 		let req = self.get_ref();
 
-		let mut query = build_query(req, access_token)?;
+		let query = build_query(req, access_token)?;
 
-		let result: Option<PlaybackSessionCountQueryResp> = query
-			.build_query_as()
-			.fetch_optional(global.db().as_ref())
-			.await
-			.map_err(|err| {
+		let result: Option<PlaybackSessionCountQueryResp> =
+			query.build_query_as().fetch_optional(global.db()).await.map_err(|err| {
 				tracing::error!(err = %err, "failed to fetch {}s", <PlaybackSessionCountRequest as TonicRequest>::Table::FRIENDLY_NAME);
 				tonic::Status::internal(format!(
 					"failed to fetch {}s",

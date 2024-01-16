@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
-use common::database::{Protobuf, Ulid};
+use common::database::{json, protobuf_opt, protobuf_vec_opt};
 use pb::scuffle::video::v1::types::{AudioConfig, RecordingConfig, TranscodingConfig, VideoConfig};
+use postgres_from_row::FromRow;
+use ulid::Ulid;
 
 use super::{DatabaseTable, RoomStatus, Visibility};
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, FromRow)]
 pub struct Room {
 	/// The organization this room belongs to (primary key)
 	pub organization_id: Ulid,
@@ -37,19 +39,23 @@ pub struct Room {
 	pub status: RoomStatus,
 
 	/// The video input config for the active ingest connection
-	pub video_input: Option<Protobuf<VideoConfig>>,
+	#[from_row(from_fn = "protobuf_opt")]
+	pub video_input: Option<VideoConfig>,
 
 	/// The audio input config for the active ingest connection
-	pub audio_input: Option<Protobuf<AudioConfig>>,
+	#[from_row(from_fn = "protobuf_opt")]
+	pub audio_input: Option<AudioConfig>,
 
 	/// The active ingest connection id
 	pub active_ingest_connection_id: Option<Ulid>,
 
 	/// The active recording config
-	pub active_recording_config: Option<Protobuf<RecordingConfig>>,
+	#[from_row(from_fn = "protobuf_opt")]
+	pub active_recording_config: Option<RecordingConfig>,
 
 	/// The active transcoding config
-	pub active_transcoding_config: Option<Protobuf<TranscodingConfig>>,
+	#[from_row(from_fn = "protobuf_opt")]
+	pub active_transcoding_config: Option<TranscodingConfig>,
 
 	/// The active recording id
 	pub active_recording_id: Option<Ulid>,
@@ -58,13 +64,15 @@ pub struct Room {
 	pub ingest_bitrate: Option<i64>,
 
 	/// The video output configs after transcoding
-	pub video_output: Option<Vec<Protobuf<VideoConfig>>>,
+	#[from_row(from_fn = "protobuf_vec_opt")]
+	pub video_output: Option<Vec<VideoConfig>>,
 
 	/// The audio output configs after transcoding
-	pub audio_output: Option<Vec<Protobuf<AudioConfig>>>,
+	#[from_row(from_fn = "protobuf_vec_opt")]
+	pub audio_output: Option<Vec<AudioConfig>>,
 
-	#[sqlx(json)]
 	/// Tags associated with the room
+	#[from_row(from_fn = "json")]
 	pub tags: HashMap<String, String>,
 }
 
@@ -76,27 +84,21 @@ impl DatabaseTable for Room {
 impl Room {
 	pub fn into_proto(self) -> pb::scuffle::video::v1::types::Room {
 		pb::scuffle::video::v1::types::Room {
-			id: Some(self.id.0.into()),
-			transcoding_config_id: self.transcoding_config_id.map(|id| id.0.into()),
-			recording_config_id: self.recording_config_id.map(|id| id.0.into()),
+			id: Some(self.id.into()),
+			transcoding_config_id: self.transcoding_config_id.map(|id| id.into()),
+			recording_config_id: self.recording_config_id.map(|id| id.into()),
 			visibility: self.visibility.into(),
-			created_at: self.id.0.timestamp_ms() as i64,
+			created_at: self.id.timestamp_ms() as i64,
 			updated_at: self.updated_at.timestamp_millis(),
 			last_live_at: self.last_live_at.map(|t| t.timestamp_millis()),
 			last_disconnected_at: self.last_disconnected_at.map(|t| t.timestamp_millis()),
 			status: self.status.into(),
-			audio_input: self.audio_input.map(common::database::TraitProtobuf::into_inner),
-			video_input: self.video_input.map(common::database::TraitProtobuf::into_inner),
-			audio_output: self
-				.audio_output
-				.map(common::database::TraitProtobufVec::into_vec)
-				.unwrap_or_default(),
-			video_output: self
-				.video_output
-				.map(common::database::TraitProtobufVec::into_vec)
-				.unwrap_or_default(),
-			active_recording_id: self.active_recording_id.map(|r| r.0.into()),
-			active_connection_id: self.active_ingest_connection_id.map(|c| c.0.into()),
+			audio_input: self.audio_input,
+			video_input: self.video_input,
+			audio_output: self.audio_output.unwrap_or_default(),
+			video_output: self.video_output.unwrap_or_default(),
+			active_recording_id: self.active_recording_id.map(|r| r.into()),
+			active_connection_id: self.active_ingest_connection_id.map(|c| c.into()),
 			tags: Some(self.tags.into()),
 		}
 	}

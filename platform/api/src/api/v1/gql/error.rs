@@ -37,7 +37,7 @@ pub enum GqlError {
 	InternalServerError(&'static str),
 	/// A database error occurred.
 	#[error("database error: {0}")]
-	Sqlx(#[from] Arc<sqlx::Error>),
+	Database(#[from] Arc<common::database::deadpool_postgres::PoolError>),
 	/// The input was invalid.
 	#[error("invalid input for {fields:?}: {message}")]
 	InvalidInput {
@@ -73,6 +73,12 @@ pub enum GqlError {
 	Subscription(#[from] Arc<SubscriptionManagerError>),
 }
 
+impl From<common::database::tokio_postgres::Error> for GqlError {
+	fn from(value: common::database::tokio_postgres::Error) -> Self {
+		Self::Database(Arc::new(value.into()))
+	}
+}
+
 macro_rules! impl_arc_from {
 	($err:ty) => {
 		impl From<$err> for GqlError {
@@ -83,7 +89,7 @@ macro_rules! impl_arc_from {
 	};
 }
 
-impl_arc_from!(sqlx::Error);
+impl_arc_from!(common::database::deadpool_postgres::PoolError);
 impl_arc_from!(turnstile::TurnstileError);
 impl_arc_from!(async_nats::PublishError);
 impl_arc_from!(SubscriptionManagerError);
@@ -93,7 +99,7 @@ impl GqlError {
 		matches!(
 			self,
 			GqlError::InternalServerError(_)
-				| GqlError::Sqlx(_)
+				| GqlError::Database(_)
 				| GqlError::Turnstile(_)
 				| GqlError::Publish(_)
 				| GqlError::Subscription(_)
@@ -122,7 +128,7 @@ impl GqlError {
 			GqlError::Turnstile(_) => "Turnstile",
 			GqlError::Publish(_) => "Publish",
 			GqlError::InternalServerError(_) => "InternalServerError",
-			GqlError::Sqlx(_) => "Sqlx",
+			GqlError::Database(_) => "Database",
 			GqlError::VideoApi(_) => "VideoApi",
 			GqlError::Subscription(_) => "Subscription",
 		}

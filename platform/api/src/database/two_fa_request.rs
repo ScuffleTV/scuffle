@@ -1,19 +1,22 @@
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
-use common::database::{Protobuf, Ulid};
+use common::database::protobuf;
 use pb::ext::UlidExt;
 use pb::scuffle::platform::internal::two_fa::two_fa_request_action::{ChangePassword, Login};
 use pb::scuffle::platform::internal::two_fa::TwoFaRequestAction;
+use ulid::Ulid;
 
 use super::{Session, User};
 use crate::global::ApiGlobal;
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, postgres_from_row::FromRow)]
 pub struct TwoFaRequest {
 	pub id: Ulid,
 	pub user_id: Ulid,
-	pub action: Protobuf<TwoFaRequestAction>,
+
+	#[from_row(from_fn = "protobuf")]
+	pub action: TwoFaRequestAction,
 }
 
 #[allow(async_fn_in_trait)]
@@ -24,15 +27,16 @@ pub trait TwoFaRequestActionTrait<G: ApiGlobal> {
 }
 
 impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
-	type Result = sqlx::Result<Session>;
+	type Result = Result<Session, common::database::deadpool_postgres::PoolError>;
 
 	async fn execute(self, global: &Arc<G>, user_id: Ulid) -> Self::Result {
 		let expires_at = Utc::now() + Duration::seconds(self.login_duration as i64);
 
 		// TODO: maybe look to batch this
-		let mut tx = global.db().begin().await?;
+		let mut client = global.db().get().await?;
+		let tx = client.transaction().await?;
 
-		let session: Session = sqlx::query_as(
+		let session = common::database::query(
 			r#"
 			INSERT INTO user_sessions (
 				id,
@@ -48,10 +52,11 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
 		.bind(Ulid::from(ulid::Ulid::new()))
 		.bind(user_id)
 		.bind(expires_at)
-		.fetch_one(tx.as_mut())
+		.build_query_as()
+		.fetch_one(&tx)
 		.await?;
 
-		sqlx::query(
+		common::database::query(
 			r#"
 			UPDATE users
 			SET
@@ -60,7 +65,8 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
 			"#,
 		)
 		.bind(user_id)
-		.execute(tx.as_mut())
+		.build()
+		.execute(&tx)
 		.await?;
 
 		tx.commit().await?;
@@ -70,12 +76,13 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
 }
 
 impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for ChangePassword {
-	type Result = sqlx::Result<()>;
+	type Result = Result<(), common::database::deadpool_postgres::PoolError>;
 
-	async fn execute(self, global: &Arc<G>, user_id: Ulid) -> sqlx::Result<()> {
-		let mut tx = global.db().begin().await?;
+	async fn execute(self, global: &Arc<G>, user_id: Ulid) -> Self::Result {
+		let mut client = global.db().get().await?;
+		let tx = client.transaction().await?;
 
-		let user: User = sqlx::query_as(
+		let user: User = common::database::query(
 			r#"
 			UPDATE
 				users
@@ -88,11 +95,12 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for ChangePassword {
 		)
 		.bind(self.new_password_hash)
 		.bind(user_id)
-		.fetch_one(tx.as_mut())
+		.build_query_as()
+		.fetch_one(&tx)
 		.await?;
 
 		// Delete all sessions except current
-		sqlx::query(
+		common::database::query(
 			r#"
 			DELETE FROM
 				user_sessions
@@ -102,8 +110,9 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for ChangePassword {
 			"#,
 		)
 		.bind(user.id)
-		.bind(Ulid::from(self.current_session_id.into_ulid()))
-		.execute(tx.as_mut())
+		.bind(self.current_session_id.into_ulid())
+		.build()
+		.execute(&tx)
 		.await?;
 
 		tx.commit().await?;

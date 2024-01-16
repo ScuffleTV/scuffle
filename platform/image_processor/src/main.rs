@@ -23,7 +23,7 @@ type AppConfig = binary_helper::config::AppConfig<ExtConfig>;
 
 struct GlobalState {
 	ctx: Context,
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 	config: AppConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,

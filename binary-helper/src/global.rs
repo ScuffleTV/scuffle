@@ -1,16 +1,16 @@
 use std::io;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context as _;
 use async_nats::ServerAddr;
 use common::config::{DatabaseConfig, NatsConfig, RedisConfig};
+use common::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
+use common::database::tokio_postgres::NoTls;
+use common::database::Pool;
 use fred::interfaces::ClientLike;
 use fred::types::ServerConfig;
 use rustls::RootCertStore;
-use sqlx::postgres::PgConnectOptions;
-use sqlx::ConnectOptions;
 
 #[macro_export]
 macro_rules! impl_global_traits {
@@ -36,7 +36,7 @@ macro_rules! impl_global_traits {
 
 		impl common::global::GlobalDb for $struct {
 			#[inline(always)]
-			fn db(&self) -> &Arc<sqlx::PgPool> {
+			fn db(&self) -> &Arc<common::database::Pool> {
 				&self.db
 			}
 		}
@@ -89,16 +89,19 @@ pub async fn setup_nats(
 	Ok((nats, jetstream))
 }
 
-pub async fn setup_database(config: &DatabaseConfig) -> anyhow::Result<Arc<sqlx::PgPool>> {
+pub async fn setup_database(config: &DatabaseConfig) -> anyhow::Result<Arc<common::database::Pool>> {
 	Ok(Arc::new(
-		sqlx::PgPool::connect_with(
-			PgConnectOptions::from_str(&config.uri)
-				.context("failed to parse database uri")?
-				.disable_statement_logging()
-				.to_owned(),
-		)
-		.await
-		.context("failed to connect to database")?,
+		Pool::builder(common::database::deadpool_postgres::Manager::from_config(
+			config.uri.parse().context("invalid database uri")?,
+			NoTls,
+			ManagerConfig {
+				recycling_method: RecyclingMethod::Fast,
+			},
+		))
+		.config(PoolConfig::default())
+		.runtime(Runtime::Tokio1)
+		.build()
+		.context("failed to create database pool")?,
 	))
 }
 

@@ -158,7 +158,7 @@ macro_rules! scope_ratelimit {
 
 		return crate::api::utils::ratelimit::ratelimit_scoped(
 			&$global,
-			$access_token.organization_id.0,
+			$access_token.organization_id,
 			crate::api::utils::TonicRequest::ratelimit_scope($request.get_ref()),
 			$logic,
 		)

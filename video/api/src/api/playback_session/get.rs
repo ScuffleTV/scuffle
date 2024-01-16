@@ -19,8 +19,8 @@ impl_request_scopes!(
 pub fn build_query<'a>(
 	req: &'a PlaybackSessionGetRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<sqlx::QueryBuilder<'a, sqlx::Postgres>> {
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+) -> tonic::Result<common::database::QueryBuilder<'a>> {
+	let mut qb = common::database::QueryBuilder::default();
 	qb.push("SELECT * FROM ")
 		.push(<PlaybackSessionGetRequest as TonicRequest>::Table::NAME)
 		.push(" WHERE ");
@@ -36,7 +36,7 @@ pub fn build_query<'a>(
 
 	if let Some(playback_key_pair_id) = req.playback_key_pair_id {
 		seperated.push("playback_key_pair_id = ");
-		seperated.push_bind_unseparated(common::database::Ulid(playback_key_pair_id.into_ulid()));
+		seperated.push_bind_unseparated(playback_key_pair_id.into_ulid());
 	} else if let Some(authorized) = req.authorized {
 		if authorized {
 			seperated.push("playback_key_pair_id IS NOT NULL");
@@ -58,11 +58,11 @@ pub fn build_query<'a>(
 		match target.target {
 			Some(playback_session_target::Target::RecordingId(recording_id)) => {
 				seperated.push("recording_id = ");
-				seperated.push_bind_unseparated(common::database::Ulid(recording_id.into_ulid()));
+				seperated.push_bind_unseparated(recording_id.into_ulid());
 			}
 			Some(playback_session_target::Target::RoomId(room_id)) => {
 				seperated.push("room_id = ");
-				seperated.push_bind_unseparated(common::database::Ulid(room_id.into_ulid()));
+				seperated.push_bind_unseparated(room_id.into_ulid());
 			}
 			None => {}
 		}
@@ -87,9 +87,9 @@ impl ApiRequest<PlaybackSessionGetResponse> for tonic::Request<PlaybackSessionGe
 	) -> tonic::Result<tonic::Response<PlaybackSessionGetResponse>> {
 		let req = self.get_ref();
 
-		let mut query = build_query(req, access_token)?;
+		let query = build_query(req, access_token)?;
 
-		let results = query.build_query_as().fetch_all(global.db().as_ref()).await.map_err(|err| {
+		let results = query.build_query_as().fetch_all(global.db()).await.map_err(|err| {
 			tracing::error!(err = %err, "failed to fetch {}s", <PlaybackSessionGetRequest as TonicRequest>::Table::FRIENDLY_NAME);
 			tonic::Status::internal(format!(
 				"failed to fetch {}s",

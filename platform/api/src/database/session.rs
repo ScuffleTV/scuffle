@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
-use common::database::Ulid;
+use ulid::Ulid;
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, postgres_from_row::FromRow)]
 pub struct Session {
 	/// The unique identifier for the session.
 	pub id: Ulid,

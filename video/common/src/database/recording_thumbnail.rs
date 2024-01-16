@@ -1,8 +1,9 @@
-use common::database::Ulid;
+use postgres_from_row::FromRow;
+use ulid::Ulid;
 
 use super::DatabaseTable;
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, FromRow)]
 pub struct RecordingThumbnail {
 	/// The organization this recording thumbnail belongs to (primary key)
 	pub organization_id: Ulid,

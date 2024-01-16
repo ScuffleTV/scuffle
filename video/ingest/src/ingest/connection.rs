@@ -22,7 +22,6 @@ use tokio::time::Instant;
 use tonic::{Status, Streaming};
 use transmuxer::{AudioSettings, MediaSegment, TransmuxResult, Transmuxer, VideoSettings};
 use ulid::Ulid;
-use uuid::Uuid;
 use video_common::database::RoomStatus;
 use video_common::{events, keys};
 
@@ -178,14 +177,14 @@ impl Connection {
 			None => return Ok(None),
 		};
 
-		#[derive(sqlx::FromRow)]
+		#[derive(postgres_from_row::FromRow)]
 		struct Response {
-			id: Option<common::database::Ulid>,
+			id: Option<Ulid>,
 		}
 
 		let id = Ulid::new();
 
-		let result: Option<Response> = sqlx::query_as(
+		let result: Option<Response> = common::database::query(
 			r#"
             UPDATE rooms as new
             SET 
@@ -214,12 +213,13 @@ impl Connection {
             RETURNING old.active_ingest_connection_id as id
             "#,
 		)
-		.bind(Uuid::from(id))
+		.bind(id)
 		.bind(RoomStatus::Offline)
-		.bind(Uuid::from(organization_id))
-		.bind(Uuid::from(room_id))
+		.bind(organization_id)
+		.bind(room_id)
 		.bind(&room_secret)
-		.fetch_optional(global.db().as_ref())
+		.build_query_as()
+		.fetch_optional(global.db())
 		.await?;
 
 		let Some(result) = result else {
@@ -228,7 +228,7 @@ impl Connection {
 		};
 
 		if let Some(old_id) = result.id {
-			if let Err(err) = global.nats().publish(keys::ingest_disconnect(old_id.0), Bytes::new()).await {
+			if let Err(err) = global.nats().publish(keys::ingest_disconnect(old_id), Bytes::new()).await {
 				tracing::error!(error = %err, "failed to publish disconnect event");
 			}
 		}
@@ -500,7 +500,7 @@ impl Connection {
 					WhichTranscoder::Current => {
 						self.current_transcoder = None;
 						self.current_transcoder_id = Ulid::nil();
-						match sqlx::query(
+						match common::database::query(
 							r#"
                             UPDATE rooms
                             SET 
@@ -513,14 +513,15 @@ impl Connection {
                             "#,
 						)
 						.bind(RoomStatus::WaitingForTranscoder)
-						.bind(Uuid::from(self.organization_id))
-						.bind(Uuid::from(self.room_id))
-						.bind(Uuid::from(self.id))
-						.execute(global.db().as_ref())
+						.bind(self.organization_id)
+						.bind(self.room_id)
+						.bind(self.id)
+						.build()
+						.execute(global.db())
 						.await
 						{
 							Ok(r) => {
-								if r.rows_affected() != 1 {
+								if r != 1 {
 									tracing::error!("failed to update room status");
 
 									self.error = Some(IngestError::FailedToUpdateRoom);
@@ -714,7 +715,7 @@ impl Connection {
 		}
 		.encode_to_vec();
 
-		match sqlx::query(
+		match common::database::query(
 			r#"
 			UPDATE rooms
 			SET 
@@ -731,14 +732,15 @@ impl Connection {
 		.bind(RoomStatus::WaitingForTranscoder)
 		.bind(video_settings)
 		.bind(audio_settings)
-		.bind(Uuid::from(self.organization_id))
-		.bind(Uuid::from(self.room_id))
-		.bind(Uuid::from(self.id))
-		.execute(global.db().as_ref())
+		.bind(self.organization_id)
+		.bind(self.room_id)
+		.bind(self.id)
+		.build()
+		.execute(global.db())
 		.await
 		{
 			Ok(r) => {
-				if r.rows_affected() != 1 {
+				if r != 1 {
 					tracing::error!("failed to update room status");
 
 					self.error = Some(IngestError::FailedToUpdateRoom);
@@ -1093,7 +1095,7 @@ impl Connection {
 		)
 		.await;
 
-		sqlx::query(
+		common::database::query(
 			r#"
 			UPDATE rooms
 			SET
@@ -1116,10 +1118,11 @@ impl Connection {
 			"#,
 		)
 		.bind(RoomStatus::Offline)
-		.bind(Uuid::from(self.organization_id))
-		.bind(Uuid::from(self.room_id))
-		.bind(Uuid::from(self.id))
-		.execute(global.db().as_ref())
+		.bind(self.organization_id)
+		.bind(self.room_id)
+		.bind(self.id)
+		.build()
+		.execute(global.db())
 		.await?;
 
 		Ok(())

@@ -6,6 +6,7 @@ use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, FailedResource, Resource};
 use pb::scuffle::video::v1::{PlaybackKeyPairDeleteRequest, PlaybackKeyPairDeleteResponse};
 use tonic::Status;
+use ulid::Ulid;
 use video_common::database::{AccessToken, DatabaseTable};
 
 use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
@@ -25,8 +26,6 @@ impl ApiRequest<PlaybackKeyPairDeleteResponse> for tonic::Request<PlaybackKeyPai
 		global: &Arc<G>,
 		access_token: &AccessToken,
 	) -> tonic::Result<tonic::Response<PlaybackKeyPairDeleteResponse>> {
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
-
 		let req = self.get_ref();
 
 		if req.ids.len() > 100 {
@@ -44,16 +43,17 @@ impl ApiRequest<PlaybackKeyPairDeleteResponse> for tonic::Request<PlaybackKeyPai
 			.map(pb::scuffle::types::Ulid::into_ulid)
 			.collect::<HashSet<_>>();
 
-		qb.push("DELETE FROM ")
+		let deleted_ids: Vec<Ulid> = common::database::query("DELETE FROM ")
 			.push(<PlaybackKeyPairDeleteRequest as TonicRequest>::Table::NAME)
 			.push(" WHERE id = ANY(")
-			.push_bind(ids_to_delete.iter().copied().map(common::database::Ulid).collect::<Vec<_>>())
+			.push_bind(ids_to_delete.iter().copied().collect::<Vec<_>>())
 			.push(") AND organization_id = ")
 			.push_bind(access_token.organization_id)
-			.push(" RETURNING id");
-
-		let deleted_ids: Vec<common::database::Ulid> =
-			qb.build_query_scalar().fetch_all(global.db().as_ref()).await.map_err(|err| {
+			.push(" RETURNING id")
+			.build_query_single_scalar()
+			.fetch_all(global.db())
+			.await
+			.map_err(|err| {
 				tracing::error!(err = %err, "failed to delete {}", <PlaybackKeyPairDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME);
 				Status::internal(format!(
 					"failed to delete {}",
@@ -65,10 +65,10 @@ impl ApiRequest<PlaybackKeyPairDeleteResponse> for tonic::Request<PlaybackKeyPai
 			video_common::events::emit(
 				global.nats(),
 				&global.config().events.stream_name,
-				access_token.organization_id.0,
+				access_token.organization_id,
 				Target::PlaybackKeyPair,
 				event::Event::PlaybackKeyPair(event::PlaybackKeyPair {
-					playback_key_pair_id: Some(id.0.into()),
+					playback_key_pair_id: Some(id.into()),
 					event: Some(event::playback_key_pair::Event::Deleted(event::playback_key_pair::Deleted {})),
 				}),
 			)
@@ -76,11 +76,11 @@ impl ApiRequest<PlaybackKeyPairDeleteResponse> for tonic::Request<PlaybackKeyPai
 		}
 
 		deleted_ids.iter().for_each(|id| {
-			ids_to_delete.remove(&id.0);
+			ids_to_delete.remove(&id);
 		});
 
 		Ok(tonic::Response::new(PlaybackKeyPairDeleteResponse {
-			ids: deleted_ids.into_iter().map(|id| id.0.into()).collect(),
+			ids: deleted_ids.into_iter().map(|id| id.into()).collect(),
 			failed_deletes: ids_to_delete
 				.into_iter()
 				.map(|id| FailedResource {

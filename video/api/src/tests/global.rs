@@ -2,10 +2,13 @@ use std::sync::Arc;
 
 use async_nats::jetstream::stream::{self, RetentionPolicy};
 use common::context::{Context, Handler};
+use common::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
+use common::database::Pool;
 use common::dataloader::DataLoader;
 use common::logging;
 use common::prelude::FutureTimeout;
 use fred::interfaces::ClientLike;
+use postgres_from_row::tokio_postgres::NoTls;
 
 use crate::config::ApiConfig;
 use crate::dataloaders;
@@ -15,7 +18,7 @@ pub struct GlobalState {
 	config: ApiConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 	redis: Arc<fred::clients::RedisPool>,
 
 	access_token_loader: DataLoader<dataloaders::AccessTokenLoader>,
@@ -48,7 +51,7 @@ impl common::global::GlobalNats for GlobalState {
 }
 
 impl common::global::GlobalDb for GlobalState {
-	fn db(&self) -> &Arc<sqlx::PgPool> {
+	fn db(&self) -> &Arc<common::database::Pool> {
 		&self.db
 	}
 }
@@ -98,9 +101,17 @@ pub async fn mock_global_state(config: ApiConfig) -> (Arc<GlobalState>, Handler)
 	let jetstream = async_nats::jetstream::new(nats.clone());
 
 	let db = Arc::new(
-		sqlx::PgPool::connect(&database_uri)
-			.await
-			.expect("failed to connect to database"),
+		Pool::builder(common::database::deadpool_postgres::Manager::from_config(
+			database_uri.parse().unwrap(),
+			NoTls,
+			ManagerConfig {
+				recycling_method: RecyclingMethod::Fast,
+			},
+		))
+		.config(PoolConfig::default())
+		.runtime(Runtime::Tokio1)
+		.build()
+		.expect("failed to create pool"),
 	);
 
 	let redis = Arc::new(

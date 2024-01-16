@@ -23,7 +23,7 @@ async fn test_playback_key_pair_get_qb() {
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 	)
 	.await;
@@ -31,18 +31,18 @@ async fn test_playback_key_pair_get_qb() {
 	let test_cases = vec![
 		(
 			PlaybackKeyPairGetRequest {
-				ids: vec![playback_key_pair.id.0.into()],
+				ids: vec![playback_key_pair.id.into()],
 				search_options: None,
 			},
 			Ok("SELECT * FROM playback_key_pairs WHERE organization_id = $1 AND id = ANY($2) ORDER BY id ASC LIMIT 100"),
 		),
 		(
 			PlaybackKeyPairGetRequest {
-				ids: vec![playback_key_pair.id.0.into()],
+				ids: vec![playback_key_pair.id.into()],
 				search_options: Some(SearchOptions {
 					limit: 1,
 					reverse: true,
-					after_id: Some(playback_key_pair.id.0.into()),
+					after_id: Some(playback_key_pair.id.into()),
 					tags: None,
 				}),
 			},
@@ -89,7 +89,7 @@ async fn test_playback_key_pair_modify_qb() {
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 	)
 	.await;
@@ -97,7 +97,7 @@ async fn test_playback_key_pair_modify_qb() {
 	let test_cases = vec![
 		(
 			PlaybackKeyPairModifyRequest {
-				id: Some(playback_key_pair.id.0.into()),
+				id: Some(playback_key_pair.id.into()),
 				tags: None,
 				public_key: Some(include_str!("../certs/ec384/public.pem").to_string()),
 			},
@@ -107,7 +107,7 @@ async fn test_playback_key_pair_modify_qb() {
 		),
 		(
 			PlaybackKeyPairModifyRequest {
-				id: Some(playback_key_pair.id.0.into()),
+				id: Some(playback_key_pair.id.into()),
 				tags: Some(Tags {
 					tags: vec![("example_tag".to_string(), "example_value".to_string())]
 						.into_iter()
@@ -121,7 +121,7 @@ async fn test_playback_key_pair_modify_qb() {
 		),
 		(
 			PlaybackKeyPairModifyRequest {
-				id: Some(playback_key_pair.id.0.into()),
+				id: Some(playback_key_pair.id.into()),
 				tags: None,
 				public_key: None,
 			},
@@ -144,14 +144,14 @@ async fn test_playback_key_pair_tag_qb() {
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 	)
 	.await;
 
 	let test_cases = vec![(
 		PlaybackKeyPairTagRequest {
-			id: Some(playback_key_pair.id.0.into()),
+			id: Some(playback_key_pair.id.into()),
 			tags: Some(Tags {
 				tags: vec![("example_tag".to_string(), "example_value".to_string())]
 					.into_iter()
@@ -178,18 +178,18 @@ async fn test_playback_key_pair_untag_qb() {
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 	)
 	.await;
 
 	let test_cases = vec![(
 		PlaybackKeyPairUntagRequest {
-			id: Some(playback_key_pair.id.0.into()),
+			id: Some(playback_key_pair.id.into()),
 			tags: vec!["example_tag".to_string()],
 		},
 		Ok(
-			"WITH rt AS (SELECT id, tags - $1 AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM playback_key_pairs WHERE id = $2 AND organization_id = $3 GROUP BY id, organization_id) UPDATE playback_key_pairs AS t SET tags = CASE WHEN rt.status = 0 THEN rt.new_tags ELSE tags END, updated_at = CASE WHEN rt.status = 0 THEN now() ELSE updated_at END FROM rt WHERE t.id = rt.id RETURNING t.tags AS tags, rt.status AS status;",
+			"WITH rt AS (SELECT id, tags - $1::TEXT[] AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM playback_key_pairs WHERE id = $2 AND organization_id = $3 GROUP BY id, organization_id) UPDATE playback_key_pairs AS t SET tags = CASE WHEN rt.status = 0 THEN rt.new_tags ELSE tags END, updated_at = CASE WHEN rt.status = 0 THEN now() ELSE updated_at END FROM rt WHERE t.id = rt.id RETURNING t.tags AS tags, rt.status AS status;",
 		),
 	)];
 
@@ -208,13 +208,13 @@ async fn test_playback_key_pair_tag() {
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 	)
 	.await;
 
 	let tag_request = PlaybackKeyPairTagRequest {
-		id: Some(playback_key_pair.id.0.into()),
+		id: Some(playback_key_pair.id.into()),
 		tags: Some(Tags {
 			tags: vec![("key2".to_string(), "value2".to_string())].into_iter().collect(),
 		}),
@@ -237,7 +237,7 @@ async fn test_playback_key_pair_untag() {
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		vec![
 			("key".to_string(), "value".to_string()),
 			("key2".to_string(), "value2".to_string()),
@@ -249,7 +249,7 @@ async fn test_playback_key_pair_untag() {
 
 	// Now, untag
 	let untag_request = PlaybackKeyPairUntagRequest {
-		id: Some(playback_key_pair.id.0.into()),
+		id: Some(playback_key_pair.id.into()),
 		tags: vec!["key".to_string()],
 	};
 
@@ -302,7 +302,7 @@ async fn test_playback_key_pair_modify() {
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		vec![
 			("key".to_string(), "value".to_string()),
 			("key2".to_string(), "value2".to_string()),
@@ -314,7 +314,7 @@ async fn test_playback_key_pair_modify() {
 
 	// Test case: Create a basic playback key pair
 	let req = PlaybackKeyPairModifyRequest {
-		id: Some(playback_key_pair.id.0.into()),
+		id: Some(playback_key_pair.id.into()),
 		public_key: Some(include_str!("../certs/ec384/public.pem").to_string()),
 		tags: None,
 	};
@@ -340,7 +340,7 @@ async fn test_playback_key_pair_modify() {
 
 	// Test case: Create an playback key pair with specific tags
 	let req = PlaybackKeyPairModifyRequest {
-		id: Some(playback_key_pair.id.0.into()),
+		id: Some(playback_key_pair.id.into()),
 		public_key: None,
 		tags: Some(Tags {
 			tags: vec![("tag_key".to_string(), "tag_value".to_string())].into_iter().collect(),
@@ -368,19 +368,19 @@ async fn test_playback_key_pair_get() {
 	let created = vec![
 		create_playback_keypair(
 			&global,
-			main_access_token.organization_id.0,
+			main_access_token.organization_id,
 			vec![("common".to_string(), "shared".to_string())].into_iter().collect(),
 		)
 		.await,
 		create_playback_keypair(
 			&global,
-			main_access_token.organization_id.0,
+			main_access_token.organization_id,
 			vec![("common1".to_string(), "shared1".to_string())].into_iter().collect(),
 		)
 		.await,
 		create_playback_keypair(
 			&global,
-			main_access_token.organization_id.0,
+			main_access_token.organization_id,
 			vec![("common2".to_string(), "shared2".to_string())].into_iter().collect(),
 		)
 		.await,
@@ -388,7 +388,7 @@ async fn test_playback_key_pair_get() {
 
 	// Fetch the created tokens using PlaybackKeyPairGetRequest
 	let req = PlaybackKeyPairGetRequest {
-		ids: created.iter().map(|token| token.id.0.into()).collect(),
+		ids: created.iter().map(|token| token.id.into()).collect(),
 		search_options: None,
 	};
 
@@ -400,7 +400,7 @@ async fn test_playback_key_pair_get() {
 	for token in fetched {
 		let og_key = created
 			.iter()
-			.find(|&t| t.id.0 == token.id.into_ulid())
+			.find(|&t| t.id == token.id.into_ulid())
 			.expect("Fetched keypair must match one of the created ones");
 		assert_eq!(token.tags.unwrap().tags, og_key.tags, "Tags should match");
 	}
@@ -457,14 +457,14 @@ async fn test_playback_key_pair_delete() {
 	// Create access tokens to be deleted
 	let keypair_to_delete = create_playback_keypair(
 		&global,
-		main_access_token.organization_id.0,
+		main_access_token.organization_id,
 		vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 	)
 	.await;
 
 	// Delete request with a token the caller should have permission to delete
 	let req = PlaybackKeyPairDeleteRequest {
-		ids: vec![keypair_to_delete.id.0.into()],
+		ids: vec![keypair_to_delete.id.into()],
 	};
 
 	let response: PlaybackKeyPairDeleteResponse = process_request(&global, &main_access_token, req).await.unwrap();
@@ -474,7 +474,7 @@ async fn test_playback_key_pair_delete() {
 	// Assertions for successful deletion
 	assert_eq!(deleted.len(), 1, "Should successfully delete one playback key pair");
 	assert!(
-		deleted.contains(&keypair_to_delete.id.0.into()),
+		deleted.contains(&keypair_to_delete.id.into()),
 		"Deleted token list should contain the token ID"
 	);
 	assert!(failed_deletions.is_empty(), "No deletions should fail in this scenario");
@@ -504,7 +504,7 @@ async fn test_playback_key_pair_boiler_plate() {
 
 	let keypair = create_playback_keypair(
 		&global,
-		main_access_token.organization_id.0,
+		main_access_token.organization_id,
 		vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 	)
 	.await;
@@ -514,7 +514,7 @@ async fn test_playback_key_pair_boiler_plate() {
 			&global,
 			&main_access_token,
 			PlaybackKeyPairGetRequest {
-				ids: vec![keypair.id.0.into()],
+				ids: vec![keypair.id.into()],
 				search_options: None,
 			},
 		))
@@ -588,7 +588,7 @@ async fn test_playback_key_pair_boiler_plate() {
 			&global,
 			&main_access_token,
 			PlaybackKeyPairTagRequest {
-				id: Some(keypair.id.0.into()),
+				id: Some(keypair.id.into()),
 				tags: Some(Tags {
 					tags: vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 				}),
@@ -620,7 +620,7 @@ async fn test_playback_key_pair_boiler_plate() {
 			&global,
 			&main_access_token,
 			PlaybackKeyPairUntagRequest {
-				id: Some(keypair.id.0.into()),
+				id: Some(keypair.id.into()),
 				tags: vec!["key".to_string()],
 			},
 		))
@@ -654,7 +654,7 @@ async fn test_playback_key_pair_boiler_plate() {
 			&global,
 			&main_access_token,
 			PlaybackKeyPairModifyRequest {
-				id: Some(keypair.id.0.into()),
+				id: Some(keypair.id.into()),
 				tags: None,
 				public_key: Some(include_str!("../certs/ec384/public.pem").to_string()),
 			},
@@ -691,7 +691,7 @@ async fn test_playback_key_pair_boiler_plate() {
 			&global,
 			&main_access_token,
 			PlaybackKeyPairDeleteRequest {
-				ids: vec![keypair.id.0.into()],
+				ids: vec![keypair.id.into()],
 			},
 		))
 		.await

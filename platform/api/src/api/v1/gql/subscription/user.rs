@@ -164,7 +164,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 		let profile_picture = if let Some(profile_picture_id) = profile_picture_id {
 			global
 				.uploaded_file_by_id_loader()
-				.load(profile_picture_id.0)
+				.load(profile_picture_id)
 				.await
 				.map_err_ignored_gql("failed to fetch profile picture")?
 				.map(ImageUpload::from_uploaded_file)
@@ -231,7 +231,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 
 		Ok(async_stream::stream!({
 			if let Some(channel_id) = channel_id {
-				let (is_following,): (bool,) = sqlx::query_as(
+				let is_following = common::database::query(
 					r#"
 					SELECT
 						following
@@ -243,11 +243,12 @@ impl<G: ApiGlobal> UserSubscription<G> {
 					"#,
 				)
 				.bind(auth.session.user_id)
-				.bind(channel_id.to_uuid())
-				.fetch_optional(global.db().as_ref())
+				.bind(channel_id.to_ulid())
+				.build_query_single_scalar::<bool>()
+				.fetch_optional(global.db())
 				.await
 				.map_err_gql("failed to fetch channel_user")?
-				.unwrap_or((false,));
+				.unwrap_or_default();
 
 				yield Ok(FollowStream {
 					user_id: user_id.into(),

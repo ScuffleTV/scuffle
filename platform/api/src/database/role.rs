@@ -1,7 +1,7 @@
 use bitmask_enum::bitmask;
-use common::database::Ulid;
+use ulid::Ulid;
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, postgres_from_row::FromRow)]
 /// A role that can be granted to a user.
 /// Roles can allow or deny permissions to a user.
 pub struct Role {
@@ -33,15 +33,29 @@ pub enum RolePermission {
 	UploadProfilePicture,
 }
 
-impl sqlx::Decode<'_, sqlx::Postgres> for RolePermission {
-	fn decode(value: sqlx::postgres::PgValueRef<'_>) -> Result<Self, Box<dyn std::error::Error + 'static + Send + Sync>> {
-		<i64 as sqlx::Decode<sqlx::Postgres>>::decode(value).map(Self::from)
+impl<'a> postgres_types::FromSql<'a> for RolePermission {
+	fn accepts(ty: &postgres_types::Type) -> bool {
+		<i64 as postgres_types::FromSql>::accepts(ty)
+	}
+
+	fn from_sql(ty: &postgres_types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+		<i64 as postgres_types::FromSql>::from_sql(ty, raw).map(Self::from)
 	}
 }
 
-impl sqlx::Type<sqlx::Postgres> for RolePermission {
-	fn type_info() -> sqlx::postgres::PgTypeInfo {
-		<i64 as sqlx::Type<sqlx::Postgres>>::type_info()
+impl postgres_types::ToSql for RolePermission {
+	postgres_types::to_sql_checked!();
+
+	fn to_sql(
+		&self,
+		ty: &postgres_types::Type,
+		out: &mut bytes::BytesMut,
+	) -> Result<postgres_types::IsNull, Box<dyn std::error::Error + Sync + Send>> {
+		<i64 as postgres_types::ToSql>::to_sql(&self.bits(), ty, out)
+	}
+
+	fn accepts(ty: &postgres_types::Type) -> bool {
+		<i64 as postgres_types::ToSql>::accepts(ty)
 	}
 }
 

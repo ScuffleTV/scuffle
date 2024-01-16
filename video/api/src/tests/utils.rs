@@ -14,35 +14,33 @@ use crate::config::ApiConfig;
 use crate::global::ApiGlobal;
 
 pub async fn create_organization(global: &Arc<impl ApiGlobal>) -> video_common::database::Organization {
-	sqlx::query_as("INSERT INTO organizations (id, name, updated_at, tags) VALUES ($1, $2, $3, $4) RETURNING *")
-		.bind(common::database::Ulid(Ulid::new()))
+	common::database::query("INSERT INTO organizations (id, name, updated_at, tags) VALUES ($1, $2, $3, $4) RETURNING *")
+		.bind(Ulid::new())
 		.bind("test")
 		.bind(chrono::Utc::now())
-		.bind(sqlx::types::Json(std::collections::HashMap::<String, String>::default()))
-		.fetch_one(global.db().as_ref())
+		.bind(common::database::Json(std::collections::HashMap::<String, String>::default()))
+		.build_query_as()
+		.fetch_one(global.db())
 		.await
-		.expect("Failed to create organization")
+		.unwrap()
 }
 
 pub async fn create_access_token(
 	global: &Arc<impl ApiGlobal>,
-	organization_id: &common::database::Ulid,
+	organization_id: &Ulid,
 	scopes: Vec<common::database::Protobuf<AccessTokenScope>>,
 	tags: std::collections::HashMap<String, String>,
 ) -> video_common::database::AccessToken {
-	sqlx::query_as(
-        "INSERT INTO access_tokens (id, organization_id, secret_token, last_active_at, updated_at, expires_at, scopes, tags) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
-    ).bind(common::database::Ulid(Ulid::new()))
-    .bind(organization_id)
-    .bind(common::database::Ulid(Ulid::new()))
-    .bind(chrono::Utc::now())
-    .bind(chrono::Utc::now())
-    .bind(chrono::Utc::now().add(chrono::Duration::days(1)))
-    .bind(scopes)
-    .bind(sqlx::types::Json(tags))
-    .fetch_one(global.db().as_ref())
-    .await
-    .expect("Failed to create access token")
+	common::database::query("INSERT INTO access_tokens (id, organization_id, secret_token, last_active_at, updated_at, expires_at, scopes, tags) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *")
+		.bind(Ulid::new())
+		.bind(organization_id)
+		.bind(Ulid::new())
+		.bind(chrono::Utc::now())
+		.bind(chrono::Utc::now())
+		.bind(chrono::Utc::now().add(chrono::Duration::days(1)))
+		.bind(scopes)
+		.bind(common::database::Json(tags))
+		.build_query_as().fetch_one(global.db()).await.unwrap()
 }
 
 // Shared setup function

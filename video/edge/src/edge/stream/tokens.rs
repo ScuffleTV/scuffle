@@ -44,8 +44,8 @@ pub enum TargetId {
 }
 
 impl TokenClaims {
-	pub async fn verify<G: EdgeGlobal>(
-		global: &Arc<G>,
+	pub async fn verify(
+		client: &common::database::tokio_postgres::Client,
 		organization_id: Ulid,
 		target_id: TargetId,
 		token: &str,
@@ -131,7 +131,7 @@ impl TokenClaims {
 			return Err((StatusCode::BAD_REQUEST, "invalid token, iat is too far in the past").into());
 		}
 
-		let keypair: Option<PlaybackKeyPair> = sqlx::query_as(
+		let keypair: Option<PlaybackKeyPair> = common::database::query(
 			r#"
 			SELECT
 				*
@@ -142,9 +142,10 @@ impl TokenClaims {
 				AND id = $2
 			"#,
 		)
-		.bind(common::database::Ulid(organization_id))
-		.bind(common::database::Ulid(playback_key_pair_id))
-		.fetch_optional(global.db().as_ref())
+		.bind(organization_id)
+		.bind(playback_key_pair_id)
+		.build_query_as()
+		.fetch_optional(client)
 		.await
 		.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?;
 
@@ -161,10 +162,10 @@ impl TokenClaims {
 			.verify_with_key(&verifier)
 			.map_err(|_| (StatusCode::BAD_REQUEST, "invalid token, failed to verify"))?;
 
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
+		let mut qb = common::database::QueryBuilder::default();
 
 		qb.push("SELECT 1 FROM playback_session_revocations WHERE organization_id = ")
-			.push_bind(common::database::Ulid(organization_id))
+			.push_bind(organization_id)
 			.push(" AND revoke_before < ")
 			.push_bind(iat);
 
@@ -177,12 +178,12 @@ impl TokenClaims {
 		match target_id {
 			TargetId::Recording(recording_id) => {
 				qb.push(" AND (recording_id = ")
-					.push_bind(common::database::Ulid(recording_id))
+					.push_bind(recording_id)
 					.push(" OR recording_id IS NULL) AND room_id IS NULL");
 			}
 			TargetId::Room(room_id) => {
 				qb.push(" AND (room_id = ")
-					.push_bind(common::database::Ulid(room_id))
+					.push_bind(room_id)
 					.push(" OR room_id IS NULL) AND recording_id IS NULL");
 			}
 		}
@@ -191,7 +192,7 @@ impl TokenClaims {
 
 		if qb
 			.build()
-			.fetch_optional(global.db().as_ref())
+			.fetch_optional(client)
 			.await
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?
 			.is_some()
@@ -200,19 +201,22 @@ impl TokenClaims {
 		}
 
 		if let Some(id) = token.claims().id.as_ref() {
-			if sqlx::query(
+			if common::database::query(
 				"INSERT INTO playback_session_revocations(organization_id, sso_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
 			)
-			.bind(common::database::Ulid(organization_id))
+			.bind(organization_id)
 			.bind(id)
-			.execute(global.db().as_ref())
+			.build()
+			.execute(client)
 			.await
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?
-			.rows_affected() != 1
+				!= 1
 			{
 				return Err((StatusCode::BAD_REQUEST, "token has already been used").into());
 			}
 		}
+
+		drop(qb);
 
 		Ok(token)
 	}

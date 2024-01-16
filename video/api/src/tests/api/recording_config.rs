@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use common::global::GlobalDb;
 use pb::ext::UlidExt;
 use pb::scuffle::video::v1::recording_config_modify_request::{LifecyclePolicyList, RenditionList};
 use pb::scuffle::video::v1::types::{RecordingLifecyclePolicy, SearchOptions, Tags};
@@ -24,7 +25,7 @@ async fn test_recording_config_get_qb() {
 	let test_cases = vec![
 		(
 			RecordingConfigGetRequest {
-				ids: vec![access_token.organization_id.0.into()],
+				ids: vec![access_token.organization_id.into()],
 				search_options: None,
 			},
 			Ok("SELECT * FROM recording_configs WHERE organization_id = $1 AND id = ANY($2) ORDER BY id ASC LIMIT 100"),
@@ -35,7 +36,7 @@ async fn test_recording_config_get_qb() {
 				search_options: Some(SearchOptions {
 					limit: 10,
 					reverse: true,
-					after_id: Some(access_token.organization_id.0.into()),
+					after_id: Some(access_token.organization_id.into()),
 					tags: Some(Tags {
 						tags: vec![("example_tag".to_string(), "example_value".to_string())]
 							.into_iter()
@@ -61,13 +62,13 @@ async fn test_recording_config_get_qb() {
 async fn test_recording_config_create_qb() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 
 	let test_cases = vec![(
 		RecordingConfigCreateRequest {
 			tags: None,
 			lifecycle_policies: vec![],
-			s3_bucket_id: Some(s3_bucket.id.0.into()),
+			s3_bucket_id: Some(s3_bucket.id.into()),
 			stored_renditions: vec![
 				pb::scuffle::video::v1::types::Rendition::VideoSource as i32,
 				pb::scuffle::video::v1::types::Rendition::AudioSource as i32,
@@ -80,7 +81,7 @@ async fn test_recording_config_create_qb() {
 
 	for (req, expected) in test_cases {
 		assert!(recording_config::create::validate(&req).is_ok());
-		let result = recording_config::create::build_query(&req, &global, &access_token).await;
+		let result = recording_config::create::build_query(&req, global.db(), &access_token).await;
 		assert_query_matches(result, expected);
 	}
 
@@ -91,12 +92,12 @@ async fn test_recording_config_create_qb() {
 async fn test_recording_config_modify_qb() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 
 	let test_cases = vec![
 		(
 			RecordingConfigModifyRequest {
-				id: Some(access_token.id.0.into()),
+				id: Some(access_token.id.into()),
 				tags: None,
 				lifecycle_policies: Some(LifecyclePolicyList { items: vec![] }),
 				stored_renditions: None,
@@ -108,7 +109,7 @@ async fn test_recording_config_modify_qb() {
 		),
 		(
 			RecordingConfigModifyRequest {
-				id: Some(access_token.id.0.into()),
+				id: Some(access_token.id.into()),
 				tags: Some(Tags {
 					tags: vec![("example_tag".to_string(), "example_value".to_string())]
 						.into_iter()
@@ -124,7 +125,7 @@ async fn test_recording_config_modify_qb() {
 		),
 		(
 			RecordingConfigModifyRequest {
-				id: Some(access_token.id.0.into()),
+				id: Some(access_token.id.into()),
 				tags: Some(Tags {
 					tags: vec![("example_tag".to_string(), "example_value".to_string())]
 						.into_iter()
@@ -145,10 +146,10 @@ async fn test_recording_config_modify_qb() {
 		),
 		(
 			RecordingConfigModifyRequest {
-				id: Some(access_token.id.0.into()),
+				id: Some(access_token.id.into()),
 				tags: None,
 				lifecycle_policies: None,
-				s3_bucket_id: Some(s3_bucket.id.0.into()),
+				s3_bucket_id: Some(s3_bucket.id.into()),
 				stored_renditions: None,
 			},
 			Ok(
@@ -157,7 +158,7 @@ async fn test_recording_config_modify_qb() {
 		),
 		(
 			RecordingConfigModifyRequest {
-				id: Some(access_token.id.0.into()),
+				id: Some(access_token.id.into()),
 				tags: None,
 				lifecycle_policies: None,
 				stored_renditions: None,
@@ -169,7 +170,7 @@ async fn test_recording_config_modify_qb() {
 
 	for (req, expected) in test_cases {
 		assert!(recording_config::modify::validate(&req).is_ok());
-		let result = recording_config::modify::build_query(&req, &global, &access_token).await;
+		let result = recording_config::modify::build_query(&req, global.db(), &access_token).await;
 		assert_query_matches(result, expected);
 	}
 
@@ -182,7 +183,7 @@ async fn test_recording_config_tag_qb() {
 
 	let test_cases = vec![(
 		RecordingConfigTagRequest {
-			id: Some(access_token.id.0.into()),
+			id: Some(access_token.id.into()),
 			tags: Some(Tags {
 				tags: vec![("example_tag".to_string(), "example_value".to_string())]
 					.into_iter()
@@ -209,11 +210,11 @@ async fn test_recording_config_untag_qb() {
 
 	let test_cases = vec![(
 		RecordingConfigUntagRequest {
-			id: Some(access_token.id.0.into()),
+			id: Some(access_token.id.into()),
 			tags: vec!["example_tag".to_string()],
 		},
 		Ok(
-			"WITH rt AS (SELECT id, tags - $1 AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM recording_configs WHERE id = $2 AND organization_id = $3 GROUP BY id, organization_id) UPDATE recording_configs AS t SET tags = CASE WHEN rt.status = 0 THEN rt.new_tags ELSE tags END, updated_at = CASE WHEN rt.status = 0 THEN now() ELSE updated_at END FROM rt WHERE t.id = rt.id RETURNING t.tags AS tags, rt.status AS status;",
+			"WITH rt AS (SELECT id, tags - $1::TEXT[] AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM recording_configs WHERE id = $2 AND organization_id = $3 GROUP BY id, organization_id) UPDATE recording_configs AS t SET tags = CASE WHEN rt.status = 0 THEN rt.new_tags ELSE tags END, updated_at = CASE WHEN rt.status = 0 THEN now() ELSE updated_at END FROM rt WHERE t.id = rt.id RETURNING t.tags AS tags, rt.status AS status;",
 		),
 	)];
 
@@ -230,11 +231,11 @@ async fn test_recording_config_untag_qb() {
 async fn test_recording_config_tag() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording_config = create_recording_config(
 		&global,
-		access_token.organization_id.0,
-		s3_bucket.id.0,
+		access_token.organization_id,
+		s3_bucket.id,
 		vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 	)
 	.await;
@@ -243,7 +244,7 @@ async fn test_recording_config_tag() {
 		&global,
 		&access_token,
 		RecordingConfigTagRequest {
-			id: Some(recording_config.id.0.into()),
+			id: Some(recording_config.id.into()),
 			tags: Some(Tags {
 				tags: vec![("key2".to_string(), "value2".to_string())].into_iter().collect(),
 			}),
@@ -263,11 +264,11 @@ async fn test_recording_config_tag() {
 async fn test_recording_config_untag() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording_config = create_recording_config(
 		&global,
-		access_token.organization_id.0,
-		s3_bucket.id.0,
+		access_token.organization_id,
+		s3_bucket.id,
 		vec![
 			("key".to_string(), "value".to_string()),
 			("key2".to_string(), "value2".to_string()),
@@ -281,7 +282,7 @@ async fn test_recording_config_untag() {
 		&global,
 		&access_token,
 		RecordingConfigUntagRequest {
-			id: Some(recording_config.id.0.into()),
+			id: Some(recording_config.id.into()),
 			tags: vec!["key".to_string()],
 		},
 	)
@@ -298,14 +299,14 @@ async fn test_recording_config_untag() {
 async fn test_recording_config_create() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 
 	let response: RecordingConfigCreateResponse = process_request(
 		&global,
 		&access_token,
 		RecordingConfigCreateRequest {
 			lifecycle_policies: vec![],
-			s3_bucket_id: Some(s3_bucket.id.0.into()),
+			s3_bucket_id: Some(s3_bucket.id.into()),
 			stored_renditions: vec![
 				pb::scuffle::video::v1::types::Rendition::VideoSource as i32,
 				pb::scuffle::video::v1::types::Rendition::AudioSource as i32,
@@ -330,7 +331,7 @@ async fn test_recording_config_create() {
 					pb::scuffle::video::v1::types::Rendition::AudioSource as i32,
 				],
 			}],
-			s3_bucket_id: Some(s3_bucket.id.0.into()),
+			s3_bucket_id: Some(s3_bucket.id.into()),
 			stored_renditions: vec![
 				pb::scuffle::video::v1::types::Rendition::VideoSource as i32,
 				pb::scuffle::video::v1::types::Rendition::AudioSource as i32,
@@ -365,11 +366,11 @@ async fn test_recording_config_create() {
 async fn test_recording_config_modify() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording_config = create_recording_config(
 		&global,
-		access_token.organization_id.0,
-		s3_bucket.id.0,
+		access_token.organization_id,
+		s3_bucket.id,
 		vec![
 			("key".to_string(), "value".to_string()),
 			("key2".to_string(), "value2".to_string()),
@@ -383,7 +384,7 @@ async fn test_recording_config_modify() {
 		&global,
 		&access_token,
 		RecordingConfigModifyRequest {
-			id: Some(recording_config.id.0.into()),
+			id: Some(recording_config.id.into()),
 			lifecycle_policies: None,
 			stored_renditions: None,
 			tags: Some(Tags {
@@ -406,7 +407,7 @@ async fn test_recording_config_modify() {
 		&global,
 		&access_token,
 		RecordingConfigModifyRequest {
-			id: Some(recording_config.id.0.into()),
+			id: Some(recording_config.id.into()),
 			s3_bucket_id: None,
 			lifecycle_policies: Some(LifecyclePolicyList {
 				items: vec![RecordingLifecyclePolicy {
@@ -446,27 +447,27 @@ async fn test_recording_config_modify() {
 async fn test_recording_config_get() {
 	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, main_access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, main_access_token.organization_id, HashMap::new()).await;
 
 	let created = vec![
 		create_recording_config(
 			&global,
-			main_access_token.organization_id.0,
-			s3_bucket.id.0,
+			main_access_token.organization_id,
+			s3_bucket.id,
 			vec![("common".to_string(), "shared".to_string())].into_iter().collect(),
 		)
 		.await,
 		create_recording_config(
 			&global,
-			main_access_token.organization_id.0,
-			s3_bucket.id.0,
+			main_access_token.organization_id,
+			s3_bucket.id,
 			vec![("common1".to_string(), "shared1".to_string())].into_iter().collect(),
 		)
 		.await,
 		create_recording_config(
 			&global,
-			main_access_token.organization_id.0,
-			s3_bucket.id.0,
+			main_access_token.organization_id,
+			s3_bucket.id,
 			vec![("common2".to_string(), "shared2".to_string())].into_iter().collect(),
 		)
 		.await,
@@ -477,7 +478,7 @@ async fn test_recording_config_get() {
 		&global,
 		&main_access_token,
 		RecordingConfigGetRequest {
-			ids: created.iter().map(|token| token.id.0.into()).collect(),
+			ids: created.iter().map(|token| token.id.into()).collect(),
 			search_options: None,
 		},
 	)
@@ -490,7 +491,7 @@ async fn test_recording_config_get() {
 	for token in fetched {
 		let og_key = created
 			.iter()
-			.find(|&t| t.id.0 == token.id.into_ulid())
+			.find(|&t| t.id == token.id.into_ulid())
 			.expect("Fetched keypair must match one of the created ones");
 		assert_eq!(token.tags.unwrap().tags, og_key.tags, "Tags should match");
 	}
@@ -552,12 +553,12 @@ async fn test_recording_config_get() {
 async fn test_recording_config_delete() {
 	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, main_access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, main_access_token.organization_id, HashMap::new()).await;
 
 	let recording_config = create_recording_config(
 		&global,
-		main_access_token.organization_id.0,
-		s3_bucket.id.0,
+		main_access_token.organization_id,
+		s3_bucket.id,
 		vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 	)
 	.await;
@@ -566,7 +567,7 @@ async fn test_recording_config_delete() {
 		&global,
 		&main_access_token,
 		RecordingConfigDeleteRequest {
-			ids: vec![recording_config.id.0.into()],
+			ids: vec![recording_config.id.into()],
 		},
 	)
 	.await
@@ -577,7 +578,7 @@ async fn test_recording_config_delete() {
 	// Assertions for successful deletion
 	assert_eq!(deleted.len(), 1, "Should successfully delete one playback key pair");
 	assert!(
-		deleted.contains(&recording_config.id.0.into()),
+		deleted.contains(&recording_config.id.into()),
 		"Deleted token list should contain the token ID"
 	);
 	assert!(failed_deletions.is_empty(), "No deletions should fail in this scenario");
@@ -605,12 +606,12 @@ async fn test_recording_config_boiler_plate() {
 		req
 	}
 
-	let s3_bucket = create_s3_bucket(&global, main_access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, main_access_token.organization_id, HashMap::new()).await;
 
 	let recording_config = create_recording_config(
 		&global,
-		main_access_token.organization_id.0,
-		s3_bucket.id.0,
+		main_access_token.organization_id,
+		s3_bucket.id,
 		vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 	)
 	.await;
@@ -620,7 +621,7 @@ async fn test_recording_config_boiler_plate() {
 			&global,
 			&main_access_token,
 			RecordingConfigGetRequest {
-				ids: vec![recording_config.id.0.into()],
+				ids: vec![recording_config.id.into()],
 				search_options: None,
 			},
 		))
@@ -656,7 +657,7 @@ async fn test_recording_config_boiler_plate() {
 			&main_access_token,
 			RecordingConfigCreateRequest {
 				lifecycle_policies: vec![],
-				s3_bucket_id: Some(s3_bucket.id.0.into()),
+				s3_bucket_id: Some(s3_bucket.id.into()),
 				stored_renditions: vec![
 					pb::scuffle::video::v1::types::Rendition::VideoSource as i32,
 					pb::scuffle::video::v1::types::Rendition::AudioSource as i32,
@@ -699,7 +700,7 @@ async fn test_recording_config_boiler_plate() {
 			&global,
 			&main_access_token,
 			RecordingConfigTagRequest {
-				id: Some(recording_config.id.0.into()),
+				id: Some(recording_config.id.into()),
 				tags: Some(Tags {
 					tags: vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 				}),
@@ -731,7 +732,7 @@ async fn test_recording_config_boiler_plate() {
 			&global,
 			&main_access_token,
 			RecordingConfigUntagRequest {
-				id: Some(recording_config.id.0.into()),
+				id: Some(recording_config.id.into()),
 				tags: vec!["key".to_string()],
 			},
 		))
@@ -765,7 +766,7 @@ async fn test_recording_config_boiler_plate() {
 			&global,
 			&main_access_token,
 			RecordingConfigModifyRequest {
-				id: Some(recording_config.id.0.into()),
+				id: Some(recording_config.id.into()),
 				tags: Some(Tags {
 					tags: vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 				}),
@@ -806,7 +807,7 @@ async fn test_recording_config_boiler_plate() {
 			&global,
 			&main_access_token,
 			RecordingConfigDeleteRequest {
-				ids: vec![recording_config.id.0.into()],
+				ids: vec![recording_config.id.into()],
 			},
 		))
 		.await

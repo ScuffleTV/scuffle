@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use pb::ext::UlidExt;
 use pb::scuffle::video::v1::types::{AudioConfig, Rendition, TranscodingConfig, VideoConfig};
 use prost::Message;
 use ulid::Ulid;
-use uuid::Uuid;
-use video_common::database::{Room, S3Bucket};
+use video_common::database::Room;
 
 use super::recording::Recording;
 use crate::global::TranscoderGlobal;
@@ -26,7 +26,9 @@ pub async fn perform_sql_operations(
 	room_id: Ulid,
 	connection_id: Ulid,
 ) -> anyhow::Result<SqlOperations> {
-	let room: Option<Room> = match sqlx::query_as(
+	let mut client = global.db().get().await.context("failed to get database connection")?;
+
+	let room: Option<Room> = match common::database::query(
 		r#"
         SELECT 
             *
@@ -37,10 +39,11 @@ pub async fn perform_sql_operations(
             active_ingest_connection_id = $3
         "#,
 	)
-	.bind(common::database::Ulid(organization_id))
-	.bind(common::database::Ulid(room_id))
-	.bind(common::database::Ulid(connection_id))
-	.fetch_optional(global.db().as_ref())
+	.bind(organization_id)
+	.bind(room_id)
+	.bind(connection_id)
+	.build_query_as()
+	.fetch_optional(&client)
 	.await
 	{
 		Ok(r) => r,
@@ -56,18 +59,16 @@ pub async fn perform_sql_operations(
 	let Some(video_input) = room.video_input else {
 		anyhow::bail!("room has no video input");
 	};
-	let video_input = video_input.0;
 
 	let Some(audio_input) = room.audio_input else {
 		anyhow::bail!("room has no audio input");
 	};
-	let audio_input = audio_input.0;
 
 	let recording_config = if let Some(recording_config) = room.active_recording_config {
-		Some(recording_config.0)
+		Some(recording_config)
 	} else if let Some(recording_config_id) = &room.recording_config_id {
 		Some(
-			match sqlx::query_as::<_, video_common::database::RecordingConfig>(
+			match common::database::query(
 				r#"
 				SELECT
 					*
@@ -78,9 +79,10 @@ pub async fn perform_sql_operations(
 					AND id = $2
 				"#,
 			)
-			.bind(Uuid::from(organization_id))
+			.bind(organization_id)
 			.bind(recording_config_id)
-			.fetch_one(global.db().as_ref())
+			.build_query_as::<video_common::database::RecordingConfig>()
+			.fetch_one(&client)
 			.await
 			{
 				Ok(r) => r.into_proto(),
@@ -93,12 +95,12 @@ pub async fn perform_sql_operations(
 		None
 	};
 
-	let recording_config = if let Some(recording) = recording_config {
-		let s3_bucket_id = recording.s3_bucket_id.into_ulid();
+	let recording_config = if let Some(recording_config) = recording_config {
+		let s3_bucket_id = recording_config.s3_bucket_id.into_ulid();
 
 		Some((
-			recording,
-			match sqlx::query_as::<_, S3Bucket>(
+			recording_config,
+			match common::database::query(
 				r#"
 				SELECT
 					*
@@ -109,9 +111,10 @@ pub async fn perform_sql_operations(
 					AND id = $2
 				"#,
 			)
-			.bind(Uuid::from(organization_id))
-			.bind(Uuid::from(s3_bucket_id))
-			.fetch_one(global.db().as_ref())
+			.bind(organization_id)
+			.bind(s3_bucket_id)
+			.build_query_as()
+			.fetch_one(&client)
 			.await
 			{
 				Ok(r) => r,
@@ -125,9 +128,9 @@ pub async fn perform_sql_operations(
 	};
 
 	let transcoding_config = if let Some(transcoding_config) = room.active_transcoding_config {
-		transcoding_config.0
+		transcoding_config
 	} else if let Some(transcoding_config_id) = &room.transcoding_config_id {
-		match sqlx::query_as::<_, video_common::database::TranscodingConfig>(
+		match common::database::query(
 			r#"
 			SELECT
 				*
@@ -138,9 +141,10 @@ pub async fn perform_sql_operations(
 				AND id = $2
 			"#,
 		)
-		.bind(Uuid::from(organization_id))
-		.bind(*transcoding_config_id)
-		.fetch_one(global.db().as_ref())
+		.bind(organization_id)
+		.bind(transcoding_config_id)
+		.build_query_as::<video_common::database::TranscodingConfig>()
+		.fetch_one(&client)
 		.await
 		{
 			Ok(r) => r.into_proto(),
@@ -157,14 +161,9 @@ pub async fn perform_sql_operations(
 
 	let (video_output, audio_output) = determine_output_renditions(&video_input, &audio_input, &transcoding_config);
 
-	let mut tx = match global.db().begin().await {
-		Ok(tx) => tx,
-		Err(err) => {
-			anyhow::bail!("failed to begin transaction: {}", err);
-		}
-	};
+	let tx = client.transaction().await.context("failed to start transaction")?;
 
-	sqlx::query(
+	common::database::query(
 		r#"
         UPDATE rooms
         SET
@@ -183,17 +182,18 @@ pub async fn perform_sql_operations(
 	.bind(recording_config.as_ref().map(|(r, _)| r.encode_to_vec()))
 	.bind(video_output.iter().map(|v| v.encode_to_vec()).collect::<Vec<_>>())
 	.bind(audio_output.iter().map(|v| v.encode_to_vec()).collect::<Vec<_>>())
-	.bind(common::database::Ulid(organization_id))
-	.bind(common::database::Ulid(room_id))
-	.bind(common::database::Ulid(connection_id))
-	.execute(tx.as_mut())
+	.bind(organization_id)
+	.bind(room_id)
+	.bind(connection_id)
+	.build()
+	.execute(&tx)
 	.await?;
 
 	let recording = if let Some((recording_config, s3_bucket)) = &recording_config {
 		Some(
 			Recording::new(
 				global,
-				&mut tx,
+				&tx,
 				room.active_recording_id.map(Ulid::from).unwrap_or_else(Ulid::new),
 				organization_id,
 				room_id,

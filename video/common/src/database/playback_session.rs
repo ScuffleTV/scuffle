@@ -1,12 +1,15 @@
-use common::database::Ulid;
+use std::net::IpAddr;
+
 use pb::scuffle::video::v1::types::{playback_session, playback_session_target, PlaybackSessionTarget};
+use postgres_from_row::FromRow;
+use ulid::Ulid;
 
 use super::playback_session_browser::PlaybackSessionBrowser;
 use super::playback_session_device::PlaybackSessionDevice;
 use super::playback_session_platform::PlaybackSessionPlatform;
 use super::DatabaseTable;
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, FromRow)]
 pub struct PlaybackSession {
 	/// The organization this playback session belongs to (primary key)
 	pub organization_id: Ulid,
@@ -37,7 +40,7 @@ pub struct PlaybackSession {
 	pub expires_at: chrono::DateTime<chrono::Utc>,
 
 	/// The ip address of the client that used the playback session
-	pub ip_address: sqlx::types::ipnetwork::IpNetwork,
+	pub ip_address: IpAddr,
 
 	/// The user agent of the client that used the playback session
 	pub user_agent: Option<String>,
@@ -69,19 +72,19 @@ impl DatabaseTable for PlaybackSession {
 impl PlaybackSession {
 	pub fn into_proto(self) -> pb::scuffle::video::v1::types::PlaybackSession {
 		pb::scuffle::video::v1::types::PlaybackSession {
-			id: Some(self.id.0.into()),
+			id: Some(self.id.into()),
 			target: Some(PlaybackSessionTarget {
 				target: Some(match self.room_id {
-					Some(room_id) => playback_session_target::Target::RoomId(room_id.0.into()),
-					None => playback_session_target::Target::RecordingId(self.recording_id.unwrap().0.into()),
+					Some(room_id) => playback_session_target::Target::RoomId(room_id.into()),
+					None => playback_session_target::Target::RecordingId(self.recording_id.unwrap().into()),
 				}),
 			}),
 			user_id: self.user_id,
-			playback_key_pair_id: self.playback_key_pair_id.map(|id| id.0.into()),
+			playback_key_pair_id: self.playback_key_pair_id.map(|id| id.into()),
 			issued_at: self.issued_at.map(|dt| dt.timestamp_millis()),
-			created_at: self.id.0.timestamp_ms() as i64,
+			created_at: self.id.timestamp_ms() as i64,
 			last_active_at: (self.expires_at - chrono::Duration::minutes(10)).timestamp_millis(),
-			ip_address: self.ip_address.ip().to_string(),
+			ip_address: self.ip_address.to_string(),
 			user_agent: self.user_agent,
 			referer: self.referer,
 			origin: self.origin,

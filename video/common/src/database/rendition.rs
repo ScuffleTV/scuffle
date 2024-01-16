@@ -1,18 +1,18 @@
-use sqlx::postgres::PgHasArrayType;
+use postgres_types::{FromSql, ToSql};
 
-#[derive(Debug, sqlx::Type, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, PartialOrd, Ord)]
-#[sqlx(type_name = "rendition")]
+#[derive(Debug, FromSql, ToSql, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, PartialOrd, Ord)]
+#[postgres(name = "rendition")]
 #[serde(rename_all = "snake_case")]
 pub enum Rendition {
-	#[sqlx(rename = "VIDEO_SOURCE")]
+	#[postgres(name = "VIDEO_SOURCE")]
 	VideoSource,
-	#[sqlx(rename = "VIDEO_HD")]
+	#[postgres(name = "VIDEO_HD")]
 	VideoHd,
-	#[sqlx(rename = "VIDEO_SD")]
+	#[postgres(name = "VIDEO_SD")]
 	VideoSd,
-	#[sqlx(rename = "VIDEO_LD")]
+	#[postgres(name = "VIDEO_LD")]
 	VideoLd,
-	#[sqlx(rename = "AUDIO_SOURCE")]
+	#[postgres(name = "AUDIO_SOURCE")]
 	AudioSource,
 }
 
@@ -39,12 +39,6 @@ impl Rendition {
 			Self::VideoLd,
 			Self::AudioSource,
 		]
-	}
-}
-
-impl PgHasArrayType for Rendition {
-	fn array_type_info() -> sqlx::postgres::PgTypeInfo {
-		sqlx::postgres::PgTypeInfo::with_name("_rendition")
 	}
 }
 

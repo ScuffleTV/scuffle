@@ -1,10 +1,12 @@
-#[derive(Debug, Default, sqlx::Type, Clone, Copy, PartialEq)]
-#[sqlx(type_name = "visibility")]
+use postgres_types::{FromSql, ToSql};
+
+#[derive(Debug, Default, ToSql, FromSql, Clone, Copy, PartialEq)]
+#[postgres(name = "visibility")]
 pub enum Visibility {
-	#[sqlx(rename = "PUBLIC")]
+	#[postgres(name = "PUBLIC")]
 	#[default]
 	Public,
-	#[sqlx(rename = "PRIVATE")]
+	#[postgres(name = "PRIVATE")]
 	Private,
 }
 

@@ -251,20 +251,22 @@ impl TestState {
 			})
 		};
 
-		sqlx::query("INSERT INTO organizations (id, name) VALUES ($1, $2)")
-			.bind(Uuid::from(org_id))
+		common::database::query("INSERT INTO organizations (id, name) VALUES ($1, $2)")
+			.bind(org_id)
 			.bind("test")
-			.execute(global.db().as_ref())
+			.build()
+			.execute(global.db())
 			.await
 			.unwrap();
 
 		let room_id = Ulid::new();
 
-		sqlx::query("INSERT INTO rooms (organization_id, id, stream_key) VALUES ($1, $2, $3)")
-			.bind(Uuid::from(org_id))
-			.bind(Uuid::from(room_id))
-			.bind(Uuid::from(room_id).simple().to_string())
-			.execute(global.db().as_ref())
+		common::database::query("INSERT INTO rooms (organization_id, id, stream_key) VALUES ($1, $2, $3)")
+			.bind(org_id)
+			.bind(room_id)
+			.bind(room_id.to_string())
+			.build()
+			.execute(global.db())
 			.await
 			.unwrap();
 
@@ -332,12 +334,14 @@ async fn test_ingest_stream() {
 		_ => panic!("unexpected event"),
 	}
 
-	let room: video_common::database::Room = sqlx::query_as("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
-		.bind(Uuid::from(state.org_id))
-		.bind(Uuid::from(state.room_id))
-		.fetch_one(state.global.db().as_ref())
-		.await
-		.unwrap();
+	let room: video_common::database::Room =
+		common::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
+			.bind(state.org_id)
+			.bind(state.room_id)
+			.build_query_as()
+			.fetch_one(state.global.db())
+			.await
+			.unwrap();
 
 	assert!(room.last_live_at.is_some());
 	assert!(room.last_disconnected_at.is_none());
@@ -518,10 +522,11 @@ async fn test_ingest_stream() {
 
 	tracing::info!("waiting for transcoder to exit");
 
-	let room: Room = sqlx::query_as("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
-		.bind(Uuid::from(state.org_id))
-		.bind(Uuid::from(state.room_id))
-		.fetch_one(state.global.db().as_ref())
+	let room: Room = common::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
+		.bind(state.org_id)
+		.bind(state.room_id)
+		.build_query_as()
+		.fetch_one(state.global.db())
 		.await
 		.unwrap();
 
@@ -719,10 +724,11 @@ async fn test_ingest_stream_shutdown() {
 		_ => panic!("unexpected event"),
 	}
 
-	let room: Room = sqlx::query_as("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
-		.bind(Uuid::from(state.org_id))
-		.bind(Uuid::from(state.room_id))
-		.fetch_one(state.global.db().as_ref())
+	let room: Room = common::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
+		.bind(state.org_id)
+		.bind(state.room_id)
+		.build_query_as()
+		.fetch_one(state.global.db())
 		.await
 		.unwrap();
 
@@ -759,10 +765,11 @@ async fn test_ingest_stream_transcoder_full() {
 		_ => panic!("unexpected event"),
 	}
 
-	let room: Room = sqlx::query_as("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
-		.bind(Uuid::from(state.org_id))
-		.bind(Uuid::from(state.room_id))
-		.fetch_one(state.global.db().as_ref())
+	let room: Room = common::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
+		.bind(state.org_id)
+		.bind(state.room_id)
+		.build_query_as()
+		.fetch_one(state.global.db())
 		.await
 		.unwrap();
 
@@ -787,7 +794,7 @@ async fn test_ingest_stream_transcoder_full() {
 
 	let msg = state.transcoder_request().await;
 	assert_eq!(
-		common::database::Ulid(msg.connection_id.into_ulid()),
+		msg.connection_id.into_ulid(),
 		room.active_ingest_connection_id.unwrap().0.into(),
 	);
 	assert!(!msg.request_id.into_ulid().is_nil());

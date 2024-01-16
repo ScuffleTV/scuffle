@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use common::database::IntoClient;
 use pb::ext::UlidExt;
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
@@ -25,12 +26,12 @@ pub fn validate(req: &RoomModifyRequest) -> tonic::Result<()> {
 	validate_tags(req.tags.as_ref())
 }
 
-pub async fn build_query<'a, G: ApiGlobal>(
+pub async fn build_query<'a>(
 	req: &'a RoomModifyRequest,
-	global: &'a Arc<G>,
+	client: impl IntoClient,
 	access_token: &AccessToken,
-) -> tonic::Result<sqlx::QueryBuilder<'a, sqlx::Postgres>> {
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+) -> tonic::Result<common::database::QueryBuilder<'a>> {
+	let mut qb = common::database::QueryBuilder::default();
 
 	qb.push("UPDATE ")
 		.push(<RoomModifyRequest as TonicRequest>::Table::NAME)
@@ -43,10 +44,11 @@ pub async fn build_query<'a, G: ApiGlobal>(
 		if transcoding_config_id.is_nil() {
 			seperated.push("transcoding_config_id = NULL");
 		} else {
-			let _: i64 = sqlx::query_scalar("SELECT 1 FROM transcoding_configs WHERE id = $1 AND organization_id = $2")
-				.bind(common::database::Ulid(transcoding_config_id))
+			common::database::query("SELECT 1 FROM transcoding_configs WHERE id = $1 AND organization_id = $2")
+				.bind(transcoding_config_id)
 				.bind(access_token.organization_id)
-				.fetch_optional(global.db().as_ref())
+				.build()
+				.fetch_optional(&client)
 				.await
 				.map_err(|err| {
 					tracing::error!(err = %err, "failed to fetch transcoding config");
@@ -56,7 +58,7 @@ pub async fn build_query<'a, G: ApiGlobal>(
 
 			seperated
 				.push("transcoding_config_id = ")
-				.push_bind_unseparated(common::database::Ulid(transcoding_config_id));
+				.push_bind_unseparated(transcoding_config_id);
 		}
 	}
 
@@ -65,10 +67,11 @@ pub async fn build_query<'a, G: ApiGlobal>(
 		if recording_config_id.is_nil() {
 			seperated.push("recording_config_id = NULL");
 		} else {
-			let _: i64 = sqlx::query_scalar("SELECT 1 FROM recording_configs WHERE id = $1 AND organization_id = $2")
-				.bind(common::database::Ulid(recording_config_id))
+			common::database::query("SELECT 1 FROM recording_configs WHERE id = $1 AND organization_id = $2")
+				.bind(recording_config_id)
 				.bind(access_token.organization_id)
-				.fetch_optional(global.db().as_ref())
+				.build()
+				.fetch_optional(&client)
 				.await
 				.map_err(|err| {
 					tracing::error!(err = %err, "failed to fetch recording config");
@@ -78,7 +81,7 @@ pub async fn build_query<'a, G: ApiGlobal>(
 
 			seperated
 				.push("recording_config_id = ")
-				.push_bind_unseparated(common::database::Ulid(recording_config_id));
+				.push_bind_unseparated(recording_config_id);
 		}
 	}
 
@@ -92,7 +95,9 @@ pub async fn build_query<'a, G: ApiGlobal>(
 	}
 
 	if let Some(tags) = &req.tags {
-		seperated.push("tags = ").push_bind_unseparated(sqlx::types::Json(&tags.tags));
+		seperated
+			.push("tags = ")
+			.push_bind_unseparated(common::database::Json(&tags.tags));
 	}
 
 	if req.tags.is_none()
@@ -105,7 +110,7 @@ pub async fn build_query<'a, G: ApiGlobal>(
 
 	seperated.push("updated_at = NOW()");
 
-	qb.push(" WHERE id = ").push_bind(common::database::Ulid(req.id.into_ulid()));
+	qb.push(" WHERE id = ").push_bind(req.id.into_ulid());
 	qb.push(" AND organization_id = ").push_bind(access_token.organization_id);
 	qb.push(" RETURNING *");
 
@@ -122,13 +127,15 @@ impl ApiRequest<RoomModifyResponse> for tonic::Request<RoomModifyRequest> {
 
 		validate(req)?;
 
-		let mut query = build_query(req, global, access_token).await?;
+		let client = global.db().get().await.map_err(|err| {
+			tracing::error!(err = %err, "failed to get db client");
+			Status::internal("internal server error")
+		})?;
 
-		let result: Option<video_common::database::Room> = query
-			.build_query_as()
-			.fetch_optional(global.db().as_ref())
-			.await
-			.map_err(|err| {
+		let query = build_query(req, &client, access_token).await?;
+
+		let result: Option<video_common::database::Room> =
+			query.build_query_as().fetch_optional(client).await.map_err(|err| {
 				tracing::error!(err = %err, "failed to modify {}", <RoomModifyRequest as TonicRequest>::Table::FRIENDLY_NAME);
 				tonic::Status::internal(format!(
 					"failed to modify {}",
@@ -146,10 +153,10 @@ impl ApiRequest<RoomModifyResponse> for tonic::Request<RoomModifyRequest> {
 		video_common::events::emit(
 			global.nats(),
 			&global.config().events.stream_name,
-			access_token.organization_id.0,
+			access_token.organization_id,
 			Target::Room,
 			event::Event::Room(event::Room {
-				room_id: Some(result.id.0.into()),
+				room_id: Some(result.id.into()),
 				event: Some(event::room::Event::Modified(event::room::Modified {})),
 			}),
 		)

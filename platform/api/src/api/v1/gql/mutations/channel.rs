@@ -29,7 +29,7 @@ impl<G: ApiGlobal> ChannelMutation<G> {
 			.await?
 			.map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
-		let user: database::User = sqlx::query_as(
+		let user: database::User = common::database::query(
 			r#"
 			UPDATE users
 			SET
@@ -42,17 +42,16 @@ impl<G: ApiGlobal> ChannelMutation<G> {
 		)
 		.bind(title.clone())
 		.bind(auth.session.user_id)
-		.fetch_one(global.db().as_ref())
+		.build_query_as()
+		.fetch_one(global.db())
 		.await?;
-
-		let channel_id = user.id.0;
 
 		global
 			.nats()
 			.publish(
-				SubscriptionTopic::ChannelTitle(channel_id),
+				SubscriptionTopic::ChannelTitle(user.id),
 				pb::scuffle::platform::internal::events::ChannelTitle {
-					channel_id: Some(channel_id.into()),
+					channel_id: Some(user.id.into()),
 					title,
 				}
 				.encode_to_vec()

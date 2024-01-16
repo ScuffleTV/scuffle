@@ -22,18 +22,18 @@ async fn test_access_token_get_qb() {
 	let test_cases = vec![
 		(
 			AccessTokenGetRequest {
-				ids: vec![access_token.id.0.into()],
+				ids: vec![access_token.id.into()],
 				search_options: None,
 			},
 			Ok("SELECT * FROM access_tokens WHERE organization_id = $1 AND id = ANY($2) ORDER BY id ASC LIMIT 100"),
 		),
 		(
 			AccessTokenGetRequest {
-				ids: vec![access_token.id.0.into()],
+				ids: vec![access_token.id.into()],
 				search_options: Some(SearchOptions {
 					limit: 1,
 					reverse: true,
-					after_id: Some(access_token.id.0.into()),
+					after_id: Some(access_token.id.into()),
 					tags: None,
 				}),
 			},
@@ -87,7 +87,7 @@ async fn test_access_token_tag_qb() {
 
 	let test_cases = vec![(
 		AccessTokenTagRequest {
-			id: Some(access_token.id.0.into()),
+			id: Some(access_token.id.into()),
 			tags: Some(Tags {
 				tags: vec![("example_tag".to_string(), "example_value".to_string())]
 					.into_iter()
@@ -114,11 +114,11 @@ async fn test_access_token_untag_qb() {
 
 	let test_cases = vec![(
 		AccessTokenUntagRequest {
-			id: Some(access_token.id.0.into()),
+			id: Some(access_token.id.into()),
 			tags: vec!["example_tag".to_string()],
 		},
 		Ok(
-			"WITH rt AS (SELECT id, tags - $1 AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM access_tokens WHERE id = $2 AND organization_id = $3 GROUP BY id, organization_id) UPDATE access_tokens AS t SET tags = CASE WHEN rt.status = 0 THEN rt.new_tags ELSE tags END, updated_at = CASE WHEN rt.status = 0 THEN now() ELSE updated_at END FROM rt WHERE t.id = rt.id RETURNING t.tags AS tags, rt.status AS status;",
+			"WITH rt AS (SELECT id, tags - $1::TEXT[] AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM access_tokens WHERE id = $2 AND organization_id = $3 GROUP BY id, organization_id) UPDATE access_tokens AS t SET tags = CASE WHEN rt.status = 0 THEN rt.new_tags ELSE tags END, updated_at = CASE WHEN rt.status = 0 THEN now() ELSE updated_at END FROM rt WHERE t.id = rt.id RETURNING t.tags AS tags, rt.status AS status;",
 		),
 	)];
 
@@ -136,7 +136,7 @@ async fn test_access_token_tag() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
 	let tag_request = AccessTokenTagRequest {
-		id: Some(access_token.id.0.into()),
+		id: Some(access_token.id.into()),
 		tags: Some(Tags {
 			tags: vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 		}),
@@ -157,7 +157,7 @@ async fn test_access_token_untag() {
 
 	// Tag the token first
 	let tag_request = AccessTokenTagRequest {
-		id: Some(access_token.id.0.into()),
+		id: Some(access_token.id.into()),
 		tags: Some(Tags {
 			tags: vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 		}),
@@ -169,7 +169,7 @@ async fn test_access_token_untag() {
 
 	// Now, untag
 	let untag_request = AccessTokenUntagRequest {
-		id: Some(access_token.id.0.into()),
+		id: Some(access_token.id.into()),
 		tags: vec!["key".to_string()],
 	};
 
@@ -268,7 +268,7 @@ async fn test_access_token_get() {
 
 	// Fetch the created tokens using AccessTokenGetRequest
 	let get_request = AccessTokenGetRequest {
-		ids: created_tokens.iter().map(|token| token.id.0.into()).collect(),
+		ids: created_tokens.iter().map(|token| token.id.into()).collect(),
 		search_options: None,
 	};
 
@@ -280,7 +280,7 @@ async fn test_access_token_get() {
 	for token in fetched_tokens {
 		let original_token = created_tokens
 			.iter()
-			.find(|&t| t.id.0 == token.id.into_ulid())
+			.find(|&t| t.id == token.id.into_ulid())
 			.expect("Fetched token must match one of the created ones");
 		assert_eq!(
 			token.tags.unwrap().tags,
@@ -348,7 +348,7 @@ async fn test_access_token_delete() {
 
 	// Delete request with a token the caller should have permission to delete
 	let delete_request = AccessTokenDeleteRequest {
-		ids: vec![token_to_delete.id.0.into()],
+		ids: vec![token_to_delete.id.into()],
 	};
 
 	let delete_response: AccessTokenDeleteResponse =
@@ -359,14 +359,14 @@ async fn test_access_token_delete() {
 	// Assertions for successful deletion
 	assert_eq!(deleted_tokens.len(), 1, "Should successfully delete one token");
 	assert!(
-		deleted_tokens.contains(&token_to_delete.id.0.into()),
+		deleted_tokens.contains(&token_to_delete.id.into()),
 		"Deleted token list should contain the token ID"
 	);
 	assert!(failed_deletions.is_empty(), "No deletions should fail in this scenario");
 
 	// Attempt to delete the caller's own token
 	let self_delete_request = AccessTokenDeleteRequest {
-		ids: vec![main_access_token.id.0.into()],
+		ids: vec![main_access_token.id.into()],
 	};
 
 	let self_delete_response: AccessTokenDeleteResponse = process_request(&global, &main_access_token, self_delete_request)
@@ -382,7 +382,7 @@ async fn test_access_token_delete() {
 	);
 	assert_eq!(
 		self_delete_response.failed_deletes[0].id,
-		Some(main_access_token.id.0.into()),
+		Some(main_access_token.id.into()),
 		"Failed deletion should be for own token"
 	);
 	assert_eq!(
@@ -418,7 +418,7 @@ async fn test_access_token_boiler_plate() {
 			&global,
 			&main_access_token,
 			AccessTokenGetRequest {
-				ids: vec![main_access_token.id.0.into()],
+				ids: vec![main_access_token.id.into()],
 				search_options: None,
 			},
 		))
@@ -492,7 +492,7 @@ async fn test_access_token_boiler_plate() {
 			&global,
 			&main_access_token,
 			AccessTokenTagRequest {
-				id: Some(main_access_token.id.0.into()),
+				id: Some(main_access_token.id.into()),
 				tags: Some(Tags {
 					tags: vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 				}),
@@ -524,7 +524,7 @@ async fn test_access_token_boiler_plate() {
 			&global,
 			&main_access_token,
 			AccessTokenUntagRequest {
-				id: Some(main_access_token.id.0.into()),
+				id: Some(main_access_token.id.into()),
 				tags: vec!["key".to_string()],
 			},
 		))
@@ -554,7 +554,7 @@ async fn test_access_token_boiler_plate() {
 			&global,
 			&main_access_token,
 			AccessTokenDeleteRequest {
-				ids: vec![main_access_token.id.0.into()],
+				ids: vec![main_access_token.id.into()],
 			},
 		))
 		.await

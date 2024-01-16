@@ -30,10 +30,10 @@ pub fn build_query(
 	req: &PlaybackKeyPairCreateRequest,
 	access_token: &AccessToken,
 	jwt: (String, String),
-) -> tonic::Result<sqlx::query_builder::QueryBuilder<'static, sqlx::Postgres>> {
+) -> tonic::Result<common::database::QueryBuilder<'static>> {
 	let (cert, fingerprint) = jwt;
 
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+	let mut qb = common::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<PlaybackKeyPairCreateRequest as TonicRequest>::Table::NAME)
@@ -52,12 +52,12 @@ pub fn build_query(
 
 	let mut seperated = qb.separated(",");
 
-	seperated.push_bind(common::database::Ulid(Ulid::new()));
+	seperated.push_bind(Ulid::new());
 	seperated.push_bind(access_token.organization_id);
-	seperated.push_bind(cert);
+	seperated.push_bind(cert.into_bytes());
 	seperated.push_bind(fingerprint);
 	seperated.push_bind(chrono::Utc::now());
-	seperated.push_bind(sqlx::types::Json(req.tags.clone().unwrap_or_default().tags));
+	seperated.push_bind(common::database::Json(req.tags.clone().unwrap_or_default().tags));
 
 	qb.push(") RETURNING *");
 
@@ -74,10 +74,10 @@ impl ApiRequest<PlaybackKeyPairCreateResponse> for tonic::Request<PlaybackKeyPai
 
 		let jwt = validate(req)?;
 
-		let mut query = build_query(req, access_token, jwt)?;
+		let query = build_query(req, access_token, jwt)?;
 
 		let playback_key_pair: video_common::database::PlaybackKeyPair =
-			query.build_query_as().fetch_one(global.db().as_ref()).await.map_err(|err| {
+			query.build_query_as().fetch_one(global.db()).await.map_err(|err| {
 				tracing::error!(err = %err, "failed to create {}", <PlaybackKeyPairCreateRequest as TonicRequest>::Table::FRIENDLY_NAME);
 				Status::internal(format!(
 					"failed to create {}",
@@ -88,10 +88,10 @@ impl ApiRequest<PlaybackKeyPairCreateResponse> for tonic::Request<PlaybackKeyPai
 		video_common::events::emit(
 			global.nats(),
 			&global.config().events.stream_name,
-			access_token.organization_id.0,
+			access_token.organization_id,
 			Target::PlaybackKeyPair,
 			event::Event::PlaybackKeyPair(event::PlaybackKeyPair {
-				playback_key_pair_id: Some(playback_key_pair.id.0.into()),
+				playback_key_pair_id: Some(playback_key_pair.id.into()),
 				event: Some(event::playback_key_pair::Event::Created(event::playback_key_pair::Created {})),
 			}),
 		)

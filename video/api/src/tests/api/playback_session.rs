@@ -190,7 +190,7 @@ async fn test_playback_session_get_qb() {
 					target: Some(playback_session_target::Target::RoomId(Ulid::new().into())),
 				}),
 				user_id: Some("test".to_string()),
-				ip_address: Some("127.0.0.1".into()),
+				ip_address: Some("127.2.1.1".into()),
 				playback_key_pair_id: Some(Ulid::new().into()),
 			},
 			Ok(
@@ -211,42 +211,42 @@ async fn test_playback_session_get_qb() {
 async fn test_playback_session_count() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording = create_recording(
 		&global,
-		access_token.organization_id.0,
-		s3_bucket.id.0,
+		access_token.organization_id,
+		s3_bucket.id,
 		None,
 		None,
 		HashMap::new(),
 	)
 	.await;
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let room = create_room(&global, access_token.organization_id).await;
 
 	let mut rand = rand_chacha::ChaCha8Rng::seed_from_u64(1000);
 
 	create_playback_session(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		(0..100).flat_map(|i| {
 			let ip = IpAddr::from(rand.gen::<u32>().to_be_bytes());
 			[
 				(
-					Some(room.id.0),
+					Some(room.id),
 					None,
 					Some(format!("test-{i}")),
 					IpAddr::from(rand.gen::<u32>().to_be_bytes()),
 				),
 				(
-					Some(room.id.0),
+					Some(room.id),
 					None,
 					Some(format!("test-{i}")),
 					IpAddr::from(rand.gen::<u32>().to_be_bytes()),
 				),
-				(Some(room.id.0), None, None, IpAddr::from(rand.gen::<u32>().to_be_bytes())),
-				(None, Some(recording.id.0), None, ip),
-				(None, Some(recording.id.0), None, ip),
-				(None, Some(recording.id.0), Some(format!("test-{i}")), ip),
+				(Some(room.id), None, None, IpAddr::from(rand.gen::<u32>().to_be_bytes())),
+				(None, Some(recording.id), None, ip),
+				(None, Some(recording.id), None, ip),
+				(None, Some(recording.id), Some(format!("test-{i}")), ip),
 			]
 		}),
 	)
@@ -270,7 +270,7 @@ async fn test_playback_session_count() {
 		&access_token,
 		PlaybackSessionCountRequest {
 			filter: Some(playback_session_count_request::Filter::Target(PlaybackSessionTarget {
-				target: Some(playback_session_target::Target::RoomId(room.id.0.into())),
+				target: Some(playback_session_target::Target::RoomId(room.id.into())),
 			})),
 		},
 	)
@@ -285,7 +285,7 @@ async fn test_playback_session_count() {
 		&access_token,
 		PlaybackSessionCountRequest {
 			filter: Some(playback_session_count_request::Filter::Target(PlaybackSessionTarget {
-				target: Some(playback_session_target::Target::RecordingId(recording.id.0.into())),
+				target: Some(playback_session_target::Target::RecordingId(recording.id.into())),
 			})),
 		},
 	)
@@ -302,41 +302,36 @@ async fn test_playback_session_count() {
 async fn test_playback_session_revoke() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording = create_recording(
 		&global,
-		access_token.organization_id.0,
-		s3_bucket.id.0,
+		access_token.organization_id,
+		s3_bucket.id,
 		None,
 		None,
 		HashMap::new(),
 	)
 	.await;
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let room = create_room(&global, access_token.organization_id).await;
 
 	let mut rand = rand_chacha::ChaCha8Rng::seed_from_u64(1000);
 
 	create_playback_session(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		(0..100).flat_map(|i| {
 			[
-				(Some(room.id.0), None, None, IpAddr::from(rand.gen::<u32>().to_be_bytes())),
+				(Some(room.id), None, None, IpAddr::from(rand.gen::<u32>().to_be_bytes())),
 				(
-					Some(room.id.0),
+					Some(room.id),
 					None,
 					Some(format!("test-{i}")),
 					IpAddr::from(rand.gen::<u32>().to_be_bytes()),
 				),
+				(None, Some(recording.id), None, IpAddr::from(rand.gen::<u32>().to_be_bytes())),
 				(
 					None,
-					Some(recording.id.0),
-					None,
-					IpAddr::from(rand.gen::<u32>().to_be_bytes()),
-				),
-				(
-					None,
-					Some(recording.id.0),
+					Some(recording.id),
 					Some(format!("test-{i}")),
 					IpAddr::from(rand.gen::<u32>().to_be_bytes()),
 				),
@@ -350,7 +345,7 @@ async fn test_playback_session_revoke() {
 		&access_token,
 		PlaybackSessionRevokeRequest {
 			target: Some(PlaybackSessionTarget {
-				target: Some(playback_session_target::Target::RoomId(room.id.0.into())),
+				target: Some(playback_session_target::Target::RoomId(room.id.into())),
 			}),
 			ids: vec![],
 			before: None,
@@ -363,12 +358,7 @@ async fn test_playback_session_revoke() {
 
 	assert_eq!(response.revoked, 200);
 
-	let revoke_before: chrono::DateTime<chrono::Utc> = sqlx::query_scalar("SELECT revoke_before FROM playback_session_revocations WHERE organization_id = $1 AND room_id = $2 AND recording_id IS NULL AND user_id IS NULL")
-		.bind(access_token.organization_id)
-		.bind(room.id)
-		.fetch_one(global.db().as_ref())
-		.await
-		.expect("fetching revocations should be successful");
+	let revoke_before: chrono::DateTime<chrono::Utc> = common::database::query("SELECT revoke_before FROM playback_session_revocations WHERE organization_id = $1 AND room_id = $2 AND recording_id IS NULL AND user_id IS NULL").bind(access_token.organization_id).bind(room.id).build_query_single_scalar().fetch_one(global.db()).await.expect("fetching revocations should be successful");
 
 	// Assert that the revoke_before is within 5 seconds of now
 	assert!(
@@ -381,7 +371,7 @@ async fn test_playback_session_revoke() {
 		&access_token,
 		PlaybackSessionRevokeRequest {
 			target: Some(PlaybackSessionTarget {
-				target: Some(playback_session_target::Target::RecordingId(recording.id.0.into())),
+				target: Some(playback_session_target::Target::RecordingId(recording.id.into())),
 			}),
 			ids: vec![],
 			before: None,
@@ -394,12 +384,7 @@ async fn test_playback_session_revoke() {
 
 	assert_eq!(response.revoked, 100);
 
-	let revoke_before: chrono::DateTime<chrono::Utc> = sqlx::query_scalar("SELECT revoke_before FROM playback_session_revocations WHERE organization_id = $1 AND room_id IS NULL AND recording_id = $2 AND user_id IS NULL")
-		.bind(access_token.organization_id)
-		.bind(recording.id)
-		.fetch_one(global.db().as_ref())
-		.await
-		.expect("fetching revocations should be successful");
+	let revoke_before: chrono::DateTime<chrono::Utc> = common::database::query("SELECT revoke_before FROM playback_session_revocations WHERE organization_id = $1 AND room_id IS NULL AND recording_id = $2 AND user_id IS NULL").bind(access_token.organization_id).bind(recording.id).build_query_single_scalar().fetch_one(global.db()).await.expect("fetching revocations should be successful");
 
 	assert!(
 		revoke_before > chrono::Utc::now() - chrono::Duration::seconds(5),
@@ -411,7 +396,7 @@ async fn test_playback_session_revoke() {
 		&access_token,
 		PlaybackSessionRevokeRequest {
 			target: Some(PlaybackSessionTarget {
-				target: Some(playback_session_target::Target::RecordingId(recording.id.0.into())),
+				target: Some(playback_session_target::Target::RecordingId(recording.id.into())),
 			}),
 			ids: vec![],
 			before: None,
@@ -424,13 +409,7 @@ async fn test_playback_session_revoke() {
 
 	assert_eq!(response.revoked, 1);
 
-	let revoke_before: chrono::DateTime<chrono::Utc> = sqlx::query_scalar("SELECT revoke_before FROM playback_session_revocations WHERE organization_id = $1 AND room_id IS NULL AND recording_id = $2 AND user_id = $3")
-		.bind(access_token.organization_id)
-		.bind(recording.id)
-		.bind("test-0")
-		.fetch_one(global.db().as_ref())
-		.await
-		.expect("fetching revocations should be successful");
+	let revoke_before: chrono::DateTime<chrono::Utc> = common::database::query("SELECT revoke_before FROM playback_session_revocations WHERE organization_id = $1 AND room_id IS NULL AND recording_id = $2 AND user_id = $3").bind(access_token.organization_id).bind(recording.id).bind("test-0").build_query_single_scalar().fetch_one(global.db()).await.expect("fetching revocations should be successful");
 
 	assert!(
 		revoke_before > chrono::Utc::now() - chrono::Duration::seconds(5),
@@ -444,41 +423,36 @@ async fn test_playback_session_revoke() {
 async fn test_playback_session_revoke_2() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording = create_recording(
 		&global,
-		access_token.organization_id.0,
-		s3_bucket.id.0,
+		access_token.organization_id,
+		s3_bucket.id,
 		None,
 		None,
 		HashMap::new(),
 	)
 	.await;
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let room = create_room(&global, access_token.organization_id).await;
 
 	let mut rand = rand_chacha::ChaCha8Rng::seed_from_u64(1000);
 
 	let sessions = create_playback_session(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		(0..100).flat_map(|i| {
 			[
 				(
-					Some(room.id.0),
+					Some(room.id),
 					None,
 					Some(format!("test-{i}")),
 					IpAddr::from(rand.gen::<u32>().to_be_bytes()),
 				),
-				(Some(room.id.0), None, None, IpAddr::from(rand.gen::<u32>().to_be_bytes())),
+				(Some(room.id), None, None, IpAddr::from(rand.gen::<u32>().to_be_bytes())),
+				(None, Some(recording.id), None, IpAddr::from(rand.gen::<u32>().to_be_bytes())),
 				(
 					None,
-					Some(recording.id.0),
-					None,
-					IpAddr::from(rand.gen::<u32>().to_be_bytes()),
-				),
-				(
-					None,
-					Some(recording.id.0),
+					Some(recording.id),
 					Some(format!("test-{i}")),
 					IpAddr::from(rand.gen::<u32>().to_be_bytes()),
 				),
@@ -492,7 +466,7 @@ async fn test_playback_session_revoke_2() {
 		&access_token,
 		PlaybackSessionRevokeRequest {
 			target: None,
-			ids: sessions.iter().take(100).map(|s| s.id.0.into()).collect(),
+			ids: sessions.iter().take(100).map(|s| s.id.into()).collect(),
 			before: Some(Utc::now().timestamp_millis()),
 			user_id: None,
 			authorized: Some(true),
@@ -511,41 +485,36 @@ async fn test_playback_session_revoke_2() {
 async fn test_playback_session_get() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording = create_recording(
 		&global,
-		access_token.organization_id.0,
-		s3_bucket.id.0,
+		access_token.organization_id,
+		s3_bucket.id,
 		None,
 		None,
 		HashMap::new(),
 	)
 	.await;
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let room = create_room(&global, access_token.organization_id).await;
 
 	let mut rand = rand_chacha::ChaCha8Rng::seed_from_u64(1000);
 
 	create_playback_session(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		(0..100).flat_map(|i| {
 			[
 				(
-					Some(room.id.0),
+					Some(room.id),
 					None,
 					Some(format!("test-{i}")),
 					IpAddr::from(rand.gen::<u32>().to_be_bytes()),
 				),
-				(Some(room.id.0), None, None, IpAddr::from(rand.gen::<u32>().to_be_bytes())),
+				(Some(room.id), None, None, IpAddr::from(rand.gen::<u32>().to_be_bytes())),
+				(None, Some(recording.id), None, IpAddr::from(rand.gen::<u32>().to_be_bytes())),
 				(
 					None,
-					Some(recording.id.0),
-					None,
-					IpAddr::from(rand.gen::<u32>().to_be_bytes()),
-				),
-				(
-					None,
-					Some(recording.id.0),
+					Some(recording.id),
 					Some(format!("test-{i}")),
 					IpAddr::from(rand.gen::<u32>().to_be_bytes()),
 				),

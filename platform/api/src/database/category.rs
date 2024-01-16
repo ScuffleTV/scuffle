@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
-use common::database::Ulid;
+use ulid::Ulid;
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, postgres_from_row::FromRow)]
 pub struct Category {
 	pub id: Ulid,
 	pub name: String,

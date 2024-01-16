@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
-use common::database::Ulid;
+use common::database::json;
 use pb::scuffle::video::v1::types::Rendition as PbRendition;
+use postgres_from_row::FromRow;
+use ulid::Ulid;
 
 use super::{DatabaseTable, Rendition};
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, FromRow)]
 pub struct TranscodingConfig {
 	/// The organization this transcoding config belongs to (primary key)
 	pub organization_id: Ulid,
@@ -18,8 +20,8 @@ pub struct TranscodingConfig {
 	/// The date and time the transcoding config was last updated
 	pub updated_at: chrono::DateTime<chrono::Utc>,
 
-	#[sqlx(json)]
 	/// Tags associated with the transcoding config
+	#[from_row(from_fn = "json")]
 	pub tags: HashMap<String, String>,
 }
 
@@ -34,9 +36,9 @@ impl TranscodingConfig {
 		renditions.sort();
 
 		pb::scuffle::video::v1::types::TranscodingConfig {
-			id: Some(self.id.0.into()),
+			id: Some(self.id.into()),
 			renditions,
-			created_at: self.id.0.timestamp_ms() as i64,
+			created_at: self.id.timestamp_ms() as i64,
 			updated_at: self.updated_at.timestamp_micros(),
 			tags: Some(self.tags.into()),
 		}

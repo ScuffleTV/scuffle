@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
-use common::database::Ulid;
+use common::database::json;
+use postgres_from_row::FromRow;
+use ulid::Ulid;
 
 use super::DatabaseTable;
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, FromRow)]
 pub struct PlaybackKeyPair {
 	/// The organization this playback key pair belongs to (primary key)
 	pub organization_id: Ulid,
@@ -20,8 +22,8 @@ pub struct PlaybackKeyPair {
 	/// The date and time the playback key pair was last updated
 	pub updated_at: chrono::DateTime<chrono::Utc>,
 
-	#[sqlx(json)]
 	/// Tags associated with the playback key pair
+	#[from_row(from_fn = "json")]
 	pub tags: HashMap<String, String>,
 }
 
@@ -33,9 +35,9 @@ impl DatabaseTable for PlaybackKeyPair {
 impl PlaybackKeyPair {
 	pub fn into_proto(self) -> pb::scuffle::video::v1::types::PlaybackKeyPair {
 		pb::scuffle::video::v1::types::PlaybackKeyPair {
-			id: Some(self.id.0.into()),
+			id: Some(self.id.into()),
 			fingerprint: self.fingerprint,
-			created_at: self.id.0.timestamp_ms() as i64,
+			created_at: self.id.timestamp_ms() as i64,
 			updated_at: self.updated_at.timestamp_millis(),
 			tags: Some(self.tags.into()),
 		}

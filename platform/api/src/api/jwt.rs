@@ -121,8 +121,8 @@ impl JwtState for AuthJwtPayload {
 impl From<Session> for AuthJwtPayload {
 	fn from(session: Session) -> Self {
 		AuthJwtPayload {
-			user_id: session.user_id.0,
-			session_id: session.id.0,
+			user_id: session.user_id,
+			session_id: session.id,
 			expiration: Some(session.expires_at),
 			issued_at: Ulid::from(session.id).datetime().into(),
 			not_before: None,

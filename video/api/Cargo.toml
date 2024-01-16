@@ -11,9 +11,6 @@ path = "src/main.rs"
 tokio = { version = "1.35", features = ["full"] }
 tracing = "0.1"
 anyhow = "1.0"
-sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
-sqlx-core = "0.7"
-sqlx-postgres = "0.7"
 tonic = { version = "0.10", features = ["tls"] }
 prost = "0.12"
 uuid = { version = "1.6", features = ["v4"] }
@@ -41,6 +38,7 @@ tower = "0.4"
 http = "=0.2"
 hyper = "=0.14"
 
+postgres-from-row = "0.5"
 common = { workspace = true, features = ["default"] }
 config = { workspace = true }
 pb = { workspace = true }

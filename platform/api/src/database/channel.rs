@@ -1,55 +1,56 @@
 use async_graphql::SimpleObject;
 use chrono::{DateTime, Utc};
-use common::database::Ulid;
+use common::database::json;
+use ulid::Ulid;
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, postgres_from_row::FromRow)]
 pub struct Channel {
 	/// Ulid of the channel
 	pub id: Ulid,
 	/// Video room id
-	#[sqlx(rename = "channel_room_id")]
+	#[from_row(rename = "channel_room_id")]
 	pub room_id: Ulid,
 	/// Active connection id
-	#[sqlx(rename = "channel_active_connection_id")]
+	#[from_row(rename = "channel_active_connection_id")]
 	pub active_connection_id: Option<Ulid>,
 	/// The current stream's title
-	#[sqlx(rename = "channel_title")]
+	#[from_row(rename = "channel_title")]
 	pub title: Option<String>,
 	/// The current stream's live viewer count
-	#[sqlx(rename = "channel_live_viewer_count")]
+	#[from_row(rename = "channel_live_viewer_count")]
 	pub live_viewer_count: Option<i32>,
 	/// The time the current stream's live viewer count was last updated
-	#[sqlx(rename = "channel_live_viewer_count_updated_at")]
+	#[from_row(rename = "channel_live_viewer_count_updated_at")]
 	pub live_viewer_count_updated_at: Option<DateTime<Utc>>,
 	/// The current stream's description
-	#[sqlx(rename = "channel_description")]
+	#[from_row(rename = "channel_description")]
 	pub description: Option<String>,
 	/// The social links
-	#[sqlx(rename = "channel_links")]
-	pub links: sqlx::types::Json<Vec<ChannelLink>>,
+	#[from_row(rename = "channel_links", from_fn = "json")]
+	pub links: Vec<ChannelLink>,
 	/// The current stream's thumbnail
-	#[sqlx(rename = "channel_custom_thumbnail_id")]
+	#[from_row(rename = "channel_custom_thumbnail_id")]
 	pub custom_thumbnail_id: Option<Ulid>,
 	/// The offline banner of the channel
-	#[sqlx(rename = "channel_offline_banner_id")]
+	#[from_row(rename = "channel_offline_banner_id")]
 	pub offline_banner_id: Option<Ulid>,
 	/// The current stream's category
-	#[sqlx(rename = "channel_category_id")]
+	#[from_row(rename = "channel_category_id")]
 	pub category_id: Option<Ulid>,
 	/// Channel stream key
-	#[sqlx(rename = "channel_stream_key")]
+	#[from_row(rename = "channel_stream_key")]
 	pub stream_key: Option<String>,
 	/// Channel roles order
-	#[sqlx(rename = "channel_role_order")]
+	#[from_row(rename = "channel_role_order")]
 	pub role_order: Vec<Ulid>,
 	/// Channel default permissions
-	#[sqlx(rename = "channel_default_permissions")]
+	#[from_row(rename = "channel_default_permissions")]
 	pub default_permissions: i64,
 	/// Channel permissions for followers
-	#[sqlx(rename = "channel_following_permission")]
+	#[from_row(rename = "channel_following_permission")]
 	pub following_permission: i64,
 	/// The time the channel was last live
-	#[sqlx(rename = "channel_last_live_at")]
+	#[from_row(rename = "channel_last_live_at")]
 	pub last_live_at: Option<DateTime<Utc>>,
 }
 

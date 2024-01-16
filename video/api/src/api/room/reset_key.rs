@@ -6,6 +6,7 @@ use pb::scuffle::video::v1::room_reset_key_response::RoomKeyPair;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, FailedResource, Resource};
 use pb::scuffle::video::v1::{room_reset_key_response, RoomResetKeyRequest, RoomResetKeyResponse};
+use ulid::Ulid;
 use video_common::database::{AccessToken, DatabaseTable};
 
 use super::utils::create_stream_key;
@@ -20,9 +21,9 @@ impl_request_scopes!(
 	RateLimitResource::RoomResetKey
 );
 
-#[derive(sqlx::FromRow)]
+#[derive(postgres_from_row::FromRow)]
 struct RoomResetKeyRow {
-	id: common::database::Ulid,
+	id: Ulid,
 	stream_key: String,
 }
 
@@ -49,15 +50,16 @@ impl ApiRequest<RoomResetKeyResponse> for tonic::Request<RoomResetKeyRequest> {
 			.map(pb::scuffle::types::Ulid::into_ulid)
 			.collect::<HashSet<_>>();
 
-		let data = ids_to_reset
-			.iter()
-			.map(|id| (common::database::Ulid(*id), create_stream_key()));
+		let data = ids_to_reset.iter().copied().map(|id| (id, create_stream_key()));
 
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
+		let mut qb = common::database::QueryBuilder::default();
 
-		qb.push("WITH updated_values AS ( SELECT * FROM (")
+		qb.push("WITH updated_values AS (SELECT * FROM (")
 			.push_values(data.clone(), |mut b, data| {
-				b.push_bind(data.0).push_bind(data.1);
+				b.push_bind(data.0)
+					.push_unseparated("::UUID")
+					.push_bind(data.1)
+					.push_unseparated("::TEXT");
 			})
 			.push(") AS v (id, stream_key)) UPDATE ")
 			.push(<RoomResetKeyRequest as TonicRequest>::Table::NAME)
@@ -65,7 +67,7 @@ impl ApiRequest<RoomResetKeyResponse> for tonic::Request<RoomResetKeyRequest> {
 			.push_bind(access_token.organization_id)
 			.push(" RETURNING r.id, r.stream_key");
 
-		let rows: Vec<RoomResetKeyRow> = qb.build_query_as().fetch_all(global.db().as_ref()).await.map_err(|err| {
+		let rows: Vec<RoomResetKeyRow> = qb.build_query_as().fetch_all(global.db()).await.map_err(|err| {
 			tracing::error!(err = %err, "failed to reset room stream keys");
 			tonic::Status::internal("failed to reset room stream keys")
 		})?;
@@ -73,10 +75,10 @@ impl ApiRequest<RoomResetKeyResponse> for tonic::Request<RoomResetKeyRequest> {
 		let rooms = rows
 			.into_iter()
 			.map(|row| {
-				ids_to_reset.remove(&row.id.0);
+				ids_to_reset.remove(&row.id);
 
 				room_reset_key_response::RoomKeyPair {
-					id: Some(row.id.0.into()),
+					id: Some(row.id.into()),
 					key: row.stream_key,
 				}
 			})
@@ -95,7 +97,7 @@ impl ApiRequest<RoomResetKeyResponse> for tonic::Request<RoomResetKeyRequest> {
 				video_common::events::emit(
 					global.nats(),
 					&global.config().events.stream_name,
-					access_token.organization_id.0,
+					access_token.organization_id,
 					Target::Room,
 					event::Event::Room(event::Room {
 						room_id: Some(*id),

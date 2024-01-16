@@ -41,7 +41,7 @@ impl ApiRequest<RoomDisconnectResponse> for tonic::Request<RoomDisconnectRequest
 
 		let rooms = global
 			.room_loader()
-			.load_many(ids.iter().copied().map(|id| (access_token.organization_id.0, id)))
+			.load_many(ids.iter().copied().map(|id| (access_token.organization_id, id)))
 			.await
 			.map_err(|_| tonic::Status::internal("failed to load rooms"))?;
 
@@ -50,13 +50,13 @@ impl ApiRequest<RoomDisconnectResponse> for tonic::Request<RoomDisconnectRequest
 		let mut disconnected_ids = Vec::new();
 
 		for id in ids {
-			if let Some(room) = rooms.get(&(access_token.organization_id.0, id)) {
+			if let Some(room) = rooms.get(&(access_token.organization_id, id)) {
 				if room.status == RoomStatus::Offline || room.active_ingest_connection_id.is_none() {
 					failed_rooms.insert(id, "room is already offline");
 				} else if let Err(err) = global
 					.nats()
 					.publish(
-						keys::ingest_disconnect(room.active_ingest_connection_id.unwrap().0),
+						keys::ingest_disconnect(room.active_ingest_connection_id.unwrap()),
 						Bytes::new(),
 					)
 					.await

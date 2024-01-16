@@ -57,7 +57,6 @@ video-ingest = { path = "video/ingest" }
 video-transcoder = { path = "video/transcoder" }
 binary-helper = { path = "binary-helper" }
 ffmpeg = { path = "ffmpeg" }
-database = { path = "database" }
 
 
 # These patches are pending PRs to the upstream crates

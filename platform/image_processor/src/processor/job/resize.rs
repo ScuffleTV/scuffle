@@ -1,10 +1,11 @@
 use anyhow::Context;
 use imgref::Img;
 use pb::scuffle::platform::internal::image_processor::task::{ResizeAlgorithm, ResizeMethod};
-use rgb::ComponentBytes;
 
 use super::frame::Frame;
-use crate::processor::error::{ProcessorError, Result};
+use crate::processor::error::{Result, ProcessorError};
+
+use fast_image_resize as fr;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct ImageResizerTarget {
@@ -15,21 +16,10 @@ pub struct ImageResizerTarget {
 	pub upscale: bool,
 }
 
-pub const fn algo_to_opencv(algo: ResizeAlgorithm) -> i32 {
-	match algo {
-		ResizeAlgorithm::Nearest => opencv::imgproc::INTER_NEAREST,
-		ResizeAlgorithm::Linear => opencv::imgproc::INTER_LINEAR,
-		ResizeAlgorithm::Cubic => opencv::imgproc::INTER_CUBIC,
-		ResizeAlgorithm::Area => opencv::imgproc::INTER_AREA,
-		ResizeAlgorithm::Lanczos4 => opencv::imgproc::INTER_LANCZOS4,
-	}
-}
-
 /// Resizes images to the given target size.
 pub struct ImageResizer {
+	resizer: fr::Resizer,
 	target: ImageResizerTarget,
-	buffer: Vec<rgb::RGBA8>,
-	padding_buffer: Vec<rgb::RGBA8>,
 }
 
 impl std::fmt::Debug for ImageResizer {
@@ -38,30 +28,17 @@ impl std::fmt::Debug for ImageResizer {
 	}
 }
 
-/// Safety: this function is unsafe because Mat must not outlive self.
-/// The caller must ensure that the returned Mat is dropped before self is
-/// dropped.
-unsafe fn make_mat(buffer: &[rgb::RGBA8], width: usize, height: usize) -> Result<opencv::core::Mat> {
-	assert!(buffer.len() >= width * height, "buffer is too small");
-
-	let data = buffer.as_bytes().as_ptr() as *mut std::ffi::c_void;
-	opencv::core::Mat::new_rows_cols_with_data(
-		height as i32,
-		width as i32,
-		opencv::core::CV_8UC4,
-		data,
-		opencv::core::Mat_AUTO_STEP,
-	)
-	.context("opencv mat new rows cols with data")
-	.map_err(ProcessorError::ImageResize)
-}
-
 impl ImageResizer {
 	pub fn new(target: ImageResizerTarget) -> Self {
 		Self {
+			resizer: fr::Resizer::new(match target.algorithm {
+				ResizeAlgorithm::Nearest => fr::ResizeAlg::Nearest,
+				ResizeAlgorithm::Linear => fr::ResizeAlg::Convolution(fr::FilterType::Bilinear),
+				ResizeAlgorithm::Cubic => fr::ResizeAlg::Convolution(fr::FilterType::CatmullRom),
+				ResizeAlgorithm::Area => fr::ResizeAlg::Convolution(fr::FilterType::Box),
+				ResizeAlgorithm::Lanczos4 => fr::ResizeAlg::Convolution(fr::FilterType::Lanczos3),
+			}),
 			target,
-			buffer: vec![rgb::RGBA8::default(); target.width * target.height],
-			padding_buffer: vec![rgb::RGBA8::default(); target.width * target.height],
 		}
 	}
 
@@ -71,12 +48,6 @@ impl ImageResizer {
 	pub fn resize(&mut self, frame: &Frame) -> Result<Frame> {
 		let _abort_guard = common::task::AbortGuard::new();
 
-		// Safety: `data` is a valid pointer, and even tho we dont own it, we do not
-		// make mat mutable so we wont modify it.        `data` is valid for the
-		// lifetime of `frame`, which is the lifetime of the function.
-		let mat = unsafe { make_mat(frame.image.buf(), frame.image.width(), frame.image.height()) }?;
-
-		// Safety: We drop the returned Mat before self is dropped.
 		let (width, height) = if self.target.method == ResizeMethod::Exact {
 			(self.target.width, self.target.height)
 		} else {
@@ -103,94 +74,86 @@ impl ImageResizer {
 			(width, height)
 		};
 
-		let mut buffer_mat = unsafe { make_mat(&self.buffer, width, height) }?;
+		let (mut dst_image, crop_box) = if self.target.method != ResizeMethod::Fit && (width != self.target.width || height != self.target.height) {
+			let height_delta = self.target.height - height;
+			let width_delta = self.target.width - width;
 
-		opencv::imgproc::resize(
-			&mat,
-			&mut buffer_mat,
-			opencv::core::Size {
-				width: width as _,
-				height: height as _,
-			},
-			0.0,
-			0.0,
-			algo_to_opencv(self.target.algorithm),
-		)
-		.context("opencv imgproc resize")
-		.map_err(ProcessorError::ImageResize)?;
-
-		let image =
-			if self.target.method != ResizeMethod::Fit && (width != self.target.width || height != self.target.height) {
-				let height_delta = self.target.height - height;
-				let width_delta = self.target.width - width;
-
-				let (top, bottom, left, right) = match self.target.method {
-					ResizeMethod::PadBottomLeft => (0, height_delta, width_delta, 0),
-					ResizeMethod::PadBottomRight => (0, height_delta, 0, width_delta),
-					ResizeMethod::PadTopLeft => (height_delta, 0, width_delta, 0),
-					ResizeMethod::PadTopRight => (height_delta, 0, 0, width_delta),
-					ResizeMethod::PadCenter => {
-						let top = height_delta / 2;
-						let bottom = height_delta - top;
-						let left = width_delta / 2;
-						let right = width_delta - left;
-						(top, bottom, left, right)
-					}
-					ResizeMethod::PadCenterLeft => {
-						let top = height_delta / 2;
-						let bottom = height_delta - top;
-						(top, bottom, width_delta, 0)
-					}
-					ResizeMethod::PadCenterRight => {
-						let top = height_delta / 2;
-						let bottom = height_delta - top;
-						(top, bottom, 0, width_delta)
-					}
-					ResizeMethod::PadTopCenter => {
-						let left = width_delta / 2;
-						let right = width_delta - left;
-						(height_delta, 0, left, right)
-					}
-					ResizeMethod::PadBottomCenter => {
-						let left = width_delta / 2;
-						let right = width_delta - left;
-						(0, height_delta, left, right)
-					}
-					ResizeMethod::PadTop => (height_delta, 0, 0, 0),
-					ResizeMethod::PadBottom => (0, height_delta, 0, 0),
-					ResizeMethod::PadLeft => (0, 0, width_delta, 0),
-					ResizeMethod::PadRight => (0, 0, 0, width_delta),
-					ResizeMethod::Exact => unreachable!(),
-					ResizeMethod::Fit => unreachable!(),
-				};
-
-				let width = width + left + right;
-				let height = height + top + bottom;
-
-				// OpenCV allows for in-place operations, but the original Mat has been sized
-				// with a capacity. We need to create a new Mat with the correct size.
-				let mut padded_mat = unsafe { make_mat(&self.padding_buffer, width, height) }?;
-
-				opencv::core::copy_make_border(
-					&buffer_mat,
-					&mut padded_mat,
-					top as i32,
-					bottom as i32,
-					left as i32,
-					right as i32,
-					opencv::core::BorderTypes::BORDER_CONSTANT as _,
-					opencv::core::Scalar::all(0.0),
-				)
-				.context("opencv imgproc copy make border")
-				.map_err(ProcessorError::ImageResize)?;
-
-				Img::new(self.padding_buffer[..width * height].to_vec(), width, height)
-			} else {
-				Img::new(self.buffer[..width * height].to_vec(), width, height)
+			let (top, bottom, left, right) = match self.target.method {
+				ResizeMethod::PadBottomLeft => (0, height_delta, width_delta, 0),
+				ResizeMethod::PadBottomRight => (0, height_delta, 0, width_delta),
+				ResizeMethod::PadTopLeft => (height_delta, 0, width_delta, 0),
+				ResizeMethod::PadTopRight => (height_delta, 0, 0, width_delta),
+				ResizeMethod::PadCenter => {
+					let top = height_delta / 2;
+					let bottom = height_delta - top;
+					let left = width_delta / 2;
+					let right = width_delta - left;
+					(top, bottom, left, right)
+				}
+				ResizeMethod::PadCenterLeft => {
+					let top = height_delta / 2;
+					let bottom = height_delta - top;
+					(top, bottom, width_delta, 0)
+				}
+				ResizeMethod::PadCenterRight => {
+					let top = height_delta / 2;
+					let bottom = height_delta - top;
+					(top, bottom, 0, width_delta)
+				}
+				ResizeMethod::PadTopCenter => {
+					let left = width_delta / 2;
+					let right = width_delta - left;
+					(height_delta, 0, left, right)
+				}
+				ResizeMethod::PadBottomCenter => {
+					let left = width_delta / 2;
+					let right = width_delta - left;
+					(0, height_delta, left, right)
+				}
+				ResizeMethod::PadTop => (height_delta, 0, 0, 0),
+				ResizeMethod::PadBottom => (0, height_delta, 0, 0),
+				ResizeMethod::PadLeft => (0, 0, width_delta, 0),
+				ResizeMethod::PadRight => (0, 0, 0, width_delta),
+				ResizeMethod::Exact => unreachable!(),
+				ResizeMethod::Fit => unreachable!(),
 			};
 
+			let total_width = width + left + right;
+			let total_height = height + top + bottom;
+
+			let dst_image = fr::Image::new((total_width as u32).try_into().unwrap(), (total_height as u32).try_into().unwrap(), fr::pixels::PixelType::U8x4);
+			(dst_image, fr::CropBox {
+				height: (height as u32).try_into().unwrap(),
+				width: (width as u32).try_into().unwrap(),
+				left: left as u32,
+				top: top as u32,
+			})
+		} else {
+			let dst_image = fr::Image::new((width as u32).try_into().unwrap(), (height as u32).try_into().unwrap(), fr::pixels::PixelType::U8x4);
+			(dst_image, fr::CropBox {
+				height: (height as u32).try_into().unwrap(),
+				width: (width as u32).try_into().unwrap(),
+				left: 0,
+				top: 0,
+			})
+		};
+
+		let mut cropped_dst_view = dst_image.view_mut().crop(crop_box).unwrap();
+
+		let size = frame.image.buf().len();
+
+		let src = fr::Image::from_slice_u8((frame.image.width() as u32).try_into().unwrap(), (frame.image.height() as u32).try_into().unwrap(), unsafe { std::slice::from_raw_parts_mut(frame.image.buf().as_ptr() as *mut u8, size * 4) }, fr::pixels::PixelType::U8x4).unwrap();
+		self.resizer.resize(&src.view(), &mut cropped_dst_view).context("failed to resize image").map_err(ProcessorError::ImageResize)?;
+		drop(src);
+
+		let width = dst_image.width().get() as usize;
+		let height = dst_image.height().get() as usize;
+		let buffer = dst_image.into_vec();
+
+		let buffer = unsafe { std::mem::transmute::<Vec<u8>, Vec<rgb::RGBA<u8, u8>>>(buffer) };
+
 		Ok(Frame {
-			image,
+			image: Img::new(buffer, width, height),
 			duration_ts: frame.duration_ts,
 		})
 	}

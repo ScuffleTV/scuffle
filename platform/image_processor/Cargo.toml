@@ -25,7 +25,6 @@ itertools = "0.12"
 scopeguard = "1.2"
 rgb = "0.8"
 imgref = "1.10"
-opencv = { version = "0.88", default-features = false, features = ["clang-runtime", "imgproc"] }
 libavif-sys = { version = "0.15" }
 libwebp-sys2 = { version = "0.1", features = ["1_2", "demux", "mux", "static"] }
 sha2 = "0.10"
@@ -35,12 +34,13 @@ png = "0.17"
 num_cpus = "1.16"
 bytes = "1.0"
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls"] }
+fast_image_resize = "2.7"
 
 common = { workspace = true, features = ["default"] }
 config = { workspace = true }
 pb = { workspace = true }
 binary-helper = { workspace = true }
-ffmpeg = { workspace = true, features = ["task-abort"] }
+ffmpeg = { workspace = true, features = ["task-abort", "tracing"] }
 
 [dev-dependencies]
 dotenvy = "0.15.7"

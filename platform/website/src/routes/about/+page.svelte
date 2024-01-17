@@ -29,7 +29,7 @@
 </script>
 
 <svelte:head>
-	<title>Scuffle</title>
+	<title>Scuffle - About</title>
 </svelte:head>
 
 <div class="content">

@@ -1,8 +1,10 @@
+use common::s3::Bucket;
+
 use crate::config::ImageProcessorConfig;
 
 pub trait ImageProcessorState {
-	fn s3_source_bucket(&self) -> &s3::Bucket;
-	fn s3_target_bucket(&self) -> &s3::Bucket;
+	fn s3_source_bucket(&self) -> &Bucket;
+	fn s3_target_bucket(&self) -> &Bucket;
 }
 
 pub trait ImageProcessorGlobal:

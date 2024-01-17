@@ -10,8 +10,8 @@ pub struct GlobalState {
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
 	db: Arc<sqlx::PgPool>,
-	s3_source_bucket: s3::Bucket,
-	s3_target_bucket: s3::Bucket,
+	s3_source_bucket: common::s3::Bucket,
+	s3_target_bucket: common::s3::Bucket,
 }
 
 impl common::global::GlobalCtx for GlobalState {
@@ -45,11 +45,11 @@ impl common::global::GlobalDb for GlobalState {
 impl common::global::GlobalConfig for GlobalState {}
 
 impl crate::global::ImageProcessorState for GlobalState {
-	fn s3_source_bucket(&self) -> &s3::Bucket {
+	fn s3_source_bucket(&self) -> &common::s3::Bucket {
 		&self.s3_source_bucket
 	}
 
-	fn s3_target_bucket(&self) -> &s3::Bucket {
+	fn s3_target_bucket(&self) -> &common::s3::Bucket {
 		&self.s3_target_bucket
 	}
 }

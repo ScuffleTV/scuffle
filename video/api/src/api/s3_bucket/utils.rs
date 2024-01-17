@@ -47,15 +47,6 @@ pub fn validate_region(region: &str) -> tonic::Result<()> {
 		return Err(Status::invalid_argument("region cannot be empty"));
 	}
 
-	if matches!(
-		region
-			.parse::<s3::Region>()
-			.map_err(|_| Status::invalid_argument("invalid region"))?,
-		s3::Region::Custom { .. }
-	) {
-		return Err(Status::invalid_argument("invalid region"));
-	}
-
 	Ok(())
 }
 

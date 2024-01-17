@@ -290,6 +290,7 @@ if [ "$no_rust" != "true" ]; then
 
     rustup install nightly
 
+    rustup target add wasm32-unknown-unknown
     rustup component add rustfmt clippy llvm-tools-preview
 
     cargo install cargo-binstall

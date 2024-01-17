@@ -19,12 +19,12 @@ pub mod signal;
 pub mod macros;
 #[cfg(feature = "global")]
 pub mod global;
-#[cfg(feature = "ratelimiter")]
-pub mod ratelimiter;
-
 #[cfg(feature = "http")]
 pub mod http;
-
+#[cfg(feature = "ratelimiter")]
+pub mod ratelimiter;
+#[cfg(feature = "s3")]
+pub mod s3;
 #[cfg(feature = "task")]
 pub mod task;
 

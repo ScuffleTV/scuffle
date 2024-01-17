@@ -1,8 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use s3::Region;
-
 use crate::logging;
 
 #[derive(Debug, Clone, Default, PartialEq, config::Config, serde::Deserialize)]
@@ -174,18 +172,6 @@ pub struct S3CredentialsConfig {
 	pub secret_key: Option<String>,
 }
 
-impl From<S3CredentialsConfig> for s3::creds::Credentials {
-	fn from(value: S3CredentialsConfig) -> Self {
-		Self {
-			access_key: value.access_key,
-			secret_key: value.secret_key,
-			security_token: None,
-			session_token: None,
-			expiration: None,
-		}
-	}
-}
-
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]
 pub struct S3BucketConfig {
@@ -206,28 +192,10 @@ impl Default for S3BucketConfig {
 	fn default() -> Self {
 		Self {
 			name: "scuffle-image-processor".to_owned(),
-			region: Region::UsEast1.to_string(),
+			region: "us-east-1".to_owned(),
 			endpoint: Some("http://localhost:9000".to_string()),
 			credentials: S3CredentialsConfig::default(),
 		}
-	}
-}
-
-impl S3BucketConfig {
-	pub fn setup(&self) -> Option<s3::Bucket> {
-		let region = if let Some(endpoint) = &self.endpoint {
-			s3::Region::Custom {
-				region: self.region.clone(),
-				endpoint: endpoint.to_string(),
-			}
-		} else {
-			self.region.parse().ok()?
-		};
-		Some(
-			s3::Bucket::new(&self.name, region, self.credentials.clone().into())
-				.expect("failed to create s3 bucket")
-				.with_path_style(),
-		)
 	}
 }
 

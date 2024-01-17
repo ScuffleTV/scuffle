@@ -19,7 +19,7 @@ async-stream = "0.3"
 futures-util = "0.3"
 rustls = "0.22"
 rustls-pemfile = "2.0"
-fred = { git = "https://github.com/aembke/fred.rs.git", branch = "feat/unix-sockets", features = ["enable-rustls", "sentinel-client", "dns"] }
+fred = { version = "8.0.0", features = ["enable-rustls", "sentinel-client", "dns"] }
 
 config = { workspace = true }
 common = { workspace = true, features = ["default"] }

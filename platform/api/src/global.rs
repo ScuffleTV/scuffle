@@ -21,7 +21,7 @@ pub trait ApiState {
 
 	fn subscription_manager(&self) -> &SubscriptionManager;
 
-	fn image_uploader_s3(&self) -> &s3::Bucket;
+	fn image_uploader_s3(&self) -> &common::s3::Bucket;
 
 	fn video_room_client(&self) -> &VideoRoomClient;
 	fn video_playback_session_client(&self) -> &VideoPlaybackSessionClient;

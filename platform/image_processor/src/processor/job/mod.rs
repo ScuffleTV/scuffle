@@ -1,7 +1,9 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
+use aws_sdk_s3::types::ObjectCannedAcl;
 use bytes::Bytes;
+use common::s3::PutObjectOptions;
 use common::task::AsyncTask;
 use file_format::FileFormat;
 use futures::FutureExt;
@@ -70,11 +72,8 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 				.await
 				.map_err(ProcessorError::S3Download)?;
 
-			if (200..299).contains(&response.status_code()) {
-				Ok(response.bytes().clone())
-			} else {
-				Err(ProcessorError::S3Download(s3::error::S3Error::HttpFail))
-			}
+			let body = response.body.collect().await.map_err(ProcessorError::S3DownloadStream)?;
+			Ok(body.into_bytes())
 		}
 	}
 
@@ -188,17 +187,19 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 			// image upload
 			let url = image.url(&url_prefix);
 			tracing::debug!("uploading result to {}/{}", self.global.config().target_bucket.name, url);
-			let resp = self
-				.global
+			self.global
 				.s3_target_bucket()
-				.put_object_with_content_type(url, &image.data, image.content_type())
+				.put_object(
+					url,
+					image.data.clone(),
+					Some(PutObjectOptions {
+						acl: Some(ObjectCannedAcl::PublicRead),
+						content_type: Some(image.content_type().into()),
+					}),
+				)
 				.in_current_span()
 				.await
 				.map_err(ProcessorError::S3Upload)?;
-
-			if !(200..299).contains(&resp.status_code()) {
-				return Err(ProcessorError::S3Upload(s3::error::S3Error::HttpFail));
-			}
 		}
 		// job completion
 		tracing::debug!("publishing job completion event to {}", self.job.task.callback_subject);

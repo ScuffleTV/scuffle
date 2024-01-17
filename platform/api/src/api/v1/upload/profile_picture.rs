@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
+use aws_sdk_s3::types::ObjectCannedAcl;
 use bytes::Bytes;
 use common::http::ext::ResultExt;
 use common::http::RouteError;
 use common::make_response;
+use common::s3::PutObjectOptions;
 use hyper::{Response, StatusCode};
 use pb::scuffle::platform::internal::image_processor;
 use pb::scuffle::platform::internal::types::{uploaded_file_metadata, ImageFormat, UploadedFileMetadata};
@@ -171,11 +173,6 @@ impl UploadType for ProfilePicture {
 			image_format.ext()
 		);
 
-		let mut s3_bucket = global.image_uploader_s3().clone();
-
-		// The source image should be private
-		s3_bucket.add_header("x-amz-acl", "private");
-
 		let mut tx = global
 			.db()
 			.begin()
@@ -222,8 +219,16 @@ impl UploadType for ProfilePicture {
 				.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to update user"))?;
 		}
 
-		s3_bucket
-			.put_object_with_content_type(&input_path, &file, content_type)
+		global
+			.image_uploader_s3()
+			.put_object(
+				&input_path,
+				file,
+				Some(PutObjectOptions {
+					acl: Some(ObjectCannedAcl::Private),
+					content_type: Some(content_type.to_owned()),
+				}),
+			)
 			.await
 			.map_err(|err| {
 				tracing::error!(error = %err, "failed to upload image to s3");

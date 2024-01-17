@@ -61,5 +61,5 @@ ffmpeg = { path = "ffmpeg" }
 [patch."https://github.com/async-graphql/async-graphql.git"]
 async-graphql = { git = "https://github.com/ScuffleTV/async-graphql.git", branch = "troy/union-generics" }
 
-[patch."https://github.com/durch/rust-s3.git"]
-rust-s3 = { git = "https://github.com/ScuffleTV/rust-s3.git", branch = "troy/rustls" }
+[patch.crates-io]
+fred = { version = "8.0.0", git = "https://github.com/aembke/fred.rs.git", branch = "feat/unix-sockets" }

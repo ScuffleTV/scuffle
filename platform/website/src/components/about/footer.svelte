@@ -35,7 +35,7 @@
 		</div>
 	</div>
 	<span class="copyright">&copy; {new Date().getFullYear()} Scuffle</span>
-	<img class="fishinge" src="/Fishinge.webp" width="40" alt="Fishinge" />
+	<img class="fishinge" src="/about/Fishinge.webp" width="40" alt="Fishinge" />
 </footer>
 
 <style lang="scss">

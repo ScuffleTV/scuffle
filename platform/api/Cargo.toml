@@ -20,7 +20,7 @@ path-tree = "0.7"
 serde_json = "1.0"
 reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false}
 chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
-async-graphql = { git = "https://github.com/async-graphql/async-graphql.git", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "string_number"] }
+async-graphql = { version = "7.0", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "string_number"] }
 hyper-tungstenite = "0"
 async-stream = "0.3"
 futures = "0.3"

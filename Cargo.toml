@@ -58,8 +58,13 @@ video-transcoder = { path = "video/transcoder" }
 binary-helper = { path = "binary-helper" }
 ffmpeg = { path = "ffmpeg" }
 
-[patch."https://github.com/async-graphql/async-graphql.git"]
-async-graphql = { git = "https://github.com/ScuffleTV/async-graphql.git", branch = "troy/union-generics" }
 
+# These patches are pending PRs to the upstream crates
+# TODO: Remove these once the PRs are merged
 [patch.crates-io]
+# https://github.com/async-graphql/async-graphql/pull/1424
+async-graphql = { git = "https://github.com/ScuffleTV/async-graphql.git", branch = "troy/union-generics" }
+# https://github.com/aembke/fred.rs/pull/199
 fred = { version = "8.0.0", git = "https://github.com/aembke/fred.rs.git", branch = "feat/unix-sockets" }
+# https://github.com/madonoharu/tsify/pull/32
+tsify = { git = "https://github.com/ScuffleTV/tsify.git", branch = "sisou/comments" }

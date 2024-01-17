@@ -235,6 +235,7 @@
 
 			padding: 2rem;
 			color: $textColor;
+			border: 2px solid $borderColor;
 
 			.caption,
 			h2 {

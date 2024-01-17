@@ -21,13 +21,15 @@ pub trait ApiState {
 
 	fn subscription_manager(&self) -> &SubscriptionManager;
 
-	fn image_uploader_s3(&self) -> &s3::Bucket;
+	fn image_uploader_s3(&self) -> &common::s3::Bucket;
 
 	fn video_room_client(&self) -> &VideoRoomClient;
 	fn video_playback_session_client(&self) -> &VideoPlaybackSessionClient;
 	fn video_events_client(&self) -> &VideoEventsClient;
 
-	fn playback_private_key(&self) -> &Option<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>>;
+	fn playback_private_key(
+		&self,
+	) -> &Option<jwt_next::asymmetric::AsymmetricKeyWithDigest<jwt_next::asymmetric::SigningKey>>;
 }
 
 pub trait ApiGlobal:

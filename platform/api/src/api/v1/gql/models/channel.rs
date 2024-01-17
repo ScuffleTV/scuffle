@@ -1,7 +1,7 @@
 use async_graphql::{ComplexObject, Context, SimpleObject};
 use chrono::Utc;
 use common::database::Ulid;
-use jwt::SignWithKey;
+use jwt_next::SignWithKey;
 
 use super::category::Category;
 use super::date::DateRFC3339;
@@ -154,14 +154,14 @@ impl<G: ApiGlobal> ChannelLive<G> {
 			return Ok(None);
 		};
 
-		let header = jwt::Header {
-			algorithm: jwt::AlgorithmType::Es384,
+		let header = jwt_next::Header {
+			algorithm: jwt_next::AlgorithmType::Es384,
 			key_id: Some(public_key_id.to_string()),
-			type_: Some(jwt::header::HeaderType::JsonWebToken),
+			type_: Some(jwt_next::header::HeaderType::JsonWebToken),
 			..Default::default()
 		};
 
-		let token = jwt::Token::new(
+		let token = jwt_next::Token::new(
 			header,
 			PlayerTokenClaim {
 				organization_id: video_api_config.organization_id.to_string(),

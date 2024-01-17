@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use anyhow::Context;
+use aws_sdk_s3::types::ObjectCannedAcl;
 use bytes::Bytes;
-use futures_util::TryStreamExt;
+use common::s3::{AsyncStreamBody, PutObjectOptions};
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
-use tokio_util::compat::FuturesAsyncReadCompatExt;
 use ulid::Ulid;
 use video_common::database::Rendition;
 
@@ -35,7 +35,7 @@ pub async fn recording_task(
 	organization_id: Ulid,
 	recording_id: Ulid,
 	rendition: Rendition,
-	bucket: s3::Bucket,
+	bucket: common::s3::Bucket,
 	mut rx: mpsc::Receiver<RecordingTask>,
 ) -> anyhow::Result<()> {
 	while let Some(task) = rx.recv().await {
@@ -51,10 +51,7 @@ pub async fn recording_task(
 					} => {
 						let size = parts.iter().map(|p| p.len()).sum::<usize>();
 
-						let mut stream = futures_util::stream::iter(parts.clone())
-							.map(std::io::Result::Ok)
-							.into_async_read()
-							.compat();
+						let stream = futures_util::stream::iter(parts.clone()).map(std::io::Result::Ok);
 
 						let segment = video_common::keys::s3_segment(
 							organization_id,
@@ -65,7 +62,14 @@ pub async fn recording_task(
 						);
 
 						bucket
-							.put_object_stream_with_content_type(&mut stream, &segment, "video/mp4")
+							.put_object(
+								segment,
+								AsyncStreamBody(stream),
+								Some(PutObjectOptions {
+									content_type: Some("video/mp4".to_owned()),
+									acl: Some(ObjectCannedAcl::PublicRead),
+								}),
+							)
 							.await
 							.context("upload segment")?;
 
@@ -109,10 +113,13 @@ pub async fn recording_task(
 					}
 					RecordingTask::Init { data } => {
 						bucket
-							.put_object_with_content_type(
+							.put_object(
 								video_common::keys::s3_init(organization_id, recording_id, rendition),
-								data,
-								"video/mp4",
+								data.clone(),
+								Some(PutObjectOptions {
+									content_type: Some("video/mp4".to_owned()),
+									acl: Some(ObjectCannedAcl::PublicRead),
+								}),
 							)
 							.await
 							.context("upload init")?;
@@ -141,20 +148,22 @@ pub async fn recording_thumbnail_task(
 	global: Arc<impl TranscoderGlobal>,
 	organization_id: Ulid,
 	recording_id: Ulid,
-	bucket: s3::Bucket,
+	bucket: common::s3::Bucket,
 	mut rx: mpsc::Receiver<RecordingThumbnailTask>,
 ) -> anyhow::Result<()> {
 	while let Some(task) = rx.recv().await {
 		retry_task(
 			|| async {
-				let mut cursor = std::io::Cursor::new(&task.data);
 				let size = task.data.len();
 
 				bucket
-					.put_object_stream_with_content_type(
-						&mut cursor,
-						&video_common::keys::s3_thumbnail(organization_id, recording_id, task.idx, task.id),
-						"image/jpg",
+					.put_object(
+						video_common::keys::s3_thumbnail(organization_id, recording_id, task.idx, task.id),
+						task.data.clone(),
+						Some(PutObjectOptions {
+							content_type: Some("image/jpeg".to_owned()),
+							acl: Some(ObjectCannedAcl::PublicRead),
+						}),
 					)
 					.await
 					.context("upload thumbnail")?;

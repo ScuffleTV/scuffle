@@ -6,7 +6,7 @@ authors = ["Scuffle <opensource@scuffle.tv>"]
 description = "Scuffle API server"
 
 [dependencies]
-tracing = { version = "0.2", git = "https://github.com/tokio-rs/tracing.git" }
+tracing = "0.1"
 tokio = { version = "1.35", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 hyper = { version = "1.1", features = ["full"] }
@@ -20,13 +20,13 @@ path-tree = "0.7"
 serde_json = "1.0"
 reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false}
 chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
-async-graphql = { git = "https://github.com/async-graphql/async-graphql.git", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "string_number"] }
+async-graphql = { version = "7.0", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "string_number"] }
 hyper-tungstenite = "0"
 async-stream = "0.3"
 futures = "0.3"
 futures-util = "0.3"
 arc-swap = "1.6"
-jwt = "0.16"
+jwt-next = "0.17"
 hmac = "0.12"
 sha2 = "0.10"
 tonic = { version = "0.10", features = ["tls"] }
@@ -45,7 +45,8 @@ thiserror = "1.0"
 itertools = "0.12"
 anyhow = "1.0"
 multer = "3.0"
-rust-s3 = { git = "https://github.com/durch/rust-s3.git", default-features = false, features = ["tags", "tokio-rustls-tls", "fail-on-err"] }
+aws-config = "1.1"
+aws-sdk-s3 = "1.12"
 http-body = "1.0"
 http-body-util = "0.1"
 hyper-util = "0.1"

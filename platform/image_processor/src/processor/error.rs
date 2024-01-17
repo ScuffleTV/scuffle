@@ -1,3 +1,5 @@
+use aws_sdk_s3::operation::get_object::GetObjectError;
+use aws_sdk_s3::operation::put_object::PutObjectError;
 use file_format::FileFormat;
 
 #[derive(Debug, thiserror::Error)]
@@ -41,10 +43,13 @@ pub enum ProcessorError {
 	FileCreate(std::io::Error),
 
 	#[error("download source from s3: {0}")]
-	S3Download(s3::error::S3Error),
+	S3Download(aws_sdk_s3::error::SdkError<GetObjectError>),
+
+	#[error("download source from s3: {0}")]
+	S3DownloadStream(aws_sdk_s3::primitives::ByteStreamError),
 
 	#[error("upload target to s3: {0}")]
-	S3Upload(s3::error::S3Error),
+	S3Upload(aws_sdk_s3::error::SdkError<PutObjectError>),
 
 	#[error("publish to nats: {0}")]
 	NatsPublish(#[from] async_nats::PublishError),

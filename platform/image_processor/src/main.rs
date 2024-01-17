@@ -27,8 +27,8 @@ struct GlobalState {
 	config: AppConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	s3_source_bucket: s3::Bucket,
-	s3_target_bucket: s3::Bucket,
+	s3_source_bucket: common::s3::Bucket,
+	s3_target_bucket: common::s3::Bucket,
 }
 
 impl_global_traits!(GlobalState);
@@ -42,12 +42,12 @@ impl common::global::GlobalConfigProvider<ImageProcessorConfig> for GlobalState 
 
 impl platform_image_processor::global::ImageProcessorState for GlobalState {
 	#[inline(always)]
-	fn s3_source_bucket(&self) -> &s3::Bucket {
+	fn s3_source_bucket(&self) -> &common::s3::Bucket {
 		&self.s3_source_bucket
 	}
 
 	#[inline(always)]
-	fn s3_target_bucket(&self) -> &s3::Bucket {
+	fn s3_target_bucket(&self) -> &common::s3::Bucket {
 		&self.s3_target_bucket
 	}
 }
@@ -55,8 +55,8 @@ impl platform_image_processor::global::ImageProcessorState for GlobalState {
 impl binary_helper::Global<AppConfig> for GlobalState {
 	async fn new(ctx: Context, config: AppConfig) -> anyhow::Result<Self> {
 		let db = setup_database(&config.database).await?;
-		let s3_source_bucket = config.extra.image_processor.source_bucket.setup().context("source bucket")?;
-		let s3_target_bucket = config.extra.image_processor.target_bucket.setup().context("target bucket")?;
+		let s3_source_bucket = config.extra.image_processor.source_bucket.setup();
+		let s3_target_bucket = config.extra.image_processor.target_bucket.setup();
 
 		let (nats, jetstream) = setup_nats(&config.name, &config.nats).await?;
 

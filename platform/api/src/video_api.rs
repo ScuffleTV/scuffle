@@ -74,20 +74,20 @@ pub fn setup_video_events_client(channel: tonic::transport::Channel, config: &Vi
 
 pub fn load_playback_keypair_private_key(
 	pbkp_config: &VideoApiPlaybackKeypairConfig,
-) -> anyhow::Result<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>> {
+) -> anyhow::Result<jwt_next::asymmetric::AsymmetricKeyWithDigest<jwt_next::asymmetric::SigningKey>> {
 	let key_string = std::fs::read_to_string(&pbkp_config.private_key).with_context(|| {
 		format!(
 			"failed to read video api playback keypair private key from {}",
 			pbkp_config.private_key.display()
 		)
 	})?;
-	let key = jwt::asymmetric::PrivateKey::from_pem(&key_string)
+	let key = jwt_next::asymmetric::PrivateKey::from_pem(&key_string)
 		.context("failed to parse video api playback keypair private key")?
 		.into_ec384()
 		.ok()
 		.context("video api playback keypair private key is not EC384")?;
-	Ok(jwt::asymmetric::AsymmetricKeyWithDigest::new(
-		jwt::asymmetric::SigningKey::from_ec384(key),
+	Ok(jwt_next::asymmetric::AsymmetricKeyWithDigest::new(
+		jwt_next::asymmetric::SigningKey::from_ec384(key),
 	))
 }
 

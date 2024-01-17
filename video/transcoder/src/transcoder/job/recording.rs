@@ -2,13 +2,14 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use aws_config::Region;
+use aws_sdk_s3::config::Credentials;
 use bytes::Bytes;
 use common::task::AsyncTask;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::live_rendition_manifest::recording_data::RecordingThumbnail;
 use pb::scuffle::video::v1::types::{AudioConfig, RecordingConfig, Rendition as PbRendition, VideoConfig};
 use prost::Message;
-use s3::Region;
 use tokio::sync::mpsc;
 use ulid::Ulid;
 use video_common::database::{Rendition, S3Bucket, Visibility};
@@ -49,32 +50,12 @@ impl Recording {
 		s3_bucket: &S3Bucket,
 		recording_config: &RecordingConfig,
 	) -> Result<Self> {
-		let bucket = s3::Bucket::new(
-			&s3_bucket.name,
-			{
-				let region = s3_bucket
-					.endpoint
-					.as_ref()
-					.or(Some(&s3_bucket.region))
-					.and_then(|s| s.parse().ok())
-					.ok_or_else(|| anyhow::anyhow!("Invalid S3 region: {:?}", s3_bucket.region))?;
-				match region {
-					Region::Custom { endpoint, .. } => s3::Region::Custom {
-						region: Region::UsEast1.to_string(),
-						endpoint,
-					},
-					_ => region,
-				}
-			},
-			s3::creds::Credentials {
-				access_key: Some(s3_bucket.access_key_id.clone()),
-				secret_key: Some(s3_bucket.secret_access_key.clone()),
-				security_token: None,
-				session_token: None,
-				expiration: None,
-			},
-		)?
-		.with_path_style();
+		let bucket = common::s3::Bucket::new(
+			s3_bucket.name.clone(),
+			Credentials::from_keys(&s3_bucket.access_key_id, &s3_bucket.secret_access_key, None),
+			Region::new(s3_bucket.region.clone()),
+			s3_bucket.endpoint.clone(),
+		);
 
 		let recording_renditions = audio_outputs
 			.iter()

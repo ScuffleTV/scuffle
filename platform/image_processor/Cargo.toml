@@ -6,14 +6,15 @@ authors = ["Scuffle <opensource@scuffle.tv>"]
 description = "Scuffle Image Processor"
 
 [dependencies]
-tracing = { version = "0.2", git = "https://github.com/tokio-rs/tracing.git" }
+tracing = "0.1"
 tokio = { version = "1.34", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
 ulid = { version = "1.1", features = ["uuid"] }
 prost = "0.12"
-rust-s3 = { git = "https://github.com/durch/rust-s3.git", default-features = false, features = ["tags", "tokio-rustls-tls", "fail-on-err"] }
+aws-config = "1.1"
+aws-sdk-s3 = "1.12"
 async-trait = "0.1"
 anyhow = "1.0"
 async-nats = "0.33"
@@ -25,7 +26,6 @@ itertools = "0.12"
 scopeguard = "1.2"
 rgb = "0.8"
 imgref = "1.10"
-opencv = { version = "0.88", default-features = false, features = ["clang-runtime", "imgproc"] }
 libavif-sys = { version = "0.15" }
 libwebp-sys2 = { version = "0.1", features = ["1_2", "demux", "mux", "static"] }
 sha2 = "0.10"
@@ -35,12 +35,13 @@ png = "0.17"
 num_cpus = "1.16"
 bytes = "1.0"
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls"] }
+fast_image_resize = "2.7"
 
 common = { workspace = true, features = ["default"] }
 config = { workspace = true }
 pb = { workspace = true }
 binary-helper = { workspace = true }
-ffmpeg = { workspace = true, features = ["task-abort"] }
+ffmpeg = { workspace = true, features = ["task-abort", "tracing"] }
 
 [dev-dependencies]
 dotenvy = "0.15.7"

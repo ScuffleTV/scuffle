@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, TimeZone, Utc};
 use hmac::{Hmac, Mac};
-use jwt::{Claims, Header, RegisteredClaims, SignWithKey, Token, VerifyWithKey};
+use jwt_next::{Claims, Header, RegisteredClaims, SignWithKey, Token, VerifyWithKey};
 use sha2::Sha256;
 use ulid::Ulid;
 

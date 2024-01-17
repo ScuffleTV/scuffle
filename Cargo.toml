@@ -58,19 +58,13 @@ video-transcoder = { path = "video/transcoder" }
 binary-helper = { path = "binary-helper" }
 ffmpeg = { path = "ffmpeg" }
 
-[patch."https://github.com/tokio-rs/tracing.git"]
-tracing = { git = "https://github.com/ScuffleTV/tracing" }
-tracing-subscriber = { git = "https://github.com/ScuffleTV/tracing" }
-tracing-log = { git = "https://github.com/ScuffleTV/tracing" }
 
+# These patches are pending PRs to the upstream crates
+# TODO: Remove these once the PRs are merged
 [patch.crates-io]
-jwt = { git = "https://github.com/ScuffleTV/rust-jwt", branch = "troy/fixes" }
-
-[patch."https://github.com/async-graphql/async-graphql.git"]
+# https://github.com/async-graphql/async-graphql/pull/1424
 async-graphql = { git = "https://github.com/ScuffleTV/async-graphql.git", branch = "troy/union-generics" }
-
-[patch."https://github.com/aembke/fred.rs.git"]
-fred = { git = "https://github.com/ScuffleTV/fred.rs.git", branch = "troy/rustls-bump" }
-
-[patch."https://github.com/durch/rust-s3.git"]
-rust-s3 = { git = "https://github.com/ScuffleTV/rust-s3.git", branch = "troy/rustls" }
+# https://github.com/aembke/fred.rs/pull/199
+fred = { version = "8.0.0", git = "https://github.com/aembke/fred.rs.git", branch = "feat/unix-sockets" }
+# https://github.com/madonoharu/tsify/pull/32
+tsify = { git = "https://github.com/ScuffleTV/tsify.git", branch = "sisou/comments" }

@@ -92,13 +92,13 @@ struct GlobalState {
 
 	subscription_manager: SubscriptionManager,
 
-	image_processor_s3: s3::Bucket,
+	image_processor_s3: common::s3::Bucket,
 
 	video_room_client: VideoRoomClient,
 	video_playback_session_client: VideoPlaybackSessionClient,
 	video_events_client: VideoEventsClient,
 
-	playback_private_key: Option<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>>,
+	playback_private_key: Option<jwt_next::asymmetric::AsymmetricKeyWithDigest<jwt_next::asymmetric::SigningKey>>,
 }
 
 impl_global_traits!(GlobalState);
@@ -171,7 +171,7 @@ impl platform_api::global::ApiState for GlobalState {
 		&self.subscription_manager
 	}
 
-	fn image_uploader_s3(&self) -> &s3::Bucket {
+	fn image_uploader_s3(&self) -> &common::s3::Bucket {
 		&self.image_processor_s3
 	}
 
@@ -187,7 +187,9 @@ impl platform_api::global::ApiState for GlobalState {
 		&self.video_events_client
 	}
 
-	fn playback_private_key(&self) -> &Option<jwt::asymmetric::AsymmetricKeyWithDigest<jwt::asymmetric::SigningKey>> {
+	fn playback_private_key(
+		&self,
+	) -> &Option<jwt_next::asymmetric::AsymmetricKeyWithDigest<jwt_next::asymmetric::SigningKey>> {
 		&self.playback_private_key
 	}
 }
@@ -207,12 +209,7 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 
 		let subscription_manager = SubscriptionManager::default();
 
-		let image_processor_s3 = config
-			.extra
-			.image_uploader
-			.bucket
-			.setup()
-			.ok_or_else(|| anyhow::anyhow!("failed to setup image processor s3"))?;
+		let image_processor_s3 = config.extra.image_uploader.bucket.setup();
 
 		let video_api_tls = if let Some(tls) = &config.extra.video_api.tls {
 			let cert = tokio::fs::read(&tls.cert)

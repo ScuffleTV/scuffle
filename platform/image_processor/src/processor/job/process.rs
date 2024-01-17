@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
+use bytes::Bytes;
 use pb::scuffle::platform::internal::types::ImageFormat;
 use rgb::ComponentBytes;
 use sha2::Digest;
@@ -18,7 +19,7 @@ pub struct Image {
 	pub frame_count: usize,
 	pub duration: f64,
 	pub encoder: EncoderFrontend,
-	pub data: Vec<u8>,
+	pub data: Bytes,
 	pub loop_count: LoopCount,
 	pub request: (usize, ImageFormat),
 }
@@ -239,7 +240,7 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 				frame_count: info.frame_count,
 				duration: info.duration as f64 / info.timescale as f64,
 				encoder: info.frontend,
-				data: output,
+				data: output.into(),
 				loop_count: info.loop_count,
 				request: (
 					stack.scale,
@@ -262,7 +263,7 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 				frame_count: info.frame_count,
 				duration: info.duration as f64 / info.timescale as f64,
 				encoder: info.frontend,
-				data: output,
+				data: output.into(),
 				loop_count: info.loop_count,
 				request: (
 					stack.scale,

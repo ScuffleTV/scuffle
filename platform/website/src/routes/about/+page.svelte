@@ -322,7 +322,7 @@
 				height: 100%;
 				z-index: -1;
 
-				background-image: url("scuffle_code.webp");
+				background-image: url("/about/code.webp");
 				background-repeat: no-repeat;
 
 				-webkit-mask-image: linear-gradient(30deg, transparent 40%, rgba(0, 0, 0, 1) 100%);

@@ -94,7 +94,7 @@
 					<Fa icon={faCode} />
 				</div>
 				<h2>Contributions welcome</h2>
-				<span>Scuffle is open source, meaning anyone can contribute to the project.</span>
+				<span>Scuffle is open source. Anyone is welcome to contribute to the project.</span>
 				<div class="buttons">
 					<a href="https://github.com/ScuffleTV" class="button primary rainbow">
 						<Fa icon={faGithub} />

@@ -88,7 +88,7 @@
 			color: $textColor;
 			font-size: 1rem;
 			font-weight: 500;
-			line-height: 0.95rem;
+			line-height: 0.95em;
 		}
 
 		& > .viewers {

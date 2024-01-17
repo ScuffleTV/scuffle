@@ -52,7 +52,7 @@
 </div>
 
 <style lang="scss">
-	@import "../../assets/styles/variables.scss";
+	@import "../../../assets/styles/variables.scss";
 
 	.content {
 		grid-area: content;
@@ -72,7 +72,7 @@
 			gap: 1rem;
 
 			& > h1 {
-				line-height: 0.9;
+				line-height: 0.9em;
 				font-weight: 500;
 				font-size: 2.25rem;
 			}

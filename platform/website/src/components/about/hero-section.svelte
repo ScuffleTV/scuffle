@@ -105,7 +105,7 @@
 			background: image-set(
 				url("/about/1x.avif") type("image/avif"),
 				url("/about/1x.webp") type("image/webp"),
-				url("/about/1x.jpg") type("image/jpg"),
+				url("/about/1x.jpg") type("image/jpg")
 			);
 			background-repeat: no-repeat;
 			background-size: cover;

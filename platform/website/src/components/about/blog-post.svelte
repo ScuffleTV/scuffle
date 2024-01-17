@@ -23,7 +23,7 @@
 				year: "numeric",
 				month: "short",
 				day: "numeric",
-		  })
+			})
 		: undefined;
 </script>
 

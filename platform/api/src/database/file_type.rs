@@ -1,7 +1,7 @@
 use postgres_types::{FromSql, ToSql};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ToSql, FromSql)]
-#[postgres(name = "filetype")]
+#[postgres(name = "file_type")]
 pub enum FileType {
 	#[postgres(name = "custom_thumbnail")]
 	CustomThumbnail,

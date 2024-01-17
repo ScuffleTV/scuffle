@@ -4,12 +4,11 @@ use std::time::Duration;
 use common::prelude::FutureTimeout;
 use tokio::sync::mpsc;
 use ulid::Ulid;
-use uuid::Uuid;
 
 use crate::global::IngestGlobal;
 
 pub struct Update {
-	pub bitrate: i32,
+	pub bitrate: i64,
 }
 
 pub async fn update_db<G: IngestGlobal>(
@@ -23,7 +22,7 @@ pub async fn update_db<G: IngestGlobal>(
 		let mut success = false;
 
 		for _ in 0..5 {
-			match sqlx::query(
+			match common::database::query(
 				r#"
                 UPDATE rooms
                 SET
@@ -36,15 +35,16 @@ pub async fn update_db<G: IngestGlobal>(
                 "#,
 			)
 			.bind(update.bitrate)
-			.bind(Uuid::from(organization_id))
-			.bind(Uuid::from(room_id))
-			.bind(Uuid::from(id))
-			.execute(global.db().as_ref())
+			.bind(organization_id)
+			.bind(room_id)
+			.bind(id)
+			.build()
+			.execute(global.db())
 			.timeout(Duration::from_secs(3))
 			.await
 			{
 				Ok(Ok(r)) => {
-					if r.rows_affected() != 1 {
+					if r != 1 {
 						tracing::error!("failed to update api with bitrate - no rows affected");
 						return;
 					} else {

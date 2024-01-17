@@ -73,7 +73,7 @@ pub async fn recording_task(
 							.await
 							.context("upload segment")?;
 
-						if sqlx::query(
+						if common::database::query(
 							r#"
                         INSERT INTO recording_rendition_segments (
                             organization_id,
@@ -95,18 +95,18 @@ pub async fn recording_task(
                             $8
                         )"#,
 						)
-						.bind(common::database::Ulid(organization_id))
-						.bind(common::database::Ulid(recording_id))
+						.bind(organization_id)
+						.bind(recording_id)
 						.bind(rendition)
 						.bind(*segment_idx as i32)
-						.bind(common::database::Ulid(*segment_id))
+						.bind(*segment_id)
 						.bind(normalize_float(*start_time))
 						.bind(normalize_float(start_time + duration))
 						.bind(size as i64)
-						.execute(global.db().as_ref())
+						.build()
+						.execute(global.db())
 						.await
-						.context("insert segment")?
-						.rows_affected() != 1
+						.context("insert segment")? != 1
 						{
 							anyhow::bail!("no rows affected");
 						}
@@ -168,7 +168,7 @@ pub async fn recording_thumbnail_task(
 					.await
 					.context("upload thumbnail")?;
 
-				if sqlx::query(
+				if common::database::query(
 					r#"
                 INSERT INTO recording_thumbnails (
                     organization_id,
@@ -185,16 +185,17 @@ pub async fn recording_thumbnail_task(
                     $5
                 )"#,
 				)
-				.bind(common::database::Ulid(organization_id))
-				.bind(common::database::Ulid(recording_id))
+				.bind(organization_id)
+				.bind(recording_id)
 				.bind(task.idx as i32)
-				.bind(common::database::Ulid(task.id))
+				.bind(task.id)
 				.bind(normalize_float(task.start_time))
 				.bind(size as i64)
-				.execute(global.db().as_ref())
+				.build()
+				.execute(global.db())
 				.await
 				.context("insert thumbnail")?
-				.rows_affected() != 1
+					!= 1
 				{
 					anyhow::bail!("no rows affected");
 				}

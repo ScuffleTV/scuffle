@@ -1,25 +1,21 @@
 use pb::scuffle::video::v1::types::SearchOptions;
 use tonic::Status;
-use uuid::Uuid;
+use ulid::Ulid;
 
 use super::tags::validate_tags;
 
-pub fn organization_id(
-	seperated: &mut sqlx::query_builder::Separated<'_, '_, sqlx::Postgres, &str>,
-	organization_id: common::database::Ulid,
-) {
+pub fn organization_id(seperated: &mut common::database::Separated<'_, '_>, organization_id: Ulid) {
 	seperated.push("organization_id = ");
-	seperated.push_bind_unseparated(Uuid::from(organization_id));
+	seperated.push_bind_unseparated(organization_id);
 }
 
-pub fn ids(seperated: &mut sqlx::query_builder::Separated<'_, '_, sqlx::Postgres, &str>, ids: &[pb::scuffle::types::Ulid]) {
+pub fn ids(seperated: &mut common::database::Separated<'_, '_>, ids: &[pb::scuffle::types::Ulid]) {
 	if !ids.is_empty() {
 		seperated.push("id = ANY(");
 		seperated.push_bind_unseparated(
 			ids.iter()
 				.copied()
 				.map(pb::scuffle::types::Ulid::into_ulid)
-				.map(common::database::Ulid)
 				.collect::<Vec<_>>(),
 		);
 		seperated.push_unseparated(")");
@@ -27,7 +23,7 @@ pub fn ids(seperated: &mut sqlx::query_builder::Separated<'_, '_, sqlx::Postgres
 }
 
 pub fn search_options(
-	seperated: &mut sqlx::query_builder::Separated<'_, '_, sqlx::Postgres, &str>,
+	seperated: &mut common::database::Separated<'_, '_>,
 	search_options: Option<&SearchOptions>,
 ) -> tonic::Result<()> {
 	if let Some(options) = search_options {
@@ -37,7 +33,7 @@ pub fn search_options(
 			} else {
 				seperated.push("id > ");
 			}
-			seperated.push_bind_unseparated(common::database::Ulid(after_id.into_ulid()));
+			seperated.push_bind_unseparated(after_id.into_ulid());
 		}
 
 		validate_tags(options.tags.as_ref())?;
@@ -57,7 +53,7 @@ pub fn search_options(
 			options.limit
 		} else {
 			return Err(Status::invalid_argument("limit must be between 1 and 1000"));
-		};
+		} as i64;
 
 		if options.reverse {
 			seperated.push_unseparated(" ORDER BY id DESC");

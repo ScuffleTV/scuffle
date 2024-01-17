@@ -5,6 +5,7 @@ use anyhow::{Context, Result};
 use aws_config::Region;
 use aws_sdk_s3::config::Credentials;
 use bytes::Bytes;
+use common::database::tokio_postgres::Transaction;
 use common::task::AsyncTask;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::live_rendition_manifest::recording_data::RecordingThumbnail;
@@ -40,7 +41,7 @@ impl Recording {
 	#[allow(clippy::too_many_arguments)]
 	pub async fn new(
 		global: &Arc<impl TranscoderGlobal>,
-		tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+		tx: &Transaction<'_>,
 		id: Ulid,
 		organization_id: Ulid,
 		room_id: Ulid,
@@ -67,7 +68,7 @@ impl Recording {
 
 		let allow_dvr = recording_renditions.len() == video_outputs.len() + audio_outputs.len();
 
-		sqlx::query(
+		common::database::query(
 			r#"
 			INSERT INTO recordings (
                 id,
@@ -88,29 +89,28 @@ impl Recording {
             ) ON CONFLICT DO NOTHING
 			"#,
 		)
-		.bind(common::database::Ulid(id))
-		.bind(common::database::Ulid(organization_id))
-		.bind(common::database::Ulid(room_id))
-		.bind(common::database::Ulid(recording_config.id.into_ulid()))
+		.bind(id)
+		.bind(organization_id)
+		.bind(room_id)
+		.bind(recording_config.id.into_ulid())
 		.bind(visibility)
 		.bind(allow_dvr)
 		.bind(s3_bucket.id)
-		.execute(tx.as_mut())
+		.build()
+		.execute(tx)
 		.await?;
 
-		let mut qb =
-			sqlx::QueryBuilder::new("INSERT INTO recording_renditions (organization_id, recording_id, rendition, config)");
-
-		qb.push_values(recording_renditions.iter(), |mut b, (rendition, config)| {
-			b.push_bind(common::database::Ulid(organization_id));
-			b.push_bind(common::database::Ulid(id));
-			b.push_bind(rendition);
-			b.push_bind(config);
-		});
-
-		qb.push("ON CONFLICT DO NOTHING");
-
-		qb.build().execute(tx.as_mut()).await?;
+		common::database::query("INSERT INTO recording_renditions (organization_id, recording_id, rendition, config)")
+			.push_values(recording_renditions.iter(), |mut b, (rendition, config)| {
+				b.push_bind(organization_id);
+				b.push_bind(id);
+				b.push_bind(rendition);
+				b.push_bind(config);
+			})
+			.push("ON CONFLICT DO NOTHING")
+			.build()
+			.execute(tx)
+			.await?;
 
 		let mut tasks = Vec::new();
 		let mut uploaders = HashMap::new();

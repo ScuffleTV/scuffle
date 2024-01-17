@@ -8,7 +8,7 @@ use crate::global::ImageProcessorGlobal;
 use crate::processor::error::Result;
 
 pub async fn query_job(global: &Arc<impl ImageProcessorGlobal>) -> Result<Option<Job>> {
-	Ok(sqlx::query_as(
+	Ok(common::database::query(
 		"UPDATE image_jobs
 		SET claimed_by = $1,
 			hold_until = NOW() + INTERVAL '30 seconds'
@@ -23,33 +23,32 @@ pub async fn query_job(global: &Arc<impl ImageProcessorGlobal>) -> Result<Option
 		WHERE image_jobs.id = job.id
 		RETURNING image_jobs.id, image_jobs.task",
 	)
-	.bind(common::database::Ulid(global.config().instance_id))
-	.fetch_optional(global.db().as_ref())
+	.bind(global.config().instance_id)
+	.build_query_as()
+	.fetch_optional(global.db())
 	.await?)
 }
 
 pub async fn refresh_job(global: &Arc<impl ImageProcessorGlobal>, job_id: Ulid) -> Result<()> {
-	let result = sqlx::query(
+	let result = common::database::query(
 		"UPDATE image_jobs
 		SET hold_until = NOW() + INTERVAL '30 seconds'
 		WHERE image_jobs.id = $1 AND image_jobs.claimed_by = $2",
 	)
-	.bind(common::database::Ulid(job_id))
-	.bind(common::database::Ulid(global.config().instance_id))
-	.execute(global.db().as_ref())
+	.bind(job_id)
+	.bind(global.config().instance_id)
+	.build()
+	.execute(global.db())
 	.await?;
 
-	if result.rows_affected() == 0 {
-		Err(ProcessorError::LostJob)
-	} else {
-		Ok(())
-	}
+	if result == 0 { Err(ProcessorError::LostJob) } else { Ok(()) }
 }
 
 pub async fn delete_job(global: &Arc<impl ImageProcessorGlobal>, job_id: Ulid) -> Result<()> {
-	sqlx::query("DELETE FROM image_jobs WHERE id = $1")
-		.bind(common::database::Ulid(job_id))
-		.execute(global.db().as_ref())
+	common::database::query("DELETE FROM image_jobs WHERE id = $1")
+		.bind(job_id)
+		.build()
+		.execute(global.db())
 		.await?;
 
 	Ok(())

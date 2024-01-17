@@ -18,5 +18,11 @@ pub enum ApiError {
 	#[error("failed to query turnstile: {0}")]
 	Turnstile(#[from] TurnstileError),
 	#[error("failed to query database: {0}")]
-	Database(#[from] sqlx::Error),
+	Database(#[from] common::database::deadpool_postgres::PoolError),
+}
+
+impl From<common::database::tokio_postgres::Error> for ApiError {
+	fn from(value: common::database::tokio_postgres::Error) -> Self {
+		Self::Database(value.into())
+	}
 }

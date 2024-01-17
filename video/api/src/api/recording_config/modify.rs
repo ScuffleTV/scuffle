@@ -1,13 +1,14 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use common::database::IntoClient;
 use pb::ext::UlidExt;
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, Resource};
 use pb::scuffle::video::v1::{RecordingConfigModifyRequest, RecordingConfigModifyResponse};
 use tonic::Status;
-use video_common::database::{AccessToken, DatabaseTable, Rendition, S3Bucket};
+use video_common::database::{AccessToken, DatabaseTable, Rendition};
 
 use crate::api::errors::MODIFY_NO_FIELDS;
 use crate::api::utils::tags::validate_tags;
@@ -26,12 +27,12 @@ pub fn validate(req: &RecordingConfigModifyRequest) -> tonic::Result<()> {
 	validate_tags(req.tags.as_ref())
 }
 
-pub async fn build_query<'a, G: ApiGlobal>(
+pub async fn build_query<'a>(
 	req: &'a RecordingConfigModifyRequest,
-	global: &'a Arc<G>,
+	client: impl IntoClient,
 	access_token: &AccessToken,
-) -> tonic::Result<sqlx::QueryBuilder<'a, sqlx::Postgres>> {
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+) -> tonic::Result<common::database::QueryBuilder<'a>> {
+	let mut qb = common::database::QueryBuilder::default();
 
 	qb.push("UPDATE ")
 		.push(<RecordingConfigModifyRequest as TonicRequest>::Table::NAME)
@@ -67,14 +68,17 @@ pub async fn build_query<'a, G: ApiGlobal>(
 	}
 
 	if let Some(tags) = &req.tags {
-		seperated.push("tags = ").push_bind_unseparated(sqlx::types::Json(&tags.tags));
+		seperated
+			.push("tags = ")
+			.push_bind_unseparated(common::database::Json(&tags.tags));
 	}
 
 	if let Some(s3_bucket_id) = &req.s3_bucket_id {
-		let bucket: S3Bucket = sqlx::query_as("SELECT * FROM s3_buckets WHERE id = $1 AND organization_id = $2")
-			.bind(common::database::Ulid(s3_bucket_id.into_ulid()))
+		common::database::query("SELECT * FROM s3_buckets WHERE id = $1 AND organization_id = $2")
+			.bind(s3_bucket_id.into_ulid())
 			.bind(access_token.organization_id)
-			.fetch_optional(global.db().as_ref())
+			.build()
+			.fetch_optional(client)
 			.await
 			.map_err(|err| {
 				tracing::error!(err = %err, "failed to fetch s3 bucket");
@@ -82,7 +86,9 @@ pub async fn build_query<'a, G: ApiGlobal>(
 			})?
 			.ok_or_else(|| Status::not_found("s3 bucket not found"))?;
 
-		seperated.push("s3_bucket_id = ").push_bind_unseparated(bucket.id);
+		seperated
+			.push("s3_bucket_id = ")
+			.push_bind_unseparated(s3_bucket_id.into_ulid());
 	}
 
 	if req.tags.is_none()
@@ -95,7 +101,7 @@ pub async fn build_query<'a, G: ApiGlobal>(
 
 	seperated.push("updated_at = NOW()");
 
-	qb.push(" WHERE id = ").push_bind(common::database::Ulid(req.id.into_ulid()));
+	qb.push(" WHERE id = ").push_bind(req.id.into_ulid());
 	qb.push(" AND organization_id = ").push_bind(access_token.organization_id);
 	qb.push(" RETURNING *");
 
@@ -112,13 +118,15 @@ impl ApiRequest<RecordingConfigModifyResponse> for tonic::Request<RecordingConfi
 
 		validate(req)?;
 
-		let mut query = build_query(req, global, access_token).await?;
+		let client = global.db().get().await.map_err(|err| {
+			tracing::error!(err = %err, "failed to get db client");
+			Status::internal("internal server error")
+		})?;
 
-		let result: Option<video_common::database::RecordingConfig> = query
-			.build_query_as()
-			.fetch_optional(global.db().as_ref())
-			.await
-			.map_err(|err| {
+		let query = build_query(req, &client, access_token).await?;
+
+		let result: Option<video_common::database::RecordingConfig> =
+			query.build_query_as().fetch_optional(client).await.map_err(|err| {
 				tracing::error!(err = %err, "failed to modify {}", <RecordingConfigModifyRequest as TonicRequest>::Table::FRIENDLY_NAME);
 				tonic::Status::internal(format!(
 					"failed to modify {}",
@@ -131,10 +139,10 @@ impl ApiRequest<RecordingConfigModifyResponse> for tonic::Request<RecordingConfi
 				video_common::events::emit(
 					global.nats(),
 					&global.config().events.stream_name,
-					access_token.organization_id.0,
+					access_token.organization_id,
 					Target::RecordingConfig,
 					event::Event::RecordingConfig(event::RecordingConfig {
-						recording_config_id: Some(result.id.0.into()),
+						recording_config_id: Some(result.id.into()),
 						event: Some(event::recording_config::Event::Modified(event::recording_config::Modified {})),
 					}),
 				)

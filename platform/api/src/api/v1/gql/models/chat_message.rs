@@ -64,9 +64,9 @@ impl<G: ApiGlobal> ChatMessage<G> {
 impl<G: ApiGlobal> From<database::ChatMessage> for ChatMessage<G> {
 	fn from(model: database::ChatMessage) -> Self {
 		Self {
-			id: model.id.0.into(),
-			channel_id: model.channel_id.0.into(),
-			user_id: model.user_id.0.into(),
+			id: model.id.into(),
+			channel_id: model.channel_id.into(),
+			user_id: model.user_id.into(),
 			content: model.content,
 			r#type: MessageType::User,
 			_phantom: std::marker::PhantomData,

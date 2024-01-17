@@ -28,11 +28,10 @@ uuid = "1.6"
 ulid = { version = "1.1", features = ["uuid"] }
 async-stream = "0.3"
 async-nats = "0.33"
-sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "tls-rustls", "json", "chrono", "uuid"] }
-sqlx-postgres = "0.7"
 base64 = "0.21"
 tokio-stream = "0.1"
 default-net = "0.21"
+postgres-from-row = "0.5"
 
 common = { workspace = true, features = ["default"] }
 rtmp = { workspace = true }

@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
 use common::context::{Context, Handler};
+use common::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
+use common::database::tokio_postgres::NoTls;
+use common::database::Pool;
 use common::grpc::TlsSettings;
 use common::logging;
 
@@ -11,7 +14,7 @@ pub struct GlobalState {
 	config: TranscoderConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 	ingest_tls: Option<TlsSettings>,
 	media_store: async_nats::jetstream::object_store::ObjectStore,
 	metadata_store: async_nats::jetstream::kv::Store,
@@ -40,7 +43,7 @@ impl common::global::GlobalNats for GlobalState {
 }
 
 impl common::global::GlobalDb for GlobalState {
-	fn db(&self) -> &Arc<sqlx::PgPool> {
+	fn db(&self) -> &Arc<common::database::Pool> {
 		&self.db
 	}
 }
@@ -77,9 +80,17 @@ pub async fn mock_global_state(config: TranscoderConfig) -> (Arc<GlobalState>, H
 	let jetstream = async_nats::jetstream::new(nats.clone());
 
 	let db = Arc::new(
-		sqlx::PgPool::connect(&database_uri)
-			.await
-			.expect("failed to connect to database"),
+		Pool::builder(common::database::deadpool_postgres::Manager::from_config(
+			database_uri.parse().unwrap(),
+			NoTls,
+			ManagerConfig {
+				recycling_method: RecyclingMethod::Fast,
+			},
+		))
+		.config(PoolConfig::default())
+		.runtime(Runtime::Tokio1)
+		.build()
+		.expect("failed to create pool"),
 	);
 
 	let metadata_store = jetstream

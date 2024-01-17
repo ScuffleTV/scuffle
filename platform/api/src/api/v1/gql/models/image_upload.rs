@@ -55,8 +55,8 @@ impl<G: ApiGlobal> ImageUpload<G> {
 			return Ok(None);
 		}
 
-		if let Some(uploaded_file_metadata::Metadata::Image(image)) = uploaded_file.metadata.0.metadata {
-			Ok(Some(Self::new(uploaded_file.id.0, image)))
+		if let Some(uploaded_file_metadata::Metadata::Image(image)) = uploaded_file.metadata.metadata {
+			Ok(Some(Self::new(uploaded_file.id, image)))
 		} else {
 			Err(GqlError::InternalServerError("uploaded file is not an image").into())
 		}

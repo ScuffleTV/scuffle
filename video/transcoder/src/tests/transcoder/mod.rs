@@ -8,7 +8,6 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use common::database::TraitProtobufVec;
 use common::global::*;
 use common::prelude::FutureTimeout;
 use futures_util::Stream;
@@ -28,7 +27,6 @@ use tokio_stream::StreamExt;
 use tonic::Response;
 use transmuxer::{TransmuxResult, Transmuxer};
 use ulid::Ulid;
-use uuid::Uuid;
 use video_common::database::{Room, RoomStatus};
 use video_common::ext::AsyncReadExt as _;
 
@@ -116,7 +114,7 @@ async fn test_transcode() {
 	let room_id = Ulid::new();
 	let connection_id = Ulid::new();
 
-	sqlx::query(
+	common::database::query(
 		r#"
     INSERT INTO organizations (
         id,
@@ -126,13 +124,14 @@ async fn test_transcode() {
         $2
     )"#,
 	)
-	.bind(Uuid::from(org_id))
-	.bind(Uuid::from(room_id).simple().to_string())
-	.execute(global.db().as_ref())
+	.bind(org_id)
+	.bind(room_id.to_string())
+	.build()
+	.execute(global.db())
 	.await
 	.unwrap();
 
-	sqlx::query(
+	common::database::query(
 		r#"
     INSERT INTO rooms (
         id,
@@ -150,10 +149,10 @@ async fn test_transcode() {
         $6
     )"#,
 	)
-	.bind(Uuid::from(room_id))
-	.bind(Uuid::from(org_id))
-	.bind(Uuid::from(connection_id))
-	.bind(Uuid::from(room_id).simple().to_string())
+	.bind(room_id)
+	.bind(org_id)
+	.bind(connection_id)
+	.bind(room_id.to_string())
 	.bind(
 		VideoConfig {
 			bitrate: 7358 * 1024,
@@ -175,7 +174,8 @@ async fn test_transcode() {
 		}
 		.encode_to_vec(),
 	)
-	.execute(global.db().as_ref())
+	.build()
+	.execute(global.db())
 	.await
 	.unwrap();
 
@@ -545,19 +545,21 @@ async fn test_transcode() {
 	assert_eq!(json["streams"][0]["duration_ts"], 48128);
 	assert_eq!(json["streams"][0]["time_base"], "1/48000");
 
-	let room: Room =
-		sqlx::query_as("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2 AND active_ingest_connection_id = $3")
-			.bind(Uuid::from(org_id))
-			.bind(Uuid::from(room_id))
-			.bind(Uuid::from(connection_id))
-			.fetch_one(global.db().as_ref())
-			.await
-			.unwrap();
+	let room: Room = common::database::query(
+		"SELECT * FROM rooms WHERE organization_id = $1 AND id = $2 AND active_ingest_connection_id = $3",
+	)
+	.bind(org_id)
+	.bind(room_id)
+	.bind(connection_id)
+	.build_query_as()
+	.fetch_one(global.db())
+	.await
+	.unwrap();
 
-	let active_transcoding_config = room.active_transcoding_config.unwrap().0;
+	let active_transcoding_config = room.active_transcoding_config.unwrap();
 	assert!(room.active_recording_config.is_none());
-	let video_output = room.video_output.unwrap().into_vec();
-	let audio_output = room.audio_output.unwrap().into_vec();
+	let video_output = room.video_output.unwrap();
+	let audio_output = room.audio_output.unwrap();
 
 	assert!(
 		active_transcoding_config
@@ -649,7 +651,7 @@ async fn test_transcode_reconnect() {
 	let room_id = Ulid::new();
 	let connection_id = Ulid::new();
 
-	sqlx::query(
+	common::database::query(
 		r#"
     INSERT INTO organizations (
         id,
@@ -659,13 +661,14 @@ async fn test_transcode_reconnect() {
         $2
     )"#,
 	)
-	.bind(Uuid::from(org_id))
-	.bind(Uuid::from(room_id).simple().to_string())
-	.execute(global.db().as_ref())
+	.bind(org_id)
+	.bind(room_id.to_string())
+	.build()
+	.execute(global.db())
 	.await
 	.unwrap();
 
-	sqlx::query(
+	common::database::query(
 		r#"
     INSERT INTO rooms (
         organization_id,
@@ -683,10 +686,10 @@ async fn test_transcode_reconnect() {
         $6
     )"#,
 	)
-	.bind(Uuid::from(org_id))
-	.bind(Uuid::from(room_id))
-	.bind(Uuid::from(connection_id))
-	.bind(Uuid::from(room_id).simple().to_string())
+	.bind(org_id)
+	.bind(room_id)
+	.bind(connection_id)
+	.bind(room_id.to_string())
 	.bind(
 		VideoConfig {
 			bitrate: 7358 * 1024,
@@ -708,7 +711,8 @@ async fn test_transcode_reconnect() {
 		}
 		.encode_to_vec(),
 	)
-	.execute(global.db().as_ref())
+	.build()
+	.execute(global.db())
 	.await
 	.unwrap();
 

@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use pb::scuffle::video::v1::types::Tags;
 use tonic::Status;
 use ulid::Ulid;
-use uuid::Uuid;
 use video_common::database::DatabaseTable;
 
 const MAX_TAG_COUNT: usize = 10;
@@ -67,9 +66,9 @@ pub fn validate_tags_array(tags: &[String]) -> tonic::Result<()> {
 	Ok(())
 }
 
-#[derive(sqlx::FromRow)]
+#[derive(postgres_from_row::FromRow)]
 pub struct TagExt {
-	pub tags: sqlx::types::Json<HashMap<String, String>>,
+	pub tags: common::database::Json<HashMap<String, String>>,
 	pub status: i64,
 }
 
@@ -98,20 +97,20 @@ pub fn add_tag_query<D: DatabaseTable>(
 	tags: &HashMap<String, String>,
 	id: Ulid,
 	organization_id: Option<Ulid>,
-) -> sqlx::QueryBuilder<'_, sqlx::Postgres> {
-	let mut qb = sqlx::QueryBuilder::default();
+) -> common::database::QueryBuilder<'_> {
+	let mut qb = common::database::QueryBuilder::default();
 
 	qb.push("WITH mt AS (SELECT id, tags || ")
-		.push_bind(sqlx::types::Json(tags))
+		.push_bind(common::database::Json(tags))
 		.push(" AS new_tags, CASE WHEN tags @> $1 THEN 1 WHEN COUNT(jsonb_object_keys(tags || $1)) > ")
-		.push_bind(MAX_TAG_COUNT as i32)
+		.push_bind(MAX_TAG_COUNT as i64)
 		.push(" THEN 2 ELSE 0 END AS status FROM ")
 		.push(D::NAME)
 		.push(" WHERE id = ")
-		.push_bind(Uuid::from(id));
+		.push_bind(id);
 
 	if let Some(organization_id) = organization_id {
-		qb.push(" AND organization_id = ").push_bind(Uuid::from(organization_id));
+		qb.push(" AND organization_id = ").push_bind(organization_id);
 	}
 
 	qb.push(" GROUP BY id, organization_id) UPDATE ")
@@ -127,18 +126,18 @@ pub fn remove_tag_query<D: DatabaseTable>(
 	tags: &[String],
 	id: Ulid,
 	organization_id: Option<Ulid>,
-) -> sqlx::QueryBuilder<'_, sqlx::Postgres> {
-	let mut qb = sqlx::QueryBuilder::default();
+) -> common::database::QueryBuilder<'_> {
+	let mut qb = common::database::QueryBuilder::default();
 
 	qb.push("WITH rt AS (SELECT id, tags - ")
 		.push_bind(tags)
-		.push(" AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM ")
+		.push("::TEXT[] AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM ")
 		.push(D::NAME)
 		.push(" WHERE id = ")
-		.push_bind(Uuid::from(id));
+		.push_bind(id);
 
 	if let Some(organization_id) = organization_id {
-		qb.push(" AND organization_id = ").push_bind(Uuid::from(organization_id));
+		qb.push(" AND organization_id = ").push_bind(organization_id);
 	}
 
 	qb.push(" GROUP BY id, organization_id) UPDATE ")
@@ -157,12 +156,12 @@ macro_rules! impl_tag_req {
 			crate::api::utils::tags::validate_tags(req.tags.as_ref())
 		}
 
-		pub fn build_query<'a>(req: &'a $req, access_token: &video_common::database::AccessToken) -> tonic::Result<sqlx::query_builder::QueryBuilder<'a, sqlx::Postgres>> {
+		pub fn build_query<'a>(req: &'a $req, access_token: &video_common::database::AccessToken) -> tonic::Result<common::database::QueryBuilder<'a>> {
 			let tags = req.tags.as_ref().ok_or_else(|| {
 				tonic::Status::invalid_argument("tags must be provided to add a tag")
 			})?;
 
-			Ok(crate::api::utils::tags::add_tag_query::<<$req as crate::api::utils::TonicRequest>::Table>(&tags.tags, pb::ext::UlidExt::into_ulid(req.id), Some(access_token.organization_id.0)))
+			Ok(crate::api::utils::tags::add_tag_query::<<$req as crate::api::utils::TonicRequest>::Table>(&tags.tags, pb::ext::UlidExt::into_ulid(req.id), Some(access_token.organization_id)))
 		}
 
 		impl crate::api::utils::ApiRequest<$resp> for tonic::Request<$req> {
@@ -171,15 +170,15 @@ macro_rules! impl_tag_req {
 
 				validate(req)?;
 
-				let mut query = build_query(req, access_token)?;
+				let query = build_query(req, access_token)?;
 
-				let result: crate::api::utils::tags::TagExt = query.build_query_as().fetch_one(global.db().as_ref()).await.map_err(|err| {
+				let result: crate::api::utils::tags::TagExt = query.build_query_as().fetch_one(global.db()).await.map_err(|err| {
 					tracing::error!(err = %err, "failed to update {}", <<$req as crate::api::utils::TonicRequest>::Table as video_common::database::DatabaseTable>::FRIENDLY_NAME);
 					tonic::Status::internal(format!("failed to update {}", <<$req as crate::api::utils::TonicRequest>::Table as video_common::database::DatabaseTable>::FRIENDLY_NAME))
 				})?;
 
 				let $id = pb::ext::UlidExt::into_ulid(req.id);
-				video_common::events::emit(global.nats(), &global.config().events.stream_name, access_token.organization_id.0, $event_target, $event).await;
+				video_common::events::emit(global.nats(), &global.config().events.stream_name, access_token.organization_id, $event_target, $event).await;
 
 				Ok(tonic::Response::new($resp {
 					tags: Some(result.into_tags()?)
@@ -200,8 +199,8 @@ macro_rules! impl_untag_req {
 			crate::api::utils::tags::validate_tags_array(&req.tags)
 		}
 
-		pub fn build_query<'a>(req: &'a $req, access_token: &video_common::database::AccessToken) -> tonic::Result<sqlx::query_builder::QueryBuilder<'a, sqlx::Postgres>> {
-			Ok(crate::api::utils::tags::remove_tag_query::<<$req as crate::api::utils::TonicRequest>::Table>(&req.tags, pb::ext::UlidExt::into_ulid(req.id), Some(access_token.organization_id.0)))
+		pub fn build_query<'a>(req: &'a $req, access_token: &video_common::database::AccessToken) -> tonic::Result<common::database::QueryBuilder<'a>> {
+			Ok(crate::api::utils::tags::remove_tag_query::<<$req as crate::api::utils::TonicRequest>::Table>(&req.tags, pb::ext::UlidExt::into_ulid(req.id), Some(access_token.organization_id)))
 		}
 
 		impl crate::api::utils::ApiRequest<$resp> for tonic::Request<$req> {
@@ -210,15 +209,15 @@ macro_rules! impl_untag_req {
 
 				validate(req)?;
 
-				let mut query = build_query(req, access_token)?;
+				let query = build_query(req, access_token)?;
 
-				let result: crate::api::utils::tags::TagExt = query.build_query_as().fetch_one(global.db().as_ref()).await.map_err(|err| {
+				let result: crate::api::utils::tags::TagExt = query.build_query_as().fetch_one(global.db()).await.map_err(|err| {
 					tracing::error!(err = %err, "failed to update {}", <<$req as crate::api::utils::TonicRequest>::Table as video_common::database::DatabaseTable>::FRIENDLY_NAME);
 					tonic::Status::internal(format!("failed to update {}", <<$req as crate::api::utils::TonicRequest>::Table as video_common::database::DatabaseTable>::FRIENDLY_NAME))
 				})?;
 
 				let $id = pb::ext::UlidExt::into_ulid(req.id);
-				video_common::events::emit(global.nats(), &global.config().events.stream_name, access_token.organization_id.0, $event_target, $event).await;
+				video_common::events::emit(global.nats(), &global.config().events.stream_name, access_token.organization_id, $event_target, $event).await;
 
 				Ok(tonic::Response::new($resp {
 					tags: Some(result.into_tags()?)

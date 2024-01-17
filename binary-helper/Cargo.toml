@@ -10,7 +10,6 @@ tokio = { version = "1.35", features = ["full"] }
 serde = { version = "1.0.1", features = ["derive"] }
 async-nats = "0.33"
 ulid = "1.1"
-sqlx = { version = "0.7", features = ["postgres"] }
 async-trait = "0.1"
 tonic = { version = "0.10", features = ["tls"] }
 anyhow = "1.0"
@@ -20,6 +19,7 @@ futures-util = "0.3"
 rustls = "0.22"
 rustls-pemfile = "2.0"
 fred = { version = "8.0.0", features = ["enable-rustls", "sentinel-client", "dns"] }
+tokio-postgres-rustls = "0.11"
 
 config = { workspace = true }
 common = { workspace = true, features = ["default"] }

@@ -45,7 +45,7 @@ pub async fn generic_task(
 							.context("upload manifest")?;
 					}
 					GenericTask::RoomReady {} => {
-						if sqlx::query(
+						if common::database::query(
 							r#"
 						UPDATE rooms
 						SET
@@ -58,13 +58,14 @@ pub async fn generic_task(
 						"#,
 						)
 						.bind(RoomStatus::Ready)
-						.bind(common::database::Ulid(organization_id))
-						.bind(common::database::Ulid(room_id))
-						.bind(common::database::Ulid(connection_id))
-						.execute(global.db().as_ref())
+						.bind(organization_id)
+						.bind(room_id)
+						.bind(connection_id)
+						.build()
+						.execute(global.db())
 						.await
 						.context("update room status")?
-						.rows_affected() != 1
+							!= 1
 						{
 							anyhow::bail!("failed to update room status");
 						};

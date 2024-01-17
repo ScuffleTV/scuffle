@@ -34,7 +34,7 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 
 		let user: database::User = global
 			.user_by_id_loader()
-			.load(auth.session.user_id.0)
+			.load(auth.session.user_id)
 			.await
 			.map_err_ignored_gql("failed to fetch user")?
 			.map_err_gql(GqlError::NotFound("user"))?;
@@ -67,7 +67,7 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 		let hex_backup_codes = backup_codes.iter().map(|c| format!("{:08x}", c)).collect();
 
 		// Save secret and backup codes to database.
-		sqlx::query(
+		common::database::query(
 			r#"
 			UPDATE
 				users
@@ -82,7 +82,8 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 		.bind(secret)
 		.bind(backup_codes)
 		.bind(auth.session.user_id)
-		.execute(global.db().as_ref())
+		.build()
+		.execute(global.db())
 		.await?;
 
 		let qr_code = totp.get_qr_base64().map_err_ignored_gql("failed generate qr code")?;
@@ -105,7 +106,7 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 
 		let user: database::User = global
 			.user_by_id_loader()
-			.load(auth.session.user_id.0)
+			.load(auth.session.user_id)
 			.await
 			.map_err_ignored_gql("failed to fetch user")?
 			.map_err_gql(GqlError::NotFound("user"))?;
@@ -129,7 +130,7 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 		}
 
 		// Enable 2fa
-		let user: database::User = sqlx::query_as(
+		let user: database::User = common::database::query(
 			r#"
 			UPDATE
 				users
@@ -142,7 +143,8 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 			"#,
 		)
 		.bind(auth.session.user_id)
-		.fetch_one(global.db().as_ref())
+		.build_query_as()
+		.fetch_one(global.db())
 		.await?;
 
 		// TODO: Log out all other sessions?
@@ -162,7 +164,7 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 
 		let user: database::User = global
 			.user_by_id_loader()
-			.load(auth.session.user_id.0)
+			.load(auth.session.user_id)
 			.await
 			.map_err_ignored_gql("failed to fetch user")?
 			.map_err_gql(GqlError::NotFound("user"))?;
@@ -177,7 +179,7 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 		}
 
 		// Disable 2fa, remove secret and backup codes.
-		let user: database::User = sqlx::query_as(
+		let user: database::User = common::database::query(
 			r#"
 			UPDATE users
 			SET
@@ -191,7 +193,8 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 			"#,
 		)
 		.bind(auth.session.user_id)
-		.fetch_one(global.db().as_ref())
+		.build_query_as()
+		.fetch_one(global.db())
 		.await?;
 
 		Ok(user.into())

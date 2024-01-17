@@ -71,7 +71,7 @@ impl<G: ApiGlobal> FileSubscription<G> {
 					FileStatus::Success
 				};
 				yield Ok(FileStatusStream {
-					file_id: file.id.0.into(),
+					file_id: file.id.into(),
 					status,
 					reason: file.failed,
 					// TODO: we don't have access to the friendly message here because it isn't in the db

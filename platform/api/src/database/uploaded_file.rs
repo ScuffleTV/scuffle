@@ -1,16 +1,18 @@
-use common::database::{Protobuf, Ulid};
+use common::database::protobuf;
+use ulid::Ulid;
 
 use super::FileType;
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, postgres_from_row::FromRow)]
 pub struct UploadedFile {
 	pub id: Ulid,
 	pub owner_id: Ulid,
 	pub uploader_id: Ulid,
 	pub name: String,
-	#[sqlx(rename = "type")]
+	#[from_row(rename = "type")]
 	pub ty: FileType,
-	pub metadata: Protobuf<pb::scuffle::platform::internal::types::UploadedFileMetadata>,
+	#[from_row(from_fn = "protobuf")]
+	pub metadata: pb::scuffle::platform::internal::types::UploadedFileMetadata,
 	pub total_size: i64,
 	pub pending: bool,
 	pub path: String,

@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
+use common::database::IntoClient;
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, Resource};
 use pb::scuffle::video::v1::{RoomCreateRequest, RoomCreateResponse};
 use tonic::Status;
 use ulid::Ulid;
-use video_common::database::{AccessToken, DatabaseTable, RecordingConfig, TranscodingConfig, Visibility};
+use video_common::database::{AccessToken, DatabaseTable, Visibility};
 
 use super::utils::create_stream_key;
 use crate::api::utils::tags::validate_tags;
@@ -25,12 +26,12 @@ pub fn validate(req: &RoomCreateRequest) -> tonic::Result<()> {
 	validate_tags(req.tags.as_ref())
 }
 
-pub async fn build_query<G: ApiGlobal>(
+pub async fn build_query(
 	req: &RoomCreateRequest,
-	global: &Arc<G>,
+	client: impl IntoClient,
 	access_token: &AccessToken,
-) -> tonic::Result<sqlx::QueryBuilder<'static, sqlx::Postgres>> {
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+) -> tonic::Result<common::database::QueryBuilder<'static>> {
+	let mut qb = common::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<RoomCreateRequest as TonicRequest>::Table::NAME)
@@ -48,36 +49,38 @@ pub async fn build_query<G: ApiGlobal>(
 
 	qb.push(") VALUES (");
 
-	let transcoding_config: Option<TranscodingConfig> = if let Some(transcoding_config_id) = &req.transcoding_config_id {
-		Some(
-			sqlx::query_as("SELECT * FROM transcoding_configs WHERE id = $1 AND organization_id = $2")
-				.bind(common::database::Ulid(transcoding_config_id.into_ulid()))
-				.bind(access_token.organization_id)
-				.fetch_optional(global.db().as_ref())
-				.await
-				.map_err(|err| {
-					tracing::error!(err = %err, "failed to fetch transcoding config");
-					Status::internal("failed to fetch transcoding config")
-				})?
-				.ok_or_else(|| Status::not_found("transcoding config not found"))?,
-		)
+	let transcoding_config_id = if let Some(transcoding_config_id) = &req.transcoding_config_id {
+		common::database::query("SELECT * FROM transcoding_configs WHERE id = $1 AND organization_id = $2")
+			.bind(transcoding_config_id.into_ulid())
+			.bind(access_token.organization_id)
+			.build()
+			.fetch_optional(&client)
+			.await
+			.map_err(|err| {
+				tracing::error!(err = %err, "failed to fetch transcoding config");
+				Status::internal("failed to fetch transcoding config")
+			})?
+			.ok_or_else(|| Status::not_found("transcoding config not found"))?;
+
+		Some(transcoding_config_id.into_ulid())
 	} else {
 		None
 	};
 
-	let recording_config: Option<RecordingConfig> = if let Some(recording_config_id) = &req.recording_config_id {
-		Some(
-			sqlx::query_as("SELECT * FROM recording_configs WHERE id = $1 AND organization_id = $2")
-				.bind(common::database::Ulid(recording_config_id.into_ulid()))
-				.bind(access_token.organization_id)
-				.fetch_optional(global.db().as_ref())
-				.await
-				.map_err(|err| {
-					tracing::error!(err = %err, "failed to fetch recording config");
-					Status::internal("failed to fetch recording config")
-				})?
-				.ok_or_else(|| Status::not_found("recording config not found"))?,
-		)
+	let recording_config_id = if let Some(recording_config_id) = &req.recording_config_id {
+		common::database::query("SELECT * FROM recording_configs WHERE id = $1 AND organization_id = $2")
+			.bind(recording_config_id.into_ulid())
+			.bind(access_token.organization_id)
+			.build()
+			.fetch_optional(&client)
+			.await
+			.map_err(|err| {
+				tracing::error!(err = %err, "failed to fetch recording config");
+				Status::internal("failed to fetch recording config")
+			})?
+			.ok_or_else(|| Status::not_found("recording config not found"))?;
+
+		Some(recording_config_id.into_ulid())
 	} else {
 		None
 	};
@@ -88,13 +91,13 @@ pub async fn build_query<G: ApiGlobal>(
 	// The stream key is 32 characters long randomly generated string.
 	let mut seperated = qb.separated(",");
 
-	seperated.push_bind(common::database::Ulid(Ulid::new()));
+	seperated.push_bind(Ulid::new());
 	seperated.push_bind(access_token.organization_id);
-	seperated.push_bind(transcoding_config.map(|t| t.id));
-	seperated.push_bind(recording_config.map(|r| r.id));
+	seperated.push_bind(transcoding_config_id);
+	seperated.push_bind(recording_config_id);
 	seperated.push_bind(Visibility::from(visibility));
 	seperated.push_bind(create_stream_key());
-	seperated.push_bind(sqlx::types::Json(req.tags.clone().unwrap_or_default().tags));
+	seperated.push_bind(common::database::Json(req.tags.clone().unwrap_or_default().tags));
 
 	qb.push(") RETURNING *");
 
@@ -111,24 +114,28 @@ impl ApiRequest<RoomCreateResponse> for tonic::Request<RoomCreateRequest> {
 
 		validate(req)?;
 
-		let mut query = build_query(req, global, access_token).await?;
+		let client = global.db().get().await.map_err(|err| {
+			tracing::error!(err = %err, "failed to get db client");
+			Status::internal("internal server error")
+		})?;
 
-		let result: video_common::database::Room =
-			query.build_query_as().fetch_one(global.db().as_ref()).await.map_err(|err| {
-				tracing::error!(err = %err, "failed to create {}", <RoomCreateRequest as TonicRequest>::Table::FRIENDLY_NAME);
-				tonic::Status::internal(format!(
-					"failed to create {}",
-					<RoomCreateRequest as TonicRequest>::Table::FRIENDLY_NAME
-				))
-			})?;
+		let query = build_query(req, &client, access_token).await?;
+
+		let result: video_common::database::Room = query.build_query_as().fetch_one(client).await.map_err(|err| {
+			tracing::error!(err = %err, "failed to create {}", <RoomCreateRequest as TonicRequest>::Table::FRIENDLY_NAME);
+			tonic::Status::internal(format!(
+				"failed to create {}",
+				<RoomCreateRequest as TonicRequest>::Table::FRIENDLY_NAME
+			))
+		})?;
 
 		video_common::events::emit(
 			global.nats(),
 			&global.config().events.stream_name,
-			access_token.organization_id.0,
+			access_token.organization_id,
 			Target::Room,
 			event::Event::Room(event::Room {
-				room_id: Some(result.id.0.into()),
+				room_id: Some(result.id.into()),
 				event: Some(event::room::Event::Created(event::room::Created {})),
 			}),
 		)

@@ -1,13 +1,16 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, sqlx::Type)]
+use postgres_types::{FromSql, ToSql};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ToSql, FromSql)]
+#[postgres(name = "file_type")]
 pub enum FileType {
-	#[sqlx(rename = "custom_thumbnail")]
+	#[postgres(name = "custom_thumbnail")]
 	CustomThumbnail,
-	#[sqlx(rename = "profile_picture")]
+	#[postgres(name = "profile_picture")]
 	ProfilePicture,
-	#[sqlx(rename = "offline_banner")]
+	#[postgres(name = "offline_banner")]
 	OfflineBanner,
-	#[sqlx(rename = "role_badge")]
+	#[postgres(name = "role_badge")]
 	RoleBadge,
-	#[sqlx(rename = "channel_role_badge")]
+	#[postgres(name = "channel_role_badge")]
 	ChannelRoleBadge,
 }

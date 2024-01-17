@@ -28,8 +28,8 @@ pub fn validate(req: &TranscodingConfigCreateRequest) -> tonic::Result<()> {
 pub fn build_query(
 	req: &TranscodingConfigCreateRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<sqlx::QueryBuilder<'static, sqlx::Postgres>> {
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+) -> tonic::Result<common::database::QueryBuilder<'static>> {
+	let mut qb = common::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<TranscodingConfigCreateRequest as TonicRequest>::Table::NAME)
@@ -56,10 +56,10 @@ pub fn build_query(
 		return Err(Status::invalid_argument("must specify at least one video rendition"));
 	}
 
-	seperated.push_bind(common::database::Ulid(Ulid::new()));
+	seperated.push_bind(Ulid::new());
 	seperated.push_bind(access_token.organization_id);
 	seperated.push_bind(renditions.into_iter().collect::<Vec<_>>());
-	seperated.push_bind(sqlx::types::Json(req.tags.clone().unwrap_or_default().tags));
+	seperated.push_bind(common::database::Json(req.tags.clone().unwrap_or_default().tags));
 
 	qb.push(") RETURNING *");
 
@@ -76,10 +76,10 @@ impl ApiRequest<TranscodingConfigCreateResponse> for tonic::Request<TranscodingC
 
 		validate(req)?;
 
-		let mut query = build_query(req, access_token)?;
+		let query = build_query(req, access_token)?;
 
 		let result: video_common::database::TranscodingConfig =
-			query.build_query_as().fetch_one(global.db().as_ref()).await.map_err(|err| {
+			query.build_query_as().fetch_one(global.db()).await.map_err(|err| {
 				tracing::error!(err = %err, "failed to create {}", <TranscodingConfigCreateRequest as TonicRequest>::Table::FRIENDLY_NAME);
 				tonic::Status::internal(format!(
 					"failed to create {}",
@@ -90,10 +90,10 @@ impl ApiRequest<TranscodingConfigCreateResponse> for tonic::Request<TranscodingC
 		video_common::events::emit(
 			global.nats(),
 			&global.config().events.stream_name,
-			access_token.organization_id.0,
+			access_token.organization_id,
 			Target::TranscodingConfig,
 			event::Event::TranscodingConfig(event::TranscodingConfig {
-				transcoding_config_id: Some(result.id.0.into()),
+				transcoding_config_id: Some(result.id.into()),
 				event: Some(event::transcoding_config::Event::Created(
 					event::transcoding_config::Created {},
 				)),

@@ -1,8 +1,9 @@
-use common::database::Ulid;
+use postgres_from_row::FromRow;
+use ulid::Ulid;
 
 use super::DatabaseTable;
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, FromRow)]
 pub struct SessionTokenRevoke {
 	/// The organization id this revoke belongs to (primary key)
 	pub organization_id: Ulid,

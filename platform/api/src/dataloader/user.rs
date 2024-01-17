@@ -2,16 +2,15 @@ use std::sync::Arc;
 
 use common::dataloader::{DataLoader, Loader, LoaderOutput};
 use ulid::Ulid;
-use uuid::Uuid;
 
 use crate::database::User;
 
 pub struct UserByUsernameLoader {
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 }
 
 impl UserByUsernameLoader {
-	pub fn new(db: Arc<sqlx::PgPool>) -> DataLoader<Self> {
+	pub fn new(db: Arc<common::database::Pool>) -> DataLoader<Self> {
 		DataLoader::new(Self { db })
 	}
 }
@@ -22,8 +21,9 @@ impl Loader for UserByUsernameLoader {
 	type Value = User;
 
 	async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
-		let results: Vec<Self::Value> = sqlx::query_as("SELECT * FROM users WHERE username = ANY($1)")
+		let results: Vec<Self::Value> = common::database::query("SELECT * FROM users WHERE username = ANY($1)")
 			.bind(keys)
+			.build_query_as()
 			.fetch_all(self.db.as_ref())
 			.await
 			.map_err(|e| {
@@ -35,11 +35,11 @@ impl Loader for UserByUsernameLoader {
 }
 
 pub struct UserByIdLoader {
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 }
 
 impl UserByIdLoader {
-	pub fn new(db: Arc<sqlx::PgPool>) -> DataLoader<Self> {
+	pub fn new(db: Arc<common::database::Pool>) -> DataLoader<Self> {
 		DataLoader::new(Self { db })
 	}
 }
@@ -50,14 +50,15 @@ impl Loader for UserByIdLoader {
 	type Value = User;
 
 	async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
-		let results: Vec<Self::Value> = sqlx::query_as("SELECT * FROM users WHERE id = ANY($1)")
-			.bind(keys.iter().copied().map(Uuid::from).collect::<Vec<_>>())
+		let results: Vec<Self::Value> = common::database::query("SELECT * FROM users WHERE id = ANY($1)")
+			.bind(keys)
+			.build_query_as()
 			.fetch_all(self.db.as_ref())
 			.await
 			.map_err(|e| {
 				tracing::error!(err = %e, "failed to fetch users by id");
 			})?;
 
-		Ok(results.into_iter().map(|r| (r.id.0, r)).collect())
+		Ok(results.into_iter().map(|r| (r.id, r)).collect())
 	}
 }

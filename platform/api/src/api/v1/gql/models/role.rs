@@ -16,8 +16,8 @@ pub struct Role {
 impl From<database::Role> for Role {
 	fn from(value: database::Role) -> Self {
 		Self {
-			id: value.id.0.into(),
-			channel_id: value.channel_id.map(|v| v.0.into()),
+			id: value.id.into(),
+			channel_id: value.channel_id.map(Into::into),
 			name: value.name,
 			description: value.description,
 			allowed_permissions: value.allowed_permissions.bits(),

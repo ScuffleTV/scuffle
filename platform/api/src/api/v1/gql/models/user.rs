@@ -75,17 +75,17 @@ impl<G: ApiGlobal> User<G> {
 impl<G: ApiGlobal> From<database::User> for User<G> {
 	fn from(value: database::User) -> Self {
 		Self {
-			id: value.id.0.into(),
+			id: value.id.into(),
 			username: value.username,
 			display_name: value.display_name,
 			display_color: value.display_color.into(),
 			channel: value.channel.into(),
-			pending_profile_picture_id: value.pending_profile_picture_id.map(|u| u.0.into()),
+			pending_profile_picture_id: value.pending_profile_picture_id.map(Into::into),
 			email_: value.email,
 			email_verified_: value.email_verified,
 			last_login_at_: value.last_login_at.into(),
 			totp_enabled_: value.totp_enabled,
-			profile_picture_: value.profile_picture_id.map(|u| u.0),
+			profile_picture_: value.profile_picture_id,
 		}
 	}
 }

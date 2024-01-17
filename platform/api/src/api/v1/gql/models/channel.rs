@@ -1,6 +1,5 @@
 use async_graphql::{ComplexObject, Context, SimpleObject};
 use chrono::Utc;
-use common::database::Ulid;
 use jwt_next::SignWithKey;
 
 use super::category::Category;
@@ -58,7 +57,7 @@ impl<G: ApiGlobal> Channel<G> {
 	async fn followers_count(&self, ctx: &Context<'_>) -> Result<i64> {
 		let global = ctx.get_global::<G>();
 
-		let (followers,) = sqlx::query_as(
+		let followers = common::database::query(
 			r#"
 			SELECT 
 				COUNT(*)
@@ -69,8 +68,9 @@ impl<G: ApiGlobal> Channel<G> {
 				AND following = true
 			"#,
 		)
-		.bind(self.id.to_uuid())
-		.fetch_one(global.db().as_ref())
+		.bind(self.id.to_ulid())
+		.build_query_single_scalar()
+		.fetch_one(global.db())
 		.await
 		.map_err_gql("failed to fetch followers")?;
 
@@ -125,12 +125,13 @@ impl<G: ApiGlobal> ChannelLive<G> {
 				.await
 				.map_err_gql("failed to fetch playback session count")?;
 
-		sqlx::query(
+		common::database::query(
 			"UPDATE users SET channel_live_viewer_count = $1, channel_live_viewer_count_updated_at = NOW() WHERE id = $2",
 		)
 		.bind(live_viewer_count)
-		.bind(Ulid::from(self.channel_id))
-		.execute(global.db().as_ref())
+		.bind(self.channel_id)
+		.build()
+		.execute(global.db())
 		.await
 		.map_err_gql("failed to update live viewer count")?;
 
@@ -197,18 +198,18 @@ impl<G: ApiGlobal> From<database::Channel> for Channel<G> {
 	fn from(value: database::Channel) -> Self {
 		let stream_key_ = value.get_stream_key();
 		Self {
-			id: value.id.0.into(),
+			id: value.id.into(),
 			title: value.title,
 			description: value.description,
-			links: value.links.0,
-			custom_thumbnail_id: value.custom_thumbnail_id.map(|v| Into::into(v.0)),
-			offline_banner_id: value.offline_banner_id.map(|v| Into::into(v.0)),
-			category_id: value.category_id.map(|v| Into::into(v.0)),
+			links: value.links,
+			custom_thumbnail_id: value.custom_thumbnail_id.map(Into::into),
+			offline_banner_id: value.offline_banner_id.map(Into::into),
+			category_id: value.category_id.map(Into::into),
 			live: value.active_connection_id.map(|_| ChannelLive {
-				room_id: value.room_id.0.into(),
+				room_id: value.room_id.into(),
 				live_viewer_count_: value.live_viewer_count,
 				live_viewer_count_updated_at_: value.live_viewer_count_updated_at.map(DateRFC3339),
-				channel_id: value.id.0,
+				channel_id: value.id,
 				_phantom: std::marker::PhantomData,
 			}),
 			last_live_at: value.last_live_at.map(DateRFC3339),

@@ -54,7 +54,7 @@ async fn test_events() {
 		.publish(
 			event_subject(
 				&global.config().events.stream_name,
-				access_token.organization_id.0,
+				access_token.organization_id,
 				events_fetch_request::Target::AccessToken,
 			),
 			published_event.encode_to_vec().into(),

@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
-use common::database::Ulid;
+use common::database::json;
+use postgres_from_row::FromRow;
+use ulid::Ulid;
 
 use super::DatabaseTable;
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, FromRow)]
 pub struct Organization {
 	/// The primary key for the organization (primary key)
 	pub id: Ulid,
@@ -15,8 +17,8 @@ pub struct Organization {
 	/// The date and time the organization was last updated
 	pub updated_at: chrono::DateTime<chrono::Utc>,
 
-	#[sqlx(json)]
 	/// Tags associated with the organization
+	#[from_row(from_fn = "json")]
 	pub tags: HashMap<String, String>,
 }
 

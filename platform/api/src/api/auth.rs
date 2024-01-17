@@ -64,7 +64,7 @@ impl AuthData {
 
 		let mut user_roles: Vec<Role> = global
 			.role_by_id_loader()
-			.load_many(user.roles.iter().map(|i| i.0))
+			.load_many(user.roles.clone())
 			.await
 			.map_err(|_| AuthError::FetchRoles)?
 			.into_values()
@@ -97,7 +97,7 @@ impl AuthData {
 	pub async fn from_session<G: ApiGlobal>(global: &Arc<G>, session: Session) -> Result<Self, AuthError> {
 		let user = global
 			.user_by_id_loader()
-			.load(session.user_id.0)
+			.load(session.user_id)
 			.await
 			.map_err(|_| AuthError::FetchUser)?
 			.ok_or(AuthError::UserNotFound)?;

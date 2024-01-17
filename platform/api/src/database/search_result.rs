@@ -1,7 +1,7 @@
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, postgres_from_row::FromRow)]
 pub struct SearchResult<T: Clone + std::fmt::Debug> {
 	/// The category.
-	#[sqlx(flatten)]
+	#[from_row(flatten)]
 	pub object: T,
 	/// The similarity of the search query to the category's name.
 	pub similarity: f64,

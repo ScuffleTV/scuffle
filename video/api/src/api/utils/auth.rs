@@ -150,7 +150,7 @@ pub async fn auth_middleware_impl<G: ApiGlobal>(
 		}
 	}
 
-	if access_token.secret_token.0 != secret_key {
+	if access_token.secret_token != secret_key {
 		return Err(Status::unauthenticated("invalid access token"));
 	}
 

@@ -134,12 +134,16 @@ impl Default for RedisConfig {
 pub struct DatabaseConfig {
 	/// The database URL to use
 	pub uri: String,
+
+	/// The TLS configuration
+	pub tls: Option<TlsConfig>,
 }
 
 impl Default for DatabaseConfig {
 	fn default() -> Self {
 		Self {
 			uri: "postgres://localhost:5432".to_string(),
+			tls: None,
 		}
 	}
 }

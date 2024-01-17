@@ -12,11 +12,11 @@ context = ["dep:tokio", "dep:tokio-util"]
 prelude = ["dep:tokio"]
 signal = ["tokio/signal", "tokio/process"]
 macros = []
-database = ["dep:sqlx", "dep:sqlx-postgres", "dep:prost", "dep:uuid", "dep:ulid"]
+database = ["dep:tokio-postgres", "dep:postgres-types", "dep:deadpool-postgres", "dep:postgres-from-row", "dep:prost", "ulid/postgres"]
 dataloader = ["dep:fnv", "dep:futures-util", "dep:futures-channel"]
 config = ["dep:config", "dep:serde", "logging"]
 ratelimiter = ["dep:fred"]
-global = ["context", "dep:fred", "dep:sqlx", "dep:async-nats"]
+global = ["context", "dep:fred", "database", "dep:async-nats"]
 http = ["dep:hyper", "dep:serde_json", "dep:bytes", "dep:http-body-util", "dep:pin-project", "dep:path-tree"]
 task = ["dep:tokio", "dep:thiserror"]
 s3 = ["dep:aws-sdk-s3", "dep:aws-credential-types", "dep:aws-config", "dep:aws-smithy-types", "dep:http-body"]
@@ -56,8 +56,10 @@ futures-channel = { version = "0.3", optional = true }
 
 const_format = { version = "0.2" }
 
-sqlx = { version = "0.7", features = ["postgres", "json", "chrono", "uuid"], optional = true }
-sqlx-postgres = { version = "0.7", optional = true }
+tokio-postgres = { version = "0.7", optional = true }
+postgres-types = { version = "0.2", optional = true, features = ["with-serde_json-1", "with-chrono-0_4", "derive"] }
+deadpool-postgres = { version = "0.12", optional = true }
+postgres-from-row = { version = "0.5", optional = true }
 prost = { version = "0.12", optional = true }
 uuid = { version = "1.6", features = ["v4"], optional = true }
 ulid = { version = "1.1", features = ["uuid"], optional = true}

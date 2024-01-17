@@ -33,7 +33,7 @@ impl ApiRequest<EventsAckResponse> for tonic::Request<EventsAckRequest> {
 		let config = &global.config::<ApiConfig>().events;
 
 		let id = req.id.into_ulid();
-		let key = ack_key(access_token.organization_id.0, id);
+		let key = ack_key(access_token.organization_id, id);
 
 		let reply: Option<String> = global.redis().get(&key).await.map_err(|err| {
 			tracing::error!(err = %err, "failed to get event id from redis");

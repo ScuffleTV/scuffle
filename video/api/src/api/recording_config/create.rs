@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use common::database::IntoClient;
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, Resource};
@@ -25,12 +26,12 @@ pub fn validate(req: &RecordingConfigCreateRequest) -> tonic::Result<()> {
 	validate_tags(req.tags.as_ref())
 }
 
-pub async fn build_query<G: ApiGlobal>(
+pub async fn build_query(
 	req: &RecordingConfigCreateRequest,
-	global: &Arc<G>,
+	client: &impl IntoClient,
 	access_token: &AccessToken,
-) -> tonic::Result<sqlx::QueryBuilder<'static, sqlx::Postgres>> {
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+) -> tonic::Result<common::database::QueryBuilder<'static>> {
+	let mut qb = common::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<RecordingConfigCreateRequest as TonicRequest>::Table::NAME)
@@ -61,24 +62,26 @@ pub async fn build_query<G: ApiGlobal>(
 	}
 
 	let bucket: S3Bucket = if let Some(s3_bucket_id) = &req.s3_bucket_id {
-		sqlx::query_as("SELECT * FROM s3_buckets WHERE id = $1 AND organization_id = $2")
-			.bind(common::database::Ulid(s3_bucket_id.into_ulid()))
+		common::database::query("SELECT * FROM s3_buckets WHERE id = $1 AND organization_id = $2")
+			.bind(s3_bucket_id.into_ulid())
 			.bind(access_token.organization_id)
-			.fetch_optional(global.db().as_ref())
+			.build_query_as()
+			.fetch_optional(client)
 			.await
 	} else {
-		sqlx::query_as("SELECT * FROM s3_buckets WHERE organization_id = $1 AND managed = TRUE LIMIT 1")
+		common::database::query("SELECT * FROM s3_buckets WHERE organization_id = $1 AND managed = TRUE LIMIT 1")
 			.bind(access_token.organization_id)
-			.fetch_optional(global.db().as_ref())
+			.build_query_as()
+			.fetch_optional(client)
 			.await
 	}
 	.map_err(|err| {
-		tracing::error!(err = %err, "failed to fetch s3 bucket");
-		Status::internal("failed to fetch s3 bucket")
+		tracing::error!(err = %err, "failed to query s3 bucket");
+		Status::internal("failed to query s3 buckets")
 	})?
 	.ok_or_else(|| Status::not_found("s3 bucket not found"))?;
 
-	seperated.push_bind(common::database::Ulid(Ulid::new()));
+	seperated.push_bind(Ulid::new());
 	seperated.push_bind(access_token.organization_id);
 	seperated.push_bind(renditions.into_iter().collect::<Vec<_>>());
 	seperated.push_bind(
@@ -90,7 +93,7 @@ pub async fn build_query<G: ApiGlobal>(
 	);
 	seperated.push_bind(chrono::Utc::now());
 	seperated.push_bind(bucket.id);
-	seperated.push_bind(sqlx::types::Json(req.tags.clone().unwrap_or_default().tags));
+	seperated.push_bind(common::database::Json(req.tags.clone().unwrap_or_default().tags));
 
 	qb.push(") RETURNING *");
 
@@ -107,10 +110,15 @@ impl ApiRequest<RecordingConfigCreateResponse> for tonic::Request<RecordingConfi
 
 		validate(req)?;
 
-		let mut query = build_query(req, global, access_token).await?;
+		let client = global.db().get().await.map_err(|err| {
+			tracing::error!(err = %err, "failed to get db client");
+			Status::internal("internal server error")
+		})?;
+
+		let query = build_query(req, &client, access_token).await?;
 
 		let result: video_common::database::RecordingConfig =
-			query.build_query_as().fetch_one(global.db().as_ref()).await.map_err(|err| {
+			query.build_query_as().fetch_one(client).await.map_err(|err| {
 				tracing::error!(err = %err, "failed to create {}", <RecordingConfigCreateRequest as TonicRequest>::Table::FRIENDLY_NAME);
 				Status::internal(format!(
 					"failed to create {}",
@@ -121,10 +129,10 @@ impl ApiRequest<RecordingConfigCreateResponse> for tonic::Request<RecordingConfi
 		video_common::events::emit(
 			global.nats(),
 			&global.config().events.stream_name,
-			access_token.organization_id.0,
+			access_token.organization_id,
 			Target::RecordingConfig,
 			event::Event::RecordingConfig(event::RecordingConfig {
-				recording_config_id: Some(result.id.0.into()),
+				recording_config_id: Some(result.id.into()),
 				event: Some(event::recording_config::Event::Created(event::recording_config::Created {})),
 			}),
 		)

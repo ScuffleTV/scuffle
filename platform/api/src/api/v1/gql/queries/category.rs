@@ -3,10 +3,10 @@ use async_graphql::{Context, Object, SimpleObject};
 use crate::api::v1::gql::error::ext::*;
 use crate::api::v1::gql::error::Result;
 use crate::api::v1::gql::ext::ContextExt;
+use crate::api::v1::gql::models;
 use crate::api::v1::gql::models::category::Category;
 use crate::api::v1::gql::models::search_result::SearchResult;
 use crate::api::v1::gql::models::ulid::GqlUlid;
-use crate::api::v1::gql::models::{self};
 use crate::database;
 use crate::global::ApiGlobal;
 
@@ -61,11 +61,12 @@ impl<G: ApiGlobal> CategoryQuery<G> {
 	) -> Result<CategorySearchResults> {
 		let global = ctx.get_global::<G>();
 
-		let categories: Vec<database::SearchResult<database::Category>> = sqlx::query_as("SELECT categories.*, similarity(name, $1), COUNT(*) OVER() AS total_count FROM categories WHERE name % $1 ORDER BY similarity DESC LIMIT $2 OFFSET $3")
+		let categories: Vec<database::SearchResult<database::Category>> = common::database::query("SELECT categories.*, similarity(name, $1), COUNT(*) OVER() AS total_count FROM categories WHERE name % $1 ORDER BY similarity DESC LIMIT $2 OFFSET $3")
 			.bind(query)
 			.bind(limit.unwrap_or(5))
 			.bind(offset.unwrap_or(0))
-			.fetch_all(global.db().as_ref())
+			.build_query_as()
+			.fetch_all(global.db())
 			.await
 			.map_err_gql("failed to search categories")?;
 

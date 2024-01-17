@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
-use common::database::Ulid;
+use common::database::json;
+use postgres_from_row::FromRow;
+use ulid::Ulid;
 
 use super::DatabaseTable;
 
-#[derive(sqlx::FromRow, Debug, Clone)]
+#[derive(Debug, Clone, Default, FromRow)]
 pub struct S3Bucket {
 	/// The organization this S3 bucket belongs to (primary key)
 	pub organization_id: Ulid,
@@ -32,8 +34,8 @@ pub struct S3Bucket {
 	/// Whether or not the S3 bucket is managed by Scuffle
 	pub managed: bool,
 
-	#[sqlx(json)]
 	/// Tags associated with the S3 bucket
+	#[from_row(from_fn = "json")]
 	pub tags: HashMap<String, String>,
 }
 
@@ -45,7 +47,7 @@ impl DatabaseTable for S3Bucket {
 impl S3Bucket {
 	pub fn into_proto(self) -> pb::scuffle::video::v1::types::S3Bucket {
 		pb::scuffle::video::v1::types::S3Bucket {
-			id: Some(self.id.0.into()),
+			id: Some(self.id.into()),
 			name: self.name,
 			region: self.region,
 			endpoint: self.endpoint,

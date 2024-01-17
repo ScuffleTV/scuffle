@@ -1,7 +1,9 @@
-#[derive(Debug, sqlx::Type, Default, Clone, Copy, PartialEq)]
-#[sqlx(type_name = "playback_session_browser")]
+use postgres_types::{FromSql, ToSql};
+
+#[derive(Debug, ToSql, FromSql, Default, Clone, Copy, PartialEq)]
+#[postgres(name = "playback_session_browser")]
 pub enum PlaybackSessionBrowser {
-	#[sqlx(rename = "UNKNOWN")]
+	#[postgres(name = "UNKNOWN")]
 	#[default]
 	Unknown,
 }

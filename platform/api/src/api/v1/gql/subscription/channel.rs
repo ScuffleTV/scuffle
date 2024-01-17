@@ -49,7 +49,7 @@ impl<G: ApiGlobal> ChannelSubscription<G> {
 			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
 		// TODO: allow other users with permissions
-		if auth.session.user_id.0 != channel_id.to_ulid() {
+		if auth.session.user_id != channel_id.to_ulid() {
 			return Err(GqlError::Unauthorized {
 				field: "channel_follows",
 			}
@@ -88,7 +88,7 @@ impl<G: ApiGlobal> ChannelSubscription<G> {
 
 		let stream = self.channel_follows(ctx, channel_id).await?;
 
-		let (mut followers,) = sqlx::query_as(
+		let mut followers = common::database::query(
 			r#"
 			SELECT
 				COUNT(*)
@@ -99,8 +99,9 @@ impl<G: ApiGlobal> ChannelSubscription<G> {
 				AND following = true
 			"#,
 		)
-		.bind(channel_id.to_uuid())
-		.fetch_one(global.db().as_ref())
+		.bind(channel_id.to_ulid())
+		.build_query_single_scalar()
+		.fetch_one(global.db())
 		.await?;
 
 		Ok(stream.map(move |value| {

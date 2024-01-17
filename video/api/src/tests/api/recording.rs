@@ -27,23 +27,23 @@ use crate::tests::utils;
 async fn test_recording_get() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
+	let room = create_room(&global, access_token.organization_id).await;
 	let recording_config =
-		create_recording_config(&global, access_token.organization_id.0, s3_bucket.id.0, HashMap::new()).await;
+		create_recording_config(&global, access_token.organization_id, s3_bucket.id, HashMap::new()).await;
 	let recording = create_recording(
 		&global,
-		access_token.organization_id.0,
-		s3_bucket.id.0,
-		Some(room.id.0),
-		Some(recording_config.id.0),
+		access_token.organization_id,
+		s3_bucket.id,
+		Some(room.id),
+		Some(recording_config.id),
 		HashMap::new(),
 	)
 	.await;
 	let recording2 = create_recording(
 		&global,
-		access_token.organization_id.0,
-		s3_bucket.id.0,
+		access_token.organization_id,
+		s3_bucket.id,
 		None,
 		None,
 		HashMap::new(),
@@ -54,12 +54,12 @@ async fn test_recording_get() {
 		&global,
 		&access_token,
 		RecordingGetRequest {
-			ids: vec![recording.id.0.into(), recording2.id.0.into()],
+			ids: vec![recording.id.into(), recording2.id.into()],
 			deleted: Some(false),
 			visibility: Some(Visibility::Public.into()),
-			recording_config_id: Some(recording_config.id.0.into()),
-			room_id: Some(room.id.0.into()),
-			s3_bucket_id: Some(s3_bucket.id.0.into()),
+			recording_config_id: Some(recording_config.id.into()),
+			room_id: Some(room.id.into()),
+			s3_bucket_id: Some(s3_bucket.id.into()),
 			search_options: None,
 		},
 	)
@@ -68,7 +68,7 @@ async fn test_recording_get() {
 	assert_eq!(resp.recordings.len(), 1, "expected 1 recording");
 	assert_eq!(
 		resp.recordings[0].id.into_ulid(),
-		recording.id.0,
+		recording.id,
 		"expected recording id to match"
 	);
 
@@ -96,14 +96,14 @@ async fn test_recording_get() {
 async fn test_recording_modify() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
+	let room = create_room(&global, access_token.organization_id).await;
 	let recording_config =
-		create_recording_config(&global, access_token.organization_id.0, s3_bucket.id.0, HashMap::new()).await;
+		create_recording_config(&global, access_token.organization_id, s3_bucket.id, HashMap::new()).await;
 	let recording = create_recording(
 		&global,
-		access_token.organization_id.0,
-		s3_bucket.id.0,
+		access_token.organization_id,
+		s3_bucket.id,
 		None,
 		None,
 		HashMap::new(),
@@ -114,9 +114,9 @@ async fn test_recording_modify() {
 		&global,
 		&access_token,
 		RecordingModifyRequest {
-			id: Some(recording.id.0.into()),
+			id: Some(recording.id.into()),
 			recording_config_id: None,
-			room_id: Some(room.id.0.into()),
+			room_id: Some(room.id.into()),
 			visibility: Some(Visibility::Private.into()),
 			tags: None,
 		},
@@ -125,12 +125,12 @@ async fn test_recording_modify() {
 	.unwrap();
 	assert_eq!(
 		resp.recording.as_ref().unwrap().id.into_ulid(),
-		recording.id.0,
+		recording.id,
 		"expected ids to match"
 	);
 	assert_eq!(
 		resp.recording.as_ref().unwrap().room_id.into_ulid(),
-		room.id.0,
+		room.id,
 		"expected room id to be set"
 	);
 	assert_eq!(
@@ -152,8 +152,8 @@ async fn test_recording_modify() {
 		&global,
 		&access_token,
 		RecordingModifyRequest {
-			id: Some(recording.id.0.into()),
-			recording_config_id: Some(recording_config.id.0.into()),
+			id: Some(recording.id.into()),
+			recording_config_id: Some(recording_config.id.into()),
 			room_id: None,
 			visibility: None,
 			tags: Some(Tags {
@@ -165,12 +165,12 @@ async fn test_recording_modify() {
 	.unwrap();
 	assert_eq!(
 		resp.recording.as_ref().unwrap().id.into_ulid(),
-		recording.id.0,
+		recording.id,
 		"expected ids to match"
 	);
 	assert_eq!(
 		resp.recording.as_ref().unwrap().room_id.into_ulid(),
-		room.id.0,
+		room.id,
 		"expected room id to be set"
 	);
 	assert_eq!(
@@ -180,7 +180,7 @@ async fn test_recording_modify() {
 	);
 	assert_eq!(
 		resp.recording.as_ref().unwrap().recording_config_id.into_ulid(),
-		recording_config.id.0,
+		recording_config.id,
 		"expected recording config id to be set"
 	);
 	assert_eq!(
@@ -209,16 +209,16 @@ async fn test_recording_modify() {
 async fn test_recording_tag() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
+	let room = create_room(&global, access_token.organization_id).await;
 	let recording_config =
-		create_recording_config(&global, access_token.organization_id.0, s3_bucket.id.0, HashMap::new()).await;
+		create_recording_config(&global, access_token.organization_id, s3_bucket.id, HashMap::new()).await;
 	let recording = create_recording(
 		&global,
-		access_token.organization_id.0,
-		s3_bucket.id.0,
-		Some(room.id.0),
-		Some(recording_config.id.0),
+		access_token.organization_id,
+		s3_bucket.id,
+		Some(room.id),
+		Some(recording_config.id),
 		HashMap::new(),
 	)
 	.await;
@@ -227,7 +227,7 @@ async fn test_recording_tag() {
 		&global,
 		&access_token,
 		RecordingTagRequest {
-			id: Some(recording.id.0.into()),
+			id: Some(recording.id.into()),
 			tags: Some(Tags {
 				tags: vec![("test".to_string(), "test".to_string())].into_iter().collect(),
 			}),
@@ -246,7 +246,7 @@ async fn test_recording_tag() {
 		&global,
 		&access_token,
 		RecordingTagRequest {
-			id: Some(recording.id.0.into()),
+			id: Some(recording.id.into()),
 			tags: Some(Tags {
 				tags: vec![("test2".to_string(), "test2".to_string())].into_iter().collect(),
 			}),
@@ -274,16 +274,16 @@ async fn test_recording_tag() {
 async fn test_recording_untag() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
+	let room = create_room(&global, access_token.organization_id).await;
 	let recording_config =
-		create_recording_config(&global, access_token.organization_id.0, s3_bucket.id.0, HashMap::new()).await;
+		create_recording_config(&global, access_token.organization_id, s3_bucket.id, HashMap::new()).await;
 	let recording = create_recording(
 		&global,
-		access_token.organization_id.0,
-		s3_bucket.id.0,
-		Some(room.id.0),
-		Some(recording_config.id.0),
+		access_token.organization_id,
+		s3_bucket.id,
+		Some(room.id),
+		Some(recording_config.id),
 		vec![
 			("test".to_string(), "test".to_string()),
 			("test2".to_string(), "test2".to_string()),
@@ -297,7 +297,7 @@ async fn test_recording_untag() {
 		&global,
 		&access_token,
 		RecordingUntagRequest {
-			id: Some(recording.id.0.into()),
+			id: Some(recording.id.into()),
 			tags: vec!["test".to_string()],
 		},
 	)
@@ -314,7 +314,7 @@ async fn test_recording_untag() {
 		&global,
 		&access_token,
 		RecordingUntagRequest {
-			id: Some(recording.id.0.into()),
+			id: Some(recording.id.into()),
 			tags: vec!["test2".to_string()],
 		},
 	)
@@ -336,42 +336,42 @@ async fn test_recording_delete() {
 	})
 	.await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
-	let room = create_room(&global, access_token.organization_id.0).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
+	let room = create_room(&global, access_token.organization_id).await;
 	let recording_config =
-		create_recording_config(&global, access_token.organization_id.0, s3_bucket.id.0, HashMap::new()).await;
+		create_recording_config(&global, access_token.organization_id, s3_bucket.id, HashMap::new()).await;
 	let recording = create_recording(
 		&global,
-		access_token.organization_id.0,
-		s3_bucket.id.0,
-		Some(room.id.0),
-		Some(recording_config.id.0),
+		access_token.organization_id,
+		s3_bucket.id,
+		Some(room.id),
+		Some(recording_config.id),
 		HashMap::new(),
 	)
 	.await;
 
 	let mut thumbnails = create_recording_thumbnail(
 		&global,
-		access_token.organization_id.0,
-		recording.id.0,
+		access_token.organization_id,
+		recording.id,
 		(0..4_320).map(|i| (i, i as f32 * 5.0)),
 	)
 	.await
 	.into_iter()
-	.map(|t| (t.id.0, t.idx))
+	.map(|t| (t.id, t.idx))
 	.collect::<HashSet<_>>();
 
 	let mut segments = create_recording_segment(
 		&global,
-		access_token.organization_id.0,
-		recording.id.0,
+		access_token.organization_id,
+		recording.id,
 		Rendition::variants()
 			.into_iter()
 			.flat_map(|rendition| (0..10_800).map(move |i| (rendition, i, i as f32 * 2.0, i as f32 * 2.0 + 2.0))),
 	)
 	.await
 	.into_iter()
-	.map(|s| (s.rendition, s.id.0, s.idx))
+	.map(|s| (s.rendition, s.id, s.idx))
 	.collect::<HashSet<_>>();
 
 	let mut stream_listener = global.nats().subscribe(recording_delete_stream).await.unwrap();
@@ -380,14 +380,14 @@ async fn test_recording_delete() {
 		&global,
 		&access_token,
 		RecordingDeleteRequest {
-			ids: vec![recording.id.0.into()],
+			ids: vec![recording.id.into()],
 		},
 	)
 	.await
 	.unwrap();
 
 	assert_eq!(resp.ids.len(), 1, "expected 1 id");
-	assert_eq!(resp.ids[0].into_ulid(), recording.id.0, "expected id to match");
+	assert_eq!(resp.ids[0].into_ulid(), recording.id, "expected id to match");
 	assert_eq!(resp.failed_deletes.len(), 0, "expected 0 failed deletes");
 
 	let mut count = 0;
@@ -398,8 +398,8 @@ async fn test_recording_delete() {
 		let msg: pb::scuffle::video::internal::events::RecordingDeleteBatchTask =
 			prost::Message::decode(msg.payload).unwrap();
 
-		assert_eq!(msg.recording_id.into_ulid(), recording.id.0, "expected recording id to match");
-		assert_eq!(msg.s3_bucket_id.into_ulid(), s3_bucket.id.0, "expected s3 bucket id to match");
+		assert_eq!(msg.recording_id.into_ulid(), recording.id, "expected recording id to match");
+		assert_eq!(msg.s3_bucket_id.into_ulid(), s3_bucket.id, "expected s3 bucket id to match");
 
 		assert!(
 			msg.objects.len() <= 1000,
@@ -456,11 +456,11 @@ async fn test_recording_boiler_plate() {
 		req
 	}
 
-	let s3_bucket = create_s3_bucket(&global, main_access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, main_access_token.organization_id, HashMap::new()).await;
 	let recording = create_recording(
 		&global,
-		main_access_token.organization_id.0,
-		s3_bucket.id.0,
+		main_access_token.organization_id,
+		s3_bucket.id,
 		None,
 		None,
 		HashMap::new(),
@@ -499,7 +499,7 @@ async fn test_recording_boiler_plate() {
 			&global,
 			&main_access_token,
 			RecordingModifyRequest {
-				id: Some(recording.id.0.into()),
+				id: Some(recording.id.into()),
 				tags: Some(Tags {
 					tags: vec![("test".to_string(), "test".to_string())].into_iter().collect(),
 				}),
@@ -536,7 +536,7 @@ async fn test_recording_boiler_plate() {
 			&global,
 			&main_access_token,
 			RecordingTagRequest {
-				id: Some(recording.id.0.into()),
+				id: Some(recording.id.into()),
 				tags: Some(Tags {
 					tags: vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 				}),
@@ -568,7 +568,7 @@ async fn test_recording_boiler_plate() {
 			&global,
 			&main_access_token,
 			RecordingUntagRequest {
-				id: Some(recording.id.0.into()),
+				id: Some(recording.id.into()),
 				tags: vec!["key".to_string()],
 			},
 		))

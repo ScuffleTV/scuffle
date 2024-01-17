@@ -68,18 +68,20 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 				};
 				tracing::debug!("received profile picture job result: {:?}", job_result);
 
-				let mut tx = global.db().begin().await.context("failed to begin transaction")?;
+				let mut client = global.db().get().await.context("failed to get db connection")?;
+				let tx = client.transaction().await.context("failed to start transaction")?;
 
 				match job_result {
 					processed_image::Result::Success(processed_image::Success { variants }) => {
-						let uploaded_file: UploadedFile = match sqlx::query_as("UPDATE uploaded_files SET pending = FALSE, metadata = $1, updated_at = NOW() WHERE id = $2 AND pending = TRUE RETURNING *")
+						let uploaded_file: UploadedFile = match common::database::query("UPDATE uploaded_files SET pending = FALSE, metadata = $1, updated_at = NOW() WHERE id = $2 AND pending = TRUE RETURNING *")
 							.bind(common::database::Protobuf(UploadedFileMetadata {
 								metadata: Some(uploaded_file_metadata::Metadata::Image(uploaded_file_metadata::Image {
 									versions: variants,
 								})),
 							}))
-							.bind(common::database::Ulid(job_id.into_ulid()))
-							.fetch_optional(tx.as_mut())
+							.bind(job_id.into_ulid())
+							.build_query_as()
+							.fetch_optional(&tx)
 							.await
 							.context("failed to get uploaded file")? {
 							Some(uploaded_file) => uploaded_file,
@@ -93,21 +95,22 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 						global
 							.nats()
 							.publish(
-								SubscriptionTopic::UploadedFileStatus(uploaded_file.id.0),
+								SubscriptionTopic::UploadedFileStatus(uploaded_file.id),
 								pb::scuffle::platform::internal::events::UploadedFileStatus {
-									file_id: Some(uploaded_file.id.0.into()),
+									file_id: Some(uploaded_file.id.into()),
 									status: Some(pb::scuffle::platform::internal::events::uploaded_file_status::Status::Success(pb::scuffle::platform::internal::events::uploaded_file_status::Success {})),
 								}.encode_to_vec().into(),
 							)
 							.await
 							.context("failed to publish file update event")?;
 
-						let user_updated = sqlx::query("UPDATE users SET profile_picture_id = $1, pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $2 AND pending_profile_picture_id = $1")
+						let user_updated = common::database::query("UPDATE users SET profile_picture_id = $1, pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $2 AND pending_profile_picture_id = $1")
 							.bind(uploaded_file.id)
 							.bind(uploaded_file.owner_id)
-							.execute(tx.as_mut())
+							.build()
+							.execute(&tx)
 							.await
-							.context("failed to update user")?.rows_affected() == 1;
+							.context("failed to update user")? == 1;
 
 						if let Err(err) = tx.commit().await.context("failed to commit transaction") {
 							tracing::warn!(error = %err, "failed to commit transaction");
@@ -119,10 +122,10 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 							global
 								.nats()
 								.publish(
-									SubscriptionTopic::UserProfilePicture(uploaded_file.owner_id.0),
+									SubscriptionTopic::UserProfilePicture(uploaded_file.owner_id),
 									pb::scuffle::platform::internal::events::UserProfilePicture {
-										user_id: Some(uploaded_file.owner_id.0.into()),
-										profile_picture_id: Some(uploaded_file.id.0.into()),
+										user_id: Some(uploaded_file.owner_id.into()),
+										profile_picture_id: Some(uploaded_file.id.into()),
 									}.encode_to_vec().into(),
 								)
 								.await
@@ -130,10 +133,11 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 						}
 					},
 					processed_image::Result::Failure(processed_image::Failure { reason, friendly_message }) => {
-						let uploaded_file: UploadedFile = match sqlx::query_as("UPDATE uploaded_files SET pending = FALSE, failed = $1, updated_at = NOW() WHERE id = $2 AND pending = TRUE RETURNING *")
+						let uploaded_file: UploadedFile = match common::database::query("UPDATE uploaded_files SET pending = FALSE, failed = $1, updated_at = NOW() WHERE id = $2 AND pending = TRUE RETURNING *")
 							.bind(reason.clone())
-							.bind(common::database::Ulid(job_id.into_ulid()))
-							.fetch_optional(tx.as_mut())
+							.bind(job_id.into_ulid())
+							.build_query_as()
+							.fetch_optional(&tx)
 							.await
 							.context("failed to get uploaded file")? {
 							Some(uploaded_file) => uploaded_file,
@@ -147,9 +151,9 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 						global
 							.nats()
 							.publish(
-								SubscriptionTopic::UploadedFileStatus(uploaded_file.id.0),
+								SubscriptionTopic::UploadedFileStatus(uploaded_file.id),
 								pb::scuffle::platform::internal::events::UploadedFileStatus {
-									file_id: Some(uploaded_file.id.0.into()),
+									file_id: Some(uploaded_file.id.into()),
 									status: Some(pb::scuffle::platform::internal::events::uploaded_file_status::Status::Failure(pb::scuffle::platform::internal::events::uploaded_file_status::Failure {
 										reason,
 										friendly_message,
@@ -159,10 +163,11 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 							.await
 							.context("failed to publish file update event")?;
 
-						sqlx::query("UPDATE users SET pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $1 AND pending_profile_picture_id = $2")
+						common::database::query("UPDATE users SET pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $1 AND pending_profile_picture_id = $2")
 							.bind(uploaded_file.owner_id)
 							.bind(uploaded_file.id)
-							.execute(tx.as_mut())
+							.build()
+							.execute(&tx)
 							.await
 							.context("failed to update user")?;
 

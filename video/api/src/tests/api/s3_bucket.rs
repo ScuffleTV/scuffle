@@ -22,7 +22,7 @@ async fn test_s3_bucket_get_qb() {
 	let test_cases = vec![
 		(
 			S3BucketGetRequest {
-				ids: vec![access_token.organization_id.0.into()],
+				ids: vec![access_token.organization_id.into()],
 				search_options: None,
 			},
 			Ok("SELECT * FROM s3_buckets WHERE organization_id = $1 AND id = ANY($2) ORDER BY id ASC LIMIT 100"),
@@ -33,7 +33,7 @@ async fn test_s3_bucket_get_qb() {
 				search_options: Some(SearchOptions {
 					limit: 10,
 					reverse: true,
-					after_id: Some(access_token.organization_id.0.into()),
+					after_id: Some(access_token.organization_id.into()),
 					tags: Some(Tags {
 						tags: vec![("example_tag".to_string(), "example_value".to_string())]
 							.into_iter()
@@ -88,14 +88,14 @@ async fn test_s3_bucket_modify_qb() {
 	let test_cases = vec![
 		(
 			S3BucketModifyRequest {
-				id: Some(access_token.id.0.into()),
+				id: Some(access_token.id.into()),
 				..Default::default()
 			},
 			Err("at least one field must be set to modify"),
 		),
 		(
 			S3BucketModifyRequest {
-				id: Some(access_token.id.0.into()),
+				id: Some(access_token.id.into()),
 				tags: Some(Tags {
 					tags: vec![("example_tag".to_string(), "example_value".to_string())]
 						.into_iter()
@@ -128,7 +128,7 @@ async fn test_s3_bucket_tag_qb() {
 
 	let test_cases = vec![(
 		S3BucketTagRequest {
-			id: Some(access_token.id.0.into()),
+			id: Some(access_token.id.into()),
 			tags: Some(Tags {
 				tags: vec![("example_tag".to_string(), "example_value".to_string())]
 					.into_iter()
@@ -155,11 +155,11 @@ async fn test_s3_bucket_untag_qb() {
 
 	let test_cases = vec![(
 		S3BucketUntagRequest {
-			id: Some(access_token.id.0.into()),
+			id: Some(access_token.id.into()),
 			tags: vec!["example_tag".to_string()],
 		},
 		Ok(
-			"WITH rt AS (SELECT id, tags - $1 AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM s3_buckets WHERE id = $2 AND organization_id = $3 GROUP BY id, organization_id) UPDATE s3_buckets AS t SET tags = CASE WHEN rt.status = 0 THEN rt.new_tags ELSE tags END, updated_at = CASE WHEN rt.status = 0 THEN now() ELSE updated_at END FROM rt WHERE t.id = rt.id RETURNING t.tags AS tags, rt.status AS status;",
+			"WITH rt AS (SELECT id, tags - $1::TEXT[] AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM s3_buckets WHERE id = $2 AND organization_id = $3 GROUP BY id, organization_id) UPDATE s3_buckets AS t SET tags = CASE WHEN rt.status = 0 THEN rt.new_tags ELSE tags END, updated_at = CASE WHEN rt.status = 0 THEN now() ELSE updated_at END FROM rt WHERE t.id = rt.id RETURNING t.tags AS tags, rt.status AS status;",
 		),
 	)];
 
@@ -178,7 +178,7 @@ async fn test_s3_bucket_tag() {
 
 	let s3_bucket = create_s3_bucket(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		vec![("key".into(), "value".into())].into_iter().collect(),
 	)
 	.await;
@@ -187,7 +187,7 @@ async fn test_s3_bucket_tag() {
 		&global,
 		&access_token,
 		S3BucketTagRequest {
-			id: Some(s3_bucket.id.0.into()),
+			id: Some(s3_bucket.id.into()),
 			tags: Some(Tags {
 				tags: vec![("key2".to_string(), "value2".to_string())].into_iter().collect(),
 			}),
@@ -209,7 +209,7 @@ async fn test_s3_bucket_untag() {
 
 	let s3_bucket = create_s3_bucket(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		vec![("key".into(), "value".into()), ("key2".into(), "value2".into())]
 			.into_iter()
 			.collect(),
@@ -220,7 +220,7 @@ async fn test_s3_bucket_untag() {
 		&global,
 		&access_token,
 		S3BucketUntagRequest {
-			id: Some(s3_bucket.id.0.into()),
+			id: Some(s3_bucket.id.into()),
 			tags: vec!["key".to_string()],
 		},
 	)
@@ -288,13 +288,13 @@ async fn test_s3_bucket_create() {
 async fn test_s3_bucket_modify() {
 	let (global, handler, access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 
 	let response: S3BucketModifyResponse = process_request(
 		&global,
 		&access_token,
 		S3BucketModifyRequest {
-			id: Some(s3_bucket.id.0.into()),
+			id: Some(s3_bucket.id.into()),
 			tags: Some(Tags {
 				tags: vec![("key3".to_string(), "value3".to_string())].into_iter().collect(),
 			}),
@@ -315,7 +315,7 @@ async fn test_s3_bucket_modify() {
 		&global,
 		&access_token,
 		S3BucketModifyRequest {
-			id: Some(s3_bucket.id.0.into()),
+			id: Some(s3_bucket.id.into()),
 			tags: Some(Tags {
 				tags: vec![("key4".to_string(), "value4".to_string())].into_iter().collect(),
 			}),
@@ -352,19 +352,19 @@ async fn test_s3_bucket_get() {
 	let created = vec![
 		create_s3_bucket(
 			&global,
-			main_access_token.organization_id.0,
+			main_access_token.organization_id,
 			vec![("common".to_string(), "shared".to_string())].into_iter().collect(),
 		)
 		.await,
 		create_s3_bucket(
 			&global,
-			main_access_token.organization_id.0,
+			main_access_token.organization_id,
 			vec![("common".to_string(), "shared".to_string())].into_iter().collect(),
 		)
 		.await,
 		create_s3_bucket(
 			&global,
-			main_access_token.organization_id.0,
+			main_access_token.organization_id,
 			vec![("common".to_string(), "shared".to_string())].into_iter().collect(),
 		)
 		.await,
@@ -375,7 +375,7 @@ async fn test_s3_bucket_get() {
 		&global,
 		&main_access_token,
 		S3BucketGetRequest {
-			ids: created.iter().map(|token| token.id.0.into()).collect(),
+			ids: created.iter().map(|token| token.id.into()).collect(),
 			search_options: None,
 		},
 	)
@@ -388,7 +388,7 @@ async fn test_s3_bucket_get() {
 	for token in fetched {
 		let og_key = created
 			.iter()
-			.find(|&t| t.id.0 == token.id.into_ulid())
+			.find(|&t| t.id == token.id.into_ulid())
 			.expect("Fetched keypair must match one of the created ones");
 		assert_eq!(token.tags.unwrap().tags, og_key.tags, "Tags should match");
 	}
@@ -450,13 +450,13 @@ async fn test_s3_bucket_get() {
 async fn test_s3_bucket_delete() {
 	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
 
-	let s3_bucket = create_s3_bucket(&global, main_access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, main_access_token.organization_id, HashMap::new()).await;
 
 	let response: S3BucketDeleteResponse = process_request(
 		&global,
 		&main_access_token,
 		S3BucketDeleteRequest {
-			ids: vec![s3_bucket.id.0.into()],
+			ids: vec![s3_bucket.id.into()],
 		},
 	)
 	.await
@@ -467,7 +467,7 @@ async fn test_s3_bucket_delete() {
 	// Assertions for successful deletion
 	assert_eq!(deleted.len(), 1, "Should successfully delete one s3 bucket");
 	assert!(
-		deleted.contains(&s3_bucket.id.0.into()),
+		deleted.contains(&s3_bucket.id.into()),
 		"Deleted token list should contain the token ID"
 	);
 	assert!(failed_deletions.is_empty(), "No deletions should fail in this scenario");
@@ -495,14 +495,14 @@ async fn test_s3_bucket_boilerplate() {
 		req
 	}
 
-	let s3_bucket = create_s3_bucket(&global, main_access_token.organization_id.0, HashMap::new()).await;
+	let s3_bucket = create_s3_bucket(&global, main_access_token.organization_id, HashMap::new()).await;
 
 	let response = server
 		.get(build_request(
 			&global,
 			&main_access_token,
 			S3BucketGetRequest {
-				ids: vec![s3_bucket.id.0.into()],
+				ids: vec![s3_bucket.id.into()],
 				search_options: None,
 			},
 		))
@@ -577,7 +577,7 @@ async fn test_s3_bucket_boilerplate() {
 			&global,
 			&main_access_token,
 			S3BucketTagRequest {
-				id: Some(s3_bucket.id.0.into()),
+				id: Some(s3_bucket.id.into()),
 				tags: Some(Tags {
 					tags: vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 				}),
@@ -609,7 +609,7 @@ async fn test_s3_bucket_boilerplate() {
 			&global,
 			&main_access_token,
 			S3BucketUntagRequest {
-				id: Some(s3_bucket.id.0.into()),
+				id: Some(s3_bucket.id.into()),
 				tags: vec!["key".to_string()],
 			},
 		))
@@ -639,7 +639,7 @@ async fn test_s3_bucket_boilerplate() {
 			&global,
 			&main_access_token,
 			S3BucketModifyRequest {
-				id: Some(s3_bucket.id.0.into()),
+				id: Some(s3_bucket.id.into()),
 				tags: Some(Tags {
 					tags: vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 				}),
@@ -674,7 +674,7 @@ async fn test_s3_bucket_boilerplate() {
 			&global,
 			&main_access_token,
 			S3BucketDeleteRequest {
-				ids: vec![s3_bucket.id.0.into()],
+				ids: vec![s3_bucket.id.into()],
 			},
 		))
 		.await

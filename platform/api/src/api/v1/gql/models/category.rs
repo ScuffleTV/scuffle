@@ -15,7 +15,7 @@ pub struct Category {
 impl From<database::Category> for Category {
 	fn from(value: database::Category) -> Self {
 		Self {
-			id: value.id.0.into(),
+			id: value.id.into(),
 			name: value.name,
 			revision: value.revision,
 			updated_at: value.updated_at.into(),

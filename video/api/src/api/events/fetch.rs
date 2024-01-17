@@ -77,7 +77,7 @@ impl ApiRequest<Stream> for tonic::Request<EventsFetchRequest> {
 					name: Some(name.clone()),
 					deliver_policy: DeliverPolicy::All,
 					ack_policy: AckPolicy::Explicit,
-					filter_subject: event_subject(&config.stream_name, access_token.organization_id.0, target),
+					filter_subject: event_subject(&config.stream_name, access_token.organization_id, target),
 					ack_wait: config.nats_stream_message_lease_duration,
 					..Default::default()
 				},
@@ -99,7 +99,7 @@ impl ApiRequest<Stream> for tonic::Request<EventsFetchRequest> {
 				tonic::Status::internal("failed to subscribe to events consumer")
 			})?;
 
-		let organization_id = access_token.clone().organization_id.0;
+		let organization_id = access_token.organization_id;
 		let global = global.clone();
 
 		let lease_duration = config.nats_stream_message_lease_duration.as_secs().max(1) as i64;

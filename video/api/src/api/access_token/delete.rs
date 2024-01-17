@@ -6,6 +6,7 @@ use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, FailedResource, Resource};
 use pb::scuffle::video::v1::{AccessTokenDeleteRequest, AccessTokenDeleteResponse};
 use tonic::Status;
+use ulid::Ulid;
 use video_common::database::{AccessToken, DatabaseTable};
 
 use crate::api::utils::{impl_request_scopes, AccessTokenExt, ApiRequest, TonicRequest};
@@ -44,7 +45,7 @@ impl ApiRequest<AccessTokenDeleteResponse> for tonic::Request<AccessTokenDeleteR
 
 		let tokens_to_delete = global
 			.access_token_loader()
-			.load_many(ids_to_delete.iter().copied().map(|id| (access_token.organization_id.0, id)))
+			.load_many(ids_to_delete.iter().copied().map(|id| (access_token.organization_id, id)))
 			.await
 			.map_err(|_| Status::internal("failed to load access tokens for delete"))?
 			.into_values()
@@ -53,38 +54,26 @@ impl ApiRequest<AccessTokenDeleteResponse> for tonic::Request<AccessTokenDeleteR
 
 		let mut failed_tokens = tokens_to_delete
 			.iter()
-			.filter(|delete_token| {
-				access_token
-					.has_scope(
-						&delete_token
-							.scopes
-							.iter()
-							.map(|scope| scope.0.clone())
-							.collect::<Vec<_>>()
-							.into(),
-					)
-					.is_err()
-			})
-			.map(|token| (token.id.0, "cannot delete access token with more permissions then requester"))
+			.filter(|delete_token| access_token.has_scope(&delete_token.scopes.clone().into()).is_err())
+			.map(|token| (token.id, "cannot delete access token with more permissions then requester"))
 			.collect::<HashMap<_, _>>();
 
-		if ids_to_delete.remove(&access_token.id.0) {
-			failed_tokens.insert(access_token.id.0, "cannot delete own access token");
+		if ids_to_delete.remove(&access_token.id) {
+			failed_tokens.insert(access_token.id, "cannot delete own access token");
 		}
 
 		let deleted_ids = if !ids_to_delete.is_empty() {
-			let mut qb = sqlx::query_builder::QueryBuilder::default();
-
-			qb.push("DELETE FROM ")
+			let deleted_ids: Vec<Ulid> = common::database::query("DELETE FROM ")
 				.push(<AccessTokenDeleteRequest as TonicRequest>::Table::NAME)
 				.push(" WHERE id = ANY(")
-				.push_bind(ids_to_delete.iter().copied().map(common::database::Ulid).collect::<Vec<_>>())
+				.push_bind(ids_to_delete.iter().copied().collect::<Vec<_>>())
 				.push(") AND organization_id = ")
 				.push_bind(access_token.organization_id)
-				.push(" RETURNING id");
-
-			let deleted_ids: Vec<common::database::Ulid> =
-				qb.build_query_scalar().fetch_all(global.db().as_ref()).await.map_err(|err| {
+				.push(" RETURNING id")
+				.build_query_single_scalar()
+				.fetch_all(global.db())
+				.await
+				.map_err(|err| {
 					tracing::error!(err = %err, "failed to delete {}", <AccessTokenDeleteRequest as TonicRequest>::Table::FRIENDLY_NAME);
 					Status::internal(format!(
 						"failed to delete {}",
@@ -93,7 +82,7 @@ impl ApiRequest<AccessTokenDeleteResponse> for tonic::Request<AccessTokenDeleteR
 				})?;
 
 			deleted_ids.iter().for_each(|id| {
-				ids_to_delete.remove(&id.0);
+				ids_to_delete.remove(id);
 			});
 
 			deleted_ids
@@ -105,10 +94,10 @@ impl ApiRequest<AccessTokenDeleteResponse> for tonic::Request<AccessTokenDeleteR
 			video_common::events::emit(
 				global.nats(),
 				&global.config().events.stream_name,
-				access_token.organization_id.0,
+				access_token.organization_id,
 				Target::AccessToken,
 				event::Event::AccessToken(event::AccessToken {
-					access_token_id: Some(id.0.into()),
+					access_token_id: Some(id.into()),
 					event: Some(event::access_token::Event::Deleted(event::access_token::Deleted {})),
 				}),
 			)
@@ -120,7 +109,7 @@ impl ApiRequest<AccessTokenDeleteResponse> for tonic::Request<AccessTokenDeleteR
 		});
 
 		Ok(tonic::Response::new(AccessTokenDeleteResponse {
-			ids: deleted_ids.into_iter().map(|id| id.0.into()).collect(),
+			ids: deleted_ids.into_iter().map(|id| id.into()).collect(),
 			failed_deletes: failed_tokens
 				.into_iter()
 				.map(|(id, reason)| FailedResource {

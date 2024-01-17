@@ -31,7 +31,7 @@ struct GlobalState {
 	config: AppConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 
 	requests: Mutex<HashMap<Ulid, mpsc::Sender<IncomingTranscoder>>>,
 }

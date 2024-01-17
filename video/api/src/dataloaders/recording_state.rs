@@ -6,11 +6,11 @@ use ulid::Ulid;
 use video_common::database::{Recording, Rendition};
 
 pub struct RecordingStateLoader {
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 }
 
 impl RecordingStateLoader {
-	pub fn new(db: Arc<sqlx::PgPool>) -> DataLoader<Self> {
+	pub fn new(db: Arc<common::database::Pool>) -> DataLoader<Self> {
 		DataLoader::new(Self { db })
 	}
 }
@@ -37,10 +37,10 @@ impl RecordingState {
 	}
 }
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, postgres_from_row::FromRow)]
 pub struct RecordingRenditionState {
-	pub organization_id: common::database::Ulid,
-	pub recording_id: common::database::Ulid,
+	pub organization_id: Ulid,
+	pub recording_id: Ulid,
 	pub rendition: Rendition,
 	pub size_bytes: i64,
 	pub end_time: f32,
@@ -52,29 +52,17 @@ impl Loader for RecordingStateLoader {
 	type Key = (Ulid, Ulid);
 	type Value = RecordingState;
 
-	async fn load(&self, key: &[Self::Key]) -> LoaderOutput<Self> {
-		let ids = key.iter().copied().map(|(organization_id, recording_id)| {
-			(common::database::Ulid(organization_id), common::database::Ulid(recording_id))
-		});
-
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
-
-		qb.push("SELECT organization_id, recording_id, rendition, COUNT(size_bytes) AS size_bytes, MAX(end_time) AS end_time, MAX(start_time) AS start_time FROM recording_rendition_segments WHERE (organization_id, recording_id) IN ");
-
-		qb.push_tuples(ids, |mut qb, (organization_id, recording_id)| {
+	async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
+		let results: Vec<RecordingRenditionState> = common::database::query("SELECT organization_id, recording_id, rendition, COUNT(size_bytes) AS size_bytes, MAX(end_time) AS end_time, MAX(start_time) AS start_time FROM recording_rendition_segments WHERE (organization_id, recording_id) IN ")
+			.push_tuples(keys, |mut qb, (organization_id, recording_id)| {
 			qb.push_bind(organization_id).push_bind(recording_id);
-		});
-
-		qb.push(" GROUP BY organization_id, recording_id, rendition ORDER BY organization_id, recording_id");
-
-		let results: Vec<RecordingRenditionState> =
-			qb.build_query_as().fetch_all(self.db.as_ref()).await.map_err(|err| {
-				tracing::error!(error = %err, "failed to load access tokens");
-			})?;
+		}).push(" GROUP BY organization_id, recording_id, rendition ORDER BY organization_id, recording_id").build_query_as().fetch_all(&self.db).await.map_err(|err| {
+			tracing::error!(error = %err, "failed to load access tokens");
+		})?;
 
 		Ok(results
 			.into_iter()
-			.group_by(|v| (v.organization_id.0, v.recording_id.0))
+			.group_by(|v| (v.organization_id, v.recording_id))
 			.into_iter()
 			.map(|(k, v)| (k, RecordingState(v.collect())))
 			.collect())

@@ -9,7 +9,7 @@ pub struct GlobalState {
 	config: ImageProcessorConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 	s3_source_bucket: common::s3::Bucket,
 	s3_target_bucket: common::s3::Bucket,
 }
@@ -37,7 +37,7 @@ impl common::global::GlobalNats for GlobalState {
 }
 
 impl common::global::GlobalDb for GlobalState {
-	fn db(&self) -> &Arc<sqlx::PgPool> {
+	fn db(&self) -> &Arc<common::database::Pool> {
 		&self.db
 	}
 }
@@ -74,7 +74,7 @@ impl crate::global::ImageProcessorState for GlobalState {
 // nats"); 	let jetstream = async_nats::jetstream::new(nats.clone());
 
 // 	let db = Arc::new(
-// 		sqlx::PgPool::connect(&database_uri)
+// 		common::database::Pool::connect(&database_uri)
 // 			.await
 // 			.expect("failed to connect to database"),
 // 	);

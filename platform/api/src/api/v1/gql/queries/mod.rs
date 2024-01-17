@@ -1,6 +1,6 @@
 use async_graphql::{ComplexObject, Context, SimpleObject};
-use common::database::Ulid;
-use sqlx::FromRow;
+use postgres_from_row::FromRow;
+use ulid::Ulid;
 
 use super::error::ext::*;
 use super::ext::ContextExt;
@@ -48,7 +48,7 @@ impl<G: ApiGlobal> Query<G> {
 	) -> Result<SearchAllResults<G>> {
 		let global = ctx.get_global::<G>();
 
-		let query_results: Vec<SearchResultQueryResponse> = sqlx::query_as(
+		let query_results: Vec<SearchResultQueryResponse> = common::database::query(
 			r#"
 			WITH CombinedResults AS (
 				SELECT
@@ -84,7 +84,8 @@ impl<G: ApiGlobal> Query<G> {
 		.bind(query)
 		.bind(limit.unwrap_or(5))
 		.bind(offset.unwrap_or(0))
-		.fetch_all(global.db().as_ref())
+		.build_query_as()
+		.fetch_all(global.db())
 		.await
 		.map_err_gql("failed to search")?;
 
@@ -96,7 +97,7 @@ impl<G: ApiGlobal> Query<G> {
 				1 => &mut store.1,
 				_ => unreachable!(),
 			}
-			.push(item.id.0);
+			.push(item.id);
 
 			store
 		});
@@ -111,8 +112,8 @@ impl<G: ApiGlobal> Query<G> {
 			.iter()
 			.filter_map(|r| {
 				let object = match r.r#type {
-					0 => SearchAllResultData::User(Box::new(User::from(users.get(&r.id.0)?.clone()))),
-					1 => SearchAllResultData::Category(categories.get(&r.id.0)?.clone().into()),
+					0 => SearchAllResultData::User(Box::new(User::from(users.get(&r.id)?.clone()))),
+					1 => SearchAllResultData::Category(categories.get(&r.id)?.clone().into()),
 					_ => unreachable!(),
 				};
 

@@ -31,8 +31,8 @@ pub fn validate(req: &S3BucketModifyRequest) -> tonic::Result<()> {
 pub fn build_query<'a>(
 	req: &'a S3BucketModifyRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<sqlx::QueryBuilder<'a, sqlx::Postgres>> {
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+) -> tonic::Result<common::database::QueryBuilder<'a>> {
+	let mut qb = common::database::QueryBuilder::default();
 
 	qb.push("UPDATE ")
 		.push(<S3BucketModifyRequest as TonicRequest>::Table::NAME)
@@ -81,7 +81,9 @@ pub fn build_query<'a>(
 	}
 
 	if let Some(tags) = &req.tags {
-		seperated.push("tags = ").push_bind_unseparated(sqlx::types::Json(&tags.tags));
+		seperated
+			.push("tags = ")
+			.push_bind_unseparated(common::database::Json(&tags.tags));
 	}
 
 	if req.tags.is_none()
@@ -97,7 +99,7 @@ pub fn build_query<'a>(
 
 	seperated.push("updated_at = NOW()");
 
-	qb.push(" WHERE id = ").push_bind(common::database::Ulid(req.id.into_ulid()));
+	qb.push(" WHERE id = ").push_bind(req.id.into_ulid());
 	qb.push(" AND organization_id = ").push_bind(access_token.organization_id);
 	qb.push(" RETURNING *");
 
@@ -114,13 +116,10 @@ impl ApiRequest<S3BucketModifyResponse> for tonic::Request<S3BucketModifyRequest
 
 		validate(req)?;
 
-		let mut query = build_query(req, access_token)?;
+		let query = build_query(req, access_token)?;
 
-		let result: Option<video_common::database::S3Bucket> = query
-			.build_query_as()
-			.fetch_optional(global.db().as_ref())
-			.await
-			.map_err(|err| {
+		let result: Option<video_common::database::S3Bucket> =
+			query.build_query_as().fetch_optional(global.db()).await.map_err(|err| {
 				tracing::error!(err = %err, "failed to modify {}", <S3BucketModifyRequest as TonicRequest>::Table::FRIENDLY_NAME);
 				tonic::Status::internal(format!(
 					"failed to modify {}",
@@ -133,10 +132,10 @@ impl ApiRequest<S3BucketModifyResponse> for tonic::Request<S3BucketModifyRequest
 				video_common::events::emit(
 					global.nats(),
 					&global.config().events.stream_name,
-					access_token.organization_id.0,
+					access_token.organization_id,
 					Target::S3Bucket,
 					event::Event::S3Bucket(event::S3Bucket {
-						s3_bucket_id: Some(result.id.0.into()),
+						s3_bucket_id: Some(result.id.into()),
 						event: Some(event::s3_bucket::Event::Modified(event::s3_bucket::Modified {})),
 					}),
 				)

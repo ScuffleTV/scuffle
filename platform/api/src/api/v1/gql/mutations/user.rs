@@ -1,6 +1,5 @@
 use async_graphql::{ComplexObject, Context, SimpleObject};
 use bytes::Bytes;
-use common::database::Ulid;
 use pb::scuffle::platform::internal::two_fa::two_fa_request_action::{Action, ChangePassword};
 use pb::scuffle::platform::internal::two_fa::TwoFaRequestAction;
 use prost::Message;
@@ -51,7 +50,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.await?
 			.map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
-		let user: database::User = sqlx::query_as(
+		let user: database::User = common::database::query(
 			r#"
 			UPDATE users
 			SET
@@ -65,7 +64,8 @@ impl<G: ApiGlobal> UserMutation<G> {
 		)
 		.bind(email)
 		.bind(auth.session.user_id)
-		.fetch_one(global.db().as_ref())
+		.build_query_as()
+		.fetch_one(global.db())
 		.await?;
 
 		Ok(user.into())
@@ -88,7 +88,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 		// TDOD: Can we combine the two queries into one?
 		let user: database::User = global
 			.user_by_id_loader()
-			.load(auth.session.user_id.0)
+			.load(auth.session.user_id)
 			.await
 			.map_err_ignored_gql("failed to fetch user")?
 			.map_err_gql(GqlError::NotFound("user"))?;
@@ -102,7 +102,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.into());
 		}
 
-		let user: database::User = sqlx::query_as(
+		let user: database::User = common::database::query(
 			r#"
 			UPDATE users
 			SET
@@ -117,15 +117,16 @@ impl<G: ApiGlobal> UserMutation<G> {
 		.bind(display_name.clone())
 		.bind(auth.session.user_id)
 		.bind(user.username)
-		.fetch_one(global.db().as_ref())
+		.build_query_as()
+		.fetch_one(global.db())
 		.await?;
 
 		global
 			.nats()
 			.publish(
-				SubscriptionTopic::UserDisplayName(user.id.0),
+				SubscriptionTopic::UserDisplayName(user.id),
 				pb::scuffle::platform::internal::events::UserDisplayName {
-					user_id: Some(user.id.0.into()),
+					user_id: Some(user.id.into()),
 					display_name,
 				}
 				.encode_to_vec()
@@ -151,7 +152,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.await?
 			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
-		let user: database::User = sqlx::query_as(
+		let user: database::User = common::database::query(
 			r#"
 				UPDATE users
 				SET
@@ -164,15 +165,16 @@ impl<G: ApiGlobal> UserMutation<G> {
 		)
 		.bind(*color)
 		.bind(auth.session.user_id)
-		.fetch_one(global.db().as_ref())
+		.build_query_as()
+		.fetch_one(global.db())
 		.await?;
 
 		global
 			.nats()
 			.publish(
-				SubscriptionTopic::UserDisplayColor(user.id.0),
+				SubscriptionTopic::UserDisplayColor(user.id),
 				pb::scuffle::platform::internal::events::UserDisplayColor {
-					user_id: Some(user.id.0.into()),
+					user_id: Some(user.id.into()),
 					display_color: *color,
 				}
 				.encode_to_vec()
@@ -194,19 +196,20 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.await?
 			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
-		let user: database::User = sqlx::query_as(
+		let user: database::User = common::database::query(
 			"UPDATE users SET profile_picture_id = NULL, pending_profile_picture_id = NULL WHERE id = $1 RETURNING *",
 		)
 		.bind(auth.session.user_id)
-		.fetch_one(global.db().as_ref())
+		.build_query_as()
+		.fetch_one(global.db())
 		.await?;
 
 		global
 			.nats()
 			.publish(
-				SubscriptionTopic::UserProfilePicture(user.id.0),
+				SubscriptionTopic::UserProfilePicture(user.id),
 				pb::scuffle::platform::internal::events::UserProfilePicture {
-					user_id: Some(user.id.0.into()),
+					user_id: Some(user.id.into()),
 					profile_picture_id: None,
 				}
 				.encode_to_vec()
@@ -234,7 +237,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 
 		let user = global
 			.user_by_id_loader()
-			.load(auth.session.user_id.0)
+			.load(auth.session.user_id)
 			.await
 			.map_err_ignored_gql("failed to fetch user")?
 			.map_err_gql(GqlError::NotFound("user"))?;
@@ -249,12 +252,12 @@ impl<G: ApiGlobal> UserMutation<G> {
 
 		let change_password = ChangePassword {
 			new_password_hash: database::User::hash_password(&new_password),
-			current_session_id: Some(auth.session.id.0.into()),
+			current_session_id: Some(auth.session.id.into()),
 		};
 
 		if user.totp_enabled {
 			let request_id = ulid::Ulid::new();
-			sqlx::query(
+			common::database::query(
 				r#"
 				INSERT INTO two_fa_requests (
 					id,
@@ -267,7 +270,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 				)
 				"#,
 			)
-			.bind(Ulid::from(request_id))
+			.bind(request_id)
 			.bind(user.id)
 			.bind(
 				TwoFaRequestAction {
@@ -275,7 +278,8 @@ impl<G: ApiGlobal> UserMutation<G> {
 				}
 				.encode_to_vec(),
 			)
-			.execute(global.db().as_ref())
+			.build()
+			.execute(global.db())
 			.await?;
 			Ok(TwoFaResponse::TwoFaRequest(TwoFaRequest { id: request_id.into() }))
 		} else {
@@ -299,7 +303,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.await?
 			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
-		if auth.session.user_id.0 == channel_id.to_ulid() {
+		if auth.session.user_id == channel_id.to_ulid() {
 			return Err(GqlError::InvalidInput {
 				fields: vec!["channelId"],
 				message: "Cannot follow yourself",
@@ -307,7 +311,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.into());
 		}
 
-		sqlx::query(
+		common::database::query(
 			r#"
 			UPSERT INTO channel_user (
 				user_id,
@@ -321,18 +325,19 @@ impl<G: ApiGlobal> UserMutation<G> {
 			"#,
 		)
 		.bind(auth.session.user_id)
-		.bind(channel_id.to_uuid())
+		.bind(channel_id.to_ulid())
 		.bind(follow)
-		.execute(global.db().as_ref())
+		.build()
+		.execute(global.db())
 		.await?;
 
 		let channel_id = channel_id.to_ulid();
-		let user_subject = SubscriptionTopic::UserFollows(auth.session.user_id.0);
+		let user_subject = SubscriptionTopic::UserFollows(auth.session.user_id);
 		let channel_subject = SubscriptionTopic::ChannelFollows(channel_id);
 
 		let msg = Bytes::from(
 			pb::scuffle::platform::internal::events::UserFollowChannel {
-				user_id: Some(auth.session.user_id.0.into()),
+				user_id: Some(auth.session.user_id.into()),
 				channel_id: Some(channel_id.into()),
 				following: follow,
 			}

@@ -25,8 +25,9 @@ pub trait GlobalNats {
 	fn jetstream(&self) -> &async_nats::jetstream::Context;
 }
 
+#[allow(async_fn_in_trait)]
 pub trait GlobalDb {
-	fn db(&self) -> &Arc<sqlx::PgPool>;
+	fn db(&self) -> &Arc<deadpool_postgres::Pool>;
 }
 
 pub trait GlobalRedis {

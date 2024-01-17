@@ -1,6 +1,6 @@
-use common::database::Ulid;
+use ulid::Ulid;
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, postgres_from_row::FromRow)]
 pub struct ChatMessage {
 	/// The unique identifier for the chat message.
 	pub id: Ulid,
@@ -17,9 +17,9 @@ pub struct ChatMessage {
 impl ChatMessage {
 	pub fn to_protobuf(&self) -> pb::scuffle::platform::internal::events::ChatMessage {
 		pb::scuffle::platform::internal::events::ChatMessage {
-			id: Some(self.id.0.into()),
-			channel_id: Some(self.channel_id.0.into()),
-			user_id: Some(self.user_id.0.into()),
+			id: Some(self.id.into()),
+			channel_id: Some(self.channel_id.into()),
+			user_id: Some(self.user_id.into()),
 			content: self.content.clone(),
 		}
 	}

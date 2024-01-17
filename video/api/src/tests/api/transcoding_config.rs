@@ -24,7 +24,7 @@ async fn test_transcoding_config_get_qb() {
 	let test_cases = vec![
 		(
 			TranscodingConfigGetRequest {
-				ids: vec![access_token.organization_id.0.into()],
+				ids: vec![access_token.organization_id.into()],
 				search_options: None,
 			},
 			Ok("SELECT * FROM transcoding_configs WHERE organization_id = $1 AND id = ANY($2) ORDER BY id ASC LIMIT 100"),
@@ -35,7 +35,7 @@ async fn test_transcoding_config_get_qb() {
 				search_options: Some(SearchOptions {
 					limit: 10,
 					reverse: true,
-					after_id: Some(access_token.organization_id.0.into()),
+					after_id: Some(access_token.organization_id.into()),
 					tags: Some(Tags {
 						tags: vec![("example_tag".to_string(), "example_value".to_string())]
 							.into_iter()
@@ -88,7 +88,7 @@ async fn test_transcoding_config_modify_qb() {
 	let test_cases = vec![
 		(
 			TranscodingConfigModifyRequest {
-				id: Some(access_token.id.0.into()),
+				id: Some(access_token.id.into()),
 				tags: None,
 				renditions: Some(RenditionList {
 					items: vec![
@@ -103,7 +103,7 @@ async fn test_transcoding_config_modify_qb() {
 		),
 		(
 			TranscodingConfigModifyRequest {
-				id: Some(access_token.id.0.into()),
+				id: Some(access_token.id.into()),
 				tags: Some(Tags {
 					tags: vec![("example_tag".to_string(), "example_value".to_string())]
 						.into_iter()
@@ -117,7 +117,7 @@ async fn test_transcoding_config_modify_qb() {
 		),
 		(
 			TranscodingConfigModifyRequest {
-				id: Some(access_token.id.0.into()),
+				id: Some(access_token.id.into()),
 				tags: Some(Tags {
 					tags: vec![("example_tag".to_string(), "example_value".to_string())]
 						.into_iter()
@@ -136,7 +136,7 @@ async fn test_transcoding_config_modify_qb() {
 		),
 		(
 			TranscodingConfigModifyRequest {
-				id: Some(access_token.id.0.into()),
+				id: Some(access_token.id.into()),
 				tags: None,
 				renditions: None,
 			},
@@ -159,7 +159,7 @@ async fn test_transcoding_config_tag_qb() {
 
 	let test_cases = vec![(
 		TranscodingConfigTagRequest {
-			id: Some(access_token.id.0.into()),
+			id: Some(access_token.id.into()),
 			tags: Some(Tags {
 				tags: vec![("example_tag".to_string(), "example_value".to_string())]
 					.into_iter()
@@ -186,11 +186,11 @@ async fn test_transcoding_config_untag_qb() {
 
 	let test_cases = vec![(
 		TranscodingConfigUntagRequest {
-			id: Some(access_token.id.0.into()),
+			id: Some(access_token.id.into()),
 			tags: vec!["example_tag".to_string()],
 		},
 		Ok(
-			"WITH rt AS (SELECT id, tags - $1 AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM transcoding_configs WHERE id = $2 AND organization_id = $3 GROUP BY id, organization_id) UPDATE transcoding_configs AS t SET tags = CASE WHEN rt.status = 0 THEN rt.new_tags ELSE tags END, updated_at = CASE WHEN rt.status = 0 THEN now() ELSE updated_at END FROM rt WHERE t.id = rt.id RETURNING t.tags AS tags, rt.status AS status;",
+			"WITH rt AS (SELECT id, tags - $1::TEXT[] AS new_tags, CASE WHEN NOT tags ?| $1 THEN 1 ELSE 0 END AS status FROM transcoding_configs WHERE id = $2 AND organization_id = $3 GROUP BY id, organization_id) UPDATE transcoding_configs AS t SET tags = CASE WHEN rt.status = 0 THEN rt.new_tags ELSE tags END, updated_at = CASE WHEN rt.status = 0 THEN now() ELSE updated_at END FROM rt WHERE t.id = rt.id RETURNING t.tags AS tags, rt.status AS status;",
 		),
 	)];
 
@@ -209,7 +209,7 @@ async fn test_transcoding_config_tag() {
 
 	let transcoding_config = create_transcoding_config(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 	)
 	.await;
@@ -218,7 +218,7 @@ async fn test_transcoding_config_tag() {
 		&global,
 		&access_token,
 		TranscodingConfigTagRequest {
-			id: Some(transcoding_config.id.0.into()),
+			id: Some(transcoding_config.id.into()),
 			tags: Some(Tags {
 				tags: vec![("key2".to_string(), "value2".to_string())].into_iter().collect(),
 			}),
@@ -240,7 +240,7 @@ async fn test_transcoding_config_untag() {
 
 	let transcoding_config = create_transcoding_config(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		vec![
 			("key".to_string(), "value".to_string()),
 			("key2".to_string(), "value2".to_string()),
@@ -254,7 +254,7 @@ async fn test_transcoding_config_untag() {
 		&global,
 		&access_token,
 		TranscodingConfigUntagRequest {
-			id: Some(transcoding_config.id.0.into()),
+			id: Some(transcoding_config.id.into()),
 			tags: vec!["key".to_string()],
 		},
 	)
@@ -323,7 +323,7 @@ async fn test_transcoding_config_modify() {
 
 	let transcoding_config = create_transcoding_config(
 		&global,
-		access_token.organization_id.0,
+		access_token.organization_id,
 		vec![
 			("key".to_string(), "value".to_string()),
 			("key2".to_string(), "value2".to_string()),
@@ -337,7 +337,7 @@ async fn test_transcoding_config_modify() {
 		&global,
 		&access_token,
 		TranscodingConfigModifyRequest {
-			id: Some(transcoding_config.id.0.into()),
+			id: Some(transcoding_config.id.into()),
 			renditions: None,
 			tags: Some(Tags {
 				tags: vec![("key3".to_string(), "value3".to_string())].into_iter().collect(),
@@ -358,7 +358,7 @@ async fn test_transcoding_config_modify() {
 		&global,
 		&access_token,
 		TranscodingConfigModifyRequest {
-			id: Some(transcoding_config.id.0.into()),
+			id: Some(transcoding_config.id.into()),
 			renditions: Some(RenditionList {
 				items: vec![
 					pb::scuffle::video::v1::types::Rendition::VideoSd as i32,
@@ -391,19 +391,19 @@ async fn test_transcoding_config_get() {
 	let created = vec![
 		create_transcoding_config(
 			&global,
-			main_access_token.organization_id.0,
+			main_access_token.organization_id,
 			vec![("common".to_string(), "shared".to_string())].into_iter().collect(),
 		)
 		.await,
 		create_transcoding_config(
 			&global,
-			main_access_token.organization_id.0,
+			main_access_token.organization_id,
 			vec![("common1".to_string(), "shared1".to_string())].into_iter().collect(),
 		)
 		.await,
 		create_transcoding_config(
 			&global,
-			main_access_token.organization_id.0,
+			main_access_token.organization_id,
 			vec![("common2".to_string(), "shared2".to_string())].into_iter().collect(),
 		)
 		.await,
@@ -414,7 +414,7 @@ async fn test_transcoding_config_get() {
 		&global,
 		&main_access_token,
 		TranscodingConfigGetRequest {
-			ids: created.iter().map(|token| token.id.0.into()).collect(),
+			ids: created.iter().map(|token| token.id.into()).collect(),
 			search_options: None,
 		},
 	)
@@ -427,7 +427,7 @@ async fn test_transcoding_config_get() {
 	for token in fetched {
 		let og_key = created
 			.iter()
-			.find(|&t| t.id.0 == token.id.into_ulid())
+			.find(|&t| t.id == token.id.into_ulid())
 			.expect("Fetched keypair must match one of the created ones");
 		assert_eq!(token.tags.unwrap().tags, og_key.tags, "Tags should match");
 	}
@@ -491,7 +491,7 @@ async fn test_transcoding_config_delete() {
 
 	let transcoding_config = create_transcoding_config(
 		&global,
-		main_access_token.organization_id.0,
+		main_access_token.organization_id,
 		vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 	)
 	.await;
@@ -500,7 +500,7 @@ async fn test_transcoding_config_delete() {
 		&global,
 		&main_access_token,
 		TranscodingConfigDeleteRequest {
-			ids: vec![transcoding_config.id.0.into()],
+			ids: vec![transcoding_config.id.into()],
 		},
 	)
 	.await
@@ -511,7 +511,7 @@ async fn test_transcoding_config_delete() {
 	// Assertions for successful deletion
 	assert_eq!(deleted.len(), 1, "Should successfully delete one playback key pair");
 	assert!(
-		deleted.contains(&transcoding_config.id.0.into()),
+		deleted.contains(&transcoding_config.id.into()),
 		"Deleted token list should contain the token ID"
 	);
 	assert!(failed_deletions.is_empty(), "No deletions should fail in this scenario");
@@ -541,7 +541,7 @@ async fn test_transcoding_config_boiler_plate() {
 
 	let transcoding_config = create_transcoding_config(
 		&global,
-		main_access_token.organization_id.0,
+		main_access_token.organization_id,
 		vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 	)
 	.await;
@@ -551,7 +551,7 @@ async fn test_transcoding_config_boiler_plate() {
 			&global,
 			&main_access_token,
 			TranscodingConfigGetRequest {
-				ids: vec![transcoding_config.id.0.into()],
+				ids: vec![transcoding_config.id.into()],
 				search_options: None,
 			},
 		))
@@ -632,7 +632,7 @@ async fn test_transcoding_config_boiler_plate() {
 			&global,
 			&main_access_token,
 			TranscodingConfigTagRequest {
-				id: Some(transcoding_config.id.0.into()),
+				id: Some(transcoding_config.id.into()),
 				tags: Some(Tags {
 					tags: vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 				}),
@@ -668,7 +668,7 @@ async fn test_transcoding_config_boiler_plate() {
 			&global,
 			&main_access_token,
 			TranscodingConfigUntagRequest {
-				id: Some(transcoding_config.id.0.into()),
+				id: Some(transcoding_config.id.into()),
 				tags: vec!["key".to_string()],
 			},
 		))
@@ -702,7 +702,7 @@ async fn test_transcoding_config_boiler_plate() {
 			&global,
 			&main_access_token,
 			TranscodingConfigModifyRequest {
-				id: Some(transcoding_config.id.0.into()),
+				id: Some(transcoding_config.id.into()),
 				tags: Some(Tags {
 					tags: vec![("key".to_string(), "value".to_string())].into_iter().collect(),
 				}),
@@ -741,7 +741,7 @@ async fn test_transcoding_config_boiler_plate() {
 			&global,
 			&main_access_token,
 			TranscodingConfigDeleteRequest {
-				ids: vec![transcoding_config.id.0.into()],
+				ids: vec![transcoding_config.id.into()],
 			},
 		))
 		.await

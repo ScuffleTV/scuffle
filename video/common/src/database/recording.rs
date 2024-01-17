@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
-use common::database::Ulid;
+use common::database::json;
+use postgres_from_row::FromRow;
+use ulid::Ulid;
 
 use super::{DatabaseTable, Rendition, Visibility};
 
-#[derive(Debug, Clone, Default, sqlx::FromRow)]
+#[derive(Debug, Clone, Default, FromRow)]
 pub struct Recording {
 	/// The organization this recording belongs to (primary key)
 	pub organization_id: Ulid,
@@ -35,8 +37,8 @@ pub struct Recording {
 	/// The date and time the recording ended
 	pub ended_at: Option<chrono::DateTime<chrono::Utc>>,
 
-	#[sqlx(json)]
 	/// The tags associated with the recording
+	#[from_row(from_fn = "json")]
 	pub tags: HashMap<String, String>,
 }
 
@@ -53,12 +55,12 @@ impl Recording {
 		duration: f32,
 	) -> pb::scuffle::video::v1::types::Recording {
 		pb::scuffle::video::v1::types::Recording {
-			id: Some(self.id.0.into()),
-			created_at: self.id.0.timestamp_ms() as i64,
+			id: Some(self.id.into()),
+			created_at: self.id.timestamp_ms() as i64,
 			deleted_at: self.deleted_at.map(|dt| dt.timestamp_millis()),
-			room_id: self.room_id.map(|id| id.0.into()),
-			recording_config_id: self.recording_config_id.map(|id| id.0.into()),
-			s3_bucket_id: Some(self.s3_bucket_id.0.into()),
+			room_id: self.room_id.map(|id| id.into()),
+			recording_config_id: self.recording_config_id.map(|id| id.into()),
+			s3_bucket_id: Some(self.s3_bucket_id.into()),
 			updated_at: self.updated_at.timestamp_millis(),
 			tags: Some(self.tags.into()),
 			visibility: self.visibility.into(),

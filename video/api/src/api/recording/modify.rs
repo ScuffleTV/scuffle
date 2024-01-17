@@ -31,7 +31,7 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 
 		validate_tags(req.tags.as_ref())?;
 
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
+		let mut qb = common::database::QueryBuilder::default();
 
 		qb.push("UPDATE ")
 			.push(<RecordingModifyRequest as TonicRequest>::Table::NAME)
@@ -39,11 +39,17 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 
 		let mut seperated = qb.separated(", ");
 
+		let client = global.db().get().await.map_err(|err| {
+			tracing::error!(err = %err, "failed to get db client");
+			Status::internal("internal server error")
+		})?;
+
 		if let Some(room_id) = &req.room_id {
-			sqlx::query("SELECT id FROM rooms WHERE id = $1 AND organization_id = $2")
-				.bind(common::database::Ulid(room_id.into_ulid()))
+			common::database::query("SELECT id FROM rooms WHERE id = $1 AND organization_id = $2")
+				.bind(room_id.into_ulid())
 				.bind(access_token.organization_id)
-				.fetch_optional(global.db().as_ref())
+				.build()
+				.fetch_optional(&client)
 				.await
 				.map_err(|err| {
 					tracing::error!(err = %err, "failed to query room");
@@ -51,16 +57,15 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 				})?
 				.ok_or_else(|| Status::not_found("room not found"))?;
 
-			seperated
-				.push("room_id = ")
-				.push_bind_unseparated(common::database::Ulid(room_id.into_ulid()));
+			seperated.push("room_id = ").push_bind_unseparated(room_id.into_ulid());
 		}
 
 		if let Some(recording_config_id) = &req.recording_config_id {
-			sqlx::query("SELECT id FROM recording_configs WHERE id = $1 AND organization_id = $2")
-				.bind(common::database::Ulid(recording_config_id.into_ulid()))
+			common::database::query("SELECT id FROM recording_configs WHERE id = $1 AND organization_id = $2")
+				.bind(recording_config_id.into_ulid())
 				.bind(access_token.organization_id)
-				.fetch_optional(global.db().as_ref())
+				.build()
+				.fetch_optional(&client)
 				.await
 				.map_err(|err| {
 					tracing::error!(err = %err, "failed to query recording config");
@@ -70,7 +75,7 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 
 			seperated
 				.push("recording_config_id = ")
-				.push_bind_unseparated(common::database::Ulid(recording_config_id.into_ulid()));
+				.push_bind_unseparated(recording_config_id.into_ulid());
 		}
 
 		if let Some(visibility) = req.visibility {
@@ -83,7 +88,9 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 		}
 
 		if let Some(tags) = &req.tags {
-			seperated.push("tags = ").push_bind_unseparated(sqlx::types::Json(&tags.tags));
+			seperated
+				.push("tags = ")
+				.push_bind_unseparated(common::database::Json(&tags.tags));
 		}
 
 		if req.tags.is_none() && req.room_id.is_none() && req.recording_config_id.is_none() && req.visibility.is_none() {
@@ -92,13 +99,13 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 
 		seperated.push("updated_at = ").push_bind_unseparated(chrono::Utc::now());
 
-		qb.push(" WHERE id = ").push_bind(common::database::Ulid(req.id.into_ulid()));
+		qb.push(" WHERE id = ").push_bind(req.id.into_ulid());
 		qb.push(" AND organization_id = ").push_bind(access_token.organization_id);
 		qb.push(" RETURNING *");
 
 		let result = qb
 			.build_query_as::<<RecordingModifyRequest as TonicRequest>::Table>()
-			.fetch_optional(global.db().as_ref())
+			.fetch_optional(client)
 			.await
 			.map_err(|err| {
 				tracing::error!(err = %err, "failed to update recording");
@@ -108,7 +115,7 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 
 		let state = global
 			.recording_state_loader()
-			.load((result.organization_id.0, result.id.0))
+			.load((result.organization_id, result.id))
 			.await
 			.map_err(|_| Status::internal("failed to load recording state"))?
 			.unwrap_or_default();
@@ -116,10 +123,10 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 		video_common::events::emit(
 			global.nats(),
 			&global.config().events.stream_name,
-			access_token.organization_id.0,
+			access_token.organization_id,
 			Target::Recording,
 			event::Event::Recording(event::Recording {
-				recording_id: Some(result.id.0.into()),
+				recording_id: Some(result.id.into()),
 				event: Some(event::recording::Event::Modified(event::recording::Modified {})),
 			}),
 		)

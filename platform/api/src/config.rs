@@ -74,7 +74,7 @@ pub struct ImageUploaderConfig {
 	pub profile_picture_callback_subject: String,
 
 	/// Profile picture task priority, higher number means higher priority
-	pub profile_picture_task_priority: i32,
+	pub profile_picture_task_priority: i64,
 
 	/// Public endpoint for downloads
 	pub public_endpoint: String,

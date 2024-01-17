@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::TimeZone;
-use common::database::{PgNonNullVec, Protobuf};
+use common::database::non_null_vec;
 use common::http::ext::*;
 use common::http::router::builder::RouterBuilder;
 use common::http::router::ext::RequestExt;
@@ -20,7 +20,6 @@ use prost::Message;
 use tokio::io::AsyncReadExt;
 use tokio::time::Instant;
 use ulid::Ulid;
-use uuid::Uuid;
 use video_common::database::{Rendition, Room, RoomStatus, Visibility};
 use video_common::keys;
 use video_player_types::SessionRefresh;
@@ -72,13 +71,19 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 	let organization_id = organization_id(&req)?;
 	let room_id = room_id(&req)?;
 
+	let client = global
+		.db()
+		.get()
+		.await
+		.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to get database"))?;
+
 	let token = if let Some(token) = token(&req) {
-		Some(tokens::TokenClaims::verify(&global, organization_id, tokens::TargetId::Room(room_id), &token).await?)
+		Some(tokens::TokenClaims::verify(&client, organization_id, tokens::TargetId::Room(room_id), &token).await?)
 	} else {
 		None
 	};
 
-	let room: Option<Room> = sqlx::query_as(
+	let room: Option<Room> = common::database::query(
 		r#"
 		SELECT
 			*
@@ -90,19 +95,19 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 			AND status != $3
 		"#,
 	)
-	.bind(Uuid::from(organization_id))
-	.bind(Uuid::from(room_id))
+	.bind(organization_id)
+	.bind(room_id)
 	.bind(RoomStatus::Offline)
-	.fetch_optional(global.db().as_ref())
+	.build_query_as()
+	.fetch_optional(&client)
 	.await
 	.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?;
 
 	let room = room.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
-	let connection_id = Ulid::from(
-		room.active_ingest_connection_id
-			.ok_or((StatusCode::NOT_FOUND, "room not found"))?,
-	);
+	let connection_id = room
+		.active_ingest_connection_id
+		.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
 	let audio_output = room.audio_output.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
@@ -116,8 +121,7 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 	let key_id = token
 		.as_ref()
 		.and_then(|t| t.header().key_id.as_ref())
-		.map(|u| Ulid::from_string(u).unwrap())
-		.map(common::database::Ulid);
+		.map(|u| Ulid::from_string(u).unwrap());
 
 	let global_config = global.config();
 	let ip = if let Some(ip_header_mode) = &global_config.ip_header_mode {
@@ -140,7 +144,7 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 	}
 	.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to get ip address"))?;
 
-	sqlx::query(
+	common::database::query(
 		r#"
 		INSERT INTO playback_sessions (
 			id,
@@ -169,9 +173,9 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 		)
 		"#,
 	)
-	.bind(Uuid::from(id))
-	.bind(Uuid::from(organization_id))
-	.bind(Uuid::from(room_id))
+	.bind(id)
+	.bind(organization_id)
+	.bind(room_id)
 	.bind(token.as_ref().and_then(|t| t.claims().user_id.as_ref()))
 	.bind(key_id)
 	.bind(
@@ -184,7 +188,8 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 	.bind(req.headers().get("referer").map(|v| v.to_str().unwrap_or_default()))
 	.bind(req.headers().get("origin").map(|v| v.to_str().unwrap_or_default()))
 	.bind(req.headers().get("x-player-version").map(|v| v.to_str().unwrap_or_default()))
-	.execute(global.db().as_ref())
+	.build()
+	.execute(client)
 	.await
 	.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to create session"))?;
 
@@ -195,8 +200,8 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 		connection_id,
 		room_id,
 		token.is_some(),
-		audio_output.iter(),
-		video_output.iter(),
+		&audio_output,
+		&video_output,
 	)?;
 
 	let body = if config.scuffle_json {
@@ -224,11 +229,13 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 	Ok(resp)
 }
 
-#[derive(Debug, Clone, sqlx::FromRow)]
+#[derive(Debug, Clone, postgres_from_row::FromRow)]
 struct RecordingExt {
 	public: bool,
-	renditions: PgNonNullVec<Rendition>,
-	configs: PgNonNullVec<Vec<u8>>,
+	#[from_row(from_fn = "non_null_vec")]
+	renditions: Vec<Rendition>,
+	#[from_row(from_fn = "non_null_vec")]
+	configs: Vec<Vec<u8>>,
 }
 
 async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response<Body>> {
@@ -239,13 +246,19 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Res
 	let organization_id = organization_id(&req)?;
 	let recording_id = recording_id(&req)?;
 
+	let client = global
+		.db()
+		.get()
+		.await
+		.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to get database"))?;
+
 	let token = if let Some(token) = token(&req) {
-		Some(tokens::TokenClaims::verify(&global, organization_id, tokens::TargetId::Recording(recording_id), &token).await?)
+		Some(tokens::TokenClaims::verify(&client, organization_id, tokens::TargetId::Recording(recording_id), &token).await?)
 	} else {
 		None
 	};
 
-	let recording: Option<RecordingExt> = sqlx::query_as(
+	let recording: Option<RecordingExt> = common::database::query(
 		r#"
         WITH filtered_recordings AS (
             SELECT
@@ -270,9 +283,10 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Res
             r.public
     	"#,
 	)
-	.bind(Uuid::from(recording_id))
-	.bind(Uuid::from(organization_id))
-	.fetch_optional(global.db().as_ref())
+	.bind(recording_id)
+	.bind(organization_id)
+	.build_query_as()
+	.fetch_optional(&client)
 	.await
 	.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?;
 
@@ -331,7 +345,7 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Res
 	}
 	.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to get ip address"))?;
 
-	sqlx::query(
+	common::database::query(
 		r#"
 		INSERT INTO playback_sessions (
 			id,
@@ -360,9 +374,9 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Res
 		)
 		"#,
 	)
-	.bind(Uuid::from(id))
-	.bind(Uuid::from(organization_id))
-	.bind(Uuid::from(recording_id))
+	.bind(id)
+	.bind(organization_id)
+	.bind(recording_id)
 	.bind(token.as_ref().and_then(|t| t.claims().user_id.as_ref()))
 	.bind(token.as_ref().and_then(|t| t.header().key_id.as_ref()))
 	.bind(
@@ -375,7 +389,8 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Res
 	.bind(req.headers().get("referer").map(|v| v.to_str().unwrap_or_default()))
 	.bind(req.headers().get("origin").map(|v| v.to_str().unwrap_or_default()))
 	.bind(req.headers().get("x-player-version").map(|v| v.to_str().unwrap_or_default()))
-	.execute(global.db().as_ref())
+	.build()
+	.execute(client)
 	.await
 	.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to create session"))?;
 
@@ -385,8 +400,8 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Res
 		organization_id,
 		recording_id,
 		token.is_some(),
-		audio_output.into_iter().map(Protobuf),
-		video_output.into_iter().map(Protobuf),
+		&audio_output,
+		&video_output,
 	)?;
 
 	let body = if config.scuffle_json {
@@ -426,7 +441,13 @@ async fn session_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respo
 
 	let session = SessionClaims::verify(&global, organization_id, session)?;
 
-	let resp = sqlx::query(
+	let client = global
+		.db()
+		.get()
+		.await
+		.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to get database"))?;
+
+	let resp = common::database::query(
 		r#"
 		UPDATE playback_sessions SET
 			expires_at = NOW() + INTERVAL '10 minutes'
@@ -436,15 +457,16 @@ async fn session_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respo
 			expires_at > NOW()
 		"#,
 	)
-	.bind(Uuid::from(session.id))
-	.bind(Uuid::from(session.organization_id))
-	.execute(global.db().as_ref())
+	.bind(session.id)
+	.bind(session.organization_id)
+	.build()
+	.execute(&client)
 	.timeout(Duration::from_secs(2))
 	.await
 	.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to update session: timedout"))?
 	.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to update session"))?;
 
-	if resp.rows_affected() == 0 {
+	if resp == 0 {
 		return Err((StatusCode::BAD_REQUEST, "invalid session, expired or not found").into());
 	}
 
@@ -491,7 +513,7 @@ async fn session_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respo
 		None
 	};
 
-	let playlist = playlist::rendition_playlist(&global, &session, &config, rendition, manifest.as_ref()).await?;
+	let playlist = playlist::rendition_playlist(&global, &client, &session, &config, rendition, manifest.as_ref()).await?;
 	let body = if config.scuffle_json {
 		Body::from(
 			serde_json::to_string(&playlist)
@@ -532,7 +554,7 @@ async fn session_refresh<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respon
 
 	let session = SessionClaims::verify(&global, organization_id, session)?;
 
-	let resp = sqlx::query(
+	let resp = common::database::query(
 		r#"
 		UPDATE playback_sessions SET
 			expires_at = NOW() + INTERVAL '10 minutes'
@@ -542,13 +564,14 @@ async fn session_refresh<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respon
 			expires_at > NOW()
 		"#,
 	)
-	.bind(Uuid::from(session.id))
-	.bind(Uuid::from(session.organization_id))
-	.execute(global.db().as_ref())
+	.bind(session.id)
+	.bind(session.organization_id)
+	.build()
+	.execute(global.db())
 	.await
 	.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to update session"))?;
 
-	if resp.rows_affected() == 0 {
+	if resp == 0 {
 		return Err((StatusCode::BAD_REQUEST, "invalid session, expired or not found").into());
 	}
 
@@ -692,13 +715,20 @@ async fn room_screenshot<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respon
 
 	let organization_id = organization_id(&req)?;
 	let room_id = room_id(&req)?;
+
+	let client = global
+		.db()
+		.get()
+		.await
+		.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to get database"))?;
+
 	let token = if let Some(token) = token(&req) {
-		Some(tokens::TokenClaims::verify(&global, organization_id, tokens::TargetId::Room(room_id), &token).await?)
+		Some(tokens::TokenClaims::verify(&client, organization_id, tokens::TargetId::Room(room_id), &token).await?)
 	} else {
 		None
 	};
 
-	let room: Option<Room> = sqlx::query_as(
+	let room: Option<Room> = common::database::query(
 		r#"
 		SELECT
 			*
@@ -710,19 +740,19 @@ async fn room_screenshot<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respon
 			AND status != $3
 		"#,
 	)
-	.bind(Uuid::from(organization_id))
-	.bind(Uuid::from(room_id))
+	.bind(organization_id)
+	.bind(room_id)
 	.bind(RoomStatus::Offline)
-	.fetch_optional(global.db().as_ref())
+	.build_query_as()
+	.fetch_optional(client)
 	.await
 	.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?;
 
 	let room = room.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
-	let connection_id = Ulid::from(
-		room.active_ingest_connection_id
-			.ok_or((StatusCode::NOT_FOUND, "room not found"))?,
-	);
+	let connection_id = room
+		.active_ingest_connection_id
+		.ok_or((StatusCode::NOT_FOUND, "room not found"))?;
 
 	if room.visibility != Visibility::Public && token.is_none() {
 		return Err((StatusCode::UNAUTHORIZED, "room is private, token is required").into());

@@ -29,7 +29,7 @@ struct GlobalState {
 	config: AppConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<sqlx::PgPool>,
+	db: Arc<common::database::Pool>,
 	metadata_store: async_nats::jetstream::kv::Store,
 	media_store: async_nats::jetstream::object_store::ObjectStore,
 	ingest_tls: Option<common::grpc::TlsSettings>,

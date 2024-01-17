@@ -1,12 +1,14 @@
-#[derive(Debug, Default, sqlx::Type, Clone, Copy, PartialEq)]
-#[sqlx(type_name = "room_status")]
+use postgres_types::{FromSql, ToSql};
+
+#[derive(Debug, Default, ToSql, FromSql, Clone, Copy, PartialEq)]
+#[postgres(name = "room_status")]
 pub enum RoomStatus {
-	#[sqlx(rename = "OFFLINE")]
+	#[postgres(name = "OFFLINE")]
 	#[default]
 	Offline,
-	#[sqlx(rename = "WAITING_FOR_TRANSCODER")]
+	#[postgres(name = "WAITING_FOR_TRANSCODER")]
 	WaitingForTranscoder,
-	#[sqlx(rename = "READY")]
+	#[postgres(name = "READY")]
 	Ready,
 }
 

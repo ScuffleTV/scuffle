@@ -3,6 +3,7 @@ use std::sync::Arc;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::Resource;
 use pb::scuffle::video::v1::{AccessTokenGetRequest, AccessTokenGetResponse};
+use tonic::Status;
 use video_common::database::{AccessToken, DatabaseTable};
 
 use crate::api::utils::{get, impl_request_scopes, ApiRequest, TonicRequest};
@@ -19,8 +20,8 @@ impl_request_scopes!(
 pub fn build_query(
 	req: &AccessTokenGetRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<sqlx::query_builder::QueryBuilder<'static, sqlx::Postgres>> {
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+) -> tonic::Result<common::database::QueryBuilder<'static>> {
+	let mut qb = common::database::QueryBuilder::default();
 	qb.push("SELECT * FROM ")
 		.push(<AccessTokenGetRequest as TonicRequest>::Table::NAME)
 		.push(" WHERE ");
@@ -42,15 +43,15 @@ impl ApiRequest<AccessTokenGetResponse> for tonic::Request<AccessTokenGetRequest
 	) -> tonic::Result<tonic::Response<AccessTokenGetResponse>> {
 		let req = self.get_ref();
 
-		let mut query = build_query(req, access_token)?;
+		let query = build_query(req, access_token)?;
 
 		let access_tokens = query
 			.build_query_as()
-			.fetch_all(global.db().as_ref())
+			.fetch_all(global.db())
 			.await
 			.map_err(|err| {
 				tracing::error!(err = %err, "failed to fetch {}s", <AccessTokenGetRequest as TonicRequest>::Table::FRIENDLY_NAME);
-				tonic::Status::internal(format!(
+				Status::internal(format!(
 					"failed to fetch {}s",
 					<AccessTokenGetRequest as TonicRequest>::Table::FRIENDLY_NAME
 				))

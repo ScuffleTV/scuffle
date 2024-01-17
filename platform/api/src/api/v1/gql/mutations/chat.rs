@@ -2,7 +2,6 @@ use async_graphql::{Context, Object};
 use prost::Message;
 use tracing::error;
 use ulid::Ulid;
-use uuid::Uuid;
 
 use crate::api::auth::AuthError;
 use crate::api::v1::gql::error::ext::*;
@@ -42,7 +41,7 @@ impl<G: ApiGlobal> ChatMutation<G> {
 
 		// TODO: Check if the user is allowed to send messages in this chat
 		let message_id = Ulid::new();
-		let chat_message: database::ChatMessage = sqlx::query_as(
+		let chat_message: database::ChatMessage = common::database::query(
 			r#"
 			INSERT INTO chat_messages (
 				id,
@@ -57,11 +56,12 @@ impl<G: ApiGlobal> ChatMutation<G> {
 			) RETURNING *
 			"#,
 		)
-		.bind(Uuid::from(message_id))
+		.bind(message_id)
 		.bind(auth.session.user_id)
-		.bind(channel_id.to_uuid())
+		.bind(channel_id.to_ulid())
 		.bind(content.clone())
-		.fetch_one(global.db().as_ref())
+		.build_query_as()
+		.fetch_one(global.db())
 		.await?;
 
 		match global

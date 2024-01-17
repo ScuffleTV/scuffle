@@ -38,7 +38,7 @@ impl RequestContext {
 				if !auth.session.is_valid() {
 					Err(AuthError::SessionExpired)
 				} else if inner.websocket {
-					let auth = AuthData::from_session_id(global, auth.session.id.0).await?;
+					let auth = AuthData::from_session_id(global, auth.session.id).await?;
 					if auth.session.is_valid() {
 						self.set_auth(auth.clone()).await;
 						Ok(Some(auth))

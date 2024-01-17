@@ -25,7 +25,7 @@ impl ApiRequest<RecordingGetResponse> for tonic::Request<RecordingGetRequest> {
 	) -> tonic::Result<tonic::Response<RecordingGetResponse>> {
 		let req = self.get_ref();
 
-		let mut qb = sqlx::query_builder::QueryBuilder::default();
+		let mut qb = common::database::QueryBuilder::default();
 		qb.push("SELECT * FROM ")
 			.push(<RecordingGetRequest as TonicRequest>::Table::NAME)
 			.push(" WHERE ");
@@ -36,17 +36,17 @@ impl ApiRequest<RecordingGetResponse> for tonic::Request<RecordingGetRequest> {
 
 		if let Some(room_id) = req.room_id.as_ref() {
 			seperated.push("room_id = ");
-			seperated.push_bind_unseparated(common::database::Ulid(room_id.into_ulid()));
+			seperated.push_bind_unseparated(room_id.into_ulid());
 		}
 
 		if let Some(recording_config_id) = req.recording_config_id.as_ref() {
 			seperated.push("recording_config_id = ");
-			seperated.push_bind_unseparated(common::database::Ulid(recording_config_id.into_ulid()));
+			seperated.push_bind_unseparated(recording_config_id.into_ulid());
 		}
 
 		if let Some(s3_bucket_id) = req.s3_bucket_id.as_ref() {
 			seperated.push("s3_bucket_id = ");
-			seperated.push_bind_unseparated(common::database::Ulid(s3_bucket_id.into_ulid()));
+			seperated.push_bind_unseparated(s3_bucket_id.into_ulid());
 		}
 
 		if let Some(visibility) = req.visibility {
@@ -67,14 +67,14 @@ impl ApiRequest<RecordingGetResponse> for tonic::Request<RecordingGetRequest> {
 
 		get::search_options(&mut seperated, req.search_options.as_ref())?;
 
-		let results = qb.build_query_as::<<RecordingGetRequest as TonicRequest>::Table>().fetch_all(global.db().as_ref()).await.map_err(|err| {
+		let results = qb.build_query_as::<<RecordingGetRequest as TonicRequest>::Table>().fetch_all(global.db()).await.map_err(|err| {
 			tracing::error!(err = %err, "failed to fetch {}s", <<RecordingGetRequest as TonicRequest>::Table as DatabaseTable>::FRIENDLY_NAME);
 			Status::internal(format!("failed to fetch {}s", <<RecordingGetRequest as TonicRequest>::Table as DatabaseTable>::FRIENDLY_NAME))
 		})?;
 
 		let states = global
 			.recording_state_loader()
-			.load_many(results.iter().map(|recording| (recording.organization_id.0, recording.id.0)))
+			.load_many(results.iter().map(|recording| (recording.organization_id, recording.id)))
 			.await
 			.map_err(|_| Status::internal("failed to load recording states"))?;
 
@@ -85,7 +85,7 @@ impl ApiRequest<RecordingGetResponse> for tonic::Request<RecordingGetRequest> {
 				.into_iter()
 				.map(|recording| {
 					states
-						.get(&(recording.organization_id.0, recording.id.0))
+						.get(&(recording.organization_id, recording.id))
 						.unwrap_or(&default_state)
 						.recording_to_proto(recording)
 				})

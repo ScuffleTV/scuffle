@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use chrono::TimeZone;
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, Resource};
@@ -46,8 +47,8 @@ pub fn build_query(
 	req: &AccessTokenCreateRequest,
 	access_token: &AccessToken,
 	permissions: RequiredScope,
-) -> tonic::Result<sqlx::query_builder::QueryBuilder<'static, sqlx::Postgres>> {
-	let mut qb = sqlx::query_builder::QueryBuilder::default();
+) -> tonic::Result<common::database::QueryBuilder<'static>> {
+	let mut qb = common::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<AccessTokenCreateRequest as TonicRequest>::Table::NAME)
@@ -68,14 +69,14 @@ pub fn build_query(
 
 	let mut seperated = qb.separated(",");
 
-	seperated.push_bind(common::database::Ulid(Ulid::new()));
+	seperated.push_bind(Ulid::new());
 	seperated.push_bind(access_token.organization_id);
-	seperated.push_bind(common::database::Ulid(Ulid::new()));
+	seperated.push_bind(Ulid::new());
 	seperated.push_bind(permissions.0.into_iter().map(common::database::Protobuf).collect::<Vec<_>>());
 	seperated.push_bind(None::<chrono::DateTime<chrono::Utc>>);
 	seperated.push_bind(chrono::Utc::now());
-	seperated.push_bind(req.expires_at);
-	seperated.push_bind(sqlx::types::Json(req.tags.clone().unwrap_or_default().tags));
+	seperated.push_bind(req.expires_at.map(|x| chrono::Utc.timestamp_opt(x, 0).unwrap()));
+	seperated.push_bind(common::database::Json(req.tags.clone().unwrap_or_default().tags));
 
 	qb.push(") RETURNING *");
 
@@ -92,13 +93,10 @@ impl ApiRequest<AccessTokenCreateResponse> for tonic::Request<AccessTokenCreateR
 
 		let permissions = validate(req, access_token)?;
 
-		let mut query_builder = build_query(req, access_token, permissions)?;
+		let query_builder = build_query(req, access_token, permissions)?;
 
-		let result: <AccessTokenCreateRequest as TonicRequest>::Table = query_builder
-			.build_query_as()
-			.fetch_one(global.db().as_ref())
-			.await
-			.map_err(|err| {
+		let result: <AccessTokenCreateRequest as TonicRequest>::Table =
+			query_builder.build_query_as().fetch_one(global.db()).await.map_err(|err| {
 				tracing::error!(err = %err, "failed to fetch {}s", <AccessTokenCreateRequest as TonicRequest>::Table::FRIENDLY_NAME);
 				Status::internal(format!(
 					"failed to fetch {}s",
@@ -109,10 +107,10 @@ impl ApiRequest<AccessTokenCreateResponse> for tonic::Request<AccessTokenCreateR
 		video_common::events::emit(
 			global.nats(),
 			&global.config().events.stream_name,
-			access_token.organization_id.0,
+			access_token.organization_id,
 			Target::AccessToken,
 			event::Event::AccessToken(event::AccessToken {
-				access_token_id: Some(result.id.0.into()),
+				access_token_id: Some(result.id.into()),
 				event: Some(event::access_token::Event::Created(event::access_token::Created {})),
 			}),
 		)

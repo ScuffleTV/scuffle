@@ -175,7 +175,8 @@
 
 		display: grid;
 		grid-template-areas: "emotes community" "blog blog" "code code";
-		gap: 8rem;
+		grid-template-columns: 1fr 1fr;
+		gap: 8rem 2rem;
 
 		max-width: 60rem;
 	}

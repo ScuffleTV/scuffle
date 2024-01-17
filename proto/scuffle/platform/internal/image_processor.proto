@@ -25,10 +25,12 @@ message Task {
 
   enum ResizeAlgorithm {
     Nearest = 0;
-    Linear = 1;
-    Cubic = 2;
-    Area = 3;
-    Lanczos4 = 4;
+    Box = 1;
+    Bilinear = 2;
+    Hamming = 3;
+    CatmullRom = 4;
+    Mitchell = 5;
+    Lanczos3 = 6;
   }
 
   string input_path = 1;

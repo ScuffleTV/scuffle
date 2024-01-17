@@ -41,7 +41,7 @@ fn create_task(file_id: Ulid, input_path: &str, config: &ImageUploaderConfig, ow
 			max_input_width: 1000,
 			max_processing_time_ms: 60 * 1000, // 60 seconds
 		}),
-		resize_algorithm: image_processor::task::ResizeAlgorithm::Lanczos4 as i32,
+		resize_algorithm: image_processor::task::ResizeAlgorithm::Lanczos3 as i32,
 		upscale: true, // For profile pictures we want to have a consistent size
 		scales: vec![1, 2, 3, 4],
 		resize_method: image_processor::task::ResizeMethod::PadCenter as i32,

@@ -32,10 +32,12 @@ impl ImageResizer {
 		Self {
 			resizer: fr::Resizer::new(match target.algorithm {
 				ResizeAlgorithm::Nearest => fr::ResizeAlg::Nearest,
-				ResizeAlgorithm::Linear => fr::ResizeAlg::Convolution(fr::FilterType::Bilinear),
-				ResizeAlgorithm::Cubic => fr::ResizeAlg::Convolution(fr::FilterType::CatmullRom),
-				ResizeAlgorithm::Area => fr::ResizeAlg::Convolution(fr::FilterType::Box),
-				ResizeAlgorithm::Lanczos4 => fr::ResizeAlg::Convolution(fr::FilterType::Lanczos3),
+				ResizeAlgorithm::Box => fr::ResizeAlg::Convolution(fr::FilterType::Box),
+				ResizeAlgorithm::Bilinear => fr::ResizeAlg::Convolution(fr::FilterType::Bilinear),
+				ResizeAlgorithm::Hamming => fr::ResizeAlg::Convolution(fr::FilterType::Hamming),
+				ResizeAlgorithm::CatmullRom => fr::ResizeAlg::Convolution(fr::FilterType::CatmullRom),
+				ResizeAlgorithm::Mitchell => fr::ResizeAlg::Convolution(fr::FilterType::Mitchell),
+				ResizeAlgorithm::Lanczos3 => fr::ResizeAlg::Convolution(fr::FilterType::Lanczos3),
 			}),
 			target,
 		}

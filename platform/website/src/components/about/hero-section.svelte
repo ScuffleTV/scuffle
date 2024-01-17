@@ -9,13 +9,6 @@
 </svelte:head>
 
 <div class="hero-section" role="none">
-	<svg class="background-noise" xmlns="http://www.w3.org/2000/svg">
-		<filter id="noiseFilter">
-			<feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="3" stitchTiles="stitch" />
-		</filter>
-
-		<rect width="100vw" height="100vh" filter="url(#noiseFilter)" />
-	</svg>
 	<div class="text-cta">
 		<span class="announcement">
 			<span class="new">New</span>
@@ -99,6 +92,7 @@
 		justify-content: center;
 
 		position: relative;
+		background-color: rgba(255, 255, 255, 0.01);
 
 		&::before {
 			content: "";
@@ -120,23 +114,6 @@
 			opacity: 0.5;
 			z-index: -1;
 		}
-
-		.background-noise {
-			position: absolute;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			z-index: -2;
-
-			-webkit-mask-image: linear-gradient(120deg, rgba(255, 255, 255, 0.15) 0%, transparent 80%);
-			mask-image: linear-gradient(120deg, rgba(255, 255, 255, 0.15) 0%, transparent 80%);
-			-webkit-mask-repeat: no-repeat;
-			mask-repeat: no-repeat;
-		}
-
-		perspective: 1000px;
-		perspective-origin: top;
 	}
 
 	.text-cta {

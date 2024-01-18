@@ -29,6 +29,7 @@ struct GlobalState {
 	jetstream: async_nats::jetstream::Context,
 	s3_source_bucket: common::s3::Bucket,
 	s3_target_bucket: common::s3::Bucket,
+	http_client: reqwest::Client,
 }
 
 impl_global_traits!(GlobalState);
@@ -50,6 +51,11 @@ impl platform_image_processor::global::ImageProcessorState for GlobalState {
 	fn s3_target_bucket(&self) -> &common::s3::Bucket {
 		&self.s3_target_bucket
 	}
+
+	#[inline(always)]
+	fn http_client(&self) -> &reqwest::Client {
+		&self.http_client
+	}
 }
 
 impl binary_helper::Global<AppConfig> for GlobalState {
@@ -60,6 +66,10 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 
 		let (nats, jetstream) = setup_nats(&config.name, &config.nats).await?;
 
+		let http_client = reqwest::Client::builder()
+			.user_agent(concat!("scuffle-image-processor/", env!("CARGO_PKG_VERSION")))
+			.build()?;
+
 		Ok(Self {
 			ctx,
 			db,
@@ -68,40 +78,53 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			config,
 			s3_source_bucket,
 			s3_target_bucket,
+			http_client,
 		})
 	}
 }
 
-#[tokio::main]
-pub async fn main() {
-	if let Err(err) = bootstrap::<AppConfig, GlobalState, _>(|global| async move {
-		let grpc_future = {
-			let mut server = grpc_server(&global.config.grpc)
-				.await
-				.context("failed to create grpc server")?;
-			let router = server.add_service(grpc_health::HealthServer::new(&global, |global, _| async move {
-				!global.db().is_closed() && global.nats().connection_state() == async_nats::connection::State::Connected
-			}));
+pub fn main() {
+	tokio::runtime::Builder::new_multi_thread()
+		.enable_all()
+		.max_blocking_threads(
+			std::env::var("TOKIO_MAX_BLOCKING_THREADS")
+				.ok()
+				.and_then(|v| v.parse().ok())
+				.unwrap_or(2048),
+		)
+		.build()
+		.expect("failed to create tokio runtime")
+		.block_on(async {
+			if let Err(err) = bootstrap::<AppConfig, GlobalState, _>(|global| async move {
+				let grpc_future = {
+					let mut server = grpc_server(&global.config.grpc)
+						.await
+						.context("failed to create grpc server")?;
+					let router = server.add_service(grpc_health::HealthServer::new(&global, |global, _| async move {
+						!global.db().is_closed()
+							&& global.nats().connection_state() == async_nats::connection::State::Connected
+					}));
 
-			let router = platform_image_processor::grpc::add_routes(&global, router);
+					let router = platform_image_processor::grpc::add_routes(&global, router);
 
-			router.serve_with_shutdown(global.config.grpc.bind_address, async {
-				global.ctx().done().await;
+					router.serve_with_shutdown(global.config.grpc.bind_address, async {
+						global.ctx().done().await;
+					})
+				};
+
+				let processor_future = platform_image_processor::processor::run(global.clone());
+
+				select! {
+					r = grpc_future => r.context("grpc server stopped unexpectedly")?,
+					r = processor_future => r.context("processor stopped unexpectedly")?,
+				}
+
+				Ok(())
 			})
-		};
-
-		let processor_future = platform_image_processor::processor::run(global.clone());
-
-		select! {
-			r = grpc_future => r.context("grpc server stopped unexpectedly")?,
-			r = processor_future => r.context("processor stopped unexpectedly")?,
-		}
-
-		Ok(())
-	})
-	.await
-	{
-		tracing::error!("{:#}", err);
-		std::process::exit(1);
-	}
+			.await
+			{
+				tracing::error!("{:#}", err);
+				std::process::exit(1);
+			}
+		})
 }

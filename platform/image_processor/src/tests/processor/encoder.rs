@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use rgb::ComponentBytes;
 use sha2::Digest;
 
-use crate::processor::error::ProcessorError;
 use crate::processor::job::decoder::{Decoder, DecoderBackend};
 use crate::processor::job::encoder::{Encoder, EncoderFrontend, EncoderSettings};
 use crate::processor::job::resize::{ImageResizer, ImageResizerTarget};
@@ -82,9 +81,7 @@ fn encode(asset_name: &str, backend: DecoderBackend, frontend: EncoderFrontend) 
 			EncoderFrontend::Png => "png",
 		}
 	);
-	std::fs::write(&output_path, output)
-		.map_err(ProcessorError::FileCreate)
-		.expect("failed to write output");
+	std::fs::write(&output_path, output).expect("failed to write output");
 	println!("wrote output to {}", output_path);
 
 	println!("encode time ({asset_name}): {:?}", start.elapsed());

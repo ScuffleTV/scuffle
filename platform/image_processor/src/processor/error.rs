@@ -33,25 +33,13 @@ pub enum ProcessorError {
 	#[error("invalid job state")]
 	InvalidJobState,
 
-	#[error("directory create: {0}")]
-	DirectoryCreate(std::io::Error),
-
-	#[error("file read: {0}")]
-	FileRead(std::io::Error),
-
-	#[error("working directory change: {0}")]
-	WorkingDirectoryChange(std::io::Error),
-
-	#[error("file create: {0}")]
-	FileCreate(std::io::Error),
-
 	#[error("download source from s3: {0}")]
 	S3Download(aws_sdk_s3::error::SdkError<GetObjectError>),
 
 	#[error("download source from s3: {0}")]
 	S3DownloadStream(aws_sdk_s3::primitives::ByteStreamError),
 
-	#[error("upload target to s3: {0}")]
+	#[error("upload target to s3: {0:?}")]
 	S3Upload(aws_sdk_s3::error::SdkError<PutObjectError>),
 
 	#[error("publish to nats: {0}")]
@@ -96,6 +84,9 @@ pub enum ProcessorError {
 	#[error("http download disabled")]
 	HttpDownloadDisabled,
 
+	#[error("download timeout")]
+	DownloadTimeout,
+
 	#[error("http download: {0}")]
 	HttpDownload(#[from] reqwest::Error),
 }
@@ -105,9 +96,6 @@ impl ProcessorError {
 		let msg = match self {
 			ProcessorError::LostJob => Some("The job was lost"),
 			ProcessorError::InvalidJobState => Some("The job is in an invalid state"),
-			ProcessorError::DirectoryCreate(_) => Some("Failed to create directory"),
-			ProcessorError::FileRead(_) => Some("Failed to read file"),
-			ProcessorError::FileCreate(_) => Some("Failed to create file"),
 			ProcessorError::S3Download(_) => Some("Failed to download file"),
 			ProcessorError::S3Upload(_) => Some("Failed to upload file"),
 			ProcessorError::FileFormat(_) => Some("Failed to read file format"),

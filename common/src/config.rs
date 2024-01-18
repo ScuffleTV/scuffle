@@ -195,7 +195,7 @@ pub struct S3BucketConfig {
 impl Default for S3BucketConfig {
 	fn default() -> Self {
 		Self {
-			name: "scuffle-image-processor".to_owned(),
+			name: "scuffle".to_owned(),
 			region: "us-east-1".to_owned(),
 			endpoint: Some("http://localhost:9000".to_string()),
 			credentials: S3CredentialsConfig::default(),

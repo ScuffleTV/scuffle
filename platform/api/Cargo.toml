@@ -43,7 +43,7 @@ thiserror = "1.0"
 anyhow = "1.0"
 multer = "3.0"
 aws-config = "1.1"
-aws-sdk-s3 = "1.12"
+aws-sdk-s3 = { version = "1.12", features = ["behavior-version-latest"] }
 http-body = "1.0"
 http-body-util = "0.1"
 hyper-util = "0.1"

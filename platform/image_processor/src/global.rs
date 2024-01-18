@@ -5,6 +5,7 @@ use crate::config::ImageProcessorConfig;
 pub trait ImageProcessorState {
 	fn s3_source_bucket(&self) -> &Bucket;
 	fn s3_target_bucket(&self) -> &Bucket;
+	fn http_client(&self) -> &reqwest::Client;
 }
 
 pub trait ImageProcessorGlobal:

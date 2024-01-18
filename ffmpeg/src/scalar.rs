@@ -57,15 +57,12 @@ impl Scalar {
 			frame_mut.height = height;
 			frame_mut.format = pixel_format as i32;
 
-			// Safety: `av_image_alloc` is safe to call, and the pointer returned is valid.
-			av_image_alloc(
-				frame_mut.data.as_mut_ptr(),
-				frame_mut.linesize.as_mut_ptr(),
-				width,
-				height,
-				pixel_format,
-				32,
-			);
+			// Safety: `av_frame_get_buffer` is safe to call, and the pointer returned is
+			// valid.
+			match av_frame_get_buffer(frame_mut, 32) {
+				0 => {}
+				err => return Err(FfmpegError::Code(err.into())),
+			}
 		}
 
 		Ok(Self {

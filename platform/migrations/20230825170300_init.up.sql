@@ -57,7 +57,7 @@ CREATE TABLE uploaded_files (
     type file_type NOT NULL,
     metadata BYTES NOT NULL,
     total_size INT8 NOT NULL,
-    status uploadedfilestatus NOT NULL,
+    status uploaded_file_status NOT NULL,
     path VARCHAR(256) NOT NULL,
     failed TEXT,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

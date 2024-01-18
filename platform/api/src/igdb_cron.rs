@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
-use async_nats::jetstream::consumer::pull::Config;
+use async_nats::jetstream::consumer::pull::{Config, MessagesErrorKind};
 use async_nats::jetstream::consumer::Consumer;
 use async_nats::jetstream::AckKind;
 use bytes::Bytes;
@@ -12,6 +12,7 @@ use fred::interfaces::KeysInterface;
 use futures_util::StreamExt;
 use pb::scuffle::platform::internal::image_processor;
 use pb::scuffle::platform::internal::types::{uploaded_file_metadata, ImageFormat, UploadedFileMetadata};
+use postgres_from_row::tokio_postgres::IsolationLevel;
 use postgres_from_row::FromRow;
 use tokio::select;
 use ulid::Ulid;
@@ -56,13 +57,13 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 async fn cron<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> anyhow::Result<()> {
 	let mut timer = tokio::time::interval(Duration::from_secs(60));
 	loop {
+		timer.tick().await;
+		tracing::debug!("igdb cron");
 		global
 			.nats()
 			.publish(config.igdb_cron_subject.clone(), Bytes::new())
 			.await
 			.context("publish")?;
-		tracing::debug!("igdb cron");
-		timer.tick().await;
 	}
 }
 
@@ -72,7 +73,15 @@ async fn process<G: ApiGlobal>(global: &Arc<G>, consumer: Consumer<Config>, conf
 	let duration = chrono::Duration::from_std(config.refresh_interval).context("duration")?;
 
 	'outer: while let Some(message) = messages.next().await {
-		let message = message.context("message")?;
+		let message = match message {
+			Ok(message) => message,
+			Err(err) if matches!(err.kind(), MessagesErrorKind::MissingHeartbeat) => {
+				continue;
+			}
+			Err(err) => {
+				anyhow::bail!("message: {:#}", err);
+			}
+		};
 
 		let info = message.info().map_err(|e| anyhow::anyhow!("info: {e}"))?;
 
@@ -316,7 +325,8 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			.await
 			.context("insert igdb_image")?;
 
-		let image_ids = common::database::query("SELECT image_id, uploaded_file_id FROM igdb_image WHERE image_id = ANY($1)")
+		let image_ids =
+			common::database::query("SELECT image_id, uploaded_file_id FROM igdb_image WHERE image_id = ANY($1::TEXT[])")
 				.bind(image_ids.iter().map(|x| x.1).collect::<Vec<_>>())
 				.build_query_as::<ImageId>()
 				.fetch_all(&tx)
@@ -338,7 +348,10 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 						failed: None,
 						name: format!("igdb/cover/{}.jpg", cover.image_id),
 						owner_id: None,
-						path: format!("https://images.igdb.com/igdb/image/upload/t_cover_big_2x/{}.jpg", cover.image_id),
+						path: format!(
+							"https://images.igdb.com/igdb/image/upload/t_cover_big_2x/{}.jpg",
+							cover.image_id
+						),
 						status: UploadedFileStatus::Unqueued,
 						metadata: UploadedFileMetadata {
 							metadata: Some(uploaded_file_metadata::Metadata::Image(uploaded_file_metadata::Image {
@@ -356,7 +369,10 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 						failed: None,
 						name: format!("igdb/artwork/{}.jpg", artwork.image_id),
 						owner_id: None,
-						path: format!("https://images.igdb.com/igdb/image/upload/t_1080p_2x/{}.jpg", artwork.image_id),
+						path: format!(
+							"https://images.igdb.com/igdb/image/upload/t_1080p_2x/{}.jpg",
+							artwork.image_id
+						),
 						status: UploadedFileStatus::Unqueued,
 						metadata: UploadedFileMetadata {
 							metadata: Some(uploaded_file_metadata::Metadata::Image(uploaded_file_metadata::Image {
@@ -371,28 +387,22 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			})
 			.collect::<Vec<_>>();
 
-		common::database::query("INSERT INTO uploaded_files (id, name, type, metadata, total_size, path, status) ")
-			.push_values(&uploaded_files, |mut sep, item| {
-				sep.push_bind(item.id);
-				sep.push_bind(&item.name);
-				sep.push_bind(item.ty);
-				sep.push_bind(common::database::Protobuf(item.metadata.clone()));
-				sep.push_bind(item.total_size);
-				sep.push_bind(&item.path);
-				sep.push_bind(item.status);
-			})
-			.push("ON CONFLICT (id) DO NOTHING;")
-			.build()
-			.execute(&tx)
-			.await
-			.context("insert uploaded_files")?;
-
-		let uploaded_files = common::database::query("SELECT * FROM uploaded_files WHERE id = ANY($1)")
-			.bind(uploaded_files.iter().map(|x| x.id).collect::<Vec<_>>())
-			.build_query_as::<UploadedFile>()
-			.fetch_all(&tx)
-			.await
-			.context("select uploaded_files")?;
+		let uploaded_files_ids =
+			common::database::query("INSERT INTO uploaded_files (id, name, type, metadata, total_size, path, status) ")
+				.push_values(&uploaded_files, |mut sep, item| {
+					sep.push_bind(item.id);
+					sep.push_bind(&item.name);
+					sep.push_bind(item.ty);
+					sep.push_bind(common::database::Protobuf(item.metadata.clone()));
+					sep.push_bind(item.total_size);
+					sep.push_bind(&item.path);
+					sep.push_bind(item.status);
+				})
+				.push("ON CONFLICT (id) DO NOTHING RETURNING id;")
+				.build_query_single_scalar::<Ulid>()
+				.fetch_all(&tx)
+				.await
+				.context("insert uploaded_files")?;
 
 		let resp = resp
 			.into_iter()
@@ -423,7 +433,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 		offset += resp.len();
 		let count = resp.len();
 
-		common::database::query("INSERT INTO categories (id, igdb_id, name, aliases, keywords, storyline, summary, over_18, cover_id, rating, updated_at, artwork_ids, igdb_similar_game_ids, websites) ")
+		let categories = common::database::query("INSERT INTO categories (id, igdb_id, name, aliases, keywords, storyline, summary, over_18, cover_id, rating, updated_at, artwork_ids, igdb_similar_game_ids, websites) ")
 			.push_values(&resp, |mut sep, item| {
 			sep.push_bind(item.id);
 			sep.push_bind(item.igdb_id);
@@ -440,84 +450,90 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			sep.push_bind(&item.igdb_similar_game_ids);
 			sep.push_bind(&item.websites);
 		})
-		.push("ON CONFLICT (igdb_id) WHERE igdb_id IS NOT NULL DO UPDATE SET ")
-		.push("name = EXCLUDED.name, ")
-		.push("aliases = EXCLUDED.aliases, ")
-		.push("keywords = EXCLUDED.keywords, ")
-		.push("storyline = EXCLUDED.storyline, ")
-		.push("summary = EXCLUDED.summary, ")
-		.push("rating = EXCLUDED.rating, ")
-		.push("updated_at = NOW(), ")
-		.push("igdb_similar_game_ids = EXCLUDED.igdb_similar_game_ids, ")
-		.push("websites = EXCLUDED.websites, ")
-		.push("artwork_ids = EXCLUDED.artwork_ids;")
-	.build().execute(&tx).await.context("insert categories")?;
-
-		let categories = common::database::query("SELECT * FROM categories WHERE igdb_id = ANY($1)")
-			.bind(resp.iter().map(|x| x.igdb_id).collect::<Vec<_>>())
+			.push("ON CONFLICT (igdb_id) WHERE igdb_id IS NOT NULL DO UPDATE SET ")
+			.push("name = EXCLUDED.name, ")
+			.push("aliases = EXCLUDED.aliases, ")
+			.push("keywords = EXCLUDED.keywords, ")
+			.push("storyline = EXCLUDED.storyline, ")
+			.push("summary = EXCLUDED.summary, ")
+			.push("rating = EXCLUDED.rating, ")
+			.push("updated_at = NOW(), ")
+			.push("igdb_similar_game_ids = EXCLUDED.igdb_similar_game_ids, ")
+			.push("websites = EXCLUDED.websites, ")
+			.push("artwork_ids = EXCLUDED.artwork_ids RETURNING *;")
 			.build_query_as::<Category>()
 			.fetch_all(&tx)
 			.await
-			.context("select categories")?;
+			.context("insert categories")?;
 
 		if categories.len() != count {
 			tracing::warn!("igdb: categories count mismatch {} != {}", categories.len(), count);
 		}
 
-		
 		let categories = categories
-		.into_iter()
-		.flat_map(|c| {
-			c.cover_id
 			.into_iter()
-			.chain(c.artwork_ids.into_iter())
-			.map(move |id| (id, c.id))
-		})
-		.collect::<HashMap<_, _>>();
-	
-	common::database::query("WITH updated(id, category) AS (")
-		.push_values(categories.iter().collect::<Vec<_>>(), |mut sep, item| {
-			sep.push_bind(item.0);
-			sep.push_bind(item.1);
-		})
-		.push(
-			") UPDATE igdb_image SET category_id = updated.category FROM updated WHERE igdb_image.uploaded_file_id = updated.id;",
-		)
-		.build().execute(&tx).await.context("update igdb_image")?;
+			.flat_map(|c| {
+				c.cover_id
+					.into_iter()
+					.chain(c.artwork_ids.into_iter())
+					.map(move |id| (id, c.id))
+			})
+			.collect::<HashMap<_, _>>();
+
+		common::database::query("WITH updated(id, category) AS (")
+			.push_values(categories.iter().collect::<Vec<_>>(), |mut sep, item| {
+				sep.push_bind(item.0).push_unseparated("::UUID");
+				sep.push_bind(item.1).push_unseparated("::UUID");
+			})
+			.push(
+				") UPDATE igdb_image SET category_id = updated.category FROM updated WHERE igdb_image.uploaded_file_id = updated.id;",
+			)
+			.build()
+			.execute(&tx)
+			.await
+			.context("update igdb_image")?;
+
+		tx.commit().await.context("commit")?;
 
 		if config.process_images {
-			let unqueued = uploaded_files
-				.into_iter()
-				.filter(|x| x.status == UploadedFileStatus::Unqueued)
-				.collect::<Vec<_>>();
+			let image_processor_config = global.config::<ImageUploaderConfig>();
+
+			let tx = client
+				.build_transaction()
+				.isolation_level(IsolationLevel::ReadCommitted)
+				.start()
+				.await
+				.context("start transaction image_jobs")?;
+
+			let unqueued = common::database::query(
+				"UPDATE uploaded_files SET status = 'queued' WHERE id = ANY($1::UUID[]) AND status = 'unqueued' RETURNING id, path;",
+			)
+			.bind(uploaded_files_ids)
+			.build_query_scalar::<(Ulid, String)>()
+			.fetch_all(&tx)
+			.await
+			.context("update uploaded_files")?;
 
 			if !unqueued.is_empty() {
-				let image_processor_config = global.config::<ImageUploaderConfig>();
 				common::database::query("INSERT INTO image_jobs (id, priority, task) ")
-					.push_values(&unqueued, |mut sep, item| {
-						sep.push_bind(item.id);
-						sep.push_bind(image_processor_config.igdb_image_task_priority);
-						sep.push_bind(common::database::Protobuf(create_task(
-							categories[&item.id],
-							item.id,
-							item.path.clone(),
+					.bind(image_processor_config.igdb_image_task_priority as i64)
+					.push_values(unqueued, |mut sep, (id, path)| {
+						sep.push_bind(id).push("$1").push_bind(common::database::Protobuf(create_task(
+							categories[&id],
+							id,
+							path,
 							image_processor_config,
 						)));
 					})
 					.push("ON CONFLICT (id) DO NOTHING;")
 					.build()
-					.execute(&tx).await.context("insert image_jobs")?;
-
-				common::database::query("UPDATE uploaded_files SET status = 'queued' WHERE id = ANY($1)")
-					.bind(unqueued.iter().map(|x| x.id).collect::<Vec<_>>())
-					.build()
 					.execute(&tx)
 					.await
-					.context("update uploaded_files")?;
+					.context("insert image_jobs")?;
+
+				tx.commit().await.context("commit image_jobs")?;
 			}
 		}
-
-		tx.commit().await.context("commit")?;
 
 		tracing::debug!("igdb progress: {}/{}", offset, total);
 

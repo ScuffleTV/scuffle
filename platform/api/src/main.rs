@@ -104,7 +104,7 @@ struct GlobalState {
 	video_room_client: VideoRoomClient,
 	video_playback_session_client: VideoPlaybackSessionClient,
 	video_events_client: VideoEventsClient,
-	
+
 	redis: Arc<fred::clients::RedisPool>,
 
 	playback_private_key: Option<jwt_next::asymmetric::AsymmetricKeyWithDigest<jwt_next::asymmetric::SigningKey>>,

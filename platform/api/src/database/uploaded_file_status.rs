@@ -1,6 +1,7 @@
-use postgres_types::{ToSql, FromSql};
+use postgres_types::{FromSql, ToSql};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ToSql, FromSql)]
+#[postgres(name = "uploaded_file_status")]
 pub enum UploadedFileStatus {
 	#[postgres(name = "unqueued")]
 	Unqueued,

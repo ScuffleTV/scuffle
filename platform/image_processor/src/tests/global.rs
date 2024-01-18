@@ -12,6 +12,7 @@ pub struct GlobalState {
 	db: Arc<common::database::Pool>,
 	s3_source_bucket: common::s3::Bucket,
 	s3_target_bucket: common::s3::Bucket,
+	http_client: reqwest::Client,
 }
 
 impl common::global::GlobalCtx for GlobalState {
@@ -51,6 +52,10 @@ impl crate::global::ImageProcessorState for GlobalState {
 
 	fn s3_target_bucket(&self) -> &common::s3::Bucket {
 		&self.s3_target_bucket
+	}
+
+	fn http_client(&self) -> &reqwest::Client {
+		&self.http_client
 	}
 }
 

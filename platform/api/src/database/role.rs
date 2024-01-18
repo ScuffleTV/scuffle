@@ -31,6 +31,8 @@ pub enum RolePermission {
 	StreamRecording,
 	/// Upload Profile Pictures
 	UploadProfilePicture,
+	/// Upload Offline Banners
+	UploadOfflineBanner,
 }
 
 impl<'a> postgres_types::FromSql<'a> for RolePermission {

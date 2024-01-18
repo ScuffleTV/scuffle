@@ -19,7 +19,7 @@ use crate::database::{FileType, RolePermission, UploadedFileStatus};
 use crate::global::ApiGlobal;
 
 pub(crate) mod profile_picture;
-// pub(crate) mod offline_banner;
+pub(crate) mod offline_banner;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) enum AcceptedFormats {

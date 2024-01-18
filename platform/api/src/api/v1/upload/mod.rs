@@ -11,6 +11,7 @@ use hyper::body::Incoming;
 use hyper::{Request, Response, StatusCode};
 use multer::{Constraints, SizeLimit};
 
+use self::image_upload::offline_banner::OfflineBanner;
 use self::image_upload::profile_picture::ProfilePicture;
 use crate::api::auth::AuthData;
 use crate::api::error::ApiError;
@@ -39,7 +40,9 @@ trait UploadType: serde::de::DeserializeOwned + Default {
 }
 
 pub fn routes<G: ApiGlobal>(_: &Arc<G>) -> RouterBuilder<Incoming, Body, RouteError<ApiError>> {
-	Router::builder().post("/profile-picture", handler::<G, ProfilePicture>)
+	Router::builder()
+		.post("/profile-picture", handler::<G, ProfilePicture>)
+		.post("/offline-banner", handler::<G, OfflineBanner>)
 }
 
 async fn handler<G: ApiGlobal, U: UploadType>(req: Request<Incoming>) -> Result<Response<Body>, RouteError<ApiError>> {

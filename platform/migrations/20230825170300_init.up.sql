@@ -41,6 +41,7 @@ CREATE TABLE users (
     channel_links JSONB NOT NULL DEFAULT '[]'::JSONB,
     channel_custom_thumbnail_id UUID,
     channel_offline_banner_id UUID,
+    channel_pending_offline_banner_id UUID,
     channel_category_id UUID,
     channel_stream_key VARCHAR(256),
     channel_role_order UUID[] NOT NULL DEFAULT '{}'::UUID[],

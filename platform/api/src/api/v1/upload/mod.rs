@@ -11,7 +11,7 @@ use hyper::body::Incoming;
 use hyper::{Request, Response, StatusCode};
 use multer::{Constraints, SizeLimit};
 
-use self::profile_picture::ProfilePicture;
+use self::image_upload::profile_picture::ProfilePicture;
 use crate::api::auth::AuthData;
 use crate::api::error::ApiError;
 use crate::api::request_context::RequestContext;
@@ -19,7 +19,7 @@ use crate::api::Body;
 use crate::global::ApiGlobal;
 use crate::turnstile::validate_turnstile_token;
 
-pub(crate) mod profile_picture;
+pub(crate) mod image_upload;
 
 trait UploadType: serde::de::DeserializeOwned + Default {
 	fn validate_format<G: ApiGlobal>(global: &Arc<G>, auth: &AuthData, content_type: &str) -> bool;

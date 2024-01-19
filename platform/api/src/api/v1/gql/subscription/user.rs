@@ -75,7 +75,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 
 			while let Ok(message) = subscription.recv().await {
 				let event = pb::scuffle::platform::internal::events::UserDisplayName::decode(message.payload)
-					.map_err_ignored_gql("failed to decode user display name")?;
+					.map_err_ignored_gql("failed to decode user display name event")?;
 
 				let user_id = event.user_id.into_ulid();
 
@@ -112,7 +112,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 			.subscription_manager()
 			.subscribe(SubscriptionTopic::UserDisplayColor(user_id.to_ulid()))
 			.await
-			.map_err_gql("failed to subscribe to user display name")?;
+			.map_err_gql("failed to subscribe to user display color")?;
 
 		Ok(async_stream::stream!({
 			yield Ok(UserDisplayColorStream {
@@ -122,7 +122,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 
 			while let Ok(message) = subscription.recv().await {
 				let event = pb::scuffle::platform::internal::events::UserDisplayColor::decode(message.payload)
-					.map_err_ignored_gql("failed to decode user display name")?;
+					.map_err_ignored_gql("failed to decode user display color event")?;
 
 				let user_id = event.user_id.into_ulid();
 
@@ -159,7 +159,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 			.subscription_manager()
 			.subscribe(SubscriptionTopic::UserProfilePicture(user_id.to_ulid()))
 			.await
-			.map_err_gql("failed to subscribe to user display name")?;
+			.map_err_gql("failed to subscribe to user profile picture")?;
 
 		let profile_picture = if let Some(profile_picture_id) = profile_picture_id {
 			global
@@ -182,7 +182,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 
 			while let Ok(message) = subscription.recv().await {
 				let event = pb::scuffle::platform::internal::events::UserProfilePicture::decode(message.payload)
-					.map_err_ignored_gql("failed to decode user display name")?;
+					.map_err_ignored_gql("failed to decode user profile picture event")?;
 
 				let user_id = event.user_id.into_ulid();
 				let profile_picture_id = event.profile_picture_id.map(|u| u.into_ulid());
@@ -259,7 +259,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 
 			while let Ok(message) = subscription.recv().await {
 				let event = pb::scuffle::platform::internal::events::UserFollowChannel::decode(message.payload)
-					.map_err_ignored_gql("failed to decode user follow")?;
+					.map_err_ignored_gql("failed to decode user follow event")?;
 
 				let user_id = event.user_id.into_ulid();
 

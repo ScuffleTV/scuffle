@@ -49,6 +49,12 @@ message UserProfilePicture {
   scuffle.types.Ulid profile_picture_id = 2;
 }
 
+// For channel.{id}.offline_banner event
+message ChannelOfflineBanner {
+  scuffle.types.Ulid channel_id = 1;
+  scuffle.types.Ulid offline_banner_id = 2;
+}
+
 // For file.{id}.status event
 message UploadedFileStatus {
   message Success {}

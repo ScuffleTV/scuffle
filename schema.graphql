@@ -149,7 +149,8 @@ type Channel {
 	lastLiveAt: DateRFC3339
 	links: [ChannelLink!]!
 	live: ChannelLive
-	offlineBannerId: ULID
+	offlineBannerId: ImageUpload
+	pendingOfflineBannerId: ULID
 	streamKey: String
 	title: String
 }

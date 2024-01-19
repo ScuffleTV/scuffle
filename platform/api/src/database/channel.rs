@@ -34,6 +34,9 @@ pub struct Channel {
 	/// The offline banner of the channel
 	#[from_row(rename = "channel_offline_banner_id")]
 	pub offline_banner_id: Option<Ulid>,
+	/// The offline banner of the channel
+	#[from_row(rename = "channel_pending_offline_banner_id")]
+	pub pending_offline_banner_id: Option<Ulid>,
 	/// The current stream's category
 	#[from_row(rename = "channel_category_id")]
 	pub category_id: Option<Ulid>,

@@ -1,9 +1,11 @@
 use async_graphql::{ComplexObject, Context, SimpleObject};
 use chrono::Utc;
 use jwt_next::SignWithKey;
+use ulid::Ulid;
 
 use super::category::Category;
 use super::date::DateRFC3339;
+use super::image_upload::ImageUpload;
 use super::ulid::GqlUlid;
 use crate::api::v1::gql::error::ext::*;
 use crate::api::v1::gql::error::Result;
@@ -22,10 +24,14 @@ pub struct Channel<G: ApiGlobal> {
 	pub description: Option<String>,
 	pub links: Vec<database::ChannelLink>,
 	pub custom_thumbnail_id: Option<GqlUlid>,
-	pub offline_banner_id: Option<GqlUlid>,
+	pub pending_offline_banner_id: Option<GqlUlid>,
 	pub category_id: Option<GqlUlid>,
 	pub live: Option<ChannelLive<G>>,
 	pub last_live_at: Option<DateRFC3339>,
+
+	// Custom resolver
+	#[graphql(skip)]
+	pub offline_banner_id_: Option<Ulid>,
 
 	// Private fields
 	#[graphql(skip)]
@@ -48,6 +54,23 @@ impl<G: ApiGlobal> Channel<G> {
 			.map_err_ignored_gql("failed to fetch category")?;
 
 		Ok(category.map(Into::into))
+	}
+
+	async fn offline_banner_id(&self, ctx: &Context<'_>) -> Result<Option<ImageUpload<G>>> {
+		let Some(offline_banner_id) = self.offline_banner_id_ else {
+			return Ok(None);
+		};
+
+		let global = ctx.get_global::<G>();
+
+		Ok(global
+			.uploaded_file_by_id_loader()
+			.load(offline_banner_id)
+			.await
+			.map_err_ignored_gql("failed to fetch offline banner")?
+			.map(ImageUpload::from_uploaded_file)
+			.transpose()?
+			.flatten())
 	}
 
 	async fn stream_key(&self, ctx: &Context<'_>) -> Result<Option<&str>> {
@@ -203,7 +226,7 @@ impl<G: ApiGlobal> From<database::Channel> for Channel<G> {
 			description: value.description,
 			links: value.links,
 			custom_thumbnail_id: value.custom_thumbnail_id.map(Into::into),
-			offline_banner_id: value.offline_banner_id.map(Into::into),
+			pending_offline_banner_id: value.pending_offline_banner_id.map(Into::into),
 			category_id: value.category_id.map(Into::into),
 			live: value.active_connection_id.map(|_| ChannelLive {
 				room_id: value.room_id.into(),
@@ -212,6 +235,7 @@ impl<G: ApiGlobal> From<database::Channel> for Channel<G> {
 				channel_id: value.id,
 				_phantom: std::marker::PhantomData,
 			}),
+			offline_banner_id_: value.offline_banner_id,
 			last_live_at: value.last_live_at.map(DateRFC3339),
 			stream_key_,
 		}

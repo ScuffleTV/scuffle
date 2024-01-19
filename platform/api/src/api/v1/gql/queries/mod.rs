@@ -31,7 +31,8 @@ impl<G: ApiGlobal> Default for Query<G> {
 
 #[derive(FromRow)]
 struct SearchResultQueryResponse {
-	r#type: i64,
+	#[from_row(rename = "type")]
+	ty: i64,
 	id: Ulid,
 	similarity: f64,
 	total_count: i64,
@@ -43,8 +44,8 @@ impl<G: ApiGlobal> Query<G> {
 		&self,
 		ctx: &Context<'_>,
 		#[graphql(desc = "The search query.")] query: String,
-		#[graphql(desc = "The result limit, default: 5", validator(minimum = 0, maximum = 50))] limit: Option<i32>,
-		#[graphql(desc = "The result offset, default: 0", validator(minimum = 0, maximum = 950))] offset: Option<i32>,
+		#[graphql(desc = "The result limit, default: 5", validator(minimum = 0, maximum = 50))] limit: Option<i64>,
+		#[graphql(desc = "The result offset, default: 0", validator(minimum = 0, maximum = 950))] offset: Option<i64>,
 	) -> Result<SearchAllResults<G>> {
 		let global = ctx.get_global::<G>();
 
@@ -92,7 +93,7 @@ impl<G: ApiGlobal> Query<G> {
 		let total_count = query_results.first().map(|r| r.total_count).unwrap_or(0) as u32;
 
 		let (users, categories) = query_results.iter().fold((Vec::new(), Vec::new()), |mut store, item| {
-			match item.r#type {
+			match item.ty {
 				0 => &mut store.0,
 				1 => &mut store.1,
 				_ => unreachable!(),
@@ -111,7 +112,7 @@ impl<G: ApiGlobal> Query<G> {
 		let results = query_results
 			.iter()
 			.filter_map(|r| {
-				let object = match r.r#type {
+				let object = match r.ty {
 					0 => SearchAllResultData::User(Box::new(User::from(users.get(&r.id)?.clone()))),
 					1 => SearchAllResultData::Category(categories.get(&r.id)?.clone().into()),
 					_ => unreachable!(),

@@ -251,8 +251,17 @@ type FollowStream {
 A HSL color.
 """
 type HslColor {
+	"""
+	Hue in degrees, value between 0.0 and 360.0.
+	"""
 	h: Float!
+	"""
+	Lightness, value between 0.0 and 1.0.
+	"""
 	l: Float!
+	"""
+	Saturation, value between 0.0 and 1.0.
+	"""
 	s: Float!
 }
 

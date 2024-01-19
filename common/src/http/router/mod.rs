@@ -48,7 +48,23 @@ impl<I: 'static, O: 'static, E: 'static> Router<I, O, E> {
 				}
 				Err(err) => {
 					if let Some(error_handler) = error_handler {
-						return Ok(error_handler((hyper::Request::from_parts(parts, ()), err)).await);
+						// run post middlewares for error handler response
+						// TODO: prevent code duplication
+						let req = hyper::Request::from_parts(parts.clone(), ());
+						let mut res = error_handler((req.clone(), err)).await;
+						for idx in info.post_middleware.iter().copied() {
+							let (parts, body) = res.into_parts();
+							res = match self.post_middlewares[idx].0((
+								hyper::Response::from_parts(parts.clone(), body),
+								req.clone(),
+							))
+							.await
+							{
+								Ok(res) => res,
+								Err(err) => error_handler((req.clone(), err)).await,
+							};
+						}
+						return Ok(res);
 					} else {
 						return Err(RouterError::Unhandled(err));
 					}

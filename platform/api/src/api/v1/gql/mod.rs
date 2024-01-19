@@ -35,7 +35,7 @@ pub fn schema<G: ApiGlobal>() -> MySchema<G> {
 	.enable_subscription_in_federation()
 	.extension(extensions::Analyzer)
 	.extension(extensions::Tracing)
-	.limit_complexity(100) // We don't want to allow too complex queries to be executed
+	.limit_complexity(200) // We don't want to allow too complex queries to be executed
 	.finish()
 }
 

@@ -49,10 +49,16 @@
 			type="application/javascript"
 		></script>
 		<script>
+			function trimTrailingSlash(s) {
+				return s.replace(/\/$/, '');
+			}
+
 			const sub_url = new URL(".", window.location.href);
 			sub_url.protocol = sub_url.protocol.replace("http", "ws");
+			sub_url.href = trimTrailingSlash(sub_url.href);
 
 			const url = new URL(".", window.location.href);
+			url.href = trimTrailingSlash(url.href);
 
 			ReactDOM.render(
 				React.createElement(GraphiQL, {

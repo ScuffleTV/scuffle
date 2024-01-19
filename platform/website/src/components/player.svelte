@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, onMount } from "svelte";
+	import { onDestroy, onMount, tick } from "svelte";
 	import init, { Player, type EventError, type Variant } from "@scuffle/player";
 	import Play from "$/components/icons/player/play.svelte";
 	import Pause from "$/components/icons/player/pause.svelte";
@@ -113,6 +113,25 @@
 		pip = false;
 	}
 
+	function playVideoEl() {
+		if (!videoEl) return;
+		videoEl.play().catch(() => {
+			// Play failed, probably because of autoplay restrictions
+			// Mute the video and try again
+			console.debug("[player] play failed, trying again muted");
+			volume = 0.0;
+			// Wait for one svelte tick to make sure the volume is set before trying again
+			tick().then(() => {
+				if (!videoEl) return;
+				videoEl.play().catch((e) => {
+					console.error("[player] failed to play video", e);
+					// Setting state to paused so the user knows that they have to click play
+					state = PlayerState.Paused;
+				});
+			});
+		});
+	}
+
 	onMount(() => {
 		document.addEventListener("enterpictureinpicture", pipEnabled);
 		document.addEventListener("leavepictureinpicture", pipDisabled);
@@ -121,8 +140,6 @@
 			document.removeEventListener("leavepictureinpicture", pipDisabled);
 		};
 	});
-
-	$: console.debug("[player] pip: ", pip);
 
 	$: {
 		if (player) {
@@ -165,17 +182,14 @@
 
 	function onStarted() {
 		console.debug("[player] started");
-		if (videoEl) {
-			videoEl.play();
+		if (player?.realtimeMode) {
 			player.toRealtime();
 		}
 	}
 
 	function onStopped() {
 		console.debug("[player] stopped");
-		if (videoEl) {
-			videoEl.pause();
-		}
+		videoEl?.pause();
 	}
 
 	onMount(() => {
@@ -198,7 +212,7 @@
 			});
 
 			player.start();
-			videoEl.play();
+			playVideoEl();
 			console.debug("[player] initialized");
 		});
 
@@ -209,11 +223,25 @@
 	});
 
 	onDestroy(() => {
-		if (player) {
-			player.destroy();
-		}
+		player?.destroy();
 	});
 
+	// When the player is clicked
+	function onPlayerClick(e: MouseEvent) {
+		if (!controls) return;
+		if (e.button === 0) {
+			onPlayClick();
+		}
+	}
+
+	function onPlayerDblClick(e: MouseEvent) {
+		if (!controls) return;
+		if (e.button === 0) {
+			toggleFullscreen();
+		}
+	}
+
+	// When the player button is clicked
 	function onPlayClick() {
 		switch (state) {
 			case PlayerState.Playing:
@@ -224,6 +252,7 @@
 			case PlayerState.Paused:
 				console.debug("[player] starting (user interaction)");
 				player?.start();
+				playVideoEl();
 				break;
 		}
 	}
@@ -325,10 +354,14 @@
 		on:play={() => (state = PlayerState.Playing)}
 		on:pause={() => (state = PlayerState.Paused)}
 		on:waiting={() => (state = PlayerState.Loading)}
+		on:stalled={() => (state = PlayerState.Loading)}
+		on:ended={() => (state = PlayerState.Paused)}
+		on:error={() => (state = PlayerState.Error)}
+		on:click={onPlayerClick}
+		on:dblclick={onPlayerDblClick}
 		preload="metadata"
 		autoplay
-		class:paused={state === PlayerState.Paused}
-		class:audio-only={audioOnly}
+		class:darken={state === PlayerState.Paused || state === PlayerState.Error || audioOnly}
 		bind:volume
 		muted={volume === 0.0}
 	>
@@ -336,17 +369,21 @@
 		<track kind="captions" />
 		<span>Sorry, your browser can't play this</span>
 	</video>
-	<div class="center-icons" class:background={state === PlayerState.Error || audioOnly}>
-		{#if state === PlayerState.Error}
+	<div class="center-icons" class:show={state !== PlayerState.Playing || audioOnly}>
+		{#if state === PlayerState.Loading}
+			<Spinner />
+		{:else if state === PlayerState.Playing}
+			{#if audioOnly}
+				<Volume volume={1.0} size={64} />
+				<span>Audio Only</span>
+			{:else}
+				<Play size={64} />
+			{/if}
+		{:else if state === PlayerState.Paused}
+			<Pause size={64} />
+		{:else if state === PlayerState.Error}
 			<Lightning />
 			<span>Something went wrong</span>
-		{:else if state === PlayerState.Loading}
-			<Spinner />
-		{:else if state === PlayerState.Paused}
-			<Pause size={48} />
-		{:else if audioOnly}
-			<Volume volume={1.0} size={48} />
-			<span>Audio Only</span>
 		{/if}
 	</div>
 	{#if controls}
@@ -463,14 +500,19 @@
 		&.theater-mode {
 			height: 100%;
 		}
+
+		&:not(.theater-mode) {
+			max-height: 85vh;
+		}
 	}
 
 	video {
 		background-color: black;
 		aspect-ratio: 16 / 9;
 		width: 100%;
+		transition: filter 0.2s;
 
-		&.paused {
+		&.darken {
 			filter: brightness(0.8);
 		}
 	}
@@ -488,8 +530,12 @@
 		flex-direction: column;
 		gap: 1rem;
 
-		&.background {
-			background-color: rgba(black, 0.5);
+		pointer-events: none;
+
+		opacity: 0;
+		transition: opacity 0.2s;
+		&.show {
+			opacity: 1;
 		}
 	}
 
@@ -576,6 +622,7 @@
 	}
 
 	.volume::-moz-range-thumb {
+		appearance: none;
 		width: 1rem;
 		height: 1rem;
 		border-radius: 50%;

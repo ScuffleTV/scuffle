@@ -22,8 +22,12 @@
 					subscription DisplayColor($userId: ULID!) {
 						userDisplayColor(userId: $userId) {
 							displayColor {
-								color
-								hue
+								rgb
+								hsl {
+									h
+									s
+									l
+								}
 								isGray
 							}
 						}
@@ -58,7 +62,7 @@
 	viewBox="0 0 52 52"
 	fill="none"
 	xmlns="http://www.w3.org/2000/svg"
-	style="--hue: {displayColor.hue}"
+	style="--hue: {displayColor.hsl.h}"
 >
 	<circle cx="26" cy="26" r="26" fill="url(#linear-gradient-{userId})" />
 	<path

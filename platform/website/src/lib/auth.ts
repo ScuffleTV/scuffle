@@ -11,8 +11,12 @@ export function getUser(client: Client) {
 							id
 							displayName
 							displayColor {
-								color
-								hue
+								rgb
+								hsl {
+									h
+									s
+									l
+								}
 								isGray
 							}
 							username

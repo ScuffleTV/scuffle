@@ -418,7 +418,7 @@ impl Runner {
 			return;
 		}
 
-		self.flags.is_stopped = false;
+		self.flags.is_stopped = true;
 
 		events::dispatch!(self.inner.borrow_mut().events.emit(events::UserEvent::LoadStart));
 

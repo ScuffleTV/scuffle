@@ -14,6 +14,7 @@
 	import type { Writable } from "svelte/store";
 	import { websocketOpen } from "$/store/websocket";
 	import { getContextClient } from "@urql/svelte";
+	import { colorToStyle } from "$/lib/colors";
 
 	export let channelId: string;
 	export let onlyUserMessages: boolean = false;
@@ -76,11 +77,6 @@
 		}
 	}
 
-	function colorToStyle(color?: string) {
-		if (!color) return "";
-		return `color: ${color};`;
-	}
-
 	function subscribeToMessages(channelId: string) {
 		$chatStatus = ChatStatus.Connecting;
 		const subscriptionQuery = graphql(`
@@ -94,7 +90,11 @@
 						username
 						displayName
 						displayColor {
-							color
+							hsl {
+								h
+								s
+								l
+							}
 						}
 					}
 				}
@@ -131,9 +131,7 @@
 		<div class="message">
 			{#if message.message.type === MessageType.User}
 				<span
-					><span
-						class="message-sender"
-						style={colorToStyle(message.message.user?.displayColor.color)}
+					><span class="message-sender" style={colorToStyle(message.message.user?.displayColor.hsl)}
 						>{message.message.user?.displayName}</span
 					>:
 				</span>

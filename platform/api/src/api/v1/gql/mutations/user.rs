@@ -8,7 +8,7 @@ use crate::api::auth::AuthError;
 use crate::api::v1::gql::error::ext::*;
 use crate::api::v1::gql::error::{GqlError, Result};
 use crate::api::v1::gql::ext::ContextExt;
-use crate::api::v1::gql::models::color::Color;
+use crate::api::v1::gql::models::color::RgbColor;
 use crate::api::v1::gql::models::two_fa::{TwoFaRequest, TwoFaResponse};
 use crate::api::v1::gql::models::ulid::GqlUlid;
 use crate::api::v1::gql::models::user::User;
@@ -142,7 +142,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 	async fn display_color<'ctx>(
 		&self,
 		ctx: &Context<'_>,
-		#[graphql(desc = "New display color.")] color: Color,
+		#[graphql(desc = "New display color.")] color: RgbColor,
 	) -> Result<User<G>> {
 		let global = ctx.get_global::<G>();
 		let request_context = ctx.get_req_context();

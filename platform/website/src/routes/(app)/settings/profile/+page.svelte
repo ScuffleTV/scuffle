@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Color from "$/components/settings/profile/color.svelte";
-	import { user } from "$/store/auth";
+	import { user, userId } from "$/store/auth";
 	import { faPalette, faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 	import { graphql } from "$gql";
 	import Fa from "svelte-fa";
@@ -13,7 +13,7 @@
 	import Spinner from "$/components/spinner.svelte";
 	import { colorToStyle, rgbHexToHsl } from "$/lib/colors";
 	import FileUploadButton from "$/components/settings/file-upload-button.svelte";
-	import ResponsiveImage from "$/components/responsive-image.svelte";
+	import OfflineBanner from "$/components/channel/offline-banner.svelte";
 
 	const recommendedColors = ["#ff7a00", "#ffe457", "#57ff86", "#00ffd1", "#5786ff", "#8357ff"];
 
@@ -156,12 +156,13 @@
 	}
 </script>
 
-{#if $user}
+<!-- Just doing this because TS shits its pants when I don't -->
+{#if $user && $userId}
 	<SectionContainer>
 		<Section title="Profile Picture" details="Personalize your account with a profile picture.">
 			<div class="input big">
 				{#if $user.pendingProfilePictureId}
-					<div class="picture-pending">
+					<div class="profile-picture-pending">
 						<Spinner />
 					</div>
 				{:else}
@@ -188,15 +189,11 @@
 		<Section title="Offline Banner" details="Personalize your account with a offline banner.">
 			<div class="input big offline-banner">
 				{#if $user.channel.pendingOfflineBannerId}
-					<div class="picture-pending">
+					<div class="offline-banner-pending">
 						<Spinner />
 					</div>
 				{:else}
-					{#if $user.channel.offlineBanner}
-						<ResponsiveImage image={$user.channel.offlineBanner} alt="offline banner" aspectRatio="5/1" width="100%" fitMode="cover" />
-					{:else}
-						Not Set
-					{/if}
+					<OfflineBanner channelId={$userId} bind:offlineBanner={$user.channel.offlineBanner} />
 				{/if}
 				<div class="buttons">
 					<FileUploadButton endpoint="offline-banner" bind:pendingFileId={$user.channel.pendingOfflineBannerId} on:error={resetStatus} on:success={resetStatus} on:pending={resetStatus} on:uploading={() => (status = Status.Saving)}>Upload Picture</FileUploadButton>
@@ -267,13 +264,22 @@
 		grid-template-columns: 1fr;
 	}
 
-	.picture-pending {
+	.profile-picture-pending {
 		display: flex;
 		justify-content: center;
 		align-items: center;
 		height: 6rem;
 		width: 6rem;
 		border-radius: 50%;
+		background-color: $bgColorLight;
+	}
+
+	.offline-banner-pending {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		width: 100%;
+		aspect-ratio: 5 / 1;
 		background-color: $bgColorLight;
 	}
 

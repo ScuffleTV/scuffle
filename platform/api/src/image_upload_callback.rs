@@ -128,7 +128,7 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 						let mut qb = common::database::query("UPDATE users SET ");
 						let (pending_column, column) = match subject {
 							Subject::ProfilePicture => ("pending_profile_picture_id", "profile_picture_id"),
-							Subject::OfflineBanner => ("pending_offline_banner_id", "offline_banner_id"),
+							Subject::OfflineBanner => ("channel_pending_offline_banner_id", "channel_offline_banner_id"),
 						};
 						qb.push(column).push(" = ").push_bind(uploaded_file.id).push(", ").push(pending_column).push(" = NULL, updated_at = NOW() WHERE id = ").push_bind(uploaded_file.owner_id).push(" AND ").push(pending_column).push(" = ").push_bind(uploaded_file.id);
 						let user_updated = qb.build().execute(&tx).await.context("failed to update user")? == 1;

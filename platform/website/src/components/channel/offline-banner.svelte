@@ -61,7 +61,7 @@
 
 <div class="wrapper" class:has-banner={offlineBanner}>
 	{#if offlineBanner}
-		<ResponsiveImage image={offlineBanner} alt="offline banner" background width="100%" height="100%" fitMode="cover" />
+		<ResponsiveImage image={offlineBanner} alt="offline banner" background aspectRatio="5/1" width="100%" height="100%" fitMode="cover" />
 	{/if}
     <slot />
 </div>

@@ -586,7 +586,7 @@ fn create_task(
 	config: &ImageUploaderConfig,
 ) -> image_processor::Task {
 	image_processor::Task {
-		callback_subject: config.igdb_image_callback_subject.clone(),
+		callback_subject: config.callback_subject.clone(),
 		upscale: false,
 		output_prefix: format!("categories/{category_id}/{id}"),
 		scales: vec![1],

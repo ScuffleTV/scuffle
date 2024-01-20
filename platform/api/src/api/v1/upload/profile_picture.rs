@@ -33,7 +33,7 @@ fn create_task(file_id: Ulid, input_path: &str, config: &ImageUploaderConfig, ow
 			ImageFormat::Webp as i32,
 			ImageFormat::Avif as i32,
 		],
-		callback_subject: config.profile_picture_callback_subject.clone(),
+		callback_subject: config.callback_subject.clone(),
 		limits: Some(image_processor::task::Limits {
 			max_input_duration_ms: 10 * 1000, // 10 seconds
 			max_input_frame_count: 300,

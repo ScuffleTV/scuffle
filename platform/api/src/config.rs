@@ -71,17 +71,14 @@ pub struct ImageUploaderConfig {
 	/// The S3 Bucket which contains the source images
 	pub bucket: S3BucketConfig,
 
-	/// Profile picture callback subject (can't contain `.`)
-	pub profile_picture_callback_subject: String,
-
-	/// Profile picture task priority, higher number means higher priority
-	pub profile_picture_task_priority: i64,
-
 	/// Public endpoint for downloads
 	pub public_endpoint: String,
 
-	/// Igdb image callback subject
-	pub igdb_image_callback_subject: String,
+	/// Profile picture callback subject (can't contain `.`)
+	pub callback_subject: String,
+
+	/// Profile picture task priority, higher number means higher priority
+	pub profile_picture_task_priority: i64,
 
 	/// Igdb image task priority, higher number means higher priority
 	pub igdb_image_task_priority: i32,
@@ -91,10 +88,9 @@ impl Default for ImageUploaderConfig {
 	fn default() -> Self {
 		Self {
 			bucket: S3BucketConfig::default(),
-			profile_picture_callback_subject: "scuffle-platform-image_processor-profile_picture".to_string(),
-			profile_picture_task_priority: 2,
+			callback_subject: "scuffle-platform-image_processor-callback".to_string(),
 			public_endpoint: "https://images.scuffle.tv/scuffle-image-processor-public".to_string(),
-			igdb_image_callback_subject: "image_processor.igdb_image".to_string(),
+			profile_picture_task_priority: 2,
 			igdb_image_task_priority: 1,
 		}
 	}

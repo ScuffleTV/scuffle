@@ -149,7 +149,7 @@ type Channel {
 	lastLiveAt: DateRFC3339
 	links: [ChannelLink!]!
 	live: ChannelLive
-	offlineBannerId: ImageUpload
+	offlineBanner: ImageUpload
 	pendingOfflineBannerId: ULID
 	streamKey: String
 	title: String
@@ -180,6 +180,11 @@ type ChannelMutation {
 		"""
 		title: String!
 	): User!
+}
+
+type ChannelOfflineBannerStream {
+	channelId: ULID!
+	offlineBanner: ImageUpload
 }
 
 type ChannelTitleStream {
@@ -371,6 +376,7 @@ type Subscription {
 	channelFollowersCount(channelId: ULID!): Int!
 	channelFollows(channelId: ULID!): FollowStream!
 	channelLive(channelId: ULID!): ChannelLiveStream!
+	channelOfflineBanner(channelId: ULID!): ChannelOfflineBannerStream!
 	channelTitle(channelId: ULID!): ChannelTitleStream!
 	chatMessages(
 		"""

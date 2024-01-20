@@ -56,7 +56,7 @@ impl<G: ApiGlobal> Channel<G> {
 		Ok(category.map(Into::into))
 	}
 
-	async fn offline_banner_id(&self, ctx: &Context<'_>) -> Result<Option<ImageUpload<G>>> {
+	async fn offline_banner(&self, ctx: &Context<'_>) -> Result<Option<ImageUpload<G>>> {
 		let Some(offline_banner_id) = self.offline_banner_id_ else {
 			return Ok(None);
 		};

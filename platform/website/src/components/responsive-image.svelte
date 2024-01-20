@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { ImageUploadFormat, type ImageUploadVariant } from "$/gql/graphql";
+	import { ImageUploadFormat, type ImageUpload, type ImageUploadVariant } from "$/gql/graphql";
 
-    export let variants: ImageUploadVariant[];
-    export let endpoint: string;
-    export let size: number | undefined = undefined;
+	export let image: ImageUpload;
+	export let width: string | number | undefined = undefined;
+	export let height: string | number | undefined = undefined;
+	export let aspectRatio: string | undefined = undefined;
+	export let fitMode: "contain" | "cover" = "contain";
     export let alt: string = "";
     export let rounded: boolean = false;
     export let background: boolean = false;
@@ -94,7 +96,7 @@
 		for (let i = 0; i < grouped.length; i++) {
 			const srcSet = grouped[i].variants
 				.reduce((res, a) => {
-					return res + `${endpoint}/${a.url} ${a.scale}x, `;
+					return res + `${image.endpoint}/${a.url} ${a.scale}x, `;
 				}, "")
 				.slice(0, -2);
 			grouped[i].srcSet = srcSet;
@@ -106,7 +108,7 @@
 		};
 	}
 
-	$: preparedVariants = prepareVariants(variants);
+	$: preparedVariants = prepareVariants(image.variants);
 </script>
 
 {#if preparedVariants && preparedVariants.bestSupported}
@@ -115,17 +117,21 @@
             <source
                 type={variant.type}
                 srcset={variant.srcSet}
-                width={size}
-                height={size}
+                width={typeof width === 'number' ? width : null}
+                height={typeof height === 'number' ? height : null}
                 media={variant.media}
             />
         {/each}
         <img
             class:rounded={rounded}
             class:background={background}
-            src="{endpoint}/{preparedVariants.bestSupported.url}"
-            width={size}
-            height={size}
+            src="{image.endpoint}/{preparedVariants.bestSupported.url}"
+            width={typeof width === 'number' ? width : null}
+            height={typeof height === 'number' ? height : null}
+			style:width={typeof width !== 'number' ? width : null}
+			style:height={typeof height !== 'number' ? height : null}
+			style:aspect-ratio={aspectRatio}
+			style:object-fit={fitMode}
             alt={alt}
         />
     </picture>
@@ -153,10 +159,7 @@
             bottom: 0;
             right: 0;
 
-            width: 100%;
-            height: 100%;
             z-index: -1;
-            object-fit: cover;
         }
     }
 </style>

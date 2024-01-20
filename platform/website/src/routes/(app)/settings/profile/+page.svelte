@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Color from "$/components/settings/profile/color.svelte";
 	import { user } from "$/store/auth";
-	import { faPalette, faTrashAlt, faUpload } from "@fortawesome/free-solid-svg-icons";
+	import { faPalette, faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 	import { graphql } from "$gql";
 	import Fa from "svelte-fa";
 	import { getContextClient } from "@urql/svelte";
@@ -9,15 +9,11 @@
 	import StatusBar, { Status } from "$/components/settings/status-bar.svelte";
 	import SectionContainer from "$/components/settings/section-container.svelte";
 	import Field, { FieldStatusType, type FieldStatus } from "$/components/form/field.svelte";
-	import { uploadFile } from "$/lib/fileUpload";
-	import { PUBLIC_CF_TURNSTILE_KEY, PUBLIC_UPLOAD_ENDPOINT } from "$env/static/public";
-	import { Turnstile } from "svelte-turnstile";
 	import ProfilePicture from "$/components/user/profile-picture.svelte";
 	import Spinner from "$/components/spinner.svelte";
-	import { pipe, subscribe, type Subscription } from "wonka";
-	import { FileStatus } from "$/gql/graphql";
-	import ErrorDialog from "$/components/error-dialog.svelte";
 	import { colorToStyle, rgbHexToHsl } from "$/lib/colors";
+	import FileUploadButton from "$/components/settings/file-upload-button.svelte";
+	import ResponsiveImage from "$/components/responsive-image.svelte";
 
 	const recommendedColors = ["#ff7a00", "#ffe457", "#57ff86", "#00ffd1", "#5786ff", "#8357ff"];
 
@@ -37,13 +33,14 @@
 	let displayColorRgb = $user?.displayColor.rgb;
 	let displayColorInput: HTMLInputElement;
 
-	let avatarFiles: FileList;
-	let avatarInput: HTMLInputElement;
-
 	$: status =
 		displayName !== $user?.displayName || displayColorRgb !== $user?.displayColor.rgb
 			? Status.Changed
 			: Status.Unchanged;
+
+	function resetStatus() {
+		status = Status.Unchanged;
+	}
 
 	function saveChanges() {
 		if (displayName !== $user?.displayName) {
@@ -132,66 +129,6 @@
 		}
 	}
 
-	let fileSub: Subscription;
-	let fileError: string | null = null;
-
-	function subToFileStatus(fileId?: string | null) {
-		fileSub?.unsubscribe();
-		if (!fileId) return;
-		fileSub = pipe(
-			client.subscription(
-				graphql(`
-					subscription FileStatus($fileId: ULID!) {
-						fileStatus(fileId: $fileId) {
-							fileId
-							status
-							reason
-							friendlyMessage
-						}
-					}
-				`),
-				{ fileId },
-			),
-			subscribe(({ data }) => {
-				if (data) {
-					if (data.fileStatus.status === FileStatus.Failure) {
-						console.error("file upload failed: ", data.fileStatus.reason);
-						fileError = data.fileStatus.friendlyMessage ?? data.fileStatus.reason ?? null;
-					}
-					if ($user) $user.pendingProfilePictureId = null;
-				}
-			}),
-		);
-	}
-
-	$: subToFileStatus($user?.pendingProfilePictureId);
-
-	let turnstileToken: string | null = null;
-
-	function uploadProfilePicture() {
-		if (turnstileToken) {
-			uploadFile(
-				`${PUBLIC_UPLOAD_ENDPOINT}/profile-picture`,
-				{ set_active: true },
-				avatarFiles[0],
-				turnstileToken,
-			)
-				.then((res) => res.json())
-				.then((res) => {
-					status = Status.Unchanged;
-					if (res.success) {
-						if ($user) $user.pendingProfilePictureId = res.file_id ?? null;
-					} else {
-						fileError = res.message ?? null;
-					}
-				})
-				.catch((err) => {
-					fileError = err;
-					status = Status.Unchanged;
-				});
-		}
-	}
-
 	function removeProfilePicture() {
 		client
 			.mutation(
@@ -217,36 +154,14 @@
 				}
 			});
 	}
-
-	$: {
-		if (avatarFiles && avatarFiles[0]) {
-			status = Status.Saving;
-			uploadProfilePicture();
-		}
-	}
 </script>
 
 {#if $user}
-	{#if fileError}
-		<ErrorDialog
-			heading="Failed to upload"
-			message={fileError}
-			on:close={() => (fileError = null)}
-		/>
-	{/if}
 	<SectionContainer>
 		<Section title="Profile Picture" details="Personalize your account with a profile picture.">
-			<!-- Putting sr-only here to prevent it from showing but still render it. aria-hidden is true to make the screenreader ignore the element. -->
-			<div class="sr-only" aria-hidden="true">
-				<Turnstile
-					appearance="interaction-only"
-					siteKey={PUBLIC_CF_TURNSTILE_KEY}
-					on:turnstile-callback={(e) => (turnstileToken = e.detail.token)}
-				/>
-			</div>
 			<div class="input big">
 				{#if $user.pendingProfilePictureId}
-					<div class="profile-picture-pending">
+					<div class="picture-pending">
 						<Spinner />
 					</div>
 				{:else}
@@ -258,27 +173,36 @@
 					/>
 				{/if}
 				<div class="buttons">
-					<!-- Pseudo button that clicks the hidden input -->
-					<button
-						class="button primary"
-						on:click={() => avatarInput.click()}
-						disabled={!turnstileToken || !!$user.pendingProfilePictureId}
-					>
-						<Fa icon={faUpload} />
-						Upload Picture
-					</button>
-					<input
-						type="file"
-						accept="image/webp, image/avif, image/avif-sequence, image/gif, image/png, image/apng, image/jls, image/jpeg, image/jxl, image/bmp, image/heic, image/heic-sequence, image/heif, image/heif-sequence, application/mp4, video/mp4, video/x-flv, video/x-matroska, video/avi, video/quicktime, video/webm, video/mp2t"
-						name="file"
-						bind:this={avatarInput}
-						bind:files={avatarFiles}
-						hidden
-					/>
+					<FileUploadButton endpoint="profile-picture" bind:pendingFileId={$user.pendingProfilePictureId} on:error={resetStatus} on:success={resetStatus} on:pending={resetStatus} on:uploading={() => (status = Status.Saving)}>Upload Picture</FileUploadButton>
 					<button
 						class="button secondary"
 						on:click={removeProfilePicture}
 						disabled={!$user.profilePicture}
+					>
+						<Fa icon={faTrashAlt} />
+						Remove Picture
+					</button>
+				</div>
+			</div>
+		</Section>
+		<Section title="Offline Banner" details="Personalize your account with a offline banner.">
+			<div class="input big offline-banner">
+				{#if $user.channel.pendingOfflineBannerId}
+					<div class="picture-pending">
+						<Spinner />
+					</div>
+				{:else}
+					{#if $user.channel.offlineBanner}
+						<ResponsiveImage image={$user.channel.offlineBanner} alt="offline banner" aspectRatio="5/1" width="100%" fitMode="cover" />
+					{:else}
+						Not Set
+					{/if}
+				{/if}
+				<div class="buttons">
+					<FileUploadButton endpoint="offline-banner" bind:pendingFileId={$user.channel.pendingOfflineBannerId} on:error={resetStatus} on:success={resetStatus} on:pending={resetStatus} on:uploading={() => (status = Status.Saving)}>Upload Picture</FileUploadButton>
+					<button
+						class="button secondary"
+						disabled={!$user.channel.offlineBanner}
 					>
 						<Fa icon={faTrashAlt} />
 						Remove Picture
@@ -338,7 +262,12 @@
 	@import "../../../../assets/styles/variables.scss";
 	@import "../../../../assets/styles/settings.scss";
 
-	.profile-picture-pending {
+	.input.big.offline-banner {
+		display: grid;
+		grid-template-columns: 1fr;
+	}
+
+	.picture-pending {
 		display: flex;
 		justify-content: center;
 		align-items: center;

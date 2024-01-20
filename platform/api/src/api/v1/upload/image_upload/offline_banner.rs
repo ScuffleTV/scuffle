@@ -70,7 +70,7 @@ impl ImageUploadRequest for OfflineBanner {
 
     async fn process(&self, auth: &AuthData, tx: &Transaction<'_>, file_id: ulid::Ulid) -> Result<(), RouteError<ApiError>> {
         if self.set_active {
-            common::database::query("UPDATE users SET channel_offline_banner_id = $1 WHERE id = $2")
+            common::database::query("UPDATE users SET channel_pending_offline_banner_id = $1 WHERE id = $2")
                 .bind(file_id)
                 .bind(auth.session.user_id)
                 .build()

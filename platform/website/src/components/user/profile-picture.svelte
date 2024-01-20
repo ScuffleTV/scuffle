@@ -63,7 +63,7 @@
 </script>
 
 {#if profilePicture}
-	<ResponsiveImage variants={profilePicture.variants} endpoint={profilePicture.endpoint} {size} alt="avatar" rounded />
+	<ResponsiveImage image={profilePicture} width={size} height={size} alt="avatar" rounded />
 {:else}
 	<DefaultAvatar {userId} {displayColor} {size} />
 {/if}

@@ -38,7 +38,12 @@
 
 <div class="content">
 	<div class="offline-page">
-		<OfflineBanner channelId={data.user.id} bind:offlineBanner={data.user.channel.offlineBanner}>
+		<!-- 100vw width on mobile, calc(100vw - sidebar) width on desktop -->
+		<OfflineBanner
+			channelId={data.user.id}
+			bind:offlineBanner={data.user.channel.offlineBanner}
+			fullPageWidth="(max-width: 768px) 100vw, calc(100vw - 16rem)"
+		>
 			<div class="user-card">
 				<div class="user-info">
 					<!-- Wrapper div -->

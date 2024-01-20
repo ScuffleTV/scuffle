@@ -1,14 +1,19 @@
 <script lang="ts">
 	import { ImageUploadFormat, type ImageUpload, type ImageUploadVariant } from "$/gql/graphql";
 
+	// Disclaimer: When you want to understand this code in detail, you should probably make yourself familiar with responsive images first. It's quite a complex topic.
+	// https://css-tricks.com/a-guide-to-the-responsive-images-syntax-in-html
+	// https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images
+
 	export let image: ImageUpload;
 	export let width: string | number | undefined = undefined;
 	export let height: string | number | undefined = undefined;
-	export let aspectRatio: string | undefined = undefined;
 	export let fitMode: "contain" | "cover" = "contain";
 	export let alt: string = "";
 	export let rounded: boolean = false;
 	export let background: boolean = false;
+	// This prop should be set to the estimated width the image will have on the full page.
+	export let fullPageWidth: string | null = null;
 
 	// From least supported to best supported
 	const FORMAT_SORT_ORDER = [
@@ -96,7 +101,12 @@
 		for (let i = 0; i < grouped.length; i++) {
 			const srcSet = grouped[i].variants
 				.reduce((res, a) => {
-					return res + `${image.endpoint}/${a.url} ${a.scale}x, `;
+					// Check if this image is in width mode or scale mode
+					if (fullPageWidth) {
+						return res + `${image.endpoint}/${a.url} ${a.width}w, `;
+					} else {
+						return res + `${image.endpoint}/${a.url} ${a.scale}x, `;
+					}
 				}, "")
 				.slice(0, -2);
 			grouped[i].srcSet = srcSet;
@@ -117,6 +127,7 @@
 			<source
 				type={variant.type}
 				srcset={variant.srcSet}
+				sizes={fullPageWidth}
 				width={typeof width === "number" ? width : null}
 				height={typeof height === "number" ? height : null}
 				media={variant.media}
@@ -130,7 +141,6 @@
 			height={typeof height === "number" ? height : null}
 			style:width={typeof width !== "number" ? width : null}
 			style:height={typeof height !== "number" ? height : null}
-			style:aspect-ratio={aspectRatio}
 			style:object-fit={fitMode}
 			{alt}
 		/>

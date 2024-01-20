@@ -9,6 +9,8 @@
 
 	export let channelId: string;
 	export let offlineBanner: ImageUpload | null | undefined;
+	// The estimated width that the banner will have on the full page.
+	export let fullPageWidth: string | null = null;
 
 	const client = getContextClient();
 
@@ -65,10 +67,10 @@
 			image={offlineBanner}
 			alt="offline banner"
 			background
-			aspectRatio="5/1"
 			width="100%"
 			height="100%"
 			fitMode="cover"
+			{fullPageWidth}
 		/>
 	{/if}
 	<slot />
@@ -79,7 +81,6 @@
 
 	.wrapper {
 		display: inline-block;
-		overflow: hidden;
 		position: relative;
 
 		width: 100%;

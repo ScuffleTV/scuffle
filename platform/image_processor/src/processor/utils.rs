@@ -7,7 +7,7 @@ use crate::database::Job;
 use crate::global::ImageProcessorGlobal;
 use crate::processor::error::Result;
 
-pub async fn query_job(global: &Arc<impl ImageProcessorGlobal>) -> Result<Option<Job>> {
+pub async fn query_job(global: &Arc<impl ImageProcessorGlobal>, limit: usize) -> Result<Vec<Job>> {
 	Ok(common::database::query(
 		"UPDATE image_jobs
 		SET claimed_by = $1,
@@ -18,14 +18,15 @@ pub async fn query_job(global: &Arc<impl ImageProcessorGlobal>) -> Result<Option
 			WHERE hold_until IS NULL OR hold_until < NOW()
 			ORDER BY priority DESC,
 				id DESC
-			LIMIT 1
+			LIMIT $2
 		) AS job
 		WHERE image_jobs.id = job.id
 		RETURNING image_jobs.id, image_jobs.task",
 	)
 	.bind(global.config().instance_id)
+	.bind(limit as i64)
 	.build_query_as()
-	.fetch_optional(global.db())
+	.fetch_all(global.db())
 	.await?)
 }
 

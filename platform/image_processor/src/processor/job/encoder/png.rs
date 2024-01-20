@@ -47,6 +47,11 @@ impl Encoder for PngEncoder {
 
 		let mut encoder = png::Encoder::new(&mut result, frame.image.width() as u32, frame.image.height() as u32);
 
+		assert!(
+			frame.image.buf().as_bytes().len() == frame.image.width() * frame.image.height() * 4,
+			"image buffer size mismatch"
+		);
+
 		encoder.set_color(png::ColorType::Rgba);
 		encoder.set_depth(png::BitDepth::Eight);
 		encoder

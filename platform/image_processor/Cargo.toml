@@ -14,7 +14,7 @@ ulid = { version = "1.1", features = ["uuid"] }
 postgres-from-row = "0.5"
 prost = "0.12"
 aws-config = "1.1"
-aws-sdk-s3 = "1.12"
+aws-sdk-s3 = { version = "1.12", features = ["behavior-version-latest"] }
 async-trait = "0.1"
 anyhow = "1.0"
 async-nats = "0.33"

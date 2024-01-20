@@ -6,7 +6,7 @@ use super::ulid::GqlUlid;
 use crate::api::v1::gql::error::{GqlError, Result};
 use crate::api::v1::gql::ext::ContextExt;
 use crate::config::ImageUploaderConfig;
-use crate::database::UploadedFile;
+use crate::database::{UploadedFile, UploadedFileStatus};
 use crate::global::ApiGlobal;
 
 #[derive(SimpleObject, Clone)]
@@ -51,7 +51,7 @@ impl<G: ApiGlobal> ImageUpload<G> {
 
 impl<G: ApiGlobal> ImageUpload<G> {
 	pub fn from_uploaded_file(uploaded_file: UploadedFile) -> Result<Option<Self>> {
-		if uploaded_file.pending {
+		if uploaded_file.status != UploadedFileStatus::Completed {
 			return Ok(None);
 		}
 

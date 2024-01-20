@@ -1,4 +1,4 @@
-use common::config::S3BucketConfig;
+use common::config::{S3BucketConfig, S3CredentialsConfig};
 use ulid::Ulid;
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
@@ -23,8 +23,24 @@ pub struct ImageProcessorConfig {
 impl Default for ImageProcessorConfig {
 	fn default() -> Self {
 		Self {
-			source_bucket: S3BucketConfig::default(),
-			target_bucket: S3BucketConfig::default(),
+			source_bucket: S3BucketConfig {
+				name: "scuffle-image-processor".to_owned(),
+				endpoint: Some("http://localhost:9000".to_owned()),
+				region: "us-east-1".to_owned(),
+				credentials: S3CredentialsConfig {
+					access_key: Some("root".to_owned()),
+					secret_key: Some("scuffle123".to_owned()),
+				},
+			},
+			target_bucket: S3BucketConfig {
+				name: "scuffle-image-processor-public".to_owned(),
+				endpoint: Some("http://localhost:9000".to_owned()),
+				region: "us-east-1".to_owned(),
+				credentials: S3CredentialsConfig {
+					access_key: Some("root".to_owned()),
+					secret_key: Some("scuffle123".to_owned()),
+				},
+			},
 			concurrency: num_cpus::get(),
 			instance_id: Ulid::new(),
 			allow_http: true,

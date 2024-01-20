@@ -1,6 +1,6 @@
 use common::dataloader::DataLoader;
 
-use crate::config::{ApiConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
+use crate::config::{ApiConfig, IgDbConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
 use crate::dataloader::category::CategoryByIdLoader;
 use crate::dataloader::global_state::GlobalStateLoader;
 use crate::dataloader::role::RoleByIdLoader;
@@ -39,8 +39,10 @@ pub trait ApiGlobal:
 	+ common::global::GlobalConfigProvider<JwtConfig>
 	+ common::global::GlobalConfigProvider<ImageUploaderConfig>
 	+ common::global::GlobalConfigProvider<VideoApiConfig>
+	+ common::global::GlobalConfigProvider<IgDbConfig>
 	+ common::global::GlobalNats
 	+ common::global::GlobalDb
+	+ common::global::GlobalRedis
 	+ common::global::GlobalConfig
 	+ ApiState
 	+ Send
@@ -56,8 +58,10 @@ impl<T> ApiGlobal for T where
 		+ common::global::GlobalConfigProvider<JwtConfig>
 		+ common::global::GlobalConfigProvider<ImageUploaderConfig>
 		+ common::global::GlobalConfigProvider<VideoApiConfig>
+		+ common::global::GlobalConfigProvider<IgDbConfig>
 		+ common::global::GlobalNats
 		+ common::global::GlobalDb
+		+ common::global::GlobalRedis
 		+ common::global::GlobalConfig
 		+ ApiState
 		+ Send

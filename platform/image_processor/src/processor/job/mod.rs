@@ -1,15 +1,16 @@
 use std::borrow::Cow;
 use std::sync::Arc;
+use std::time::Duration;
 
 use aws_sdk_s3::types::ObjectCannedAcl;
 use bytes::Bytes;
+use common::prelude::FutureTimeout;
 use common::s3::PutObjectOptions;
 use common::task::AsyncTask;
 use file_format::FileFormat;
 use futures::FutureExt;
 use prost::Message;
 use tokio::select;
-use tokio::sync::SemaphorePermit;
 use tracing::Instrument;
 
 use self::decoder::DecoderBackend;
@@ -33,9 +34,12 @@ pub(crate) struct Job<'a, G: ImageProcessorGlobal> {
 	pub(crate) job: database::Job,
 }
 
-#[tracing::instrument(skip(global, _ticket, job), fields(job_id = %job.id.0), level = "info")]
-pub async fn handle_job(global: &Arc<impl ImageProcessorGlobal>, _ticket: SemaphorePermit<'_>, job: database::Job) {
+#[tracing::instrument(skip(global, job), fields(job_id = %job.id), level = "info")]
+pub async fn handle_job(global: &Arc<impl ImageProcessorGlobal>, job: database::Job) {
 	let job = Job { global, job };
+
+	tracing::info!("processing job");
+
 	if let Err(err) = job.process().in_current_span().await {
 		tracing::error!(err = %err, "job failed");
 	}
@@ -50,7 +54,11 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 
 			tracing::debug!("downloading {}", self.job.task.input_path);
 
-			Ok(reqwest::get(&self.job.task.input_path)
+			Ok(self
+				.global
+				.http_client()
+				.get(&self.job.task.input_path)
+				.send()
 				.await
 				.map_err(ProcessorError::HttpDownload)?
 				.error_for_status()
@@ -150,9 +158,9 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 		let input_data = {
 			let mut tries = 0;
 			loop {
-				match self.download_source().await {
-					Ok(data) => break data,
-					Err(e) => {
+				match self.download_source().timeout(Duration::from_secs(5)).await {
+					Ok(Ok(data)) => break data,
+					Ok(Err(e)) => {
 						if tries >= 60 {
 							return Err(e);
 						}
@@ -161,13 +169,19 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 						tracing::debug!(err = %e, "failed to download source, retrying");
 						tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 					}
+					Err(_) => {
+						if tries >= 60 {
+							return Err(ProcessorError::DownloadTimeout);
+						}
+
+						tries += 1;
+						tracing::debug!("download timed out, retrying");
+					}
 				}
 			}
 		};
 
 		let backend = DecoderBackend::from_format(FileFormat::from_bytes(&input_data))?;
-
-		let url_prefix = format!("{}/{}", self.job.task.output_prefix.trim_end_matches('/'), self.job.id);
 
 		let job_c = self.job.clone();
 
@@ -184,8 +198,8 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 		})??;
 
 		for image in images.images.iter() {
+			let url = image.url(&self.job.task.output_prefix);
 			// image upload
-			let url = image.url(&url_prefix);
 			tracing::debug!("uploading result to {}/{}", self.global.config().target_bucket.name, url);
 			self.global
 				.s3_target_bucket()
@@ -214,13 +228,13 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 							variants: images
 								.images
 								.iter()
-								.map(|i| pb::scuffle::platform::internal::types::ProcessedImageVariant {
-									path: i.url(&url_prefix),
-									format: i.request.1.into(),
-									width: i.width as u32,
-									height: i.height as u32,
-									byte_size: i.data.len() as u32,
-									scale: i.request.0 as u32,
+								.map(|image| pb::scuffle::platform::internal::types::ProcessedImageVariant {
+									path: image.url(&self.job.task.output_prefix),
+									format: image.request.1.into(),
+									width: image.width as u32,
+									height: image.height as u32,
+									byte_size: image.data.len() as u32,
+									scale: image.request.0 as u32,
 								})
 								.collect(),
 						},

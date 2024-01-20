@@ -2,6 +2,7 @@ use anyhow::Context;
 use fast_image_resize as fr;
 use imgref::Img;
 use pb::scuffle::platform::internal::image_processor::task::{ResizeAlgorithm, ResizeMethod};
+use rgb::{ComponentBytes, RGBA};
 
 use super::frame::Frame;
 use crate::processor::error::{ProcessorError, Result};
@@ -175,7 +176,18 @@ impl ImageResizer {
 		let height = dst_image.height().get() as usize;
 		let buffer = dst_image.into_vec();
 
-		let buffer = unsafe { std::mem::transmute::<Vec<u8>, Vec<rgb::RGBA<u8, u8>>>(buffer) };
+		let buffer = unsafe {
+			let buf = buffer.into_boxed_slice();
+			let size = buf.len();
+			let ptr = Box::into_raw(buf) as *mut u8;
+
+			let new_size = size / 4;
+			assert!(new_size * 4 == size, "image buffer size mismatch");
+
+			Vec::from_raw_parts(ptr as *mut RGBA<u8>, new_size, new_size)
+		};
+
+		assert_eq!(buffer.as_bytes().len(), width * height * 4, "image buffer size mismatch");
 
 		Ok(Frame {
 			image: Img::new(buffer, width, height),

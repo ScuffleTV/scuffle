@@ -3668,6 +3668,7 @@ dependencies = [
  "chrono",
  "common",
  "config",
+ "fred",
  "futures",
  "futures-util",
  "hmac",

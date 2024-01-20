@@ -37,8 +37,8 @@ impl ImageUploadRequest for OfflineBanner {
 				file_id,
 				format.ext()
 			),
-			base_height: 128, // 128, 256, 384, 512
-			base_width: 128,  // 128, 256, 384, 512
+			base_height: 192, // 192, 384, 576, 768
+			base_width: 960,  // 960, 1920, 2880, 3840
 			formats: vec![
 				ImageFormat::PngStatic as i32,
 				ImageFormat::AvifStatic as i32,
@@ -58,7 +58,7 @@ impl ImageUploadRequest for OfflineBanner {
 			resize_algorithm: image_processor::task::ResizeAlgorithm::Lanczos3 as i32,
 			upscale: true, // For profile pictures we want to have a consistent size
 			scales: vec![1, 2, 3, 4],
-			resize_method: image_processor::task::ResizeMethod::PadCenter as i32,
+			resize_method: image_processor::task::ResizeMethod::Fit as i32,
 			output_prefix: format!("{owner_id}/{file_id}"),
 		}
 	}

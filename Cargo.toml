@@ -66,7 +66,5 @@ ffmpeg = { path = "ffmpeg" }
 postgres-from-row = { git = "https://github.com/ScuffleTV/postgres-from-row.git", branch = "troy/from_fn" }
 # https://github.com/async-graphql/async-graphql/pull/1424
 async-graphql = { git = "https://github.com/ScuffleTV/async-graphql.git", branch = "troy/union-generics" }
-# https://github.com/aembke/fred.rs/pull/199
-fred = { version = "8.0.0", git = "https://github.com/aembke/fred.rs.git", branch = "feat/unix-sockets" }
 # https://github.com/madonoharu/tsify/pull/32
 tsify = { git = "https://github.com/ScuffleTV/tsify.git", branch = "sisou/comments" }

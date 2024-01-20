@@ -26,7 +26,7 @@ impl Default for ApiConfig {
 			bind_address: "[::]:4000".parse().expect("failed to parse bind address"),
 			tls: None,
 			max_profile_picture_size: 5 * 1024 * 1024, // 5 MB
-			max_offline_banner_size: 10 * 1024 * 1024,  // 10 MB
+			max_offline_banner_size: 10 * 1024 * 1024, // 10 MB
 		}
 	}
 }

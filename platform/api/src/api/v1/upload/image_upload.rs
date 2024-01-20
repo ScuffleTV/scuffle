@@ -2,24 +2,26 @@ use std::sync::Arc;
 
 use aws_sdk_s3::types::ObjectCannedAcl;
 use bytes::Bytes;
-use common::{database::deadpool_postgres::Transaction, http::{RouteError, ext::ResultExt}, s3::PutObjectOptions, make_response};
-use pb::scuffle::platform::internal::{image_processor, types::{UploadedFileMetadata, uploaded_file_metadata}};
+use common::database::deadpool_postgres::Transaction;
+use common::http::ext::ResultExt;
+use common::http::RouteError;
+use common::make_response;
+use common::s3::PutObjectOptions;
+use hyper::{Response, StatusCode};
+use pb::scuffle::platform::internal::image_processor;
+use pb::scuffle::platform::internal::types::{uploaded_file_metadata, UploadedFileMetadata};
 use serde_json::json;
 use ulid::Ulid;
-use hyper::{Response, StatusCode};
-
-use crate::{global::ApiGlobal, api::{auth::AuthData, Body, error::ApiError}, database::FileType};
 
 use super::UploadType;
 use crate::api::auth::AuthData;
 use crate::api::error::ApiError;
 use crate::api::Body;
-use crate::config::{ApiConfig, ImageUploaderConfig};
-use crate::database::{FileType, RolePermission, UploadedFileStatus};
+use crate::database::{FileType, UploadedFileStatus};
 use crate::global::ApiGlobal;
 
-pub(crate) mod profile_picture;
 pub(crate) mod offline_banner;
+pub(crate) mod profile_picture;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) enum AcceptedFormats {
@@ -105,52 +107,52 @@ impl AcceptedFormats {
 }
 
 pub(super) trait ImageUploadRequest {
-    fn create_task<G: ApiGlobal>(global: &Arc<G>, auth: &AuthData, format: AcceptedFormats, file_id: Ulid, owner_id: Ulid) -> image_processor::Task;
+	fn create_task<G: ApiGlobal>(
+		global: &Arc<G>,
+		auth: &AuthData,
+		format: AcceptedFormats,
+		file_id: Ulid,
+		owner_id: Ulid,
+	) -> image_processor::Task;
 
-    fn task_priority<G: ApiGlobal>(global: &Arc<G>) -> i64;
+	fn task_priority<G: ApiGlobal>(global: &Arc<G>) -> i64;
 
-    fn get_max_size<G: ApiGlobal>(global: &Arc<G>) -> usize;
+	fn get_max_size<G: ApiGlobal>(global: &Arc<G>) -> usize;
 
-    fn validate_permissions(auth: &AuthData) -> bool;
+	fn validate_permissions(auth: &AuthData) -> bool;
 
-    fn file_type<G: ApiGlobal>(global: &Arc<G>) -> FileType;
+	fn file_type<G: ApiGlobal>(global: &Arc<G>) -> FileType;
 
-    async fn process(&self, auth: &AuthData, tx: &Transaction, file_id: Ulid) -> Result<(), RouteError<ApiError>>;
+	async fn process(&self, auth: &AuthData, tx: &Transaction, file_id: Ulid) -> Result<(), RouteError<ApiError>>;
 }
 
 impl<T: ImageUploadRequest + serde::de::DeserializeOwned + Default> UploadType for T {
-    fn validate_format<G: ApiGlobal>(_global: &Arc<G>, _auth: &AuthData, content_type: &str) -> bool {
-        AcceptedFormats::from_content_type(content_type).is_some()
-    }
+	fn validate_format<G: ApiGlobal>(_global: &Arc<G>, _auth: &AuthData, content_type: &str) -> bool {
+		AcceptedFormats::from_content_type(content_type).is_some()
+	}
 
-    fn validate_permissions(&self, auth: &AuthData) -> bool {
-        T::validate_permissions(auth)
-    }
+	fn validate_permissions(&self, auth: &AuthData) -> bool {
+		T::validate_permissions(auth)
+	}
 
-    fn get_max_size<G: ApiGlobal>(global: &Arc<G>) -> usize {
-        T::get_max_size(global)
-    }
+	fn get_max_size<G: ApiGlobal>(global: &Arc<G>) -> usize {
+		T::get_max_size(global)
+	}
 
-    async fn handle<G: ApiGlobal>(
-        self,
-        global: &Arc<G>,
-        auth: AuthData,
-        name: Option<String>,
-        file: Bytes,
-        content_type: &str,
-    ) -> Result<Response<Body>, RouteError<ApiError>> {
-        let image_format = AcceptedFormats::from_content_type(content_type)
+	async fn handle<G: ApiGlobal>(
+		self,
+		global: &Arc<G>,
+		auth: AuthData,
+		name: Option<String>,
+		file: Bytes,
+		content_type: &str,
+	) -> Result<Response<Body>, RouteError<ApiError>> {
+		let image_format = AcceptedFormats::from_content_type(content_type)
 			.ok_or((StatusCode::BAD_REQUEST, "invalid content-type header"))?;
 
 		let file_id = Ulid::new();
 
-        let task = T::create_task(
-            global,
-            &auth,
-            image_format,
-            file_id,
-            auth.session.user_id,
-        );
+		let task = T::create_task(global, &auth, image_format, file_id, auth.session.user_id);
 
 		let input_path = task.input_path.clone();
 
@@ -225,5 +227,5 @@ impl<T: ImageUploadRequest + serde::de::DeserializeOwned + Default> UploadType f
 				"file_id": file_id.to_string(),
 			})
 		))
-    }
+	}
 }

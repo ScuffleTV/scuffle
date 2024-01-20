@@ -6,12 +6,12 @@
 	export let height: string | number | undefined = undefined;
 	export let aspectRatio: string | undefined = undefined;
 	export let fitMode: "contain" | "cover" = "contain";
-    export let alt: string = "";
-    export let rounded: boolean = false;
-    export let background: boolean = false;
+	export let alt: string = "";
+	export let rounded: boolean = false;
+	export let background: boolean = false;
 
-    // From least supported to best supported
-    const FORMAT_SORT_ORDER = [
+	// From least supported to best supported
+	const FORMAT_SORT_ORDER = [
 		ImageUploadFormat.AvifStatic,
 		ImageUploadFormat.WebpStatic,
 		ImageUploadFormat.PngStatic,
@@ -44,7 +44,7 @@
 		);
 	}
 
-    // This function prepares the variants for the <picture> element by grouping them by format, sorting them by scale and generating the required media and srcSet tags.
+	// This function prepares the variants for the <picture> element by grouping them by format, sorting them by scale and generating the required media and srcSet tags.
 	// It also returns the best supported variant for use in the fallback <img> element which is the smallest GIF or PNG.
 	function prepareVariants(variants?: ImageUploadVariant[]): {
 		bestSupported: ImageUploadVariant | null;
@@ -112,54 +112,54 @@
 </script>
 
 {#if preparedVariants && preparedVariants.bestSupported}
-    <picture>
-        {#each preparedVariants.variants as variant}
-            <source
-                type={variant.type}
-                srcset={variant.srcSet}
-                width={typeof width === 'number' ? width : null}
-                height={typeof height === 'number' ? height : null}
-                media={variant.media}
-            />
-        {/each}
-        <img
-            class:rounded={rounded}
-            class:background={background}
-            src="{image.endpoint}/{preparedVariants.bestSupported.url}"
-            width={typeof width === 'number' ? width : null}
-            height={typeof height === 'number' ? height : null}
-			style:width={typeof width !== 'number' ? width : null}
-			style:height={typeof height !== 'number' ? height : null}
+	<picture>
+		{#each preparedVariants.variants as variant}
+			<source
+				type={variant.type}
+				srcset={variant.srcSet}
+				width={typeof width === "number" ? width : null}
+				height={typeof height === "number" ? height : null}
+				media={variant.media}
+			/>
+		{/each}
+		<img
+			class:rounded
+			class:background
+			src="{image.endpoint}/{preparedVariants.bestSupported.url}"
+			width={typeof width === "number" ? width : null}
+			height={typeof height === "number" ? height : null}
+			style:width={typeof width !== "number" ? width : null}
+			style:height={typeof height !== "number" ? height : null}
 			style:aspect-ratio={aspectRatio}
 			style:object-fit={fitMode}
-            alt={alt}
-        />
-    </picture>
+			{alt}
+		/>
+	</picture>
 {/if}
 
 <style lang="scss">
-    @import "../assets/styles/variables.scss";
+	@import "../assets/styles/variables.scss";
 
-    picture {
-        line-height: 0;
-    }
+	picture {
+		line-height: 0;
+	}
 
-    img {
-        background-color: $bgColorLight;
+	img {
+		background-color: $bgColorLight;
 
-        &.rounded {
-            border-radius: 50%;
-        }
+		&.rounded {
+			border-radius: 50%;
+		}
 
-        &.background {
-            pointer-events: none;
-            position: absolute;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            right: 0;
+		&.background {
+			pointer-events: none;
+			position: absolute;
+			top: 0;
+			left: 0;
+			bottom: 0;
+			right: 0;
 
-            z-index: -1;
-        }
-    }
+			z-index: -1;
+		}
+	}
 </style>

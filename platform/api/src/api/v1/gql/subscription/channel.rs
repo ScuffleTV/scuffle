@@ -42,7 +42,11 @@ struct ChannelOfflineBannerStream<G: ApiGlobal> {
 
 #[Subscription]
 impl<G: ApiGlobal> ChannelSubscription<G> {
-	async fn channel_offline_banner<'ctx>(&self, ctx: &'ctx Context<'ctx>, channel_id: GqlUlid) -> Result<impl Stream<Item = Result<ChannelOfflineBannerStream<G>>> + 'ctx> {
+	async fn channel_offline_banner<'ctx>(
+		&self,
+		ctx: &'ctx Context<'ctx>,
+		channel_id: GqlUlid,
+	) -> Result<impl Stream<Item = Result<ChannelOfflineBannerStream<G>>> + 'ctx> {
 		let global = ctx.get_global::<G>();
 
 		let Some(offline_banner_id) = global

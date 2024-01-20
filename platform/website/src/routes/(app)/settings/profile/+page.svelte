@@ -174,7 +174,14 @@
 					/>
 				{/if}
 				<div class="buttons">
-					<FileUploadButton endpoint="profile-picture" bind:pendingFileId={$user.pendingProfilePictureId} on:error={resetStatus} on:success={resetStatus} on:pending={resetStatus} on:uploading={() => (status = Status.Saving)}>Upload Picture</FileUploadButton>
+					<FileUploadButton
+						endpoint="profile-picture"
+						bind:pendingFileId={$user.pendingProfilePictureId}
+						on:error={resetStatus}
+						on:success={resetStatus}
+						on:pending={resetStatus}
+						on:uploading={() => (status = Status.Saving)}>Upload Picture</FileUploadButton
+					>
 					<button
 						class="button secondary"
 						on:click={removeProfilePicture}
@@ -196,11 +203,15 @@
 					<OfflineBanner channelId={$userId} bind:offlineBanner={$user.channel.offlineBanner} />
 				{/if}
 				<div class="buttons">
-					<FileUploadButton endpoint="offline-banner" bind:pendingFileId={$user.channel.pendingOfflineBannerId} on:error={resetStatus} on:success={resetStatus} on:pending={resetStatus} on:uploading={() => (status = Status.Saving)}>Upload Picture</FileUploadButton>
-					<button
-						class="button secondary"
-						disabled={!$user.channel.offlineBanner}
+					<FileUploadButton
+						endpoint="offline-banner"
+						bind:pendingFileId={$user.channel.pendingOfflineBannerId}
+						on:error={resetStatus}
+						on:success={resetStatus}
+						on:pending={resetStatus}
+						on:uploading={() => (status = Status.Saving)}>Upload Picture</FileUploadButton
 					>
+					<button class="button secondary" disabled={!$user.channel.offlineBanner}>
 						<Fa icon={faTrashAlt} />
 						Remove Picture
 					</button>

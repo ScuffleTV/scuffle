@@ -92,6 +92,11 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 				let mut client = global.db().get().await.context("failed to get db connection")?;
 				let tx = client.transaction().await.context("failed to start transaction")?;
 
+				let (pending_column, column) = match subject {
+					Subject::ProfilePicture => ("pending_profile_picture_id", "profile_picture_id"),
+					Subject::OfflineBanner => ("channel_pending_offline_banner_id", "channel_offline_banner_id"),
+				};
+
 				match job_result {
 					processed_image::Result::Success(processed_image::Success { variants }) => {
 						let uploaded_file: UploadedFile = match common::database::query("UPDATE uploaded_files SET pending = FALSE, metadata = $1, updated_at = NOW() WHERE id = $2 AND pending = TRUE RETURNING *")
@@ -126,10 +131,6 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 							.context("failed to publish file update event")?;
 
 						let mut qb = common::database::query("UPDATE users SET ");
-						let (pending_column, column) = match subject {
-							Subject::ProfilePicture => ("pending_profile_picture_id", "profile_picture_id"),
-							Subject::OfflineBanner => ("channel_pending_offline_banner_id", "channel_offline_banner_id"),
-						};
 						qb.push(column).push(" = ").push_bind(uploaded_file.id).push(", ").push(pending_column).push(" = NULL, updated_at = NOW() WHERE id = ").push_bind(uploaded_file.owner_id).push(" AND ").push(pending_column).push(" = ").push_bind(uploaded_file.id);
 						let user_updated = qb.build().execute(&tx).await.context("failed to update user")? == 1;
 
@@ -193,13 +194,9 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 							.await
 							.context("failed to publish file update event")?;
 
-						common::database::query("UPDATE users SET pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $1 AND pending_profile_picture_id = $2")
-							.bind(uploaded_file.owner_id)
-							.bind(uploaded_file.id)
-							.build()
-							.execute(&tx)
-							.await
-							.context("failed to update user")?;
+						let mut qb = common::database::query("UPDATE users SET ");
+						qb.push(pending_column).push(" = NULL, updated_at = NOW() WHERE id = ").push_bind(uploaded_file.owner_id).push(" AND ").push(pending_column).push(" = ").push_bind(uploaded_file.id);
+						qb.build().execute(&tx).await.context("failed to update user")?;
 
 						if let Err(err) = tx.commit().await.context("failed to commit transaction") {
 							tracing::warn!(error = %err, "failed to commit transaction");

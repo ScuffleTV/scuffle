@@ -64,7 +64,5 @@ ffmpeg = { path = "ffmpeg" }
 [patch.crates-io]
 # https://github.com/remkop22/postgres-from-row/pull/9
 postgres-from-row = { git = "https://github.com/ScuffleTV/postgres-from-row.git", branch = "troy/from_fn" }
-# https://github.com/async-graphql/async-graphql/pull/1424
-async-graphql = { git = "https://github.com/ScuffleTV/async-graphql.git", branch = "troy/union-generics" }
 # https://github.com/madonoharu/tsify/pull/32
 tsify = { git = "https://github.com/ScuffleTV/tsify.git", branch = "sisou/comments" }

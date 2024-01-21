@@ -216,7 +216,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 				.into(),
 			)
 			.await
-			.map_err_gql("failed to publish message")?;
+			.map_err_gql("failed to publish profile picture event")?;
 
 		Ok(user.into())
 	}

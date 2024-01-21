@@ -62,4 +62,47 @@ impl<G: ApiGlobal> ChannelMutation<G> {
 
 		Ok(user.into())
 	}
+
+	async fn remove_offline_banner(&self, ctx: &Context<'_>) -> Result<User<G>> {
+		let global = ctx.get_global::<G>();
+		let request_context = ctx.get_req_context();
+
+		let auth = request_context
+			.auth(global)
+			.await?
+			.map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
+
+		let user: database::User = common::database::query(
+			r#"
+			UPDATE users
+			SET
+				channel_offline_banner_id = NULL,
+				channel_pending_offline_banner_id = NULL,
+				updated_at = NOW()
+			WHERE
+				id = $1
+			RETURNING *
+			"#,
+		)
+		.bind(auth.session.user_id)
+		.build_query_as()
+		.fetch_one(global.db())
+		.await?;
+
+		global
+			.nats()
+			.publish(
+				SubscriptionTopic::ChannelOfflineBanner(user.id),
+				pb::scuffle::platform::internal::events::ChannelOfflineBanner {
+					channel_id: Some(user.id.into()),
+					offline_banner_id: None,
+				}
+				.encode_to_vec()
+				.into(),
+			)
+			.await
+			.map_err_gql("failed to publish offline banner event")?;
+
+		Ok(user.into())
+	}
 }

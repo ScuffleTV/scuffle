@@ -127,7 +127,7 @@
 			display: grid;
 			grid-template-areas: "avatar name" "avatar followers";
 			justify-content: start;
-			column-gap: 0.5rem;
+			column-gap: 1rem;
 			row-gap: 0.25rem;
 			grid-template-rows: 1fr 1fr;
 

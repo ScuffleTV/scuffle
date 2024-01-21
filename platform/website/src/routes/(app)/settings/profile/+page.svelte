@@ -136,8 +136,18 @@
 					mutation RemoveProfilePicture {
 						user {
 							resp: removeProfilePicture {
+								pendingProfilePictureId
 								profilePicture {
 									id
+									variants {
+										width
+										height
+										scale
+										url
+										format
+										byteSize
+									}
+									endpoint
 								}
 							}
 						}
@@ -148,9 +158,49 @@
 			)
 			.toPromise()
 			.then(({ data }) => {
-				if (data && $user) {
-					$user.pendingProfilePictureId = null;
-					$user.profilePicture = null;
+				if ($user) {
+					// Should be null, but just in case the mutation failed
+					$user.pendingProfilePictureId = data?.user.resp.pendingProfilePictureId;
+					$user.profilePicture = data?.user.resp.profilePicture;
+				}
+			});
+	}
+
+	function removeOfflineBanner() {
+		client
+			.mutation(
+				graphql(`
+					mutation RemoveOfflineBanner {
+						channel {
+							resp: removeOfflineBanner {
+								channel {
+									pendingOfflineBannerId
+									offlineBanner {
+										id
+										variants {
+											width
+											height
+											scale
+											url
+											format
+											byteSize
+										}
+										endpoint
+									}
+								}
+							}
+						}
+					}
+				`),
+				{},
+				{ requestPolicy: "network-only" },
+			)
+			.toPromise()
+			.then(({ data }) => {
+				if ($user) {
+					// Should be null, but just in case the mutation failed
+					$user.channel.pendingOfflineBannerId = data?.channel.resp.channel.pendingOfflineBannerId;
+					$user.channel.offlineBanner = data?.channel.resp.channel.offlineBanner;
 				}
 			});
 	}
@@ -211,7 +261,7 @@
 						on:pending={resetStatus}
 						on:uploading={() => (status = Status.Saving)}>Upload Picture</FileUploadButton
 					>
-					<button class="button secondary" disabled={!$user.channel.offlineBanner}>
+					<button class="button secondary" on:click={removeOfflineBanner} disabled={!$user.channel.offlineBanner}>
 						<Fa icon={faTrashAlt} />
 						Remove Picture
 					</button>

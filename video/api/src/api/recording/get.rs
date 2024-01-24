@@ -25,7 +25,7 @@ impl ApiRequest<RecordingGetResponse> for tonic::Request<RecordingGetRequest> {
 	) -> tonic::Result<tonic::Response<RecordingGetResponse>> {
 		let req = self.get_ref();
 
-		let mut qb = common::database::QueryBuilder::default();
+		let mut qb = utils::database::QueryBuilder::default();
 		qb.push("SELECT * FROM ")
 			.push(<RecordingGetRequest as TonicRequest>::Table::NAME)
 			.push(" WHERE ");

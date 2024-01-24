@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use common::database::IntoClient;
+use utils::database::IntoClient;
 use pb::ext::UlidExt;
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
@@ -30,8 +30,8 @@ pub async fn build_query<'a>(
 	req: &'a RoomModifyRequest,
 	client: impl IntoClient,
 	access_token: &AccessToken,
-) -> tonic::Result<common::database::QueryBuilder<'a>> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> tonic::Result<utils::database::QueryBuilder<'a>> {
+	let mut qb = utils::database::QueryBuilder::default();
 
 	qb.push("UPDATE ")
 		.push(<RoomModifyRequest as TonicRequest>::Table::NAME)
@@ -44,7 +44,7 @@ pub async fn build_query<'a>(
 		if transcoding_config_id.is_nil() {
 			seperated.push("transcoding_config_id = NULL");
 		} else {
-			common::database::query("SELECT 1 FROM transcoding_configs WHERE id = $1 AND organization_id = $2")
+			utils::database::query("SELECT 1 FROM transcoding_configs WHERE id = $1 AND organization_id = $2")
 				.bind(transcoding_config_id)
 				.bind(access_token.organization_id)
 				.build()
@@ -67,7 +67,7 @@ pub async fn build_query<'a>(
 		if recording_config_id.is_nil() {
 			seperated.push("recording_config_id = NULL");
 		} else {
-			common::database::query("SELECT 1 FROM recording_configs WHERE id = $1 AND organization_id = $2")
+			utils::database::query("SELECT 1 FROM recording_configs WHERE id = $1 AND organization_id = $2")
 				.bind(recording_config_id)
 				.bind(access_token.organization_id)
 				.build()
@@ -97,7 +97,7 @@ pub async fn build_query<'a>(
 	if let Some(tags) = &req.tags {
 		seperated
 			.push("tags = ")
-			.push_bind_unseparated(common::database::Json(&tags.tags));
+			.push_bind_unseparated(utils::database::Json(&tags.tags));
 	}
 
 	if req.tags.is_none()

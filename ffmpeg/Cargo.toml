@@ -12,11 +12,11 @@ bytes = { optional = true, version = "1" }
 tokio = { optional = true, version = "1" }
 crossbeam-channel = { optional = true, version = "0.5" }
 tracing = { optional = true, version = "0.1" }
-common = { workspace = true, optional = true }
+utils = { workspace = true, optional = true }
 
 [features]
 default = []
-task-abort = ["dep:common"]
+task-abort = ["dep:utils"]
 channel = ["dep:bytes"]
 tokio-channel = ["channel", "dep:tokio"]
 crossbeam-channel = ["channel", "dep:crossbeam-channel"]

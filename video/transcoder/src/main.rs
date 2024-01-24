@@ -5,9 +5,9 @@ use anyhow::Context as _;
 use async_nats::jetstream::stream::StorageType;
 use binary_helper::global::{setup_database, setup_nats};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
-use common::context::Context;
-use common::global::{GlobalCtx, GlobalDb, GlobalNats};
-use common::grpc::TlsSettings;
+use utils::context::Context;
+use binary_helper::global::{GlobalCtx, GlobalDb, GlobalNats};
+use utils::grpc::TlsSettings;
 use tokio::select;
 use video_transcoder::config::TranscoderConfig;
 
@@ -29,15 +29,15 @@ struct GlobalState {
 	config: AppConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<common::database::Pool>,
+	db: Arc<utils::database::Pool>,
 	metadata_store: async_nats::jetstream::kv::Store,
 	media_store: async_nats::jetstream::object_store::ObjectStore,
-	ingest_tls: Option<common::grpc::TlsSettings>,
+	ingest_tls: Option<utils::grpc::TlsSettings>,
 }
 
 impl_global_traits!(GlobalState);
 
-impl common::global::GlobalConfigProvider<TranscoderConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<TranscoderConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &TranscoderConfig {
 		&self.config.extra.transcoder
@@ -56,7 +56,7 @@ impl video_transcoder::global::TranscoderState for GlobalState {
 	}
 
 	#[inline(always)]
-	fn ingest_tls(&self) -> Option<common::grpc::TlsSettings> {
+	fn ingest_tls(&self) -> Option<utils::grpc::TlsSettings> {
 		self.ingest_tls.clone()
 	}
 }

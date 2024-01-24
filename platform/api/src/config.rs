@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use common::config::{S3BucketConfig, TlsConfig};
+use binary_helper::config::{S3BucketConfig, TlsConfig};
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]

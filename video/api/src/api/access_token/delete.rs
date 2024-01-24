@@ -63,7 +63,7 @@ impl ApiRequest<AccessTokenDeleteResponse> for tonic::Request<AccessTokenDeleteR
 		}
 
 		let deleted_ids = if !ids_to_delete.is_empty() {
-			let deleted_ids: Vec<Ulid> = common::database::query("DELETE FROM ")
+			let deleted_ids: Vec<Ulid> = utils::database::query("DELETE FROM ")
 				.push(<AccessTokenDeleteRequest as TonicRequest>::Table::NAME)
 				.push(" WHERE id = ANY(")
 				.push_bind(ids_to_delete.iter().copied().collect::<Vec<_>>())

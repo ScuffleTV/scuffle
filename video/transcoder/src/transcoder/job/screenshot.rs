@@ -7,7 +7,7 @@ use tokio::sync::mpsc;
 
 pub fn screenshot_task(mut recv: mpsc::Receiver<Frame>, send: mpsc::Sender<(Bytes, f64)>) -> anyhow::Result<()> {
 	while let Some(frame) = recv.blocking_recv() {
-		let _guard = common::task::AbortGuard::new();
+		let _guard = utils::task::AbortGuard::new();
 
 		let frame = frame.video();
 

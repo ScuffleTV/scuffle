@@ -5,8 +5,8 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use binary_helper::global::{setup_database, setup_nats};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
-use common::context::Context;
-use common::global::{GlobalCtx, GlobalDb, GlobalNats};
+use utils::context::Context;
+use binary_helper::global::{GlobalCtx, GlobalDb, GlobalNats};
 use tokio::select;
 use tokio::sync::{mpsc, Mutex};
 use ulid::Ulid;
@@ -31,14 +31,14 @@ struct GlobalState {
 	config: AppConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<common::database::Pool>,
+	db: Arc<utils::database::Pool>,
 
 	requests: Mutex<HashMap<Ulid, mpsc::Sender<IncomingTranscoder>>>,
 }
 
 impl_global_traits!(GlobalState);
 
-impl common::global::GlobalConfigProvider<IngestConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<IngestConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &IngestConfig {
 		&self.config.extra.ingest

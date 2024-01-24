@@ -30,12 +30,11 @@ async-nats = "0.33"
 thiserror = "1.0"
 aws-config = "1.1"
 aws-sdk-s3 = { version = "1.12", features = ["behavior-version-latest"] }
-itertools = "0.12"
 image = "0.24"
 
 aac = { workspace = true }
 mp4 = { workspace = true }
-common = { workspace = true, features = ["default"] }
+utils = { workspace = true, features = ["all"] }
 bytesio = { workspace = true, features = ["default"] }
 config = { workspace = true }
 pb = { workspace = true }

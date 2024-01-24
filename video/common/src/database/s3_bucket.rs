@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use common::database::json;
+use utils::database::json;
 use postgres_from_row::FromRow;
 use ulid::Ulid;
 

@@ -114,7 +114,7 @@ impl Default for InnerOptions {
 impl<T: Send + Sync> Inner<T> {
 	pub fn new(data: T, options: InnerOptions) -> Result<Self, FfmpegError> {
 		#[cfg(feature = "task-abort")]
-		let _abort_guard = common::task::AbortGuard::new();
+		let _abort_guard = utils::task::AbortGuard::new();
 
 		// Safety: av_malloc is safe to call
 		let buffer = unsafe {
@@ -229,7 +229,7 @@ impl Inner<()> {
 
 	pub fn open_output(path: &str) -> Result<Self, FfmpegError> {
 		#[cfg(feature = "task-abort")]
-		let _abort_guard = common::task::AbortGuard::new();
+		let _abort_guard = utils::task::AbortGuard::new();
 
 		let path = std::ffi::CString::new(path).expect("Failed to convert path to CString");
 

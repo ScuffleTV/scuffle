@@ -6,8 +6,8 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use async_nats::jetstream::Message;
 use bytes::Bytes;
-use common::prelude::FutureTimeout;
-use common::task::AsyncTask;
+use utils::prelude::FutureTimeout;
+use utils::task::AsyncTask;
 use futures::{FutureExt, StreamExt};
 use futures_util::TryFutureExt;
 use pb::ext::UlidExt;
@@ -215,7 +215,7 @@ impl Job {
 
 		let tls = global.ingest_tls();
 
-		let channel = common::grpc::make_channel(vec![message.grpc_endpoint], Duration::from_secs(30), tls)?;
+		let channel = utils::grpc::make_channel(vec![message.grpc_endpoint], Duration::from_secs(30), tls)?;
 
 		let mut client = IngestClient::new(channel);
 

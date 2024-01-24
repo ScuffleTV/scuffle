@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use common::context::Context;
+use utils::context::Context;
 
 use crate::config::ImageProcessorConfig;
 
@@ -9,25 +9,25 @@ pub struct GlobalState {
 	config: ImageProcessorConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<common::database::Pool>,
-	s3_source_bucket: common::s3::Bucket,
-	s3_target_bucket: common::s3::Bucket,
+	db: Arc<utils::database::Pool>,
+	s3_source_bucket: binary_helper::s3::Bucket,
+	s3_target_bucket: binary_helper::s3::Bucket,
 	http_client: reqwest::Client,
 }
 
-impl common::global::GlobalCtx for GlobalState {
+impl binary_helper::global::GlobalCtx for GlobalState {
 	fn ctx(&self) -> &Context {
 		&self.ctx
 	}
 }
 
-impl common::global::GlobalConfigProvider<ImageProcessorConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<ImageProcessorConfig> for GlobalState {
 	fn provide_config(&self) -> &ImageProcessorConfig {
 		&self.config
 	}
 }
 
-impl common::global::GlobalNats for GlobalState {
+impl binary_helper::global::GlobalNats for GlobalState {
 	fn nats(&self) -> &async_nats::Client {
 		&self.nats
 	}
@@ -37,20 +37,20 @@ impl common::global::GlobalNats for GlobalState {
 	}
 }
 
-impl common::global::GlobalDb for GlobalState {
-	fn db(&self) -> &Arc<common::database::Pool> {
+impl binary_helper::global::GlobalDb for GlobalState {
+	fn db(&self) -> &Arc<utils::database::Pool> {
 		&self.db
 	}
 }
 
-impl common::global::GlobalConfig for GlobalState {}
+impl binary_helper::global::GlobalConfig for GlobalState {}
 
 impl crate::global::ImageProcessorState for GlobalState {
-	fn s3_source_bucket(&self) -> &common::s3::Bucket {
+	fn s3_source_bucket(&self) -> &binary_helper::s3::Bucket {
 		&self.s3_source_bucket
 	}
 
-	fn s3_target_bucket(&self) -> &common::s3::Bucket {
+	fn s3_target_bucket(&self) -> &binary_helper::s3::Bucket {
 		&self.s3_target_bucket
 	}
 
@@ -79,7 +79,7 @@ impl crate::global::ImageProcessorState for GlobalState {
 // nats"); 	let jetstream = async_nats::jetstream::new(nats.clone());
 
 // 	let db = Arc::new(
-// 		common::database::Pool::connect(&database_uri)
+// 		utils::database::Pool::connect(&database_uri)
 // 			.await
 // 			.expect("failed to connect to database"),
 // 	);

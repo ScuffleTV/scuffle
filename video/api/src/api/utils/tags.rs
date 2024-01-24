@@ -68,7 +68,7 @@ pub fn validate_tags_array(tags: &[String]) -> tonic::Result<()> {
 
 #[derive(postgres_from_row::FromRow)]
 pub struct TagExt {
-	pub tags: common::database::Json<HashMap<String, String>>,
+	pub tags: utils::database::Json<HashMap<String, String>>,
 	pub status: i64,
 }
 
@@ -97,11 +97,11 @@ pub fn add_tag_query<D: DatabaseTable>(
 	tags: &HashMap<String, String>,
 	id: Ulid,
 	organization_id: Option<Ulid>,
-) -> common::database::QueryBuilder<'_> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> utils::database::QueryBuilder<'_> {
+	let mut qb = utils::database::QueryBuilder::default();
 
 	qb.push("WITH mt AS (SELECT id, tags || ")
-		.push_bind(common::database::Json(tags))
+		.push_bind(utils::database::Json(tags))
 		.push(" AS new_tags, CASE WHEN tags @> $1 THEN 1 WHEN COUNT(jsonb_object_keys(tags || $1)) > ")
 		.push_bind(MAX_TAG_COUNT as i64)
 		.push(" THEN 2 ELSE 0 END AS status FROM ")
@@ -126,8 +126,8 @@ pub fn remove_tag_query<D: DatabaseTable>(
 	tags: &[String],
 	id: Ulid,
 	organization_id: Option<Ulid>,
-) -> common::database::QueryBuilder<'_> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> utils::database::QueryBuilder<'_> {
+	let mut qb = utils::database::QueryBuilder::default();
 
 	qb.push("WITH rt AS (SELECT id, tags - ")
 		.push_bind(tags)
@@ -156,7 +156,7 @@ macro_rules! impl_tag_req {
 			crate::api::utils::tags::validate_tags(req.tags.as_ref())
 		}
 
-		pub fn build_query<'a>(req: &'a $req, access_token: &video_common::database::AccessToken) -> tonic::Result<common::database::QueryBuilder<'a>> {
+		pub fn build_query<'a>(req: &'a $req, access_token: &video_common::database::AccessToken) -> tonic::Result<utils::database::QueryBuilder<'a>> {
 			let tags = req.tags.as_ref().ok_or_else(|| {
 				tonic::Status::invalid_argument("tags must be provided to add a tag")
 			})?;
@@ -199,7 +199,7 @@ macro_rules! impl_untag_req {
 			crate::api::utils::tags::validate_tags_array(&req.tags)
 		}
 
-		pub fn build_query<'a>(req: &'a $req, access_token: &video_common::database::AccessToken) -> tonic::Result<common::database::QueryBuilder<'a>> {
+		pub fn build_query<'a>(req: &'a $req, access_token: &video_common::database::AccessToken) -> tonic::Result<utils::database::QueryBuilder<'a>> {
 			Ok(crate::api::utils::tags::remove_tag_query::<<$req as crate::api::utils::TonicRequest>::Table>(&req.tags, pb::ext::UlidExt::into_ulid(req.id), Some(access_token.organization_id)))
 		}
 

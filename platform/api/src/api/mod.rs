@@ -4,10 +4,11 @@ use std::time::Duration;
 
 use anyhow::Context;
 use bytes::Bytes;
-use common::http::router::Router;
-use common::http::RouteError;
-use common::make_response;
-use common::prelude::FutureTimeout;
+use utils::context::ContextExt;
+use utils::http::router::Router;
+use utils::http::RouteError;
+use utils::make_response;
+use utils::prelude::FutureTimeout;
 use http_body_util::Full;
 use hyper::body::Incoming;
 use hyper::server::conn::http1;
@@ -15,7 +16,6 @@ use hyper::service::service_fn;
 use hyper_util::rt::TokioIo;
 use serde_json::json;
 use tokio::net::TcpSocket;
-use tokio::select;
 
 use self::error::ApiError;
 use crate::config::ApiConfig;
@@ -45,7 +45,7 @@ pub fn routes<G: ApiGlobal>(global: &Arc<G>) -> Router<Incoming, Body, RouteErro
 		// fail the request if the token is invalid or not present.
 		.middleware(middleware::auth::auth_middleware(global))
 		.scope("/v1", v1::routes(global))
-		.error_handler(common::http::error_handler::<ApiError, _>)
+		.error_handler(utils::http::error_handler::<ApiError, _>)
 		.not_found(|_| async move {
 			Ok(make_response!(
 				hyper::StatusCode::NOT_FOUND,
@@ -108,39 +108,34 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 		async move { this.handle(req).await }
 	});
 
-	loop {
-		select! {
-			_ = global.ctx().done() => {
-				return Ok(());
-			},
-			r = listener.accept() => {
-				let (socket, addr) = r?;
+	while let Ok(r) = listener.accept().context(global.ctx()).await {
+		let (socket, addr) = r?;
 
-				let service = service.clone();
-				let tls_acceptor = tls_acceptor.clone();
+		let service = service.clone();
+		let tls_acceptor = tls_acceptor.clone();
 
-				tracing::debug!("Accepted connection from {}", addr);
+		tracing::debug!("Accepted connection from {}", addr);
 
-				tokio::spawn(async move {
-					let http = http1::Builder::new();
+		tokio::spawn(async move {
+			let http = http1::Builder::new();
 
-					if let Some(tls_acceptor) = tls_acceptor {
-						let Ok(Ok(socket)) = tls_acceptor.accept(socket).timeout(Duration::from_secs(5)).await else {
-							return;
-						};
-						tracing::debug!("TLS handshake complete");
-						http.serve_connection(
-							TokioIo::new(socket),
-							service,
-						).with_upgrades().await.ok();
-					} else {
-						http.serve_connection(
-							TokioIo::new(socket),
-							service,
-						).with_upgrades().await.ok();
-					}
-				});
-			},
-		}
+			if let Some(tls_acceptor) = tls_acceptor {
+				let Ok(Ok(socket)) = tls_acceptor.accept(socket).timeout(Duration::from_secs(5)).await else {
+					return;
+				};
+				tracing::debug!("TLS handshake complete");
+				http.serve_connection(
+					TokioIo::new(socket),
+					service,
+				).with_upgrades().await.ok();
+			} else {
+				http.serve_connection(
+					TokioIo::new(socket),
+					service,
+				).with_upgrades().await.ok();
+			}
+		});
 	}
+
+	Ok(())
 }

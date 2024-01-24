@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use common::database::IntoClient;
+use utils::database::IntoClient;
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, Resource};
@@ -30,8 +30,8 @@ pub async fn build_query(
 	req: &RecordingConfigCreateRequest,
 	client: &impl IntoClient,
 	access_token: &AccessToken,
-) -> tonic::Result<common::database::QueryBuilder<'static>> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> tonic::Result<utils::database::QueryBuilder<'static>> {
+	let mut qb = utils::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<RecordingConfigCreateRequest as TonicRequest>::Table::NAME)
@@ -62,14 +62,14 @@ pub async fn build_query(
 	}
 
 	let bucket: S3Bucket = if let Some(s3_bucket_id) = &req.s3_bucket_id {
-		common::database::query("SELECT * FROM s3_buckets WHERE id = $1 AND organization_id = $2")
+		utils::database::query("SELECT * FROM s3_buckets WHERE id = $1 AND organization_id = $2")
 			.bind(s3_bucket_id.into_ulid())
 			.bind(access_token.organization_id)
 			.build_query_as()
 			.fetch_optional(client)
 			.await
 	} else {
-		common::database::query("SELECT * FROM s3_buckets WHERE organization_id = $1 AND managed = TRUE LIMIT 1")
+		utils::database::query("SELECT * FROM s3_buckets WHERE organization_id = $1 AND managed = TRUE LIMIT 1")
 			.bind(access_token.organization_id)
 			.build_query_as()
 			.fetch_optional(client)
@@ -88,12 +88,12 @@ pub async fn build_query(
 		req.lifecycle_policies
 			.clone()
 			.into_iter()
-			.map(common::database::Protobuf)
+			.map(utils::database::Protobuf)
 			.collect::<Vec<_>>(),
 	);
 	seperated.push_bind(chrono::Utc::now());
 	seperated.push_bind(bucket.id);
-	seperated.push_bind(common::database::Json(req.tags.clone().unwrap_or_default().tags));
+	seperated.push_bind(utils::database::Json(req.tags.clone().unwrap_or_default().tags));
 
 	qb.push(") RETURNING *");
 

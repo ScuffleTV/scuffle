@@ -47,8 +47,8 @@ pub fn build_query(
 	req: &AccessTokenCreateRequest,
 	access_token: &AccessToken,
 	permissions: RequiredScope,
-) -> tonic::Result<common::database::QueryBuilder<'static>> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> tonic::Result<utils::database::QueryBuilder<'static>> {
+	let mut qb = utils::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<AccessTokenCreateRequest as TonicRequest>::Table::NAME)
@@ -72,11 +72,11 @@ pub fn build_query(
 	seperated.push_bind(Ulid::new());
 	seperated.push_bind(access_token.organization_id);
 	seperated.push_bind(Ulid::new());
-	seperated.push_bind(permissions.0.into_iter().map(common::database::Protobuf).collect::<Vec<_>>());
+	seperated.push_bind(permissions.0.into_iter().map(utils::database::Protobuf).collect::<Vec<_>>());
 	seperated.push_bind(None::<chrono::DateTime<chrono::Utc>>);
 	seperated.push_bind(chrono::Utc::now());
 	seperated.push_bind(req.expires_at.map(|x| chrono::Utc.timestamp_opt(x, 0).unwrap()));
-	seperated.push_bind(common::database::Json(req.tags.clone().unwrap_or_default().tags));
+	seperated.push_bind(utils::database::Json(req.tags.clone().unwrap_or_default().tags));
 
 	qb.push(") RETURNING *");
 

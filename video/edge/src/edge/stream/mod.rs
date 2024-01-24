@@ -2,15 +2,16 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use binary_helper::global::RequestGlobalExt;
 use chrono::TimeZone;
-use common::database::non_null_vec;
-use common::http::ext::*;
-use common::http::router::builder::RouterBuilder;
-use common::http::router::ext::RequestExt;
-use common::http::router::Router;
-use common::http::RouteError;
-use common::make_response;
-use common::prelude::FutureTimeout;
+use utils::database::non_null_vec;
+use utils::http::ext::*;
+use utils::http::router::builder::RouterBuilder;
+use utils::http::router::ext::RequestExt;
+use utils::http::router::Router;
+use utils::http::RouteError;
+use utils::make_response;
+use utils::prelude::FutureTimeout;
 use hyper::body::Incoming;
 use hyper::{Request, Response, StatusCode};
 use itertools::Itertools;
@@ -83,7 +84,7 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 		None
 	};
 
-	let room: Option<Room> = common::database::query(
+	let room: Option<Room> = utils::database::query(
 		r#"
 		SELECT
 			*
@@ -144,7 +145,7 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 	}
 	.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to get ip address"))?;
 
-	common::database::query(
+	utils::database::query(
 		r#"
 		INSERT INTO playback_sessions (
 			id,
@@ -258,7 +259,7 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Res
 		None
 	};
 
-	let recording: Option<RecordingExt> = common::database::query(
+	let recording: Option<RecordingExt> = utils::database::query(
 		r#"
         WITH filtered_recordings AS (
             SELECT
@@ -345,7 +346,7 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Res
 	}
 	.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to get ip address"))?;
 
-	common::database::query(
+	utils::database::query(
 		r#"
 		INSERT INTO playback_sessions (
 			id,
@@ -447,7 +448,7 @@ async fn session_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respo
 		.await
 		.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to get database"))?;
 
-	let resp = common::database::query(
+	let resp = utils::database::query(
 		r#"
 		UPDATE playback_sessions SET
 			expires_at = NOW() + INTERVAL '10 minutes'
@@ -554,7 +555,7 @@ async fn session_refresh<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respon
 
 	let session = SessionClaims::verify(&global, organization_id, session)?;
 
-	let resp = common::database::query(
+	let resp = utils::database::query(
 		r#"
 		UPDATE playback_sessions SET
 			expires_at = NOW() + INTERVAL '10 minutes'
@@ -728,7 +729,7 @@ async fn room_screenshot<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respon
 		None
 	};
 
-	let room: Option<Room> = common::database::query(
+	let room: Option<Room> = utils::database::query(
 		r#"
 		SELECT
 			*

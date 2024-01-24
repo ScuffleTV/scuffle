@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
-use common::database::protobuf;
+use utils::database::protobuf;
 use pb::ext::UlidExt;
 use pb::scuffle::platform::internal::two_fa::two_fa_request_action::{ChangePassword, Login};
 use pb::scuffle::platform::internal::two_fa::TwoFaRequestAction;
@@ -27,7 +27,7 @@ pub trait TwoFaRequestActionTrait<G: ApiGlobal> {
 }
 
 impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
-	type Result = Result<Session, common::database::deadpool_postgres::PoolError>;
+	type Result = Result<Session, utils::database::deadpool_postgres::PoolError>;
 
 	async fn execute(self, global: &Arc<G>, user_id: Ulid) -> Self::Result {
 		let expires_at = Utc::now() + Duration::seconds(self.login_duration as i64);
@@ -36,7 +36,7 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
 		let mut client = global.db().get().await?;
 		let tx = client.transaction().await?;
 
-		let session = common::database::query(
+		let session = utils::database::query(
 			r#"
 			INSERT INTO user_sessions (
 				id,
@@ -56,7 +56,7 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
 		.fetch_one(&tx)
 		.await?;
 
-		common::database::query(
+		utils::database::query(
 			r#"
 			UPDATE users
 			SET
@@ -76,13 +76,13 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
 }
 
 impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for ChangePassword {
-	type Result = Result<(), common::database::deadpool_postgres::PoolError>;
+	type Result = Result<(), utils::database::deadpool_postgres::PoolError>;
 
 	async fn execute(self, global: &Arc<G>, user_id: Ulid) -> Self::Result {
 		let mut client = global.db().get().await?;
 		let tx = client.transaction().await?;
 
-		let user: User = common::database::query(
+		let user: User = utils::database::query(
 			r#"
 			UPDATE
 				users
@@ -100,7 +100,7 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for ChangePassword {
 		.await?;
 
 		// Delete all sessions except current
-		common::database::query(
+		utils::database::query(
 			r#"
 			DELETE FROM
 				user_sessions

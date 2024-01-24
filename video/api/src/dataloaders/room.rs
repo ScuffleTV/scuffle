@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
-use common::dataloader::{DataLoader, Loader, LoaderOutput};
+use utils::dataloader::{DataLoader, Loader, LoaderOutput};
 use ulid::Ulid;
 
 pub struct RoomLoader {
-	db: Arc<common::database::Pool>,
+	db: Arc<utils::database::Pool>,
 }
 
 impl RoomLoader {
-	pub fn new(db: Arc<common::database::Pool>) -> DataLoader<Self> {
+	pub fn new(db: Arc<utils::database::Pool>) -> DataLoader<Self> {
 		DataLoader::new(Self { db })
 	}
 }
@@ -19,7 +19,7 @@ impl Loader for RoomLoader {
 	type Value = video_common::database::Room;
 
 	async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
-		let results: Vec<Self::Value> = common::database::query("SELECT * FROM rooms WHERE (organization_id, id) IN ")
+		let results: Vec<Self::Value> = utils::database::query("SELECT * FROM rooms WHERE (organization_id, id) IN ")
 			.push_tuples(keys, |mut qb, (organization_id, room_id)| {
 				qb.push_bind(organization_id).push_bind(room_id);
 			})

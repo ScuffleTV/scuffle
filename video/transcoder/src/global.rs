@@ -1,4 +1,4 @@
-use common::grpc::TlsSettings;
+use utils::grpc::TlsSettings;
 
 use crate::config::TranscoderConfig;
 
@@ -9,11 +9,11 @@ pub trait TranscoderState {
 }
 
 pub trait TranscoderGlobal:
-	common::global::GlobalCtx
-	+ common::global::GlobalConfigProvider<TranscoderConfig>
-	+ common::global::GlobalNats
-	+ common::global::GlobalDb
-	+ common::global::GlobalConfig
+	binary_helper::global::GlobalCtx
+	+ binary_helper::global::GlobalConfigProvider<TranscoderConfig>
+	+ binary_helper::global::GlobalNats
+	+ binary_helper::global::GlobalDb
+	+ binary_helper::global::GlobalConfig
 	+ TranscoderState
 	+ Send
 	+ Sync
@@ -22,11 +22,11 @@ pub trait TranscoderGlobal:
 }
 
 impl<T> TranscoderGlobal for T where
-	T: common::global::GlobalCtx
-		+ common::global::GlobalConfigProvider<TranscoderConfig>
-		+ common::global::GlobalNats
-		+ common::global::GlobalDb
-		+ common::global::GlobalConfig
+	T: binary_helper::global::GlobalCtx
+		+ binary_helper::global::GlobalConfigProvider<TranscoderConfig>
+		+ binary_helper::global::GlobalNats
+		+ binary_helper::global::GlobalDb
+		+ binary_helper::global::GlobalConfig
 		+ TranscoderState
 		+ Send
 		+ Sync

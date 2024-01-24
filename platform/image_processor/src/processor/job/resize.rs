@@ -48,7 +48,7 @@ impl ImageResizer {
 	/// resized frame. After this function returns original frame can be
 	/// dropped, the returned frame is valid for the lifetime of the Resizer.
 	pub fn resize(&mut self, frame: &Frame) -> Result<Frame> {
-		let _abort_guard = common::task::AbortGuard::new();
+		let _abort_guard = utils::task::AbortGuard::new();
 
 		let (width, height) = if self.target.method == ResizeMethod::Exact {
 			(self.target.width, self.target.height)

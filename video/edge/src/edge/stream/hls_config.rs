@@ -1,5 +1,5 @@
-use common::http::ext::*;
-use common::http::RouteError;
+use utils::http::ext::*;
+use utils::http::RouteError;
 use hyper::{Request, StatusCode};
 use pb::scuffle::video::internal::live_rendition_manifest::RenditionInfo;
 

@@ -29,8 +29,8 @@ pub fn validate(req: &TranscodingConfigModifyRequest) -> tonic::Result<()> {
 pub fn build_query<'a>(
 	req: &'a TranscodingConfigModifyRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<common::database::QueryBuilder<'a>> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> tonic::Result<utils::database::QueryBuilder<'a>> {
+	let mut qb = utils::database::QueryBuilder::default();
 
 	qb.push("UPDATE ")
 		.push(<TranscodingConfigModifyRequest as TonicRequest>::Table::NAME)
@@ -57,7 +57,7 @@ pub fn build_query<'a>(
 	if let Some(tags) = &req.tags {
 		seperated
 			.push("tags = ")
-			.push_bind_unseparated(common::database::Json(&tags.tags));
+			.push_bind_unseparated(utils::database::Json(&tags.tags));
 	}
 
 	if req.renditions.is_none() && req.tags.is_none() {

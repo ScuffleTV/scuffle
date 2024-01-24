@@ -13,7 +13,7 @@ members = [
     "video/common",
     "video/cli",
     "binary-helper",
-    "common",
+    "utils",
     "proto",
     "config",
     "config/derive",
@@ -46,8 +46,8 @@ h265 = { path = "video/lib/h265" }
 mp4 = { path = "video/lib/mp4" }
 rtmp = { path = "video/lib/rtmp" }
 transmuxer = { path = "video/lib/transmuxer" }
-common = { path = "common", default-features = false }
-config = { path = "config" }
+utils = { path = "utils", default-features = false, package = "scuffle-utils" }
+config = { path = "config", package = "scuffle-config" }
 pb = { path = "proto" }
 video-common = { path = "video/common" }
 video-player-types = { path = "video/player_types" }

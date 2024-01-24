@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use common::global::{GlobalDb, GlobalNats};
-use common::prelude::FutureTimeout;
+use binary_helper::global::{GlobalDb, GlobalNats};
+use ::utils::prelude::FutureTimeout;
 use futures_util::StreamExt;
 use pb::scuffle::video::v1::types::{SearchOptions, Tags};
 use pb::scuffle::video::v1::{
@@ -401,7 +401,7 @@ async fn test_room_get() {
 
 	assert_eq!(resp.rooms.len(), 1, "should return 1 room");
 
-	common::database::query("UPDATE rooms SET visibility = $1 WHERE id = $2 AND organization_id = $3")
+	::utils::database::query("UPDATE rooms SET visibility = $1 WHERE id = $2 AND organization_id = $3")
 		.bind(Visibility::from(pb::scuffle::video::v1::types::Visibility::Private))
 		.bind(rooms[0].id)
 		.bind(access_token.organization_id)
@@ -462,7 +462,7 @@ async fn test_room_get() {
 
 	assert_eq!(resp.rooms.len(), 0, "should return 0 rooms");
 
-	common::database::query("UPDATE rooms SET status = $1 WHERE id = $2 AND organization_id = $3")
+	::utils::database::query("UPDATE rooms SET status = $1 WHERE id = $2 AND organization_id = $3")
 		.bind(RoomStatus::from(pb::scuffle::video::v1::types::RoomStatus::Ready))
 		.bind(rooms[0].id)
 		.bind(access_token.organization_id)
@@ -489,7 +489,7 @@ async fn test_room_get() {
 	assert_eq!(resp.rooms.len(), 1, "should return 1 room");
 	assert_eq!(resp.rooms[0].id, Some(rooms[0].id.into()), "should return the correct room");
 
-	common::database::query(
+	::utils::database::query(
 		"UPDATE rooms SET recording_config_id = $1, transcoding_config_id = $2 WHERE id = $3 AND organization_id = $4",
 	)
 	.bind(recording_config.id)
@@ -796,7 +796,7 @@ async fn test_room_disconnect() {
 
 	let active_ingest_connection_id = Ulid::new();
 
-	common::database::query(
+	::utils::database::query(
 		"UPDATE rooms SET status = $1, active_ingest_connection_id = $2 WHERE id = $3 AND organization_id = $4",
 	)
 	.bind(RoomStatus::from(pb::scuffle::video::v1::types::RoomStatus::Ready))
@@ -863,7 +863,7 @@ async fn test_room_reset_keys() {
 	assert_eq!(resp.rooms.len(), 1, "1 room should be reset");
 	assert!(resp.failed_resets.is_empty(), "no rooms should fail to reset keys");
 
-	let key: String = common::database::query("SELECT stream_key FROM rooms WHERE id = $1 AND organization_id = $2")
+	let key: String = ::utils::database::query("SELECT stream_key FROM rooms WHERE id = $1 AND organization_id = $2")
 		.bind(room.id)
 		.bind(access_token.organization_id)
 		.build_query_single_scalar()

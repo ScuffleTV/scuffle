@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use async_nats::jetstream::stream::{self, RetentionPolicy};
-use common::context::{Context, Handler};
-use common::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
-use common::database::Pool;
-use common::dataloader::DataLoader;
-use common::logging;
-use common::prelude::FutureTimeout;
+use utils::context::{Context, Handler};
+use utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
+use utils::database::Pool;
+use utils::dataloader::DataLoader;
+use binary_helper::logging;
+use utils::prelude::FutureTimeout;
 use fred::interfaces::ClientLike;
 use postgres_from_row::tokio_postgres::NoTls;
 
@@ -18,7 +18,7 @@ pub struct GlobalState {
 	config: ApiConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<common::database::Pool>,
+	db: Arc<utils::database::Pool>,
 	redis: Arc<fred::clients::RedisPool>,
 
 	access_token_loader: DataLoader<dataloaders::AccessTokenLoader>,
@@ -28,19 +28,19 @@ pub struct GlobalState {
 	events_stream: async_nats::jetstream::stream::Stream,
 }
 
-impl common::global::GlobalCtx for GlobalState {
+impl binary_helper::global::GlobalCtx for GlobalState {
 	fn ctx(&self) -> &Context {
 		&self.ctx
 	}
 }
 
-impl common::global::GlobalConfigProvider<ApiConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<ApiConfig> for GlobalState {
 	fn provide_config(&self) -> &ApiConfig {
 		&self.config
 	}
 }
 
-impl common::global::GlobalNats for GlobalState {
+impl binary_helper::global::GlobalNats for GlobalState {
 	fn nats(&self) -> &async_nats::Client {
 		&self.nats
 	}
@@ -50,19 +50,19 @@ impl common::global::GlobalNats for GlobalState {
 	}
 }
 
-impl common::global::GlobalDb for GlobalState {
-	fn db(&self) -> &Arc<common::database::Pool> {
+impl binary_helper::global::GlobalDb for GlobalState {
+	fn db(&self) -> &Arc<utils::database::Pool> {
 		&self.db
 	}
 }
 
-impl common::global::GlobalRedis for GlobalState {
+impl binary_helper::global::GlobalRedis for GlobalState {
 	fn redis(&self) -> &Arc<fred::clients::RedisPool> {
 		&self.redis
 	}
 }
 
-impl common::global::GlobalConfig for GlobalState {}
+impl binary_helper::global::GlobalConfig for GlobalState {}
 
 impl crate::global::ApiState for GlobalState {
 	fn access_token_loader(&self) -> &DataLoader<dataloaders::AccessTokenLoader> {
@@ -101,7 +101,7 @@ pub async fn mock_global_state(config: ApiConfig) -> (Arc<GlobalState>, Handler)
 	let jetstream = async_nats::jetstream::new(nats.clone());
 
 	let db = Arc::new(
-		Pool::builder(common::database::deadpool_postgres::Manager::from_config(
+		Pool::builder(utils::database::deadpool_postgres::Manager::from_config(
 			database_uri.parse().unwrap(),
 			NoTls,
 			ManagerConfig {
@@ -127,7 +127,7 @@ pub async fn mock_global_state(config: ApiConfig) -> (Arc<GlobalState>, Handler)
 		.expect("failed to connect to redis")
 		.expect("failed to connect to redis");
 
-	common::ratelimiter::load_rate_limiter_script(&*redis)
+	utils::ratelimiter::load_rate_limiter_script(&*redis)
 		.await
 		.expect("failed to load rate limiter script");
 

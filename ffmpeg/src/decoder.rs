@@ -153,7 +153,7 @@ impl GenericDecoder {
 
 	pub fn send_packet(&mut self, packet: &Packet) -> Result<(), FfmpegError> {
 		#[cfg(feature = "task-abort")]
-		let _guard = common::task::AbortGuard::new();
+		let _guard = utils::task::AbortGuard::new();
 
 		// Safety: `packet` is a valid pointer, and `self.decoder` is a valid pointer.
 		let ret = unsafe { avcodec_send_packet(self.decoder.as_mut_ptr(), packet.as_ptr()) };
@@ -166,7 +166,7 @@ impl GenericDecoder {
 
 	pub fn send_eof(&mut self) -> Result<(), FfmpegError> {
 		#[cfg(feature = "task-abort")]
-		let _guard = common::task::AbortGuard::new();
+		let _guard = utils::task::AbortGuard::new();
 
 		// Safety: `self.decoder` is a valid pointer.
 		let ret = unsafe { avcodec_send_packet(self.decoder.as_mut_ptr(), std::ptr::null()) };
@@ -179,7 +179,7 @@ impl GenericDecoder {
 
 	pub fn receive_frame(&mut self) -> Result<Option<VideoFrame>, FfmpegError> {
 		#[cfg(feature = "task-abort")]
-		let _guard = common::task::AbortGuard::new();
+		let _guard = utils::task::AbortGuard::new();
 
 		let mut frame = Frame::new()?;
 

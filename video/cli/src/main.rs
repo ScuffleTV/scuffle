@@ -3,8 +3,8 @@ use std::time::Duration;
 use anyhow::Context as _;
 use clap::Parser;
 use cli::Invokable;
-use common::context::Context;
-use common::prelude::FutureTimeout;
+use utils::context::Context;
+use utils::prelude::FutureTimeout;
 use invoker::Invoker;
 
 mod cli;

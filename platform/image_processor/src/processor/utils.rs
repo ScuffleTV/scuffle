@@ -8,7 +8,7 @@ use crate::global::ImageProcessorGlobal;
 use crate::processor::error::Result;
 
 pub async fn query_job(global: &Arc<impl ImageProcessorGlobal>, limit: usize) -> Result<Vec<Job>> {
-	Ok(common::database::query(
+	Ok(utils::database::query(
 		"UPDATE image_jobs
 		SET claimed_by = $1,
 			hold_until = NOW() + INTERVAL '30 seconds'
@@ -31,7 +31,7 @@ pub async fn query_job(global: &Arc<impl ImageProcessorGlobal>, limit: usize) ->
 }
 
 pub async fn refresh_job(global: &Arc<impl ImageProcessorGlobal>, job_id: Ulid) -> Result<()> {
-	let result = common::database::query(
+	let result = utils::database::query(
 		"UPDATE image_jobs
 		SET hold_until = NOW() + INTERVAL '30 seconds'
 		WHERE image_jobs.id = $1 AND image_jobs.claimed_by = $2",
@@ -46,7 +46,7 @@ pub async fn refresh_job(global: &Arc<impl ImageProcessorGlobal>, job_id: Ulid) 
 }
 
 pub async fn delete_job(global: &Arc<impl ImageProcessorGlobal>, job_id: Ulid) -> Result<()> {
-	common::database::query("DELETE FROM image_jobs WHERE id = $1")
+	utils::database::query("DELETE FROM image_jobs WHERE id = $1")
 		.bind(job_id)
 		.build()
 		.execute(global.db())

@@ -8,9 +8,10 @@ use std::time::Duration;
 use async_stream::stream;
 use base64::Engine;
 use bytes::Bytes;
-use common::config::TlsConfig;
-use common::global::*;
-use common::prelude::FutureTimeout;
+use binary_helper::config::TlsConfig;
+use binary_helper::global::*;
+use utils::context::ContextExt;
+use utils::prelude::FutureTimeout;
 use futures::StreamExt;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::events::TranscoderRequestTask;
@@ -21,7 +22,6 @@ use pb::scuffle::video::v1::types::{event, Event, Rendition};
 use prost::Message;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
-use tokio::select;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use ulid::Ulid;
@@ -126,7 +126,7 @@ impl Watcher {
 
 		tracing::info!("connecting to ingest server at {}", advertise_addr);
 
-		let channel = common::grpc::make_channel(vec![advertise_addr], Duration::from_secs(30), None).unwrap();
+		let channel = utils::grpc::make_channel(vec![advertise_addr], Duration::from_secs(30), None).unwrap();
 
 		let mut client = IngestClient::new(channel);
 
@@ -153,7 +153,7 @@ struct TestState {
 	pub org_id: Ulid,
 	pub room_id: Ulid,
 	pub global: Arc<GlobalState>,
-	pub handler: common::context::Handler,
+	pub handler: utils::context::Handler,
 	pub transcoder_requests: Pin<Box<dyn futures::Stream<Item = TranscoderRequestTask>>>,
 	pub events: Pin<Box<dyn futures::Stream<Item = Event>>>,
 	pub ingest_handle: JoinHandle<anyhow::Result<()>>,
@@ -212,17 +212,10 @@ impl TestState {
 				.subscribe(global.config::<IngestConfig>().transcoder_request_subject.clone())
 				.await
 				.unwrap();
+
 			stream!({
-				loop {
-					select! {
-						message = stream.next() => {
-							let message = message.unwrap();
-							yield TranscoderRequestTask::decode(message.payload).unwrap();
-						}
-						_ = global.ctx().done() => {
-							break;
-						}
-					}
+				while let Ok(Some(message)) = stream.next().context(global.ctx()).await {
+					yield TranscoderRequestTask::decode(message.payload).unwrap();
 				}
 			})
 		};
@@ -236,22 +229,15 @@ impl TestState {
 				.subscribe(event_subject(&global.config().events_stream_name, org_id, Target::Room))
 				.await
 				.unwrap();
+
 			stream!({
-				loop {
-					select! {
-						message = stream.next() => {
-							let message = message.unwrap();
-							yield Event::decode(message.payload).unwrap();
-						}
-						_ = global.ctx().done() => {
-							break;
-						}
-					}
+				while let Ok(Some(message)) = stream.next().context(global.ctx()).await {
+					yield Event::decode(message.payload).unwrap();
 				}
 			})
 		};
 
-		common::database::query("INSERT INTO organizations (id, name) VALUES ($1, $2)")
+		utils::database::query("INSERT INTO organizations (id, name) VALUES ($1, $2)")
 			.bind(org_id)
 			.bind("test")
 			.build()
@@ -261,7 +247,7 @@ impl TestState {
 
 		let room_id = Ulid::new();
 
-		common::database::query("INSERT INTO rooms (organization_id, id, stream_key) VALUES ($1, $2, $3)")
+		utils::database::query("INSERT INTO rooms (organization_id, id, stream_key) VALUES ($1, $2, $3)")
 			.bind(org_id)
 			.bind(room_id)
 			.bind(room_id.to_string())
@@ -335,7 +321,7 @@ async fn test_ingest_stream() {
 	}
 
 	let room: video_common::database::Room =
-		common::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
+		utils::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
 			.bind(state.org_id)
 			.bind(state.room_id)
 			.build_query_as()
@@ -522,7 +508,7 @@ async fn test_ingest_stream() {
 
 	tracing::info!("waiting for transcoder to exit");
 
-	let room: Room = common::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
+	let room: Room = utils::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
 		.bind(state.org_id)
 		.bind(state.room_id)
 		.build_query_as()
@@ -724,7 +710,7 @@ async fn test_ingest_stream_shutdown() {
 		_ => panic!("unexpected event"),
 	}
 
-	let room: Room = common::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
+	let room: Room = utils::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
 		.bind(state.org_id)
 		.bind(state.room_id)
 		.build_query_as()
@@ -765,7 +751,7 @@ async fn test_ingest_stream_transcoder_full() {
 		_ => panic!("unexpected event"),
 	}
 
-	let room: Room = common::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
+	let room: Room = utils::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
 		.bind(state.org_id)
 		.bind(state.room_id)
 		.build_query_as()

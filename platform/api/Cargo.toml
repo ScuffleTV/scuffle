@@ -10,7 +10,7 @@ tracing = "0.1"
 tokio = { version = "1.35", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 hyper = { version = "1.1", features = ["full"] }
-common = { workspace = true, features = ["default"] }
+utils = { workspace = true, features = ["all"] }
 rustls = "0.22"
 rustls-pemfile = "2.0"
 tokio-rustls = "0.25"

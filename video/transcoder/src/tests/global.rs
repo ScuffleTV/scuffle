@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use common::context::{Context, Handler};
-use common::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
-use common::database::tokio_postgres::NoTls;
-use common::database::Pool;
-use common::grpc::TlsSettings;
-use common::logging;
+use utils::context::{Context, Handler};
+use utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
+use utils::database::tokio_postgres::NoTls;
+use utils::database::Pool;
+use utils::grpc::TlsSettings;
+use binary_helper::logging;
 
 use crate::config::TranscoderConfig;
 
@@ -14,25 +14,25 @@ pub struct GlobalState {
 	config: TranscoderConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<common::database::Pool>,
+	db: Arc<utils::database::Pool>,
 	ingest_tls: Option<TlsSettings>,
 	media_store: async_nats::jetstream::object_store::ObjectStore,
 	metadata_store: async_nats::jetstream::kv::Store,
 }
 
-impl common::global::GlobalCtx for GlobalState {
+impl binary_helper::global::GlobalCtx for GlobalState {
 	fn ctx(&self) -> &Context {
 		&self.ctx
 	}
 }
 
-impl common::global::GlobalConfigProvider<TranscoderConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<TranscoderConfig> for GlobalState {
 	fn provide_config(&self) -> &TranscoderConfig {
 		&self.config
 	}
 }
 
-impl common::global::GlobalNats for GlobalState {
+impl binary_helper::global::GlobalNats for GlobalState {
 	fn nats(&self) -> &async_nats::Client {
 		&self.nats
 	}
@@ -42,16 +42,16 @@ impl common::global::GlobalNats for GlobalState {
 	}
 }
 
-impl common::global::GlobalDb for GlobalState {
-	fn db(&self) -> &Arc<common::database::Pool> {
+impl binary_helper::global::GlobalDb for GlobalState {
+	fn db(&self) -> &Arc<utils::database::Pool> {
 		&self.db
 	}
 }
 
-impl common::global::GlobalConfig for GlobalState {}
+impl binary_helper::global::GlobalConfig for GlobalState {}
 
 impl crate::global::TranscoderState for GlobalState {
-	fn ingest_tls(&self) -> Option<common::grpc::TlsSettings> {
+	fn ingest_tls(&self) -> Option<utils::grpc::TlsSettings> {
 		self.ingest_tls.clone()
 	}
 
@@ -80,7 +80,7 @@ pub async fn mock_global_state(config: TranscoderConfig) -> (Arc<GlobalState>, H
 	let jetstream = async_nats::jetstream::new(nats.clone());
 
 	let db = Arc::new(
-		Pool::builder(common::database::deadpool_postgres::Manager::from_config(
+		Pool::builder(utils::database::deadpool_postgres::Manager::from_config(
 			database_uri.parse().unwrap(),
 			NoTls,
 			ManagerConfig {

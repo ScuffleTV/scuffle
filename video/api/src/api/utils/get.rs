@@ -4,12 +4,12 @@ use ulid::Ulid;
 
 use super::tags::validate_tags;
 
-pub fn organization_id(seperated: &mut common::database::Separated<'_, '_>, organization_id: Ulid) {
+pub fn organization_id(seperated: &mut utils::database::Separated<'_, '_>, organization_id: Ulid) {
 	seperated.push("organization_id = ");
 	seperated.push_bind_unseparated(organization_id);
 }
 
-pub fn ids(seperated: &mut common::database::Separated<'_, '_>, ids: &[pb::scuffle::types::Ulid]) {
+pub fn ids(seperated: &mut utils::database::Separated<'_, '_>, ids: &[pb::scuffle::types::Ulid]) {
 	if !ids.is_empty() {
 		seperated.push("id = ANY(");
 		seperated.push_bind_unseparated(
@@ -23,7 +23,7 @@ pub fn ids(seperated: &mut common::database::Separated<'_, '_>, ids: &[pb::scuff
 }
 
 pub fn search_options(
-	seperated: &mut common::database::Separated<'_, '_>,
+	seperated: &mut utils::database::Separated<'_, '_>,
 	search_options: Option<&SearchOptions>,
 ) -> tonic::Result<()> {
 	if let Some(options) = search_options {

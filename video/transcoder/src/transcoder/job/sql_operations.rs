@@ -28,7 +28,7 @@ pub async fn perform_sql_operations(
 ) -> anyhow::Result<SqlOperations> {
 	let mut client = global.db().get().await.context("failed to get database connection")?;
 
-	let room: Option<Room> = match common::database::query(
+	let room: Option<Room> = match utils::database::query(
 		r#"
         SELECT 
             *
@@ -68,7 +68,7 @@ pub async fn perform_sql_operations(
 		Some(recording_config)
 	} else if let Some(recording_config_id) = &room.recording_config_id {
 		Some(
-			match common::database::query(
+			match utils::database::query(
 				r#"
 				SELECT
 					*
@@ -100,7 +100,7 @@ pub async fn perform_sql_operations(
 
 		Some((
 			recording_config,
-			match common::database::query(
+			match utils::database::query(
 				r#"
 				SELECT
 					*
@@ -130,7 +130,7 @@ pub async fn perform_sql_operations(
 	let transcoding_config = if let Some(transcoding_config) = room.active_transcoding_config {
 		transcoding_config
 	} else if let Some(transcoding_config_id) = &room.transcoding_config_id {
-		match common::database::query(
+		match utils::database::query(
 			r#"
 			SELECT
 				*
@@ -163,7 +163,7 @@ pub async fn perform_sql_operations(
 
 	let tx = client.transaction().await.context("failed to start transaction")?;
 
-	common::database::query(
+	utils::database::query(
 		r#"
         UPDATE rooms
         SET

@@ -43,7 +43,7 @@ impl ApiRequest<PlaybackKeyPairDeleteResponse> for tonic::Request<PlaybackKeyPai
 			.map(pb::scuffle::types::Ulid::into_ulid)
 			.collect::<HashSet<_>>();
 
-		let deleted_ids: Vec<Ulid> = common::database::query("DELETE FROM ")
+		let deleted_ids: Vec<Ulid> = utils::database::query("DELETE FROM ")
 			.push(<PlaybackKeyPairDeleteRequest as TonicRequest>::Table::NAME)
 			.push(" WHERE id = ANY(")
 			.push_bind(ids_to_delete.iter().copied().collect::<Vec<_>>())

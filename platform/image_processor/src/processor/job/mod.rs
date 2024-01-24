@@ -4,9 +4,9 @@ use std::time::Duration;
 
 use aws_sdk_s3::types::ObjectCannedAcl;
 use bytes::Bytes;
-use common::prelude::FutureTimeout;
-use common::s3::PutObjectOptions;
-use common::task::AsyncTask;
+use ::utils::task::AsyncTask;
+use ::utils::prelude::FutureTimeout;
+use binary_helper::s3::PutObjectOptions;
 use file_format::FileFormat;
 use futures::FutureExt;
 use prost::Message;

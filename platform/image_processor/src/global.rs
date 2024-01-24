@@ -1,4 +1,4 @@
-use common::s3::Bucket;
+use binary_helper::s3::Bucket;
 
 use crate::config::ImageProcessorConfig;
 
@@ -9,11 +9,11 @@ pub trait ImageProcessorState {
 }
 
 pub trait ImageProcessorGlobal:
-	common::global::GlobalCtx
-	+ common::global::GlobalConfigProvider<ImageProcessorConfig>
-	+ common::global::GlobalNats
-	+ common::global::GlobalDb
-	+ common::global::GlobalConfig
+	binary_helper::global::GlobalCtx
+	+ binary_helper::global::GlobalConfigProvider<ImageProcessorConfig>
+	+ binary_helper::global::GlobalNats
+	+ binary_helper::global::GlobalDb
+	+ binary_helper::global::GlobalConfig
 	+ ImageProcessorState
 	+ Send
 	+ Sync
@@ -22,11 +22,11 @@ pub trait ImageProcessorGlobal:
 }
 
 impl<T> ImageProcessorGlobal for T where
-	T: common::global::GlobalCtx
-		+ common::global::GlobalConfigProvider<ImageProcessorConfig>
-		+ common::global::GlobalNats
-		+ common::global::GlobalDb
-		+ common::global::GlobalConfig
+	T: binary_helper::global::GlobalCtx
+		+ binary_helper::global::GlobalConfigProvider<ImageProcessorConfig>
+		+ binary_helper::global::GlobalNats
+		+ binary_helper::global::GlobalDb
+		+ binary_helper::global::GlobalConfig
 		+ ImageProcessorState
 		+ Send
 		+ Sync

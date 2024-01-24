@@ -5,8 +5,8 @@ use anyhow::{Context, Result};
 use aws_config::Region;
 use aws_sdk_s3::config::Credentials;
 use bytes::Bytes;
-use common::database::tokio_postgres::Transaction;
-use common::task::AsyncTask;
+use utils::database::tokio_postgres::Transaction;
+use utils::task::AsyncTask;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::live_rendition_manifest::recording_data::RecordingThumbnail;
 use pb::scuffle::video::v1::types::{AudioConfig, RecordingConfig, Rendition as PbRendition, VideoConfig};
@@ -51,7 +51,7 @@ impl Recording {
 		s3_bucket: &S3Bucket,
 		recording_config: &RecordingConfig,
 	) -> Result<Self> {
-		let bucket = common::s3::Bucket::new(
+		let bucket = binary_helper::s3::Bucket::new(
 			s3_bucket.name.clone(),
 			Credentials::from_keys(&s3_bucket.access_key_id, &s3_bucket.secret_access_key, None),
 			Region::new(s3_bucket.region.clone()),
@@ -68,7 +68,7 @@ impl Recording {
 
 		let allow_dvr = recording_renditions.len() == video_outputs.len() + audio_outputs.len();
 
-		common::database::query(
+		utils::database::query(
 			r#"
 			INSERT INTO recordings (
                 id,
@@ -100,7 +100,7 @@ impl Recording {
 		.execute(tx)
 		.await?;
 
-		common::database::query("INSERT INTO recording_renditions (organization_id, recording_id, rendition, config)")
+		utils::database::query("INSERT INTO recording_renditions (organization_id, recording_id, rendition, config)")
 			.push_values(recording_renditions.iter(), |mut b, (rendition, config)| {
 				b.push_bind(organization_id);
 				b.push_bind(id);

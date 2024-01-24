@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use common::context::{Context, Handler};
-use common::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
-use common::database::Pool;
-use common::logging;
+use utils::context::{Context, Handler};
+use utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
+use utils::database::Pool;
+use binary_helper::logging;
 use postgres_from_row::tokio_postgres::NoTls;
 use tokio::sync::{mpsc, Mutex};
 use ulid::Ulid;
@@ -17,23 +17,23 @@ pub struct GlobalState {
 	config: IngestConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<common::database::Pool>,
+	db: Arc<utils::database::Pool>,
 	requests: Mutex<HashMap<Ulid, mpsc::Sender<IncomingTranscoder>>>,
 }
 
-impl common::global::GlobalCtx for GlobalState {
+impl binary_helper::global::GlobalCtx for GlobalState {
 	fn ctx(&self) -> &Context {
 		&self.ctx
 	}
 }
 
-impl common::global::GlobalConfigProvider<IngestConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<IngestConfig> for GlobalState {
 	fn provide_config(&self) -> &IngestConfig {
 		&self.config
 	}
 }
 
-impl common::global::GlobalNats for GlobalState {
+impl binary_helper::global::GlobalNats for GlobalState {
 	fn nats(&self) -> &async_nats::Client {
 		&self.nats
 	}
@@ -43,13 +43,13 @@ impl common::global::GlobalNats for GlobalState {
 	}
 }
 
-impl common::global::GlobalDb for GlobalState {
-	fn db(&self) -> &Arc<common::database::Pool> {
+impl binary_helper::global::GlobalDb for GlobalState {
+	fn db(&self) -> &Arc<utils::database::Pool> {
 		&self.db
 	}
 }
 
-impl common::global::GlobalConfig for GlobalState {}
+impl binary_helper::global::GlobalConfig for GlobalState {}
 
 impl crate::global::IngestState for GlobalState {
 	fn requests(&self) -> &Mutex<HashMap<Ulid, mpsc::Sender<IncomingTranscoder>>> {
@@ -73,7 +73,7 @@ pub async fn mock_global_state(config: IngestConfig) -> (Arc<GlobalState>, Handl
 	let jetstream = async_nats::jetstream::new(nats.clone());
 
 	let db = Arc::new(
-		Pool::builder(common::database::deadpool_postgres::Manager::from_config(
+		Pool::builder(utils::database::deadpool_postgres::Manager::from_config(
 			database_uri.parse().unwrap(),
 			NoTls,
 			ManagerConfig {

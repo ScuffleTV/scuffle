@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use chrono::Utc;
-use common::database::{json, protobuf_vec};
+use utils::database::{json, protobuf_vec};
 use pb::scuffle::video::v1::types::AccessTokenScope;
 use postgres_from_row::FromRow;
 use ulid::Ulid;

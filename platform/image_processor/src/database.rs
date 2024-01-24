@@ -1,4 +1,4 @@
-use common::database::protobuf;
+use utils::database::protobuf;
 use pb::scuffle::platform::internal::image_processor::Task;
 use ulid::Ulid;
 

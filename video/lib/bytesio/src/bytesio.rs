@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bytes::{Bytes, BytesMut};
-use common::prelude::FutureTimeout;
+use utils::prelude::FutureTimeout;
 use futures::SinkExt;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_stream::StreamExt;

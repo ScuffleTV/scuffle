@@ -43,7 +43,7 @@ impl ApiRequest<TranscodingConfigDeleteResponse> for tonic::Request<TranscodingC
 			.map(pb::scuffle::types::Ulid::into_ulid)
 			.collect::<HashSet<_>>();
 
-		let mut qb = common::database::QueryBuilder::default();
+		let mut qb = utils::database::QueryBuilder::default();
 
 		qb.push("SELECT DISTINCT transcoding_config_id AS id FROM ")
 			.push(<video_common::database::Room as DatabaseTable>::NAME)
@@ -71,7 +71,7 @@ impl ApiRequest<TranscodingConfigDeleteResponse> for tonic::Request<TranscodingC
 			.collect::<HashMap<_, _>>();
 
 		let deleted_ids = if !ids_to_delete.is_empty() {
-			let mut qb = common::database::QueryBuilder::default();
+			let mut qb = utils::database::QueryBuilder::default();
 
 			qb.push("DELETE FROM ")
 				.push(<TranscodingConfigDeleteRequest as TonicRequest>::Table::NAME)

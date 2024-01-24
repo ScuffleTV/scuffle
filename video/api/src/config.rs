@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use common::config::TlsConfig;
+use binary_helper::config::TlsConfig;
 
 use crate::ratelimit::RateLimitResource;
 

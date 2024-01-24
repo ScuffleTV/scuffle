@@ -43,7 +43,7 @@ impl ApiRequest<RoomDeleteResponse> for tonic::Request<RoomDeleteRequest> {
 			.map(pb::scuffle::types::Ulid::into_ulid)
 			.collect::<HashSet<_>>();
 
-		let mut qb = common::database::QueryBuilder::default();
+		let mut qb = utils::database::QueryBuilder::default();
 
 		qb.push("SELECT DISTINCT room_id AS id FROM ")
 			.push(<video_common::database::Recording as DatabaseTable>::NAME)
@@ -71,7 +71,7 @@ impl ApiRequest<RoomDeleteResponse> for tonic::Request<RoomDeleteRequest> {
 			.collect::<HashMap<_, _>>();
 
 		let deleted_ids = if !ids_to_delete.is_empty() {
-			let mut qb = common::database::QueryBuilder::default();
+			let mut qb = utils::database::QueryBuilder::default();
 
 			qb.push("DELETE FROM ")
 				.push(<RoomDeleteRequest as TonicRequest>::Table::NAME)

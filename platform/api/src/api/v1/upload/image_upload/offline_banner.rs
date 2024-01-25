@@ -43,9 +43,10 @@ impl ImageUploadRequest for OfflineBanner {
 				ImageFormat::PngStatic as i32,
 				ImageFormat::AvifStatic as i32,
 				ImageFormat::WebpStatic as i32,
-				ImageFormat::Gif as i32,
-				ImageFormat::Webp as i32,
-				ImageFormat::Avif as i32,
+				// Disable animated offline banners for now
+				// ImageFormat::Gif as i32,
+				// ImageFormat::Webp as i32,
+				// ImageFormat::Avif as i32,
 			],
 			callback_subject: format!("{}.{}", config.callback_subject, config.offline_banner_suffix),
 			limits: Some(image_processor::task::Limits {

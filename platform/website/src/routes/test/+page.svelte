@@ -5,30 +5,51 @@
     let overlay = true;
     let debug = false;
 
+    // Only for debugging
+    let xlDebug = 0;
+    let xrDebug = 0;
+    let ytDebug = 0;
+    let ybDebug = 0;
+
     let result: string;
 
     let mouseStartX: number;
     let mouseStartY: number;
     let moveable: HTMLImageElement;
+    let aspectRatio: number = 0;
 
     function applyLimits() {
-        const minLimit = 1 - scale;
+        if (!moveable) return;
+
+        const width = moveable.naturalWidth / Math.min(moveable.naturalWidth, moveable.naturalHeight);
+        const height = moveable.naturalHeight / Math.min(moveable.naturalWidth, moveable.naturalHeight);
+
+        const minLimitX = 1 - width * scale;
+        const minLimitY = 1 - height * scale;
         const maxLimit = 0;
 
-        const s = (scale - 1) / 2;
-        const xl = x - s;
-        const yt = y - s;
+        const sX = (width * (scale - 1)) / 2;
+        const sY = (height * (scale - 1)) / 2;
+        const xl = x - sX;
+        const yt = y - sY;
+        const xr = (x + width) + sX;
+        const yb = (y + height) + sY;
+
+        xlDebug = xl;
+        xrDebug = xr;
+        ytDebug = yt;
+        ybDebug = yb;
 
         // Limit movement to parent element
         if (xl > maxLimit) {
-            x = maxLimit + s;
-        } else if (xl < minLimit) {
-            x = minLimit + s;
+            x = maxLimit + sX;
+        } else if (xl < minLimitX) {
+            x = minLimitX + sX;
         }
         if (yt > maxLimit) {
-            y = maxLimit + s;
-        } else if (yt < minLimit) {
-            y = minLimit + s;
+            y = maxLimit + sY;
+        } else if (yt < minLimitY) {
+            y = minLimitY + sY;
         }
     }
 
@@ -36,9 +57,23 @@
         // Reset scale
         scale = 1;
         // Reset position
-        x = 0;
-        y = 0;
+        center();
+        applyLimits();
     }
+
+    function center() {
+        if (moveable) {   
+            const width = moveable.naturalWidth / Math.min(moveable.naturalWidth, moveable.naturalHeight);
+            const height = moveable.naturalHeight / Math.min(moveable.naturalWidth, moveable.naturalHeight);
+            x = -(width / 2 - 0.5);
+            y = -(height / 2 - 0.5);
+        } else {
+            x = 0;
+            y = 0;
+        }
+    }
+
+    const pickerSize = 40 * 16;
 
     // (0,0) is left/top, (1,1) is right/bottom
     let x = 0;
@@ -55,8 +90,8 @@
 
     function mouseDown(e: MouseEvent) {
         e.preventDefault();
-        const xs = x * moveable.offsetWidth;
-        const ys = y * moveable.offsetHeight;
+        const xs = x * pickerSize;
+        const ys = y * pickerSize;
         mouseStartX = e.clientX - xs;
         mouseStartY = e.clientY - ys;
         moving = true;
@@ -68,8 +103,8 @@
         e.preventDefault();
 
         // Update element position
-        x = (e.clientX - mouseStartX) / moveable.offsetWidth;
-        y = (e.clientY - mouseStartY) / moveable.offsetHeight;
+        x = (e.clientX - mouseStartX) / pickerSize;
+        y = (e.clientY - mouseStartY) / pickerSize;
 
         applyLimits();
     }
@@ -103,7 +138,9 @@
         handleFiles(files[0]);
     }
 
-    $: calculateResult(), scale, x, y;
+    $: if (debug) {
+        calculateResult(), scale, x, y;
+    }
 
     function calculateResult() {
         if (!moveable) return;
@@ -113,14 +150,16 @@
 
         if (!ctx) return;
 
-        const xl = x - (scale - 1) / 2;
-        const xr = (x+1) + (scale - 1) / 2;
-        const yt = y - (scale - 1) / 2;
-        const yb = (y+1) + (scale - 1) / 2;
-        console.log("xl,yt,xr,yb", xl, yt, xr, yb);
+        const width = moveable.naturalWidth / Math.min(moveable.naturalWidth, moveable.naturalHeight);
+        const height = moveable.naturalHeight / Math.min(moveable.naturalWidth, moveable.naturalHeight);
 
-        const rw = moveable.naturalWidth / scale;
-        const rh = moveable.naturalHeight / scale;
+        const sX = (width * (scale - 1)) / 2;
+        const sY = (height * (scale - 1)) / 2;
+        const xl = x - sX;
+        const yt = y - sY;
+
+        const rw = moveable.naturalWidth / (scale * width);
+        const rh = moveable.naturalHeight / (scale * height);
         const xrl = (-xl) * rw;
         const yrt = (-yt) * rh;
 
@@ -131,10 +170,24 @@
         canvas.width = r;
         canvas.height = r;
 
-        console.log(xrl, yrt, rw, rh, ox, oy, rw, rh);
         ctx.drawImage(moveable, xrl, yrt, rw, rh, ox, oy, rw, rh);
         
         result = canvas.toDataURL('image/png');
+    }
+
+    function save() {
+        calculateResult();
+
+        const link = document.createElement('a');
+        link.download = 'image.png';
+        link.href = result;
+        link.click();
+    }
+
+    function updateAspectRatio() {
+        aspectRatio = moveable?.naturalWidth / moveable?.naturalHeight;
+        reset();
+        applyLimits();
     }
 </script>
 
@@ -142,8 +195,8 @@
 
 <div class="content">
     <div class="images">
-        <div class="wrapper" class:debug={debug}>
-            <img class="moveable" bind:this={moveable} draggable="false" on:mousedown={mouseDown} on:wheel={wheel} style="--scale: {scale}; --x: {x * (moveable?.offsetWidth || 0)}px; --y: {y * (moveable?.offsetHeight || 0)}px" alt="upload a file" />
+        <div class="wrapper" class:debug={debug} style="--size: {pickerSize}px">
+            <img class="moveable" bind:this={moveable} draggable="false" on:mousedown={mouseDown} on:wheel={wheel} on:load={updateAspectRatio} class:wide={aspectRatio > 1} class:high={aspectRatio < 1} style="--scale: {scale}; --x: {x * pickerSize}px; --y: {y * pickerSize}px" alt="upload a file" />
             {#if overlay}
                 <div class="mask"></div>
                 <div class="grid">
@@ -160,27 +213,35 @@
             {/if}
             {#if debug}
                 <!-- Top left -->
-                <div class="dot" style="--x: {(x - (scale - 1) / 2) * (moveable?.offsetWidth || 0)}px; --y: {(y - (scale - 1) / 2) * (moveable?.offsetHeight || 0)}px;"></div>
+                <div class="dot" style="--x: {xlDebug * pickerSize}px; --y: {ytDebug * pickerSize}px;">1</div>
                 <!-- Top right -->
-                <div class="dot" style="--x: {((x+1) + (scale - 1) / 2) * (moveable?.offsetWidth || 0)}px; --y: {(y - (scale - 1) / 2) * (moveable?.offsetHeight || 0)}px;"></div>
+                <div class="dot" style="--x: {xrDebug * pickerSize}px; --y: {ytDebug * pickerSize}px;">2</div>
                 <!-- Bottom left -->
-                <div class="dot" style="--x: {(x - (scale - 1) / 2) * (moveable?.offsetWidth || 0)}px; --y: {((y+1) + (scale - 1) / 2) * (moveable?.offsetHeight || 0)}px;"></div>
+                <div class="dot" style="--x: {xlDebug * pickerSize}px; --y: {ybDebug * pickerSize}px;">3</div>
                 <!-- Bottom right -->
-                <div class="dot" style="--x: {((x+1) + (scale - 1) / 2) * (moveable?.offsetWidth || 0)}px; --y: {((y+1) + (scale - 1) / 2) * (moveable?.offsetHeight || 0)}px;"></div>
+                <div class="dot" style="--x: {xrDebug * pickerSize}px; --y: {ybDebug * pickerSize}px;">4</div>
             {/if}
         </div>
-        <img class="result" src={result} alt="result"/>
+        {#if debug}
+            <img class="result" style="--size: {pickerSize}px" src={result} alt="result"/>
+        {/if}
     </div>
 
     <div>
         <input type="file" bind:files={files}/>
         <button class="button primary" on:click={reset}>Reset</button>
+        <button class="button primary" on:click={save}>Save</button>
         <button class="button primary" on:click={() => (overlay = !overlay)}>{overlay ? "Hide" : "Show"} Overlay</button>
         <button class="button primary" on:click={() => (debug = !debug)}>{debug ? "Hide" : "Show"} Debug</button>
     </div>
     <input type="range" min={minScale} max={maxScale} step="0.01" bind:value={scale} />
 
     <span>{scale}x</span>
+    <span>x:{x}, y:{y}</span>
+
+    <span>xl:{xlDebug}, xr:{xrDebug}</span>
+    <span>yt:{ytDebug}</span>
+    <span>yb:{ybDebug}</span>
 </div>
 
 <style lang="scss">
@@ -206,13 +267,13 @@
 
     .result {
         background-color: $bgColor2;
-        width: 40rem;
-        height: 40rem;
+        width: var(--size);
+        height: var(--size);
     }
 
     .wrapper {
-        width: 40rem;
-        height: 40rem;
+        width: var(--size);
+        height: var(--size);
         position: relative;
         background-color: $bgColor;
 
@@ -287,9 +348,19 @@
     .moveable {
         position: absolute;
         cursor: move;
+        transform-origin: center;
         transform: translate(var(--x), var(--y)) scale(var(--scale));
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
+        min-width: 100%;
+        min-height: 100%;
+
+        &.wide {
+            min-width: 100%;
+            max-height: 100%;
+        }
+
+        &.high {
+            min-height: 100%;
+            max-width: 100%;
+        }
     }
 </style>

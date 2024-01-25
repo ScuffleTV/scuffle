@@ -1,88 +1,299 @@
 <script lang="ts">
-	import { onMount } from "svelte";
+    // Don't touch this when you don't know what you're doing
+    // You've gotta do the 5Head math shit to understand most of this
 
-    let canvas: HTMLCanvasElement;
-    let image: HTMLImageElement;
+    // When you actually want to understand this, here are a few acronyms I used
+    //
+    // Normalized space:
+    // xl: x left
+    // xr: x right
+    // yt: y top
+    // yb: y bottom
+    //
+    // Real Pixel Space:
+    // rw: real width
+    // rh: real height
+    // rd: real dimension
+    // xrl: x real left
+    // yrt: y real top
+    // ox: offset x
+    // oy: offset y
 
-    function rescale() {
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(image, 960/2-100, 540/2-100, 200, 200, 0, 0, 100, 100);
-    }
+    export let overlay = true;
+    export let gridOverlay = false;
+    export let size = 40 * 16;
+    export let minScale = 1;
+    export let maxScale = 2;
+    export let src: string;
 
-    let moveable: HTMLElement;
     let mouseStartX: number;
     let mouseStartY: number;
-    $: xLimit = (moveable?.parentElement?.offsetWidth || 0) - moveable?.offsetWidth;
-    $: yLimit = (moveable?.parentElement?.offsetHeight || 0) - moveable?.offsetHeight;
+    let moveable: HTMLImageElement;
+    let aspectRatio: number = 0;
 
-    onMount(() => {
-        moveable.addEventListener('mousedown', mouseDown);
-        return () => {
-            moveable.removeEventListener('mousedown', mouseDown);
-            removeListeners();
-        };
-    });
+    // x and y are the normalized coordinates of the top left corner of the unscaled image (scale=1)
+    // In normalized space (0,0) is left/top and (1,1) is right/bottom
+    let x = 0;
+    let y = 0;
+
+    // between minScale and maxScale
+    let scale = 1;
+
+    $: applyLimits(), scale;
+
+    // If the image is currently grabbed
+    let moving = false;
+
+    function applyLimits() {
+        if (!moveable) return;
+
+        const width = moveable.naturalWidth / Math.min(moveable.naturalWidth, moveable.naturalHeight);
+        const height = moveable.naturalHeight / Math.min(moveable.naturalWidth, moveable.naturalHeight);
+
+        const minLimitX = 1 - width * scale;
+        const minLimitY = 1 - height * scale;
+        const maxLimit = 0;
+
+        const sX = (width * (scale - 1)) / 2;
+        const sY = (height * (scale - 1)) / 2;
+        const xl = x - sX;
+        const yt = y - sY;
+
+        // Limit movement to parent element
+        if (xl > maxLimit) {
+            x = maxLimit + sX;
+        } else if (xl < minLimitX) {
+            x = minLimitX + sX;
+        }
+        if (yt > maxLimit) {
+            y = maxLimit + sY;
+        } else if (yt < minLimitY) {
+            y = minLimitY + sY;
+        }
+    }
+
+    function reset() {
+        // Reset scale
+        scale = 1;
+        // Reset position
+        center();
+        applyLimits();
+    }
+
+    // Center the image on the viewport
+    function center() {
+        if (moveable) {   
+            const width = moveable.naturalWidth / Math.min(moveable.naturalWidth, moveable.naturalHeight);
+            const height = moveable.naturalHeight / Math.min(moveable.naturalWidth, moveable.naturalHeight);
+            x = -(width / 2 - 0.5);
+            y = -(height / 2 - 0.5);
+        } else {
+            x = 0;
+            y = 0;
+        }
+    }
 
     function mouseDown(e: MouseEvent) {
         e.preventDefault();
-        mouseStartX = e.clientX - moveable.offsetLeft;
-        mouseStartY = e.clientY - moveable.offsetTop;
-        document.addEventListener('mousemove', mouseMove);
-        document.addEventListener('mouseup', removeListeners);
+        const xs = x * size;
+        const ys = y * size;
+        mouseStartX = e.clientX - xs;
+        mouseStartY = e.clientY - ys;
+        moving = true;
     }
 
     function mouseMove(e: MouseEvent) {
+        if (!moving) return;
+
         e.preventDefault();
 
-        let newX = e.clientX - mouseStartX;
-        let newY = e.clientY - mouseStartY;
-
-        // Limit movement to parent element
-        if (newX < 0) {
-            newX = 0;
-        } else if (newX > xLimit) {
-            newX = xLimit;
-        }
-        if (newY < 0) {
-            newY = 0;
-        } else if (newY > yLimit) {
-            newY = yLimit;
-        }
-
         // Update element position
-        moveable.style.left = newX + 'px';
-        moveable.style.top = newY + 'px';
+        x = (e.clientX - mouseStartX) / size;
+        y = (e.clientY - mouseStartY) / size;
+
+        applyLimits();
     }
 
-    function removeListeners() {
-        document.removeEventListener('mousemove', mouseMove);
-        document.removeEventListener('mouseup', removeListeners);
+    function mouseUp() {
+        moving = false;
+    }
+
+    function wheel(e: WheelEvent) {
+        e.preventDefault();
+
+        scale += e.deltaY * -0.001;
+        scale = Math.min(Math.max(minScale, scale), maxScale);
+    }
+
+    export function calculateResult() {
+        if (!moveable) return;
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) return;
+
+        const width = moveable.naturalWidth / Math.min(moveable.naturalWidth, moveable.naturalHeight);
+        const height = moveable.naturalHeight / Math.min(moveable.naturalWidth, moveable.naturalHeight);
+
+        const sX = (width * (scale - 1)) / 2;
+        const sY = (height * (scale - 1)) / 2;
+        const xl = x - sX;
+        const yt = y - sY;
+
+        const rw = moveable.naturalWidth / (scale * width);
+        const rh = moveable.naturalHeight / (scale * height);
+        const xrl = (-xl) * rw;
+        const yrt = (-yt) * rh;
+
+        const rd = Math.min(rw, rh);
+        const ox = (rd - rw) / 2;
+        const oy = (rd - rh) / 2;
+
+        canvas.width = rd;
+        canvas.height = rd;
+
+        ctx.drawImage(moveable, xrl, yrt, rw, rh, ox, oy, rw, rh);
+
+        return canvas.toDataURL('image/png');
+    }
+
+    function updateAspectRatio() {
+        aspectRatio = moveable?.naturalWidth / moveable?.naturalHeight;
+        reset();
+        applyLimits();
     }
 </script>
 
-<!-- <canvas bind:this={canvas}></canvas> -->
-<!-- <img bind:this={image} on:load={rescale} src="/banner.jpeg" /> -->
+<svelte:window on:mousemove={mouseMove} on:mouseup={mouseUp} />
 
-<div class="wrapper">
-    <div class="moveable" bind:this={moveable}>
-        Move me
+<div class="content">
+    <div class="images">
+        <div class="wrapper" style="--size: {size}px">
+            <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+            <img class="moveable" src={src} bind:this={moveable} draggable="false" on:mousedown={mouseDown} on:wheel={wheel} on:load={updateAspectRatio} class:wide={aspectRatio > 1} class:high={aspectRatio < 1} style="--scale: {scale}; --x: {x * size}px; --y: {y * size}px" alt="upload a file" />
+            {#if overlay}
+                <div class="mask"></div>
+            {/if}
+            {#if gridOverlay}
+                <div class="grid">
+                    <div></div>
+                    <div class="y-axis"></div>
+                    <div></div>
+                    <div class="x-axis"></div>
+                    <div class="center"></div>
+                    <div class="x-axis"></div>
+                    <div></div>
+                    <div class="y-axis"></div>
+                    <div></div>
+                </div>
+            {/if}
+        </div>
     </div>
 </div>
 
 <style lang="scss">
+    @import "../../assets/styles/variables.scss";
+
+    .content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100vw;
+        height: 100%;
+    }
+
+    .images {
+        display: flex;
+        justify-content: center;
+        gap: 2rem;
+        width: 100%;
+        margin-bottom: 2rem;
+        margin: 5rem;
+    }
+
     .wrapper {
-        margin: 10rem;
-        width: 50rem;
-        height: 50rem;
+        width: var(--size);
+        height: var(--size);
         position: relative;
-        background: #eee;
+        background-color: $bgColor;
+
+        &:not(.debug) {
+            overflow: hidden;
+        }
+    }
+
+    .mask {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        background: radial-gradient(transparent 70.5%, rgba(0, 0, 0, 0.75) 70.5%);
+        pointer-events: none;
+
+        &:after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            border: 5px solid white;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+    }
+
+    .grid {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        pointer-events: none;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+
+        & > * {
+            border-style: solid;
+            border-color: white;
+            border-width: 0;
+        }
+
+        & > .y-axis {
+            border-left-width: 1px;
+            border-right-width: 1px;
+        }
+
+        & > .x-axis {
+            border-top-width: 1px;
+            border-bottom-width: 1px;
+        }
+
+        & > .center {
+            border-width: 1px;
+        }
     }
 
     .moveable {
-        width: 10rem;
-        height: 10rem;
-        background: #ccc;
         position: absolute;
         cursor: move;
+        transform-origin: center;
+        transform: translate(var(--x), var(--y)) scale(var(--scale));
+        min-width: 100%;
+        min-height: 100%;
+
+        &.wide {
+            min-width: 100%;
+            max-height: 100%;
+        }
+
+        &.high {
+            min-height: 100%;
+            max-width: 100%;
+        }
     }
 </style>

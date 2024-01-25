@@ -22,8 +22,10 @@
     export let overlay = true;
     export let gridOverlay = false;
     export let size = 40 * 16;
-    export let minScale = 1;
-    export let maxScale = 2;
+    // between minScale and maxScale
+    export let scale = 1;
+    export let minScale: number;
+    export let maxScale: number;
     export let src: string;
 
     let mouseStartX: number;
@@ -35,9 +37,6 @@
     // In normalized space (0,0) is left/top and (1,1) is right/bottom
     let x = 0;
     let y = 0;
-
-    // between minScale and maxScale
-    let scale = 1;
 
     $: applyLimits(), scale;
 
@@ -125,7 +124,7 @@
         scale = Math.min(Math.max(minScale, scale), maxScale);
     }
 
-    export function calculateResult() {
+    export function calculateResult(callback: BlobCallback) {
         if (!moveable) return;
 
         const canvas = document.createElement('canvas');
@@ -155,7 +154,7 @@
 
         ctx.drawImage(moveable, xrl, yrt, rw, rh, ox, oy, rw, rh);
 
-        return canvas.toDataURL('image/png');
+        canvas.toBlob(callback, "image/png");
     }
 
     function updateAspectRatio() {
@@ -167,51 +166,29 @@
 
 <svelte:window on:mousemove={mouseMove} on:mouseup={mouseUp} />
 
-<div class="content">
-    <div class="images">
-        <div class="wrapper" style="--size: {size}px">
-            <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-            <img class="moveable" src={src} bind:this={moveable} draggable="false" on:mousedown={mouseDown} on:wheel={wheel} on:load={updateAspectRatio} class:wide={aspectRatio > 1} class:high={aspectRatio < 1} style="--scale: {scale}; --x: {x * size}px; --y: {y * size}px" alt="upload a file" />
-            {#if overlay}
-                <div class="mask"></div>
-            {/if}
-            {#if gridOverlay}
-                <div class="grid">
-                    <div></div>
-                    <div class="y-axis"></div>
-                    <div></div>
-                    <div class="x-axis"></div>
-                    <div class="center"></div>
-                    <div class="x-axis"></div>
-                    <div></div>
-                    <div class="y-axis"></div>
-                    <div></div>
-                </div>
-            {/if}
+<div class="wrapper" style="--size: {size}px">
+    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+    <img class="moveable" src={src} bind:this={moveable} draggable="false" on:mousedown={mouseDown} on:wheel={wheel} on:load={updateAspectRatio} class:wide={aspectRatio > 1} class:high={aspectRatio < 1} style="--scale: {scale}; --x: {x * size}px; --y: {y * size}px" alt="upload a file" />
+    {#if overlay}
+        <div class="mask"></div>
+    {/if}
+    {#if gridOverlay}
+        <div class="grid">
+            <div></div>
+            <div class="y-axis"></div>
+            <div></div>
+            <div class="x-axis"></div>
+            <div class="center"></div>
+            <div class="x-axis"></div>
+            <div></div>
+            <div class="y-axis"></div>
+            <div></div>
         </div>
-    </div>
+    {/if}
 </div>
 
 <style lang="scss">
     @import "../../assets/styles/variables.scss";
-
-    .content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        width: 100vw;
-        height: 100%;
-    }
-
-    .images {
-        display: flex;
-        justify-content: center;
-        gap: 2rem;
-        width: 100%;
-        margin-bottom: 2rem;
-        margin: 5rem;
-    }
 
     .wrapper {
         width: var(--size);
@@ -230,7 +207,7 @@
         left: 0;
         bottom: 0;
         right: 0;
-        background: radial-gradient(transparent 70.5%, rgba(0, 0, 0, 0.75) 70.5%);
+        background: radial-gradient(transparent 70.5%, rgba(0, 0, 0, 0.5) 70.5%);
         pointer-events: none;
 
         &:after {
@@ -240,7 +217,7 @@
             left: 0;
             bottom: 0;
             right: 0;
-            border: 5px solid white;
+            border: 2px solid white;
             border-radius: 50%;
             pointer-events: none;
         }
@@ -285,15 +262,19 @@
         transform: translate(var(--x), var(--y)) scale(var(--scale));
         min-width: 100%;
         min-height: 100%;
+        max-width: 100%;
+        max-height: 100%;
 
         &.wide {
             min-width: 100%;
+            max-width: unset;
             max-height: 100%;
         }
 
         &.high {
             min-height: 100%;
             max-width: 100%;
+            max-height: unset;
         }
     }
 </style>

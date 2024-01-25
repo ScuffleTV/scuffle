@@ -255,7 +255,11 @@
 		/>
 	{/if}
 	{#if avatarSrc}
-		<ImageEditorDialog src={avatarSrc} on:close={resetAvatarFile} on:submit={(e) => uploadProfilePicture(e.detail.blob)} />
+		<ImageEditorDialog
+			src={avatarSrc}
+			on:close={resetAvatarFile}
+			on:submit={(e) => uploadProfilePicture(e.detail.blob)}
+		/>
 	{/if}
 	<SectionContainer>
 		<Section title="Profile Picture" details="Personalize your account with a profile picture.">

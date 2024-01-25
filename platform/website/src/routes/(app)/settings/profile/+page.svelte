@@ -261,7 +261,11 @@
 						on:pending={resetStatus}
 						on:uploading={() => (status = Status.Saving)}>Upload Picture</FileUploadButton
 					>
-					<button class="button secondary" on:click={removeOfflineBanner} disabled={!$user.channel.offlineBanner}>
+					<button
+						class="button secondary"
+						on:click={removeOfflineBanner}
+						disabled={!$user.channel.offlineBanner}
+					>
 						<Fa icon={faTrashAlt} />
 						Remove Picture
 					</button>

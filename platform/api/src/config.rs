@@ -15,6 +15,9 @@ pub struct ApiConfig {
 
 	/// Max profile picture upload size
 	pub max_profile_picture_size: usize,
+
+	/// Max offline banner upload size
+	pub max_offline_banner_size: usize,
 }
 
 impl Default for ApiConfig {
@@ -23,6 +26,7 @@ impl Default for ApiConfig {
 			bind_address: "[::]:4000".parse().expect("failed to parse bind address"),
 			tls: None,
 			max_profile_picture_size: 5 * 1024 * 1024, // 5 MB
+			max_offline_banner_size: 10 * 1024 * 1024, // 10 MB
 		}
 	}
 }
@@ -82,6 +86,9 @@ pub struct ImageUploaderConfig {
 
 	/// Igdb image task priority, higher number means higher priority
 	pub igdb_image_task_priority: i32,
+
+	/// Offline banner task priority, higher number means higher priority
+	pub offline_banner_task_priority: i64,
 }
 
 impl Default for ImageUploaderConfig {
@@ -89,8 +96,9 @@ impl Default for ImageUploaderConfig {
 		Self {
 			bucket: S3BucketConfig::default(),
 			callback_subject: "scuffle-platform-image_processor-callback".to_string(),
-			public_endpoint: "https://images.scuffle.tv/scuffle-image-processor-public".to_string(),
 			profile_picture_task_priority: 2,
+			offline_banner_task_priority: 2,
+			public_endpoint: "https://images.scuffle.tv/scuffle-image-processor-public".to_string(),
 			igdb_image_task_priority: 1,
 		}
 	}

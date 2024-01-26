@@ -5,6 +5,8 @@ use postgres_types::{FromSql, ToSql};
 pub enum FileType {
 	#[postgres(name = "profile_picture")]
 	ProfilePicture,
+	#[postgres(name = "offline_banner")]
+	OfflineBanner,
 	#[postgres(name = "category_cover")]
 	CategoryCover,
 	#[postgres(name = "category_artwork")]

@@ -99,17 +99,17 @@ pub async fn handle<G: IngestGlobal, S: AsyncReadWrite>(global: Arc<G>, socket: 
 	let fut = pin!(session.run());
 	let mut session = RtmpSession::new(fut, publish, data);
 
-	let Ok(Some(event)) = select! {
-		_ = global.ctx().done() => {
-			tracing::debug!("Global context closed, closing connection");
-			return;
-		},
-		d = session.publish() => d,
-		_ = tokio::time::sleep(Duration::from_secs(5)) => {
-			tracing::debug!("session timed out before publish request");
-			return;
-		},
-	} else {
+	let Ok(Some(event)) = select! (
+	   _ = global.ctx().done() => {
+		   tracing::debug!("Global context closed, closing connection");
+		   return;
+	   },
+	   d = session.publish() => d,
+	   _ = tokio::time::sleep(Duration::from_secs(5)) => {
+		   tracing::debug!("session timed out before publish request");
+		   return;
+	   },
+	) else {
 		tracing::debug!("connection disconnected before publish");
 		return;
 	};

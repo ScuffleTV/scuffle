@@ -2,7 +2,6 @@
 	import Fa from "svelte-fa";
 	import { faCircleQuestion } from "@fortawesome/free-regular-svg-icons";
 	import { faHouse, faUser } from "@fortawesome/free-solid-svg-icons";
-
 	import { sideNavCollapsed, sideNavHidden } from "$store/layout";
 	import SideNavStreamerCard from "$components/side-nav/streamer-card.svelte";
 	import { page } from "$app/stores";
@@ -168,7 +167,8 @@
 		<button class="show-more">show more</button>
 	</div> -->
 
-	<a href="/about" class="about hide-on-mobile">
+	<!-- We have to disable preloading for this link because of a Svelte bug that applies global styles of a page before actually clicking the link to the page -->
+	<a href="/about" class="about hide-on-mobile" data-sveltekit-preload-data="off">
 		<Fa icon={faCircleQuestion} />
 		What is Scuffle?
 	</a>

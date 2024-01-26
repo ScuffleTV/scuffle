@@ -2,13 +2,14 @@ use std::sync::Arc;
 
 use aws_sdk_s3::types::ObjectCannedAcl;
 use bytes::Bytes;
+use common::database::deadpool_postgres::Transaction;
 use common::http::ext::ResultExt;
 use common::http::RouteError;
 use common::make_response;
 use common::s3::PutObjectOptions;
 use hyper::{Response, StatusCode};
 use pb::scuffle::platform::internal::image_processor;
-use pb::scuffle::platform::internal::types::{uploaded_file_metadata, ImageFormat, UploadedFileMetadata};
+use pb::scuffle::platform::internal::types::{uploaded_file_metadata, UploadedFileMetadata};
 use serde_json::json;
 use ulid::Ulid;
 
@@ -16,41 +17,14 @@ use super::UploadType;
 use crate::api::auth::AuthData;
 use crate::api::error::ApiError;
 use crate::api::Body;
-use crate::config::{ApiConfig, ImageUploaderConfig};
-use crate::database::{FileType, RolePermission, UploadedFileStatus};
+use crate::database::{FileType, UploadedFileStatus};
 use crate::global::ApiGlobal;
 
-fn create_task(file_id: Ulid, input_path: &str, config: &ImageUploaderConfig, owner_id: Ulid) -> image_processor::Task {
-	image_processor::Task {
-		input_path: input_path.to_string(),
-		base_height: 128, // 128, 256, 384, 512
-		base_width: 128,  // 128, 256, 384, 512
-		formats: vec![
-			ImageFormat::PngStatic as i32,
-			ImageFormat::AvifStatic as i32,
-			ImageFormat::WebpStatic as i32,
-			ImageFormat::Gif as i32,
-			ImageFormat::Webp as i32,
-			ImageFormat::Avif as i32,
-		],
-		callback_subject: config.callback_subject.clone(),
-		limits: Some(image_processor::task::Limits {
-			max_input_duration_ms: 10 * 1000, // 10 seconds
-			max_input_frame_count: 300,
-			max_input_height: 1000,
-			max_input_width: 1000,
-			max_processing_time_ms: 60 * 1000, // 60 seconds
-		}),
-		resize_algorithm: image_processor::task::ResizeAlgorithm::Lanczos3 as i32,
-		upscale: true, // For profile pictures we want to have a consistent size
-		scales: vec![1, 2, 3, 4],
-		resize_method: image_processor::task::ResizeMethod::PadCenter as i32,
-		output_prefix: format!("{owner_id}/{file_id}"),
-	}
-}
+pub(crate) mod offline_banner;
+pub(crate) mod profile_picture;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-enum AcceptedFormats {
+pub(super) enum AcceptedFormats {
 	Webp,
 	Avif,
 	Avifs,
@@ -132,23 +106,37 @@ impl AcceptedFormats {
 	}
 }
 
-#[derive(Default, serde::Deserialize)]
-#[serde(default)]
-pub(super) struct ProfilePicture {
-	set_active: bool,
+pub(super) trait ImageUploadRequest {
+	fn create_task<G: ApiGlobal>(
+		global: &Arc<G>,
+		auth: &AuthData,
+		format: AcceptedFormats,
+		file_id: Ulid,
+		owner_id: Ulid,
+	) -> image_processor::Task;
+
+	fn task_priority<G: ApiGlobal>(global: &Arc<G>) -> i64;
+
+	fn get_max_size<G: ApiGlobal>(global: &Arc<G>) -> usize;
+
+	fn validate_permissions(auth: &AuthData) -> bool;
+
+	fn file_type<G: ApiGlobal>(global: &Arc<G>) -> FileType;
+
+	async fn process(&self, auth: &AuthData, tx: &Transaction, file_id: Ulid) -> Result<(), RouteError<ApiError>>;
 }
 
-impl UploadType for ProfilePicture {
-	fn validate_format<G: ApiGlobal>(_: &Arc<G>, _: &AuthData, content_type: &str) -> bool {
+impl<T: ImageUploadRequest + serde::de::DeserializeOwned + Default> UploadType for T {
+	fn validate_format<G: ApiGlobal>(_global: &Arc<G>, _auth: &AuthData, content_type: &str) -> bool {
 		AcceptedFormats::from_content_type(content_type).is_some()
 	}
 
 	fn validate_permissions(&self, auth: &AuthData) -> bool {
-		auth.user_permissions.has_permission(RolePermission::UploadProfilePicture)
+		T::validate_permissions(auth)
 	}
 
 	fn get_max_size<G: ApiGlobal>(global: &Arc<G>) -> usize {
-		global.config::<ApiConfig>().max_profile_picture_size
+		T::get_max_size(global)
 	}
 
 	async fn handle<G: ApiGlobal>(
@@ -164,14 +152,9 @@ impl UploadType for ProfilePicture {
 
 		let file_id = Ulid::new();
 
-		let config = global.config::<ImageUploaderConfig>();
+		let task = T::create_task(global, &auth, image_format, file_id, auth.session.user_id);
 
-		let input_path = format!(
-			"{}/profile_pictures/{}/source.{}",
-			auth.session.user_id,
-			file_id,
-			image_format.ext()
-		);
+		let input_path = task.input_path.clone();
 
 		let mut client = global
 			.db()
@@ -185,13 +168,8 @@ impl UploadType for ProfilePicture {
 
 		common::database::query("INSERT INTO image_jobs (id, priority, task) VALUES ($1, $2, $3)")
 			.bind(file_id)
-			.bind(config.profile_picture_task_priority)
-			.bind(common::database::Protobuf(create_task(
-				file_id,
-				&input_path,
-				config,
-				auth.session.user_id,
-			)))
+			.bind(T::task_priority(global))
+			.bind(common::database::Protobuf(task))
 			.build()
 			.execute(&tx)
 			.await
@@ -202,7 +180,7 @@ impl UploadType for ProfilePicture {
             .bind(auth.session.user_id) // owner_id
             .bind(auth.session.user_id) // uploader_id
             .bind(name.unwrap_or_else(|| format!("untitled.{}", image_format.ext()))) // name
-            .bind(FileType::ProfilePicture) // type
+            .bind(T::file_type(global)) // type
             .bind(common::database::Protobuf(UploadedFileMetadata {
 				metadata: Some(uploaded_file_metadata::Metadata::Image(uploaded_file_metadata::Image {
 					versions: Vec::new(),
@@ -216,15 +194,7 @@ impl UploadType for ProfilePicture {
             .await
             .map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to insert uploaded file"))?;
 
-		if self.set_active {
-			common::database::query("UPDATE users SET pending_profile_picture_id = $1 WHERE id = $2")
-				.bind(file_id)
-				.bind(auth.session.user_id)
-				.build()
-				.execute(&tx)
-				.await
-				.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to update user"))?;
-		}
+		T::process(&self, &auth, &tx, file_id).await?;
 
 		global
 			.image_uploader_s3()

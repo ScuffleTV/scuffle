@@ -9,6 +9,7 @@ use crate::api::auth::AuthError;
 use crate::api::v1::gql::error::ext::*;
 use crate::api::v1::gql::error::{GqlError, Result};
 use crate::api::v1::gql::ext::ContextExt;
+use crate::api::v1::gql::models::image_upload::ImageUpload;
 use crate::api::v1::gql::models::ulid::GqlUlid;
 use crate::global::ApiGlobal;
 use crate::subscription::SubscriptionTopic;
@@ -33,8 +34,88 @@ struct ChannelLiveStream {
 	pub live: bool,
 }
 
+#[derive(SimpleObject)]
+struct ChannelOfflineBannerStream<G: ApiGlobal> {
+	pub channel_id: GqlUlid,
+	pub offline_banner: Option<ImageUpload<G>>,
+}
+
 #[Subscription]
 impl<G: ApiGlobal> ChannelSubscription<G> {
+	async fn channel_offline_banner<'ctx>(
+		&self,
+		ctx: &'ctx Context<'ctx>,
+		channel_id: GqlUlid,
+	) -> Result<impl Stream<Item = Result<ChannelOfflineBannerStream<G>>> + 'ctx> {
+		let global = ctx.get_global::<G>();
+
+		let Some(offline_banner_id) = global
+			.user_by_id_loader()
+			.load(channel_id.to_ulid())
+			.await
+			.map_err_ignored_gql("failed to fetch channel")?
+			.map(|u| u.channel.offline_banner_id)
+		else {
+			return Err(GqlError::InvalidInput {
+				fields: vec!["channelId"],
+				message: "channel not found",
+			}
+			.into());
+		};
+
+		let mut subscription = global
+			.subscription_manager()
+			.subscribe(SubscriptionTopic::ChannelOfflineBanner(channel_id.to_ulid()))
+			.await
+			.map_err_gql("failed to subscribe to channel offline banner")?;
+
+		let offline_banner = if let Some(offline_banner_id) = offline_banner_id {
+			global
+				.uploaded_file_by_id_loader()
+				.load(offline_banner_id)
+				.await
+				.map_err_ignored_gql("failed to fetch offline banner")?
+				.map(ImageUpload::from_uploaded_file)
+				.transpose()?
+				.flatten()
+		} else {
+			None
+		};
+
+		Ok(async_stream::stream!({
+			yield Ok(ChannelOfflineBannerStream {
+				channel_id,
+				offline_banner,
+			});
+
+			while let Ok(message) = subscription.recv().await {
+				let event = pb::scuffle::platform::internal::events::ChannelOfflineBanner::decode(message.payload)
+					.map_err_ignored_gql("failed to decode channel offline banner event")?;
+
+				let channel_id = event.channel_id.into_ulid();
+				let offline_banner_id = event.offline_banner_id.map(|u| u.into_ulid());
+
+				let offline_banner = if let Some(offline_banner_id) = offline_banner_id {
+					global
+						.uploaded_file_by_id_loader()
+						.load(offline_banner_id)
+						.await
+						.map_err_ignored_gql("failed to fetch offline banner")?
+						.map(ImageUpload::from_uploaded_file)
+						.transpose()?
+						.flatten()
+				} else {
+					None
+				};
+
+				yield Ok(ChannelOfflineBannerStream {
+					channel_id: channel_id.into(),
+					offline_banner,
+				});
+			}
+		}))
+	}
+
 	async fn channel_follows<'ctx>(
 		&self,
 		ctx: &'ctx Context<'ctx>,

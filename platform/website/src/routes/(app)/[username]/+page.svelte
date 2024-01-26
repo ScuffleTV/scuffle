@@ -78,12 +78,6 @@
 <div class="content">
 	<div class="user-container" class:dev class:top-nav-hidden={$topNavHidden}>
 		{#if data.user.channel.live}
-			<!-- <Player
-				edgeEndpoint={data.user.channel.live.edgeEndpoint}
-				organizationId={data.user.channel.live.organizationId}
-				roomId={data.user.channel.live.roomId}
-				playerToken={data.user.channel.live.playerToken ?? undefined}
-			/> -->
 			<Player live={data.user.channel.live} />
 		{/if}
 		<div class="under-player" class:hide-on-mobile={!chatCollapsed}>

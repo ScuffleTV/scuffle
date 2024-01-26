@@ -1,6 +1,6 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-CREATE TYPE file_type AS ENUM ('profile_picture', 'category_cover', 'category_artwork');
+CREATE TYPE file_type AS ENUM ('profile_picture', 'offline_banner', 'category_cover', 'category_artwork');
 
 CREATE TYPE uploaded_file_status AS ENUM ('unqueued', 'queued', 'failed', 'completed');
 
@@ -41,6 +41,7 @@ CREATE TABLE users (
     channel_links JSONB NOT NULL DEFAULT '[]'::JSONB,
     channel_custom_thumbnail_id UUID,
     channel_offline_banner_id UUID,
+    channel_pending_offline_banner_id UUID,
     channel_category_id UUID,
     channel_stream_key VARCHAR(256),
     channel_role_order UUID[] NOT NULL DEFAULT '{}'::UUID[],

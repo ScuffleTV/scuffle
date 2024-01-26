@@ -47,6 +47,18 @@ export async function load({ params, parent }: LayoutLoadEvent) {
 									liveViewerCount
 								}
 								description
+								offlineBanner {
+									id
+									variants {
+										width
+										height
+										scale
+										url
+										format
+										byteSize
+									}
+									endpoint
+								}
 								followersCount
 								links {
 									name

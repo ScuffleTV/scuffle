@@ -38,6 +38,19 @@ export function getUser(client: Client) {
 							lastLoginAt
 							channel {
 								id
+								pendingOfflineBannerId
+								offlineBanner {
+									id
+									variants {
+										width
+										height
+										scale
+										url
+										format
+										byteSize
+									}
+									endpoint
+								}
 								live {
 									roomId
 								}

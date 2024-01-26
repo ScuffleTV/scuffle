@@ -9,6 +9,7 @@
 	import BrandIcon from "$/components/icons/brand-icon.svelte";
 	import { userId } from "$/store/auth";
 	import ProfilePicture from "$/components/user/profile-picture.svelte";
+	import OfflineBanner from "$/components/channel/offline-banner.svelte";
 
 	export let data: LayoutData;
 	$: channelId = data.user.id;
@@ -37,7 +38,12 @@
 
 <div class="content">
 	<div class="offline-page">
-		<div class="offline-banner">
+		<!-- 100vw width on mobile, calc(100vw - sidebar) width on desktop -->
+		<OfflineBanner
+			channelId={data.user.id}
+			bind:offlineBanner={data.user.channel.offlineBanner}
+			fullPageWidth="(max-width: 768px) 100vw, calc(100vw - 16rem)"
+		>
 			<div class="user-card">
 				<div class="user-info">
 					<!-- Wrapper div -->
@@ -70,7 +76,7 @@
 					</ul>
 				{/if}
 			</div>
-		</div>
+		</OfflineBanner>
 		<div class="page" class:hide-on-mobile={!chatCollapsed}>
 			<div class="row">
 				<TabSelector tabs={offlineTabs} />
@@ -104,85 +110,73 @@
 		}
 	}
 
-	.offline-banner {
-		background: url("/xqc-offline-banner.jpeg");
-		background-size: cover;
-		background-position: center;
+	.user-card {
+		background-color: $bgColor;
+		padding: 1rem;
+		border-radius: 0.5rem;
+		border: 2px solid $borderColor;
+		margin: 1rem;
 
-		aspect-ratio: 5 / 1;
+		max-width: 20rem;
 
 		display: flex;
-		align-items: center;
+		flex-direction: column;
+		gap: 1rem;
 
-		padding: 1rem;
+		& > .user-info {
+			display: grid;
+			grid-template-areas: "avatar name" "avatar followers";
+			justify-content: start;
+			column-gap: 1rem;
+			row-gap: 0.25rem;
+			grid-template-rows: 1fr 1fr;
 
-		& > .user-card {
-			background-color: $bgColor;
-			padding: 1rem;
-			border-radius: 0.5rem;
-			border: 2px solid $borderColor;
+			& > .avatar {
+				grid-area: avatar;
+			}
 
-			max-width: 20rem;
+			& > .name {
+				grid-area: name;
+				align-self: end;
 
-			display: flex;
-			flex-direction: column;
-			gap: 1rem;
+				font-size: 1.5rem;
+				font-weight: 600;
+				line-height: 0.9em;
 
-			& > .user-info {
-				display: grid;
-				grid-template-areas: "avatar name" "avatar followers";
-				justify-content: start;
-				column-gap: 0.5rem;
-				row-gap: 0.25rem;
-				grid-template-rows: 1fr 1fr;
+				color: $textColor;
+			}
 
-				& > .avatar {
-					grid-area: avatar;
-				}
+			& > .followers {
+				grid-area: followers;
+				align-self: start;
 
-				& > .name {
-					grid-area: name;
-					align-self: end;
+				font-weight: 500;
+				color: $textColorLight;
+			}
+		}
 
-					font-size: 1.25rem;
-					font-weight: 600;
-					line-height: 0.9em;
+		& > .description {
+			color: $textColorLighter;
+			text-wrap: wrap;
+		}
 
+		& > .socials {
+			list-style: none;
+			margin: 0;
+			padding: 0;
+
+			& > li {
+				padding: 0.15rem 0;
+
+				& > a {
 					color: $textColor;
-				}
-
-				& > .followers {
-					grid-area: followers;
-					align-self: start;
-
+					text-decoration: none;
 					font-weight: 500;
-					color: $textColorLight;
-				}
-			}
 
-			& > .description {
-				color: $textColorLighter;
-				text-wrap: wrap;
-			}
-
-			& > .socials {
-				list-style: none;
-				margin: 0;
-				padding: 0;
-
-				& > li {
-					padding: 0.15rem 0;
-
-					& > a {
-						color: $textColor;
-						text-decoration: none;
-						font-weight: 500;
-
-						&:hover,
-						&:focus-visible {
-							& > span {
-								text-decoration: underline;
-							}
+					&:hover,
+					&:focus-visible {
+						& > span {
+							text-decoration: underline;
 						}
 					}
 				}

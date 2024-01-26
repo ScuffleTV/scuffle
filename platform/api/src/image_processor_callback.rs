@@ -182,6 +182,32 @@ async fn handle_message<G: ApiGlobal>(
 						None
 					}
 				}
+				FileType::OfflineBanner => {
+					let owner_id = uploaded_file
+						.owner_id
+						.ok_or_else(|| anyhow::anyhow!("uploaded file owner id is null"))?;
+
+					if common::database::query("UPDATE users SET channel_offline_banner_id = $1, channel_pending_offline_banner_id = NULL, updated_at = NOW() WHERE id = $2 AND channel_pending_offline_banner_id = $3")
+						.bind(uploaded_file.id)
+						.bind(owner_id)
+						.bind(uploaded_file.id)
+						.build()
+						.execute(&tx)
+						.await
+						.context("failed to update user")? == 1 {
+						Some((
+							SubscriptionTopic::ChannelOfflineBanner(uploaded_file.owner_id.unwrap()),
+							pb::scuffle::platform::internal::events::ChannelOfflineBanner {
+								channel_id: Some(uploaded_file.owner_id.unwrap().into()),
+								offline_banner_id: Some(uploaded_file.id.into()),
+							}
+							.encode_to_vec()
+							.into(),
+						))
+					} else {
+						None
+					}
+				},
 				FileType::CategoryCover => None,
 				FileType::CategoryArtwork => None,
 			};
@@ -227,6 +253,21 @@ async fn handle_message<G: ApiGlobal>(
 
 					common::database::query(
 						"UPDATE users SET pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $1 AND pending_profile_picture_id = $2",
+					)
+					.bind(owner_id)
+					.bind(uploaded_file.id)
+					.build()
+					.execute(&tx)
+					.await
+					.context("failed to update user")?;
+				}
+				FileType::OfflineBanner => {
+					let owner_id = uploaded_file
+						.owner_id
+						.ok_or_else(|| anyhow::anyhow!("uploaded file owner id is null"))?;
+
+					common::database::query(
+						"UPDATE users SET channel_pending_offline_banner_id = NULL, updated_at = NOW() WHERE id = $1 AND channel_pending_offline_banner_id = $2",
 					)
 					.bind(owner_id)
 					.bind(uploaded_file.id)

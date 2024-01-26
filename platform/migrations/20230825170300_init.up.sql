@@ -1,6 +1,6 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-CREATE TYPE file_type AS ENUM ('profile_picture', 'category_cover', 'category_artwork');
+CREATE TYPE file_type AS ENUM ('profile_picture', 'offline_banner', 'category_cover', 'category_artwork');
 
 CREATE TYPE uploaded_file_status AS ENUM ('unqueued', 'queued', 'failed', 'completed');
 

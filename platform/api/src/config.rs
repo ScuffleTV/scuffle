@@ -99,7 +99,6 @@ impl Default for ImageUploaderConfig {
 			profile_picture_task_priority: 2,
 			offline_banner_task_priority: 2,
 			public_endpoint: "https://images.scuffle.tv/scuffle-image-processor-public".to_string(),
-			profile_picture_task_priority: 2,
 			igdb_image_task_priority: 1,
 		}
 	}

@@ -250,7 +250,11 @@
 						<Spinner />
 					</div>
 				{:else}
-					<OfflineBanner channelId={$userId} bind:offlineBanner={$user.channel.offlineBanner} />
+					<OfflineBanner channelId={$userId} bind:offlineBanner={$user.channel.offlineBanner}>
+						{#if !$user.channel.offlineBanner}
+							<p class="no-banner">No offline banner</p>
+						{/if}
+					</OfflineBanner>
 				{/if}
 				<div class="buttons">
 					<FileUploadButton
@@ -346,6 +350,11 @@
 		width: 100%;
 		aspect-ratio: 5 / 1;
 		background-color: $bgColorLight;
+	}
+
+	.no-banner {
+		color: $textColorLight;
+		margin: 1.5rem auto;
 	}
 
 	.input.display-color {

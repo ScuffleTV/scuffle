@@ -207,7 +207,7 @@ async fn handle_message<G: ApiGlobal>(
 					} else {
 						None
 					}
-				},
+				}
 				FileType::CategoryCover => None,
 				FileType::CategoryArtwork => None,
 			};

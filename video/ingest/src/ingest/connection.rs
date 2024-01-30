@@ -22,6 +22,8 @@ use tokio::time::Instant;
 use tonic::{Status, Streaming};
 use transmuxer::{AudioSettings, MediaSegment, TransmuxResult, Transmuxer, VideoSettings};
 use ulid::Ulid;
+use utils::context::ContextExt;
+use utils::prelude::FutureTimeout;
 use video_common::database::RoomStatus;
 use video_common::{events, keys};
 
@@ -99,17 +101,7 @@ pub async fn handle<G: IngestGlobal, S: AsyncReadWrite>(global: Arc<G>, socket: 
 	let fut = pin!(session.run());
 	let mut session = RtmpSession::new(fut, publish, data);
 
-	let Ok(Some(event)) = select! {
-		_ = global.ctx().done() => {
-			tracing::debug!("Global context closed, closing connection");
-			return;
-		},
-		d = session.publish() => d,
-		_ = tokio::time::sleep(Duration::from_secs(5)) => {
-			tracing::debug!("session timed out before publish request");
-			return;
-		},
-	} else {
+	let Ok(Ok(Ok(Some(event)))) = session.publish().context(global.ctx()).timeout(Duration::from_secs(5)).await else {
 		tracing::debug!("connection disconnected before publish");
 		return;
 	};
@@ -184,7 +176,7 @@ impl Connection {
 
 		let id = Ulid::new();
 
-		let result: Option<Response> = common::database::query(
+		let result: Option<Response> = utils::database::query(
 			r#"
             UPDATE rooms as new
             SET 
@@ -500,7 +492,7 @@ impl Connection {
 					WhichTranscoder::Current => {
 						self.current_transcoder = None;
 						self.current_transcoder_id = Ulid::nil();
-						match common::database::query(
+						match utils::database::query(
 							r#"
                             UPDATE rooms
                             SET 
@@ -715,7 +707,7 @@ impl Connection {
 		}
 		.encode_to_vec();
 
-		match common::database::query(
+		match utils::database::query(
 			r#"
 			UPDATE rooms
 			SET 
@@ -1095,7 +1087,7 @@ impl Connection {
 		)
 		.await;
 
-		common::database::query(
+		utils::database::query(
 			r#"
 			UPDATE rooms
 			SET

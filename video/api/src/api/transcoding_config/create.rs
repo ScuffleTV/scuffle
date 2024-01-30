@@ -28,8 +28,8 @@ pub fn validate(req: &TranscodingConfigCreateRequest) -> tonic::Result<()> {
 pub fn build_query(
 	req: &TranscodingConfigCreateRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<common::database::QueryBuilder<'static>> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> tonic::Result<utils::database::QueryBuilder<'static>> {
+	let mut qb = utils::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<TranscodingConfigCreateRequest as TonicRequest>::Table::NAME)
@@ -59,7 +59,7 @@ pub fn build_query(
 	seperated.push_bind(Ulid::new());
 	seperated.push_bind(access_token.organization_id);
 	seperated.push_bind(renditions.into_iter().collect::<Vec<_>>());
-	seperated.push_bind(common::database::Json(req.tags.clone().unwrap_or_default().tags));
+	seperated.push_bind(utils::database::Json(req.tags.clone().unwrap_or_default().tags));
 
 	qb.push(") RETURNING *");
 

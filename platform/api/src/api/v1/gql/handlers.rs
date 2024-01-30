@@ -4,10 +4,12 @@ use std::sync::Arc;
 
 use async_graphql::http::{WebSocketProtocols, WsMessage};
 use async_graphql::Data;
+use binary_helper::global::RequestGlobalExt;
 use bytes::Bytes;
-use common::http::ext::*;
-use common::http::router::compat::BodyExt as _;
-use common::http::router::ext::RequestExt;
+use utils::context::ContextExt;
+use utils::http::ext::*;
+use utils::http::router::compat::BodyExt as _;
+use utils::http::router::ext::RequestExt;
 use futures_util::{SinkExt, StreamExt};
 use http_body_util::Full;
 use hyper::body::Incoming;
@@ -17,7 +19,6 @@ use hyper_tungstenite::tungstenite::protocol::CloseFrame;
 use hyper_tungstenite::tungstenite::Message;
 use hyper_tungstenite::HyperWebsocket;
 use serde_json::json;
-use tokio::select;
 
 use super::error::GqlError;
 use super::ext::RequestExt as _;
@@ -101,11 +102,10 @@ async fn websocket_handler<G: ApiGlobal>(
 	// TODO: Gracefully shutdown the stream forward.
 	//  This is interesting since when we shutdown we interrupt the stream forward
 	// rather then waiting for the stream to finish.
-	select! {
-		_ = stream.forward(&mut tx) => {}
-		_ = global.ctx().done() => {
-			tx.send(Message::Close(Some(CloseFrame { code: CloseCode::Restart, reason: "server is restarting".into() }))).await.ok();
-		}
+	if stream.forward(&mut tx).context(global.ctx()).await.is_err() {
+		tx.send(Message::Close(Some(CloseFrame { code: CloseCode::Restart, reason: "server is restarting".into() }))).await.ok();
+	} else {
+		tx.close().await.ok();
 	}
 }
 

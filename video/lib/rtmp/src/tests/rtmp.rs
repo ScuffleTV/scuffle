@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use common::prelude::FutureTimeout;
+use utils::prelude::FutureTimeout;
 use tokio::process::Command;
 use tokio::sync::mpsc;
 

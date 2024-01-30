@@ -3,8 +3,8 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use binary_helper::global::{setup_database, setup_nats};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
-use common::context::Context;
-use common::global::{GlobalCtx, GlobalDb, GlobalNats};
+use utils::context::Context;
+use binary_helper::global::{GlobalCtx, GlobalDb, GlobalNats};
 use platform_image_processor::config::ImageProcessorConfig;
 use tokio::select;
 
@@ -23,18 +23,18 @@ type AppConfig = binary_helper::config::AppConfig<ExtConfig>;
 
 struct GlobalState {
 	ctx: Context,
-	db: Arc<common::database::Pool>,
+	db: Arc<utils::database::Pool>,
 	config: AppConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	s3_source_bucket: common::s3::Bucket,
-	s3_target_bucket: common::s3::Bucket,
+	s3_source_bucket: binary_helper::s3::Bucket,
+	s3_target_bucket: binary_helper::s3::Bucket,
 	http_client: reqwest::Client,
 }
 
 impl_global_traits!(GlobalState);
 
-impl common::global::GlobalConfigProvider<ImageProcessorConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<ImageProcessorConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &ImageProcessorConfig {
 		&self.config.extra.image_processor
@@ -43,12 +43,12 @@ impl common::global::GlobalConfigProvider<ImageProcessorConfig> for GlobalState 
 
 impl platform_image_processor::global::ImageProcessorState for GlobalState {
 	#[inline(always)]
-	fn s3_source_bucket(&self) -> &common::s3::Bucket {
+	fn s3_source_bucket(&self) -> &binary_helper::s3::Bucket {
 		&self.s3_source_bucket
 	}
 
 	#[inline(always)]
-	fn s3_target_bucket(&self) -> &common::s3::Bucket {
+	fn s3_target_bucket(&self) -> &binary_helper::s3::Bucket {
 		&self.s3_target_bucket
 	}
 

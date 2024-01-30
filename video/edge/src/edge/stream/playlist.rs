@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use common::database::non_null_vec;
-use common::http::ext::*;
+use utils::database::non_null_vec;
+use utils::http::ext::*;
 use hyper::StatusCode;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::LiveRenditionManifest;
@@ -144,7 +144,7 @@ pub fn recording_playlist<G: EdgeGlobal>(
 
 pub async fn rendition_playlist<G: EdgeGlobal>(
 	global: &Arc<G>,
-	client: &common::database::tokio_postgres::Client,
+	client: &utils::database::tokio_postgres::Client,
 	session: &SessionClaims,
 	config: &HlsConfig,
 	rendition: Rendition,
@@ -192,7 +192,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 	};
 
 	let recording_data = if let Some((recording_id, skip, active_idx)) = recording_data {
-		common::database::query(
+		utils::database::query(
 			r#"
             SELECT
                 s.public_url,
@@ -239,7 +239,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 		);
 
 		if !*skip {
-			let recording_rendition: RecordingRenditionExt = common::database::query(
+			let recording_rendition: RecordingRenditionExt = utils::database::query(
 				r#"
                 WITH filtered_renditions AS (
                     SELECT recording_id, rendition
@@ -271,7 +271,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?
 			.ok_or((StatusCode::NOT_FOUND, "recording no longer exists"))?;
 
-			let recording_thumbnails: Vec<RecordingThumbnail> = common::database::query(
+			let recording_thumbnails: Vec<RecordingThumbnail> = utils::database::query(
 				r#"
                 SELECT
                     *

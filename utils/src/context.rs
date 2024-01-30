@@ -32,6 +32,10 @@ impl Display for CancelReason {
 	}
 }
 
+trait CtxInternal {
+	fn done(&self) -> impl Future<Output = CancelReason> + Send + Sync;
+}
+
 impl RawContext {
 	#[must_use]
 	fn new() -> (Self, Handler) {
@@ -162,5 +166,47 @@ impl Context {
 
 	pub fn is_done(&self) -> bool {
 		self.0.is_done()
+	}
+}
+
+pub trait ContextExt {
+	fn context(self, ctx: &Context) -> FutureWithContext<'_, Self>
+	where
+		Self: Sized;
+}
+
+impl<F: Future> ContextExt for F {
+	fn context(self, ctx: &Context) -> FutureWithContext<'_, Self> {
+		FutureWithContext {
+			future: self,
+			ctx: ctx.done(),
+		}
+	}
+}
+
+#[pin_project::pin_project]
+pub struct FutureWithContext<'a, F> {
+	#[pin]
+	future: F,
+	ctx: Pin<Box<dyn Future<Output = CancelReason> + 'a + Send + Sync>>,
+}
+
+impl<'a, F: Future> Future for FutureWithContext<'a, F> {
+	type Output = Result<F::Output, CancelReason>;
+
+	fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+		let this = self.as_mut().project();
+
+		match this.ctx.as_mut().poll(cx) {
+			std::task::Poll::Ready(reason) => {
+				return std::task::Poll::Ready(Err(reason));
+			}
+			std::task::Poll::Pending => {}
+		}
+
+		match this.future.poll(cx) {
+			std::task::Poll::Ready(v) => std::task::Poll::Ready(Ok(v)),
+			std::task::Poll::Pending => std::task::Poll::Pending,
+		}
 	}
 }

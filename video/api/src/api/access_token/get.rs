@@ -20,8 +20,8 @@ impl_request_scopes!(
 pub fn build_query(
 	req: &AccessTokenGetRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<common::database::QueryBuilder<'static>> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> tonic::Result<utils::database::QueryBuilder<'static>> {
+	let mut qb = utils::database::QueryBuilder::default();
 	qb.push("SELECT * FROM ")
 		.push(<AccessTokenGetRequest as TonicRequest>::Table::NAME)
 		.push(" WHERE ");

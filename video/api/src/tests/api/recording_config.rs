@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use common::global::GlobalDb;
+use binary_helper::global::GlobalDb;
 use pb::ext::UlidExt;
 use pb::scuffle::video::v1::recording_config_modify_request::{LifecyclePolicyList, RenditionList};
 use pb::scuffle::video::v1::types::{RecordingLifecyclePolicy, SearchOptions, Tags};

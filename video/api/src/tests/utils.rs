@@ -3,8 +3,8 @@ use std::ops::Add;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::context::Handler;
-use common::prelude::FutureTimeout;
+use utils::context::Handler;
+use utils::prelude::FutureTimeout;
 use pb::scuffle::video::v1::types::{access_token_scope, AccessTokenScope};
 use ulid::Ulid;
 use video_common::database::AccessToken;
@@ -14,11 +14,11 @@ use crate::config::ApiConfig;
 use crate::global::ApiGlobal;
 
 pub async fn create_organization(global: &Arc<impl ApiGlobal>) -> video_common::database::Organization {
-	common::database::query("INSERT INTO organizations (id, name, updated_at, tags) VALUES ($1, $2, $3, $4) RETURNING *")
+	utils::database::query("INSERT INTO organizations (id, name, updated_at, tags) VALUES ($1, $2, $3, $4) RETURNING *")
 		.bind(Ulid::new())
 		.bind("test")
 		.bind(chrono::Utc::now())
-		.bind(common::database::Json(std::collections::HashMap::<String, String>::default()))
+		.bind(utils::database::Json(std::collections::HashMap::<String, String>::default()))
 		.build_query_as()
 		.fetch_one(global.db())
 		.await
@@ -28,10 +28,10 @@ pub async fn create_organization(global: &Arc<impl ApiGlobal>) -> video_common::
 pub async fn create_access_token(
 	global: &Arc<impl ApiGlobal>,
 	organization_id: &Ulid,
-	scopes: Vec<common::database::Protobuf<AccessTokenScope>>,
+	scopes: Vec<utils::database::Protobuf<AccessTokenScope>>,
 	tags: std::collections::HashMap<String, String>,
 ) -> video_common::database::AccessToken {
-	common::database::query("INSERT INTO access_tokens (id, organization_id, secret_token, last_active_at, updated_at, expires_at, scopes, tags) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *")
+	utils::database::query("INSERT INTO access_tokens (id, organization_id, secret_token, last_active_at, updated_at, expires_at, scopes, tags) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *")
 		.bind(Ulid::new())
 		.bind(organization_id)
 		.bind(Ulid::new())
@@ -39,7 +39,7 @@ pub async fn create_access_token(
 		.bind(chrono::Utc::now())
 		.bind(chrono::Utc::now().add(chrono::Duration::days(1)))
 		.bind(scopes)
-		.bind(common::database::Json(tags))
+		.bind(utils::database::Json(tags))
 		.build_query_as().fetch_one(global.db()).await.unwrap()
 }
 
@@ -50,7 +50,7 @@ pub async fn setup(config: ApiConfig) -> (Arc<GlobalState>, Handler, AccessToken
 	let access_token = create_access_token(
 		&global,
 		&org.id,
-		vec![common::database::Protobuf(AccessTokenScope {
+		vec![utils::database::Protobuf(AccessTokenScope {
 			permission: vec![access_token_scope::Permission::Admin.into()],
 			resource: None,
 		})],

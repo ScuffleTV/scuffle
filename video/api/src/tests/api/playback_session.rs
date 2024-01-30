@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 
 use chrono::Utc;
-use common::global::GlobalDb;
+use binary_helper::global::GlobalDb;
 use pb::scuffle::video::v1::types::{playback_session_target, PlaybackSessionTarget, SearchOptions};
 use pb::scuffle::video::v1::{
 	playback_session_count_request, PlaybackSessionCountRequest, PlaybackSessionCountResponse, PlaybackSessionGetRequest,
@@ -358,7 +358,7 @@ async fn test_playback_session_revoke() {
 
 	assert_eq!(response.revoked, 200);
 
-	let revoke_before: chrono::DateTime<chrono::Utc> = common::database::query("SELECT revoke_before FROM playback_session_revocations WHERE organization_id = $1 AND room_id = $2 AND recording_id IS NULL AND user_id IS NULL").bind(access_token.organization_id).bind(room.id).build_query_single_scalar().fetch_one(global.db()).await.expect("fetching revocations should be successful");
+	let revoke_before: chrono::DateTime<chrono::Utc> = ::utils::database::query("SELECT revoke_before FROM playback_session_revocations WHERE organization_id = $1 AND room_id = $2 AND recording_id IS NULL AND user_id IS NULL").bind(access_token.organization_id).bind(room.id).build_query_single_scalar().fetch_one(global.db()).await.expect("fetching revocations should be successful");
 
 	// Assert that the revoke_before is within 5 seconds of now
 	assert!(
@@ -384,7 +384,7 @@ async fn test_playback_session_revoke() {
 
 	assert_eq!(response.revoked, 100);
 
-	let revoke_before: chrono::DateTime<chrono::Utc> = common::database::query("SELECT revoke_before FROM playback_session_revocations WHERE organization_id = $1 AND room_id IS NULL AND recording_id = $2 AND user_id IS NULL").bind(access_token.organization_id).bind(recording.id).build_query_single_scalar().fetch_one(global.db()).await.expect("fetching revocations should be successful");
+	let revoke_before: chrono::DateTime<chrono::Utc> = ::utils::database::query("SELECT revoke_before FROM playback_session_revocations WHERE organization_id = $1 AND room_id IS NULL AND recording_id = $2 AND user_id IS NULL").bind(access_token.organization_id).bind(recording.id).build_query_single_scalar().fetch_one(global.db()).await.expect("fetching revocations should be successful");
 
 	assert!(
 		revoke_before > chrono::Utc::now() - chrono::Duration::seconds(5),
@@ -409,7 +409,7 @@ async fn test_playback_session_revoke() {
 
 	assert_eq!(response.revoked, 1);
 
-	let revoke_before: chrono::DateTime<chrono::Utc> = common::database::query("SELECT revoke_before FROM playback_session_revocations WHERE organization_id = $1 AND room_id IS NULL AND recording_id = $2 AND user_id = $3").bind(access_token.organization_id).bind(recording.id).bind("test-0").build_query_single_scalar().fetch_one(global.db()).await.expect("fetching revocations should be successful");
+	let revoke_before: chrono::DateTime<chrono::Utc> = ::utils::database::query("SELECT revoke_before FROM playback_session_revocations WHERE organization_id = $1 AND room_id IS NULL AND recording_id = $2 AND user_id = $3").bind(access_token.organization_id).bind(recording.id).bind("test-0").build_query_single_scalar().fetch_one(global.db()).await.expect("fetching revocations should be successful");
 
 	assert!(
 		revoke_before > chrono::Utc::now() - chrono::Duration::seconds(5),

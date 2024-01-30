@@ -40,7 +40,7 @@ thiserror = "1.0"
 http-body-util = "0.1"
 hyper-util = "0.1"
 
-common = { workspace = true, features = ["default"] }
+utils = { workspace = true, features = ["all"] }
 config = { workspace = true }
 pb = { workspace = true }
 video-common = { workspace = true }

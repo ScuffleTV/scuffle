@@ -314,7 +314,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			uploaded_file_id: Ulid,
 		}
 
-		common::database::query("INSERT INTO igdb_image (uploaded_file_id, image_id)")
+		utils::database::query("INSERT INTO igdb_image (uploaded_file_id, image_id)")
 			.push_values(&image_ids, |mut sep, item| {
 				sep.push_bind(item.0);
 				sep.push_bind(item.1);
@@ -326,7 +326,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			.context("insert igdb_image")?;
 
 		let image_ids =
-			common::database::query("SELECT image_id, uploaded_file_id FROM igdb_image WHERE image_id = ANY($1::TEXT[])")
+			utils::database::query("SELECT image_id, uploaded_file_id FROM igdb_image WHERE image_id = ANY($1::TEXT[])")
 				.bind(image_ids.iter().map(|x| x.1).collect::<Vec<_>>())
 				.build_query_as::<ImageId>()
 				.fetch_all(&tx)
@@ -388,12 +388,12 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			.collect::<Vec<_>>();
 
 		let uploaded_files_ids =
-			common::database::query("INSERT INTO uploaded_files (id, name, type, metadata, total_size, path, status) ")
+			utils::database::query("INSERT INTO uploaded_files (id, name, type, metadata, total_size, path, status) ")
 				.push_values(&uploaded_files, |mut sep, item| {
 					sep.push_bind(item.id);
 					sep.push_bind(&item.name);
 					sep.push_bind(item.ty);
-					sep.push_bind(common::database::Protobuf(item.metadata.clone()));
+					sep.push_bind(utils::database::Protobuf(item.metadata.clone()));
 					sep.push_bind(item.total_size);
 					sep.push_bind(&item.path);
 					sep.push_bind(item.status);
@@ -433,7 +433,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 		offset += resp.len();
 		let count = resp.len();
 
-		let categories = common::database::query("INSERT INTO categories (id, igdb_id, name, aliases, keywords, storyline, summary, over_18, cover_id, rating, updated_at, artwork_ids, igdb_similar_game_ids, websites) ")
+		let categories = utils::database::query("INSERT INTO categories (id, igdb_id, name, aliases, keywords, storyline, summary, over_18, cover_id, rating, updated_at, artwork_ids, igdb_similar_game_ids, websites) ")
 			.push_values(&resp, |mut sep, item| {
 			sep.push_bind(item.id);
 			sep.push_bind(item.igdb_id);
@@ -480,7 +480,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			})
 			.collect::<HashMap<_, _>>();
 
-		common::database::query("WITH updated(id, category) AS (")
+		utils::database::query("WITH updated(id, category) AS (")
 			.push_values(categories.iter().collect::<Vec<_>>(), |mut sep, item| {
 				sep.push_bind(item.0).push_unseparated("::UUID");
 				sep.push_bind(item.1).push_unseparated("::UUID");
@@ -505,7 +505,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 				.await
 				.context("start transaction image_jobs")?;
 
-			let unqueued = common::database::query(
+			let unqueued = utils::database::query(
 				"UPDATE uploaded_files SET status = 'queued' WHERE id = ANY($1::UUID[]) AND status = 'unqueued' RETURNING id, path;",
 			)
 			.bind(uploaded_files_ids)
@@ -515,10 +515,10 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			.context("update uploaded_files")?;
 
 			if !unqueued.is_empty() {
-				common::database::query("INSERT INTO image_jobs (id, priority, task) ")
+				utils::database::query("INSERT INTO image_jobs (id, priority, task) ")
 					.bind(image_processor_config.igdb_image_task_priority as i64)
 					.push_values(unqueued, |mut sep, (id, path)| {
-						sep.push_bind(id).push("$1").push_bind(common::database::Protobuf(create_task(
+						sep.push_bind(id).push("$1").push_bind(utils::database::Protobuf(create_task(
 							categories[&id],
 							id,
 							path,

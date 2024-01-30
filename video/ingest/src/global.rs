@@ -19,11 +19,11 @@ pub trait IngestState {
 }
 
 pub trait IngestGlobal:
-	common::global::GlobalCtx
-	+ common::global::GlobalConfigProvider<IngestConfig>
-	+ common::global::GlobalNats
-	+ common::global::GlobalDb
-	+ common::global::GlobalConfig
+	binary_helper::global::GlobalCtx
+	+ binary_helper::global::GlobalConfigProvider<IngestConfig>
+	+ binary_helper::global::GlobalNats
+	+ binary_helper::global::GlobalDb
+	+ binary_helper::global::GlobalConfig
 	+ IngestState
 	+ Send
 	+ Sync
@@ -32,11 +32,11 @@ pub trait IngestGlobal:
 }
 
 impl<T> IngestGlobal for T where
-	T: common::global::GlobalCtx
-		+ common::global::GlobalConfigProvider<IngestConfig>
-		+ common::global::GlobalNats
-		+ common::global::GlobalDb
-		+ common::global::GlobalConfig
+	T: binary_helper::global::GlobalCtx
+		+ binary_helper::global::GlobalConfigProvider<IngestConfig>
+		+ binary_helper::global::GlobalNats
+		+ binary_helper::global::GlobalDb
+		+ binary_helper::global::GlobalConfig
 		+ IngestState
 		+ Send
 		+ Sync

@@ -6,8 +6,8 @@ use async_nats::jetstream::consumer::pull::Config;
 use async_nats::jetstream::consumer::DeliverPolicy;
 use async_nats::jetstream::stream::RetentionPolicy;
 use futures::StreamExt;
-use tokio::select;
 use tokio_util::sync::CancellationToken;
+use utils::context::ContextExt;
 
 use crate::config::TranscoderConfig;
 use crate::global::TranscoderGlobal;
@@ -49,28 +49,20 @@ pub async fn run<G: TranscoderGlobal>(global: Arc<G>) -> Result<()> {
 	let child_token = shutdown_token.child_token();
 	let _drop_guard = shutdown_token.clone().drop_guard();
 
-	loop {
-		select! {
-			m = messages.next() => {
-				let Some(m) = m else {
-					bail!("nats stream closed");
-				};
 
-				let m = match m {
-					Ok(m) => m,
-					Err(e) => {
-						tracing::error!("error receiving message: {}", e);
-						continue;
-					}
-				};
-
-				tokio::spawn(handle_message(global.clone(), m, child_token.clone()));
+	while let Ok(m) = messages.next().context(global.ctx()).await {
+		let m = match m {
+			Some(Ok(m)) => m,
+			Some(Err(e)) => {
+				tracing::error!("error receiving message: {}", e);
+				continue;
 			},
-			_ = global.ctx().done() => {
-				tracing::debug!("context done");
-				break;
+			None => {
+				bail!("nats stream closed");
 			}
-		}
+		};
+
+		tokio::spawn(handle_message(global.clone(), m, child_token.clone()));
 	}
 
 	drop(messages);

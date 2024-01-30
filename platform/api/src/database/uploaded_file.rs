@@ -1,4 +1,4 @@
-use common::database::protobuf;
+use utils::database::protobuf;
 use ulid::Ulid;
 
 use super::{FileType, UploadedFileStatus};

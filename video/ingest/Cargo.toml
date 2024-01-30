@@ -33,7 +33,7 @@ tokio-stream = "0.1"
 default-net = "0.21"
 postgres-from-row = "0.5"
 
-common = { workspace = true, features = ["default"] }
+utils = { workspace = true, features = ["all"] }
 rtmp = { workspace = true }
 bytesio = { workspace = true }
 flv = { workspace = true }

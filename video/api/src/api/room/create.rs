@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use common::database::IntoClient;
+use utils::database::IntoClient;
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, Resource};
@@ -30,8 +30,8 @@ pub async fn build_query(
 	req: &RoomCreateRequest,
 	client: impl IntoClient,
 	access_token: &AccessToken,
-) -> tonic::Result<common::database::QueryBuilder<'static>> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> tonic::Result<utils::database::QueryBuilder<'static>> {
+	let mut qb = utils::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<RoomCreateRequest as TonicRequest>::Table::NAME)
@@ -50,7 +50,7 @@ pub async fn build_query(
 	qb.push(") VALUES (");
 
 	let transcoding_config_id = if let Some(transcoding_config_id) = &req.transcoding_config_id {
-		common::database::query("SELECT * FROM transcoding_configs WHERE id = $1 AND organization_id = $2")
+		utils::database::query("SELECT * FROM transcoding_configs WHERE id = $1 AND organization_id = $2")
 			.bind(transcoding_config_id.into_ulid())
 			.bind(access_token.organization_id)
 			.build()
@@ -68,7 +68,7 @@ pub async fn build_query(
 	};
 
 	let recording_config_id = if let Some(recording_config_id) = &req.recording_config_id {
-		common::database::query("SELECT * FROM recording_configs WHERE id = $1 AND organization_id = $2")
+		utils::database::query("SELECT * FROM recording_configs WHERE id = $1 AND organization_id = $2")
 			.bind(recording_config_id.into_ulid())
 			.bind(access_token.organization_id)
 			.build()
@@ -97,7 +97,7 @@ pub async fn build_query(
 	seperated.push_bind(recording_config_id);
 	seperated.push_bind(Visibility::from(visibility));
 	seperated.push_bind(create_stream_key());
-	seperated.push_bind(common::database::Json(req.tags.clone().unwrap_or_default().tags));
+	seperated.push_bind(utils::database::Json(req.tags.clone().unwrap_or_default().tags));
 
 	qb.push(") RETURNING *");
 

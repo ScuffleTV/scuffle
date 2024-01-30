@@ -4,10 +4,10 @@ use anyhow::Context as _;
 use async_nats::jetstream::stream::{self, RetentionPolicy};
 use binary_helper::global::{setup_database, setup_nats, setup_redis};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
-use common::config::RedisConfig;
-use common::context::Context;
-use common::dataloader::DataLoader;
-use common::global::{GlobalCtx, GlobalDb, GlobalNats};
+use binary_helper::config::RedisConfig;
+use utils::context::Context;
+use utils::dataloader::DataLoader;
+use binary_helper::global::{GlobalCtx, GlobalDb, GlobalNats};
 use tokio::select;
 use video_api::config::ApiConfig;
 use video_api::dataloaders;
@@ -33,7 +33,7 @@ struct GlobalState {
 	config: AppConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<common::database::Pool>,
+	db: Arc<utils::database::Pool>,
 	redis: Arc<fred::clients::RedisPool>,
 	access_token_loader: DataLoader<dataloaders::AccessTokenLoader>,
 	recording_state_loader: DataLoader<dataloaders::RecordingStateLoader>,
@@ -43,14 +43,14 @@ struct GlobalState {
 
 impl_global_traits!(GlobalState);
 
-impl common::global::GlobalRedis for GlobalState {
+impl binary_helper::global::GlobalRedis for GlobalState {
 	#[inline(always)]
 	fn redis(&self) -> &Arc<fred::clients::RedisPool> {
 		&self.redis
 	}
 }
 
-impl common::global::GlobalConfigProvider<ApiConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<ApiConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &ApiConfig {
 		&self.config.extra.api
@@ -89,7 +89,7 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 		let recording_state_loader = dataloaders::RecordingStateLoader::new(db.clone());
 		let room_loader = dataloaders::RoomLoader::new(db.clone());
 
-		common::ratelimiter::load_rate_limiter_script(&*redis)
+		utils::ratelimiter::load_rate_limiter_script(&*redis)
 			.await
 			.context("failed to load rate limiter script")?;
 

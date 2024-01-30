@@ -20,7 +20,7 @@ tracing = "0.1"
 
 bytesio = { workspace = true, features = ["default"] }
 amf0 = { workspace = true }
-common = { workspace = true }
+utils = { workspace = true }
 
 [dev-dependencies]
 tokio = { version = "1.35", features = ["full"] }

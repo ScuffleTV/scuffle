@@ -4,10 +4,11 @@ use std::time::Duration;
 
 use anyhow::Context;
 use bytes::Bytes;
-use common::http::router::middleware::Middleware;
-use common::http::router::Router;
-use common::http::RouteError;
-use common::prelude::FutureTimeout;
+use utils::context::ContextExt;
+use utils::http::router::middleware::Middleware;
+use utils::http::router::Router;
+use utils::http::RouteError;
+use utils::prelude::FutureTimeout;
 use http_body_util::Full;
 use hyper::body::Incoming;
 use hyper::http::header;
@@ -16,7 +17,6 @@ use hyper::service::service_fn;
 use hyper::StatusCode;
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpSocket;
-use tokio::select;
 
 use crate::config::EdgeConfig;
 use crate::global::EdgeGlobal;
@@ -52,7 +52,7 @@ pub fn routes<G: EdgeGlobal>(global: &Arc<G>) -> Router<Incoming, Body, RouteErr
 	let weak = Arc::downgrade(global);
 	Router::builder()
 		.data(weak)
-		.error_handler(common::http::error_handler::<EdgeError, _>)
+		.error_handler(utils::http::error_handler::<EdgeError, _>)
 		.middleware(cors_middleware(global))
 		.scope("/", stream::routes(global))
 		.not_found(|_| async move { Err((StatusCode::NOT_FOUND, "not found").into()) })
@@ -104,45 +104,40 @@ pub async fn run<G: EdgeGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 	// connections
 	let router = Arc::new(routes(&global));
 
-	loop {
-		select! {
-			_ = global.ctx().done() => {
-				return Ok(());
-			},
-			r = listener.accept() => {
-				let (socket, addr) = r?;
+	while let Ok(r) = listener.accept().context(global.ctx()).await {
+		let (socket, addr) = r?;
 
-				let router = router.clone();
-				let service = service_fn(move |mut req| {
-					req.extensions_mut().insert(addr);
-					let this = router.clone();
-					async move { this.handle(req).await }
-				});
+		let router = router.clone();
+		let service = service_fn(move |mut req| {
+			req.extensions_mut().insert(addr);
+			let this = router.clone();
+			async move { this.handle(req).await }
+		});
 
-				let tls_acceptor = tls_acceptor.clone();
+		let tls_acceptor = tls_acceptor.clone();
 
-				tracing::debug!("Accepted connection from {}", addr);
+		tracing::debug!("Accepted connection from {}", addr);
 
-				tokio::spawn(async move {
-					let http = http1::Builder::new();
+		tokio::spawn(async move {
+			let http = http1::Builder::new();
 
-					if let Some(tls_acceptor) = tls_acceptor {
-						let Ok(Ok(socket)) = tls_acceptor.accept(socket).timeout(Duration::from_secs(5)).await else {
-							return;
-						};
-						tracing::debug!("TLS handshake complete");
-						http.serve_connection(
-							TokioIo::new(socket),
-							service,
-						).with_upgrades().await.ok();
-					} else {
-						http.serve_connection(
-							TokioIo::new(socket),
-							service,
-						).with_upgrades().await.ok();
-					}
-				});
-			},
-		}
+			if let Some(tls_acceptor) = tls_acceptor {
+				let Ok(Ok(socket)) = tls_acceptor.accept(socket).timeout(Duration::from_secs(5)).await else {
+					return;
+				};
+				tracing::debug!("TLS handshake complete");
+				http.serve_connection(
+					TokioIo::new(socket),
+					service,
+				).with_upgrades().await.ok();
+			} else {
+				http.serve_connection(
+					TokioIo::new(socket),
+					service,
+				).with_upgrades().await.ok();
+			}
+		});
 	}
+
+	Ok(())
 }

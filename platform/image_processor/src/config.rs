@@ -1,4 +1,4 @@
-use common::config::{S3BucketConfig, S3CredentialsConfig};
+use binary_helper::config::{S3BucketConfig, S3CredentialsConfig};
 use ulid::Ulid;
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]

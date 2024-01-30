@@ -10,7 +10,6 @@ use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::types::ObjectCannedAcl;
 use bytes::Bytes;
 
-#[cfg(feature = "config")]
 use crate::config::S3BucketConfig;
 use crate::config::S3CredentialsConfig;
 
@@ -26,7 +25,6 @@ pub struct PutObjectOptions {
 	pub content_type: Option<String>,
 }
 
-#[cfg(feature = "config")]
 impl From<S3CredentialsConfig> for Credentials {
 	fn from(value: S3CredentialsConfig) -> Self {
 		Self::from_keys(
@@ -37,7 +35,6 @@ impl From<S3CredentialsConfig> for Credentials {
 	}
 }
 
-#[cfg(feature = "config")]
 impl S3BucketConfig {
 	pub fn setup(&self) -> Bucket {
 		Bucket::new(

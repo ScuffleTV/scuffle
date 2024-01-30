@@ -8,8 +8,8 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use common::global::*;
-use common::prelude::FutureTimeout;
+use binary_helper::global::*;
+use utils::prelude::FutureTimeout;
 use futures_util::Stream;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::events::TranscoderRequestTask;
@@ -114,7 +114,7 @@ async fn test_transcode() {
 	let room_id = Ulid::new();
 	let connection_id = Ulid::new();
 
-	common::database::query(
+	utils::database::query(
 		r#"
     INSERT INTO organizations (
         id,
@@ -131,7 +131,7 @@ async fn test_transcode() {
 	.await
 	.unwrap();
 
-	common::database::query(
+	utils::database::query(
 		r#"
     INSERT INTO rooms (
         id,
@@ -545,7 +545,7 @@ async fn test_transcode() {
 	assert_eq!(json["streams"][0]["duration_ts"], 48128);
 	assert_eq!(json["streams"][0]["time_base"], "1/48000");
 
-	let room: Room = common::database::query(
+	let room: Room = utils::database::query(
 		"SELECT * FROM rooms WHERE organization_id = $1 AND id = $2 AND active_ingest_connection_id = $3",
 	)
 	.bind(org_id)
@@ -651,7 +651,7 @@ async fn test_transcode_reconnect() {
 	let room_id = Ulid::new();
 	let connection_id = Ulid::new();
 
-	common::database::query(
+	utils::database::query(
 		r#"
     INSERT INTO organizations (
         id,
@@ -668,7 +668,7 @@ async fn test_transcode_reconnect() {
 	.await
 	.unwrap();
 
-	common::database::query(
+	utils::database::query(
 		r#"
     INSERT INTO rooms (
         organization_id,

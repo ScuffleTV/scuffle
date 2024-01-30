@@ -1,13 +1,16 @@
 use std::io;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 use anyhow::Context as _;
 use async_nats::ServerAddr;
-use common::config::{DatabaseConfig, NatsConfig, RedisConfig};
-use common::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
-use common::database::tokio_postgres::NoTls;
-use common::database::Pool;
+use bytes::Bytes;
+use utils::http::RouteError;
+use hyper::StatusCode;
+use crate::config::{DatabaseConfig, NatsConfig, RedisConfig};
+use utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
+use utils::database::tokio_postgres::NoTls;
+use utils::database::Pool;
 use fred::interfaces::ClientLike;
 use fred::types::ServerConfig;
 use rustls::RootCertStore;
@@ -15,14 +18,14 @@ use rustls::RootCertStore;
 #[macro_export]
 macro_rules! impl_global_traits {
 	($struct:ty) => {
-		impl common::global::GlobalCtx for $struct {
+		impl binary_helper::global::GlobalCtx for $struct {
 			#[inline(always)]
 			fn ctx(&self) -> &Context {
 				&self.ctx
 			}
 		}
 
-		impl common::global::GlobalNats for $struct {
+		impl binary_helper::global::GlobalNats for $struct {
 			#[inline(always)]
 			fn nats(&self) -> &async_nats::Client {
 				&self.nats
@@ -34,16 +37,48 @@ macro_rules! impl_global_traits {
 			}
 		}
 
-		impl common::global::GlobalDb for $struct {
+		impl binary_helper::global::GlobalDb for $struct {
 			#[inline(always)]
-			fn db(&self) -> &Arc<common::database::Pool> {
+			fn db(&self) -> &Arc<utils::database::Pool> {
 				&self.db
 			}
 		}
 
-		impl common::global::GlobalConfig for $struct {}
+		impl binary_helper::global::GlobalConfig for $struct {}
 	};
 }
+
+pub trait GlobalCtx {
+	fn ctx(&self) -> &utils::context::Context;
+}
+
+pub trait GlobalConfig {
+	#[inline(always)]
+	fn config<C>(&self) -> &C
+	where
+		Self: GlobalConfigProvider<C>,
+	{
+		GlobalConfigProvider::provide_config(self)
+	}
+}
+
+pub trait GlobalConfigProvider<C> {
+	fn provide_config(&self) -> &C;
+}
+
+pub trait GlobalNats {
+	fn nats(&self) -> &async_nats::Client;
+	fn jetstream(&self) -> &async_nats::jetstream::Context;
+}
+
+pub trait GlobalDb {
+	fn db(&self) -> &Arc<deadpool_postgres::Pool>;
+}
+
+pub trait GlobalRedis {
+	fn redis(&self) -> &Arc<fred::clients::RedisPool>;
+}
+
 
 pub async fn setup_nats(
 	name: &str,
@@ -89,16 +124,16 @@ pub async fn setup_nats(
 	Ok((nats, jetstream))
 }
 
-pub async fn setup_database(config: &DatabaseConfig) -> anyhow::Result<Arc<common::database::Pool>> {
+pub async fn setup_database(config: &DatabaseConfig) -> anyhow::Result<Arc<utils::database::Pool>> {
 	let mut pg_config = config
 		.uri
-		.parse::<common::database::tokio_postgres::Config>()
+		.parse::<utils::database::tokio_postgres::Config>()
 		.context("invalid database uri")?;
 
 	pg_config.ssl_mode(if config.tls.is_some() {
-		common::database::tokio_postgres::config::SslMode::Require
+		utils::database::tokio_postgres::config::SslMode::Require
 	} else {
-		common::database::tokio_postgres::config::SslMode::Disable
+		utils::database::tokio_postgres::config::SslMode::Disable
 	});
 
 	let manager = if let Some(tls) = &config.tls {
@@ -129,7 +164,7 @@ pub async fn setup_database(config: &DatabaseConfig) -> anyhow::Result<Arc<commo
 			.with_client_auth_cert(certs, key)
 			.context("failed to create redis tls config")?;
 
-		common::database::deadpool_postgres::Manager::from_config(
+		utils::database::deadpool_postgres::Manager::from_config(
 			pg_config,
 			tokio_postgres_rustls::MakeRustlsConnect::new(tls),
 			ManagerConfig {
@@ -137,7 +172,7 @@ pub async fn setup_database(config: &DatabaseConfig) -> anyhow::Result<Arc<commo
 			},
 		)
 	} else {
-		common::database::deadpool_postgres::Manager::from_config(
+		utils::database::deadpool_postgres::Manager::from_config(
 			pg_config,
 			NoTls,
 			ManagerConfig {
@@ -237,4 +272,19 @@ pub async fn setup_redis(config: &RedisConfig) -> anyhow::Result<Arc<fred::clien
 	redis.wait_for_connect().await.context("failed to connect to redis")?;
 
 	Ok(redis)
+}
+
+pub trait RequestGlobalExt<E> {
+	fn get_global<G: Sync + Send + 'static, B: From<Bytes>>(&self) -> std::result::Result<Arc<G>, RouteError<E, B>>;
+}
+
+impl<E, B> RequestGlobalExt<E> for hyper::Request<B> {
+	fn get_global<G: Sync + Send + 'static, B2: From<Bytes>>(&self) -> std::result::Result<Arc<G>, RouteError<E, B2>> {
+		Ok(self
+			.extensions()
+			.get::<Weak<G>>()
+			.expect("global state not set")
+			.upgrade()
+			.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to upgrade global state"))?)
+	}
 }

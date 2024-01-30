@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{Duration, TimeZone, Utc};
-use common::http::ext::*;
+use utils::http::ext::*;
 use hmac::{Hmac, Mac};
 use hyper::StatusCode;
 use jwt_next::asymmetric::VerifyingKey;
@@ -45,7 +45,7 @@ pub enum TargetId {
 
 impl TokenClaims {
 	pub async fn verify(
-		client: &common::database::tokio_postgres::Client,
+		client: &utils::database::tokio_postgres::Client,
 		organization_id: Ulid,
 		target_id: TargetId,
 		token: &str,
@@ -131,7 +131,7 @@ impl TokenClaims {
 			return Err((StatusCode::BAD_REQUEST, "invalid token, iat is too far in the past").into());
 		}
 
-		let keypair: Option<PlaybackKeyPair> = common::database::query(
+		let keypair: Option<PlaybackKeyPair> = utils::database::query(
 			r#"
 			SELECT
 				*
@@ -162,7 +162,7 @@ impl TokenClaims {
 			.verify_with_key(&verifier)
 			.map_err(|_| (StatusCode::BAD_REQUEST, "invalid token, failed to verify"))?;
 
-		let mut qb = common::database::QueryBuilder::default();
+		let mut qb = utils::database::QueryBuilder::default();
 
 		qb.push("SELECT 1 FROM playback_session_revocations WHERE organization_id = ")
 			.push_bind(organization_id)
@@ -201,7 +201,7 @@ impl TokenClaims {
 		}
 
 		if let Some(id) = token.claims().id.as_ref() {
-			if common::database::query(
+			if utils::database::query(
 				"INSERT INTO playback_session_revocations(organization_id, sso_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
 			)
 			.bind(organization_id)

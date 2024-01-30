@@ -169,10 +169,8 @@ impl<E: std::error::Error + 'static, B: From<Bytes>> std::error::Error for Route
 
 pub mod ext {
 	use std::panic::Location;
-	use std::sync::{Arc, Weak};
 
 	use bytes::Bytes;
-	use http::StatusCode;
 
 	use super::RouteError;
 
@@ -245,21 +243,6 @@ pub mod ext {
 				Some(val) => Ok(val),
 				None => Err(RouteError::from(ctx).with_location(Location::caller())),
 			}
-		}
-	}
-
-	pub trait RequestGlobalExt<E> {
-		fn get_global<G: Sync + Send + 'static, B: From<Bytes>>(&self) -> std::result::Result<Arc<G>, RouteError<E, B>>;
-	}
-
-	impl<E, B> RequestGlobalExt<E> for hyper::Request<B> {
-		fn get_global<G: Sync + Send + 'static, B2: From<Bytes>>(&self) -> std::result::Result<Arc<G>, RouteError<E, B2>> {
-			Ok(self
-				.extensions()
-				.get::<Weak<G>>()
-				.expect("global state not set")
-				.upgrade()
-				.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to upgrade global state"))?)
 		}
 	}
 }

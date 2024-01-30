@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use common::database::{json, protobuf_vec};
+use utils::database::{json, protobuf_vec};
 use pb::scuffle::video::v1::types::{RecordingLifecyclePolicy, Rendition as PbRendition};
 use postgres_from_row::FromRow;
 use ulid::Ulid;

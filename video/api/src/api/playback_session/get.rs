@@ -19,8 +19,8 @@ impl_request_scopes!(
 pub fn build_query<'a>(
 	req: &'a PlaybackSessionGetRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<common::database::QueryBuilder<'a>> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> tonic::Result<utils::database::QueryBuilder<'a>> {
+	let mut qb = utils::database::QueryBuilder::default();
 	qb.push("SELECT * FROM ")
 		.push(<PlaybackSessionGetRequest as TonicRequest>::Table::NAME)
 		.push(" WHERE ");

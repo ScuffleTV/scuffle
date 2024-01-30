@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use common::global::{GlobalConfig, GlobalNats};
+use binary_helper::global::{GlobalConfig, GlobalNats};
 use futures_util::StreamExt;
 use pb::scuffle::video::v1::types::Event;
 use pb::scuffle::video::v1::{events_fetch_request, EventsAckRequest, EventsFetchRequest};

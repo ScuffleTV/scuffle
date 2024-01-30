@@ -25,8 +25,8 @@ pub struct PlaybackSessionCountQueryResp {
 pub fn build_query<'a>(
 	req: &'a PlaybackSessionCountRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<common::database::QueryBuilder<'a>> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> tonic::Result<utils::database::QueryBuilder<'a>> {
+	let mut qb = utils::database::QueryBuilder::default();
 
 	let filter = req
 		.filter

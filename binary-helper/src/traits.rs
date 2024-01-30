@@ -1,11 +1,11 @@
-use common::context::Context;
+use utils::context::Context;
 
 pub trait Config {
 	fn parse() -> anyhow::Result<Self>
 	where
 		Self: Sized;
 
-	fn logging(&self) -> &common::config::LoggingConfig;
+	fn logging(&self) -> &crate::config::LoggingConfig;
 
 	fn name(&self) -> &str;
 

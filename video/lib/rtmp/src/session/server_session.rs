@@ -6,7 +6,7 @@ use bytes::Bytes;
 use bytesio::bytes_writer::BytesWriter;
 use bytesio::bytesio::{AsyncReadWrite, BytesIO};
 use bytesio::bytesio_errors::BytesIOError;
-use common::prelude::FutureTimeout;
+use utils::prelude::FutureTimeout;
 use tokio::sync::oneshot;
 
 use super::define::RtmpCommand;

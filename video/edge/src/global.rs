@@ -8,11 +8,11 @@ pub trait EdgeState {
 }
 
 pub trait EdgeGlobal:
-	common::global::GlobalCtx
-	+ common::global::GlobalConfigProvider<EdgeConfig>
-	+ common::global::GlobalNats
-	+ common::global::GlobalDb
-	+ common::global::GlobalConfig
+	binary_helper::global::GlobalCtx
+	+ binary_helper::global::GlobalConfigProvider<EdgeConfig>
+	+ binary_helper::global::GlobalNats
+	+ binary_helper::global::GlobalDb
+	+ binary_helper::global::GlobalConfig
 	+ EdgeState
 	+ Send
 	+ Sync
@@ -21,11 +21,11 @@ pub trait EdgeGlobal:
 }
 
 impl<T> EdgeGlobal for T where
-	T: common::global::GlobalCtx
-		+ common::global::GlobalConfigProvider<EdgeConfig>
-		+ common::global::GlobalNats
-		+ common::global::GlobalDb
-		+ common::global::GlobalConfig
+	T: binary_helper::global::GlobalCtx
+		+ binary_helper::global::GlobalConfigProvider<EdgeConfig>
+		+ binary_helper::global::GlobalNats
+		+ binary_helper::global::GlobalDb
+		+ binary_helper::global::GlobalConfig
 		+ EdgeState
 		+ Send
 		+ Sync

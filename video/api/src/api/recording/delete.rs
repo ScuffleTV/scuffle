@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use common::database::IntoClient;
+use utils::database::IntoClient;
 use futures_util::StreamExt;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::events::{recording_delete_batch_task, RecordingDeleteBatchTask};
@@ -161,7 +161,7 @@ async fn handle_query<B: UpdateBatch>(
 	client: impl IntoClient,
 	deleted_recordings: &HashMap<Ulid, Ulid>,
 	batch: &mut RecordingDeleteBatchTask,
-	qb: &mut common::database::QueryBuilder<'_>,
+	qb: &mut utils::database::QueryBuilder<'_>,
 ) -> Option<()>
 where
 	B: postgres_from_row::FromRow + Send + Unpin,
@@ -227,7 +227,7 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 
 		// We dont actually want to delete the recordings from the database, we just
 		// want to mark them as deleted
-		let deleted_recordings: Vec<RecordingResp> = common::database::query("UPDATE ")
+		let deleted_recordings: Vec<RecordingResp> = utils::database::query("UPDATE ")
 			.push(<RecordingDeleteRequest as TonicRequest>::Table::NAME)
 			.push(" SET deleted_at = NOW(), room_id = NULL, recording_config_id = NULL")
 			.push(" WHERE id = ANY(")
@@ -258,7 +258,7 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 			ids_to_delete.remove(id);
 		});
 
-		common::database::query("DELETE FROM ")
+		utils::database::query("DELETE FROM ")
 			.push(<video_common::database::PlaybackSession as DatabaseTable>::NAME)
 			.push(" WHERE recording_id = ANY(")
 			.push_bind(&deleted_ids)
@@ -269,7 +269,7 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 			tonic::Status::internal(format!("failed to delete {}s, the recording have not been deleted", <video_common::database::PlaybackSession as DatabaseTable>::FRIENDLY_NAME))
 		})?;
 
-		common::database::query("DELETE FROM ")
+		utils::database::query("DELETE FROM ")
 			.push(<video_common::database::RecordingRendition as DatabaseTable>::NAME)
 			.push(" WHERE recording_id = ANY(")
 			.push_bind(&deleted_ids)
@@ -302,7 +302,7 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 				&client,
 				&deleted_recordings,
 				&mut batch,
-				common::database::query("SELECT id, recording_id, idx FROM ")
+				utils::database::query("SELECT id, recording_id, idx FROM ")
 					.push(<video_common::database::RecordingThumbnail as DatabaseTable>::NAME)
 					.push(" WHERE recording_id = ANY(")
 					.push_bind(&deleted_ids)
@@ -319,7 +319,7 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 				&client,
 				&deleted_recordings,
 				&mut batch,
-				common::database::query("SELECT id, recording_id, rendition, idx FROM ")
+				utils::database::query("SELECT id, recording_id, rendition, idx FROM ")
 					.push(<video_common::database::RecordingRenditionSegment as DatabaseTable>::NAME)
 					.push(" WHERE recording_id = ANY(")
 					.push_bind(&deleted_ids)

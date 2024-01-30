@@ -1,5 +1,5 @@
 [package]
-name = "config"
+name = "scuffle-config"
 version = "0.0.1"
 edition = "2021"
 authors = ["Scuffle <opensource@scuffle.tv>"]
@@ -7,6 +7,12 @@ description = "Extensible config solution"
 repository = "https://github.com/ScuffleTV/scuffle"
 categories = ["config"]
 keywords = ["config", "cli", "proc-macro"]
+license = "MIT"
+documentation = "https://docs.rs/scuffle-config"
+
+[lib]
+name = "config"
+path = "src/lib.rs"
 
 [dependencies]
 thiserror = "1.0"
@@ -30,7 +36,7 @@ clap = { version = "4.4", features = ["cargo", "string"] }
 convert_case = "0.6"
 
 # Derive macro
-config_derive = { path = "derive" }
+config_derive = { path = "derive", package = "scuffle_config_derive", version = "0.0.1"}
 
 [[example]]
 name = "derive"

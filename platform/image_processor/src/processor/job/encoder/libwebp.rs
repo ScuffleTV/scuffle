@@ -78,7 +78,7 @@ impl WebpEncoder {
 	}
 
 	fn flush_frame(&mut self, duration: u64) -> Result<()> {
-		let _abort_guard = common::task::AbortGuard::new();
+		let _abort_guard = utils::task::AbortGuard::new();
 
 		// Safety: The picture is valid.
 		wrap_error(
@@ -106,7 +106,7 @@ impl Encoder for WebpEncoder {
 	}
 
 	fn add_frame(&mut self, frame: &Frame) -> Result<()> {
-		let _abort_guard = common::task::AbortGuard::new();
+		let _abort_guard = utils::task::AbortGuard::new();
 
 		if self.first_duration.is_none() && self.encoder.is_none() {
 			self.picture.width = frame.image.width() as _;
@@ -178,7 +178,7 @@ impl Encoder for WebpEncoder {
 	}
 
 	fn finish(mut self) -> Result<Vec<u8>> {
-		let _abort_guard = common::task::AbortGuard::new();
+		let _abort_guard = utils::task::AbortGuard::new();
 
 		let timestamp = self.timestamp();
 

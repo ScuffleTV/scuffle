@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use tokio::select;
 use tonic::service::interceptor;
 use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
+use ::utils::context::ContextExt;
 
 use crate::api::utils::auth::AuthMiddleware;
 use crate::config::ApiConfig;
@@ -77,14 +77,9 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> Result<()> {
 		global.ctx().done().await;
 	});
 
-	select! {
-		_ = global.ctx().done() => {},
-		r = server => {
-			if let Err(r) = r {
-				tracing::error!("API server failed: {:?}", r);
-				return Err(r.into());
-			}
-		},
+	if let Ok(Err(r)) = server.context(global.ctx()).await {
+		tracing::error!("API server failed: {:?}", r);
+		return Err(r.into());
 	}
 
 	Ok(())

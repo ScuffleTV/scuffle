@@ -1,5 +1,5 @@
 [package]
-name = "config_derive"
+name = "scuffle_config_derive"
 version = "0.0.1"
 edition = "2021"
 authors = ["Scuffle <opensource@scuffle.tv>"]
@@ -7,8 +7,10 @@ description = "Extensible config solution"
 repository = "https://github.com/ScuffleTV/scuffle"
 categories = ["config"]
 keywords = ["config", "cli", "proc-macro"]
+license = "MIT"
 
 [lib]
+name = "config_derive"
 proc-macro = true
 
 [dependencies]

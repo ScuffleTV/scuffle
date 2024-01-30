@@ -1,4 +1,4 @@
-use common::dataloader::DataLoader;
+use utils::dataloader::DataLoader;
 
 use crate::config::ApiConfig;
 use crate::dataloaders;
@@ -11,12 +11,12 @@ pub trait ApiState {
 }
 
 pub trait ApiGlobal:
-	common::global::GlobalCtx
-	+ common::global::GlobalConfigProvider<ApiConfig>
-	+ common::global::GlobalNats
-	+ common::global::GlobalDb
-	+ common::global::GlobalConfig
-	+ common::global::GlobalRedis
+	binary_helper::global::GlobalCtx
+	+ binary_helper::global::GlobalConfigProvider<ApiConfig>
+	+ binary_helper::global::GlobalNats
+	+ binary_helper::global::GlobalDb
+	+ binary_helper::global::GlobalConfig
+	+ binary_helper::global::GlobalRedis
 	+ ApiState
 	+ Send
 	+ Sync
@@ -25,12 +25,12 @@ pub trait ApiGlobal:
 }
 
 impl<T> ApiGlobal for T where
-	T: common::global::GlobalCtx
-		+ common::global::GlobalConfigProvider<ApiConfig>
-		+ common::global::GlobalNats
-		+ common::global::GlobalDb
-		+ common::global::GlobalConfig
-		+ common::global::GlobalRedis
+	T: binary_helper::global::GlobalCtx
+		+ binary_helper::global::GlobalConfigProvider<ApiConfig>
+		+ binary_helper::global::GlobalNats
+		+ binary_helper::global::GlobalDb
+		+ binary_helper::global::GlobalConfig
+		+ binary_helper::global::GlobalRedis
 		+ ApiState
 		+ Send
 		+ Sync

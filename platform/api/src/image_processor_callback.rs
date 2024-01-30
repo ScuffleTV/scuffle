@@ -10,7 +10,7 @@ use pb::ext::UlidExt;
 use pb::scuffle::platform::internal::events::{processed_image, ProcessedImage};
 use pb::scuffle::platform::internal::types::{uploaded_file_metadata, UploadedFileMetadata};
 use prost::Message;
-use tokio::select;
+use utils::context::ContextExt;
 
 use crate::config::ImageUploaderConfig;
 use crate::database::{FileType, UploadedFile, UploadedFileStatus};
@@ -48,13 +48,8 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 
 	let mut messages = consumer.messages().await.context("messages")?;
 
-	loop {
-		select! {
-			_ = global.ctx().done() => break,
-			message = messages.next() => {
-				handle_message(&global, message).await?;
-			},
-		}
+	while let Ok(message) = messages.next().context(global.ctx()).await {
+		handle_message(&global, message).await?;
 	}
 
 	Ok(())
@@ -102,7 +97,7 @@ async fn handle_message<G: ApiGlobal>(
 	let mut client = global.db().get().await.context("failed to get db connection")?;
 	let tx = client.transaction().await.context("failed to start transaction")?;
 
-	let uploaded_file: UploadedFile = match common::database::query("UPDATE uploaded_files SET status = $1, failed = $2, metadata = $3, updated_at = NOW() WHERE id = $4 AND status = 'queued' RETURNING *")
+	let uploaded_file: UploadedFile = match utils::database::query("UPDATE uploaded_files SET status = $1, failed = $2, metadata = $3, updated_at = NOW() WHERE id = $4 AND status = 'queued' RETURNING *")
 		.bind(if matches!(job_result, processed_image::Result::Success(_)) {
 			UploadedFileStatus::Completed
 		} else {
@@ -114,7 +109,7 @@ async fn handle_message<G: ApiGlobal>(
 				Some(reason)
 			}
 		})
-		.bind(common::database::Protobuf(UploadedFileMetadata {
+		.bind(utils::database::Protobuf(UploadedFileMetadata {
 			metadata: Some(uploaded_file_metadata::Metadata::Image(uploaded_file_metadata::Image {
 				versions: match &job_result {
 					processed_image::Result::Success(processed_image::Success { variants }) => variants.clone(),
@@ -161,7 +156,7 @@ async fn handle_message<G: ApiGlobal>(
 						.owner_id
 						.ok_or_else(|| anyhow::anyhow!("uploaded file owner id is null"))?;
 
-					if common::database::query("UPDATE users SET profile_picture_id = $1, pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $2 AND pending_profile_picture_id = $3")
+					if utils::database::query("UPDATE users SET profile_picture_id = $1, pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $2 AND pending_profile_picture_id = $3")
 						.bind(uploaded_file.id)
 						.bind(owner_id)
 						.bind(uploaded_file.id)
@@ -225,7 +220,7 @@ async fn handle_message<G: ApiGlobal>(
 						.owner_id
 						.ok_or_else(|| anyhow::anyhow!("uploaded file owner id is null"))?;
 
-					common::database::query(
+					utils::database::query(
 						"UPDATE users SET pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $1 AND pending_profile_picture_id = $2",
 					)
 					.bind(owner_id)

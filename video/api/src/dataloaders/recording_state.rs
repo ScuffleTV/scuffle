@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
-use common::dataloader::{DataLoader, Loader, LoaderOutput};
+use utils::dataloader::{DataLoader, Loader, LoaderOutput};
 use itertools::Itertools;
 use ulid::Ulid;
 use video_common::database::{Recording, Rendition};
 
 pub struct RecordingStateLoader {
-	db: Arc<common::database::Pool>,
+	db: Arc<utils::database::Pool>,
 }
 
 impl RecordingStateLoader {
-	pub fn new(db: Arc<common::database::Pool>) -> DataLoader<Self> {
+	pub fn new(db: Arc<utils::database::Pool>) -> DataLoader<Self> {
 		DataLoader::new(Self { db })
 	}
 }
@@ -53,7 +53,7 @@ impl Loader for RecordingStateLoader {
 	type Value = RecordingState;
 
 	async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
-		let results: Vec<RecordingRenditionState> = common::database::query("SELECT organization_id, recording_id, rendition, COUNT(size_bytes) AS size_bytes, MAX(end_time) AS end_time, MAX(start_time) AS start_time FROM recording_rendition_segments WHERE (organization_id, recording_id) IN ")
+		let results: Vec<RecordingRenditionState> = utils::database::query("SELECT organization_id, recording_id, rendition, COUNT(size_bytes) AS size_bytes, MAX(end_time) AS end_time, MAX(start_time) AS start_time FROM recording_rendition_segments WHERE (organization_id, recording_id) IN ")
 			.push_tuples(keys, |mut qb, (organization_id, recording_id)| {
 			qb.push_bind(organization_id).push_bind(recording_id);
 		}).push(" GROUP BY organization_id, recording_id, rendition ORDER BY organization_id, recording_id").build_query_as().fetch_all(&self.db).await.map_err(|err| {

@@ -1,48 +1,44 @@
 [package]
-name = "common"
-version = "0.0.1"
+name = "scuffle-utils"
+version = "0.0.4"
 edition = "2021"
 authors = ["Scuffle <opensource@scuffle.tv>"]
-description = "Scuffle Common Library"
+description = "Scuffle Utility Library"
+repository = "https://github.com/ScuffleTV/scuffle"
+license = "MIT"
+documentation = "https://docs.rs/scuffle-utils"
+
+[lib]
+name = "scuffle_utils"
+path = "src/lib.rs"
 
 [features]
-logging = ["dep:log", "dep:tracing", "dep:tracing-log", "dep:tracing-subscriber", "dep:arc-swap", "dep:once_cell", "dep:thiserror", "dep:serde"]
 grpc = ["dep:tonic", "dep:async-trait", "dep:futures", "dep:http", "dep:tower", "dep:trust-dns-resolver", "dep:tracing"]
 context = ["dep:tokio", "dep:tokio-util"]
-prelude = ["dep:tokio"]
+prelude = ["dep:tokio", "dep:futures"]
 signal = ["tokio/signal", "tokio/process"]
-macros = []
 database = ["dep:tokio-postgres", "dep:postgres-types", "dep:deadpool-postgres", "dep:postgres-from-row", "dep:prost", "ulid/postgres"]
 dataloader = ["dep:fnv", "dep:futures-util", "dep:futures-channel"]
-config = ["dep:config", "dep:serde", "logging"]
 ratelimiter = ["dep:fred"]
-global = ["context", "dep:fred", "database", "dep:async-nats"]
-http = ["dep:hyper", "dep:serde_json", "dep:bytes", "dep:http-body-util", "dep:pin-project", "dep:path-tree"]
+http = ["dep:http", "dep:thiserror", "dep:futures-util", "dep:tracing", "dep:hyper", "dep:serde_json", "dep:bytes", "dep:http-body-util", "dep:pin-project", "dep:path-tree"]
 task = ["dep:tokio", "dep:thiserror"]
-s3 = ["dep:aws-sdk-s3", "dep:aws-credential-types", "dep:aws-config", "dep:aws-smithy-types", "dep:http-body"]
 
-default = ["logging", "grpc", "context", "prelude", "signal", "macros", "config", "dataloader", "database", "ratelimiter", "global", "http", "task", "s3"]
+all = ["grpc", "context", "prelude", "signal", "dataloader", "database", "ratelimiter", "http", "task"]
+
+default = []
 
 [dependencies]
-log = { version = "0.4", optional = true }
 http = { version = "1.0", optional = true }
 tower = { version = "0.4", optional = true }
-config = { workspace = true, optional = true }
 futures = { version = "0.3", optional = true }
 tracing = { version = "0.1", optional = true }
-arc-swap = { version = "1.6", optional = true }
 tokio-util = { version = "0.7", optional = true }
 async-trait = { version = "0.1", optional = true }
 tonic = { version = "0.10", features = ["tls"], optional = true }
 tokio = { version = "1.35", features = ["sync", "rt"], optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
-tracing-log = { version = "0.2", optional = true }
-once_cell = { version = "1.19", optional = true }
 trust-dns-resolver = { version = "0.23", features = ["tokio-runtime"], optional = true }
-tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter", "json"], optional = true }
 thiserror = { version = "1.0", optional = true }
 fred = { version = "8.0.0", optional = true }
-async-nats = { version = "0.33", optional = true }
 hyper = { version = "1.1", optional = true }
 serde_json = { version = "1.0", optional = true }
 bytes = { version = "1.5", optional = true }
@@ -51,24 +47,17 @@ pin-project = { version = "1.0", optional = true }
 path-tree = { version = "0.7", optional = true }
 
 fnv = { version = "1.0", optional = true }
-futures-util = { version = "0.3", optional = true }
+futures-util = { version = "0.3", optional = true, features = ["io"] }
 futures-channel = { version = "0.3", optional = true }
 
-const_format = { version = "0.2" }
+const_format = "0.2"
 
 tokio-postgres = { version = "0.7", optional = true }
 postgres-types = { version = "0.2", optional = true, features = ["with-serde_json-1", "with-chrono-0_4", "derive"] }
 deadpool-postgres = { version = "0.12", optional = true }
 postgres-from-row = { version = "0.5", optional = true }
 prost = { version = "0.12", optional = true }
-uuid = { version = "1.6", features = ["v4"], optional = true }
-ulid = { version = "1.1", features = ["uuid"], optional = true}
-
-aws-config = { version = "1.1", optional = true }
-aws-sdk-s3 = { version = "1.12", optional = true, features = ["behavior-version-latest"] }
-aws-credential-types = { version = "1.1", optional = true, features = ["hardcoded-credentials"] }
-aws-smithy-types = { version = "1.1", features = ["http-body-1-x"], optional = true }
-http-body = { version = "1.0.0", optional = true }
+ulid = { version = "1.1", optional = true }
 
 [dev-dependencies]
 ulid = "1.1"

@@ -88,7 +88,7 @@ impl<G: ApiGlobal> ChannelSubscription<G> {
 
 		let stream = self.channel_follows(ctx, channel_id).await?;
 
-		let mut followers = common::database::query(
+		let mut followers = utils::database::query(
 			r#"
 			SELECT
 				COUNT(*)

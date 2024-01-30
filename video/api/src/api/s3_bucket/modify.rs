@@ -31,8 +31,8 @@ pub fn validate(req: &S3BucketModifyRequest) -> tonic::Result<()> {
 pub fn build_query<'a>(
 	req: &'a S3BucketModifyRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<common::database::QueryBuilder<'a>> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> tonic::Result<utils::database::QueryBuilder<'a>> {
+	let mut qb = utils::database::QueryBuilder::default();
 
 	qb.push("UPDATE ")
 		.push(<S3BucketModifyRequest as TonicRequest>::Table::NAME)
@@ -83,7 +83,7 @@ pub fn build_query<'a>(
 	if let Some(tags) = &req.tags {
 		seperated
 			.push("tags = ")
-			.push_bind_unseparated(common::database::Json(&tags.tags));
+			.push_bind_unseparated(utils::database::Json(&tags.tags));
 	}
 
 	if req.tags.is_none()

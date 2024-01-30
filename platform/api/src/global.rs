@@ -1,4 +1,4 @@
-use common::dataloader::DataLoader;
+use utils::dataloader::DataLoader;
 
 use crate::config::{ApiConfig, IgDbConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
 use crate::dataloader::category::CategoryByIdLoader;
@@ -21,7 +21,7 @@ pub trait ApiState {
 
 	fn subscription_manager(&self) -> &SubscriptionManager;
 
-	fn image_uploader_s3(&self) -> &common::s3::Bucket;
+	fn image_uploader_s3(&self) -> &binary_helper::s3::Bucket;
 
 	fn video_room_client(&self) -> &VideoRoomClient;
 	fn video_playback_session_client(&self) -> &VideoPlaybackSessionClient;
@@ -33,17 +33,17 @@ pub trait ApiState {
 }
 
 pub trait ApiGlobal:
-	common::global::GlobalCtx
-	+ common::global::GlobalConfigProvider<ApiConfig>
-	+ common::global::GlobalConfigProvider<TurnstileConfig>
-	+ common::global::GlobalConfigProvider<JwtConfig>
-	+ common::global::GlobalConfigProvider<ImageUploaderConfig>
-	+ common::global::GlobalConfigProvider<VideoApiConfig>
-	+ common::global::GlobalConfigProvider<IgDbConfig>
-	+ common::global::GlobalNats
-	+ common::global::GlobalDb
-	+ common::global::GlobalRedis
-	+ common::global::GlobalConfig
+	binary_helper::global::GlobalCtx
+	+ binary_helper::global::GlobalConfigProvider<ApiConfig>
+	+ binary_helper::global::GlobalConfigProvider<TurnstileConfig>
+	+ binary_helper::global::GlobalConfigProvider<JwtConfig>
+	+ binary_helper::global::GlobalConfigProvider<ImageUploaderConfig>
+	+ binary_helper::global::GlobalConfigProvider<VideoApiConfig>
+	+ binary_helper::global::GlobalConfigProvider<IgDbConfig>
+	+ binary_helper::global::GlobalNats
+	+ binary_helper::global::GlobalDb
+	+ binary_helper::global::GlobalRedis
+	+ binary_helper::global::GlobalConfig
 	+ ApiState
 	+ Send
 	+ Sync
@@ -52,17 +52,17 @@ pub trait ApiGlobal:
 }
 
 impl<T> ApiGlobal for T where
-	T: common::global::GlobalCtx
-		+ common::global::GlobalConfigProvider<ApiConfig>
-		+ common::global::GlobalConfigProvider<TurnstileConfig>
-		+ common::global::GlobalConfigProvider<JwtConfig>
-		+ common::global::GlobalConfigProvider<ImageUploaderConfig>
-		+ common::global::GlobalConfigProvider<VideoApiConfig>
-		+ common::global::GlobalConfigProvider<IgDbConfig>
-		+ common::global::GlobalNats
-		+ common::global::GlobalDb
-		+ common::global::GlobalRedis
-		+ common::global::GlobalConfig
+	T: binary_helper::global::GlobalCtx
+		+ binary_helper::global::GlobalConfigProvider<ApiConfig>
+		+ binary_helper::global::GlobalConfigProvider<TurnstileConfig>
+		+ binary_helper::global::GlobalConfigProvider<JwtConfig>
+		+ binary_helper::global::GlobalConfigProvider<ImageUploaderConfig>
+		+ binary_helper::global::GlobalConfigProvider<VideoApiConfig>
+		+ binary_helper::global::GlobalConfigProvider<IgDbConfig>
+		+ binary_helper::global::GlobalNats
+		+ binary_helper::global::GlobalDb
+		+ binary_helper::global::GlobalRedis
+		+ binary_helper::global::GlobalConfig
 		+ ApiState
 		+ Send
 		+ Sync

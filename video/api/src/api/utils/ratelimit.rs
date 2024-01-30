@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::prelude::FutureTimeout;
-use common::ratelimiter::{RateLimitResponse, RateLimiterOptions};
+use utils::prelude::FutureTimeout;
+use utils::ratelimiter::{RateLimitResponse, RateLimiterOptions};
 use fred::interfaces::KeysInterface;
 use futures_util::Future;
 use tonic::metadata::AsciiMetadataValue;
@@ -109,7 +109,7 @@ pub async fn ratelimit_scoped<G: ApiGlobal, T, F: Future<Output = tonic::Result<
 async fn ratelimit<G: ApiGlobal>(global: &Arc<G>, options: &RateLimiterOptions) -> tonic::Result<RateLimitResponse> {
 	let redis = global.redis();
 
-	let resp = common::ratelimiter::ratelimit(redis.as_ref(), options).await.map_err(|err| {
+	let resp = utils::ratelimiter::ratelimit(redis.as_ref(), options).await.map_err(|err| {
 		tracing::error!(err = %err, "failed to rate limit");
 		Status::internal("Unable to process request, failed to rate limit")
 	})?;

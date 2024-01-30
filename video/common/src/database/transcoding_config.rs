@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use common::database::json;
+use utils::database::json;
 use pb::scuffle::video::v1::types::Rendition as PbRendition;
 use postgres_from_row::FromRow;
 use ulid::Ulid;

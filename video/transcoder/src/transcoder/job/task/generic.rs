@@ -45,7 +45,7 @@ pub async fn generic_task(
 							.context("upload manifest")?;
 					}
 					GenericTask::RoomReady {} => {
-						if common::database::query(
+						if utils::database::query(
 							r#"
 						UPDATE rooms
 						SET

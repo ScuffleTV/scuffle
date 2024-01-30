@@ -30,10 +30,10 @@ pub fn build_query(
 	req: &PlaybackKeyPairCreateRequest,
 	access_token: &AccessToken,
 	jwt: (String, String),
-) -> tonic::Result<common::database::QueryBuilder<'static>> {
+) -> tonic::Result<utils::database::QueryBuilder<'static>> {
 	let (cert, fingerprint) = jwt;
 
-	let mut qb = common::database::QueryBuilder::default();
+	let mut qb = utils::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<PlaybackKeyPairCreateRequest as TonicRequest>::Table::NAME)
@@ -57,7 +57,7 @@ pub fn build_query(
 	seperated.push_bind(cert.into_bytes());
 	seperated.push_bind(fingerprint);
 	seperated.push_bind(chrono::Utc::now());
-	seperated.push_bind(common::database::Json(req.tags.clone().unwrap_or_default().tags));
+	seperated.push_bind(utils::database::Json(req.tags.clone().unwrap_or_default().tags));
 
 	qb.push(") RETURNING *");
 

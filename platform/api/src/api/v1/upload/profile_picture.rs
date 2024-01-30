@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use aws_sdk_s3::types::ObjectCannedAcl;
 use bytes::Bytes;
-use common::http::ext::ResultExt;
-use common::http::RouteError;
-use common::make_response;
-use common::s3::PutObjectOptions;
+use utils::http::ext::ResultExt;
+use utils::http::RouteError;
+use utils::make_response;
+use binary_helper::s3::PutObjectOptions;
 use hyper::{Response, StatusCode};
 use pb::scuffle::platform::internal::image_processor;
 use pb::scuffle::platform::internal::types::{uploaded_file_metadata, ImageFormat, UploadedFileMetadata};
@@ -183,10 +183,10 @@ impl UploadType for ProfilePicture {
 			.await
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to start transaction"))?;
 
-		common::database::query("INSERT INTO image_jobs (id, priority, task) VALUES ($1, $2, $3)")
+		utils::database::query("INSERT INTO image_jobs (id, priority, task) VALUES ($1, $2, $3)")
 			.bind(file_id)
 			.bind(config.profile_picture_task_priority)
-			.bind(common::database::Protobuf(create_task(
+			.bind(utils::database::Protobuf(create_task(
 				file_id,
 				&input_path,
 				config,
@@ -197,13 +197,13 @@ impl UploadType for ProfilePicture {
 			.await
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to insert image job"))?;
 
-		common::database::query("INSERT INTO uploaded_files(id, owner_id, uploader_id, name, type, metadata, total_size, path, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)")
+		utils::database::query("INSERT INTO uploaded_files(id, owner_id, uploader_id, name, type, metadata, total_size, path, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)")
             .bind(file_id) // id
             .bind(auth.session.user_id) // owner_id
             .bind(auth.session.user_id) // uploader_id
             .bind(name.unwrap_or_else(|| format!("untitled.{}", image_format.ext()))) // name
             .bind(FileType::ProfilePicture) // type
-            .bind(common::database::Protobuf(UploadedFileMetadata {
+            .bind(utils::database::Protobuf(UploadedFileMetadata {
 				metadata: Some(uploaded_file_metadata::Metadata::Image(uploaded_file_metadata::Image {
 					versions: Vec::new(),
 				})),
@@ -217,7 +217,7 @@ impl UploadType for ProfilePicture {
             .map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to insert uploaded file"))?;
 
 		if self.set_active {
-			common::database::query("UPDATE users SET pending_profile_picture_id = $1 WHERE id = $2")
+			utils::database::query("UPDATE users SET pending_profile_picture_id = $1 WHERE id = $2")
 				.bind(file_id)
 				.bind(auth.session.user_id)
 				.build()

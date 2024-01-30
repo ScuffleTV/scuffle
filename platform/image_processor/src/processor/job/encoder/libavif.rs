@@ -85,7 +85,7 @@ impl Encoder for AvifEncoder {
 	}
 
 	fn add_frame(&mut self, frame: &Frame) -> Result<()> {
-		let _abort_guard = common::task::AbortGuard::new();
+		let _abort_guard = utils::task::AbortGuard::new();
 
 		if self.rgb.is_none() {
 			self.image.as_mut().width = frame.image.width() as u32;
@@ -136,7 +136,7 @@ impl Encoder for AvifEncoder {
 	}
 
 	fn finish(mut self) -> Result<Vec<u8>> {
-		let _abort_guard = common::task::AbortGuard::new();
+		let _abort_guard = utils::task::AbortGuard::new();
 
 		if self.rgb.is_none() {
 			return Err(ProcessorError::AvifEncode(anyhow::anyhow!("no frames added")));

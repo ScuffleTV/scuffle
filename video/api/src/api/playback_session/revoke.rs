@@ -25,7 +25,7 @@ impl ApiRequest<PlaybackSessionRevokeResponse> for tonic::Request<PlaybackSessio
 		global: &Arc<G>,
 		access_token: &AccessToken,
 	) -> tonic::Result<tonic::Response<PlaybackSessionRevokeResponse>> {
-		let mut qb = common::database::QueryBuilder::default();
+		let mut qb = utils::database::QueryBuilder::default();
 
 		let req = self.get_ref();
 
@@ -114,7 +114,7 @@ impl ApiRequest<PlaybackSessionRevokeResponse> for tonic::Request<PlaybackSessio
 			&& req.before.map_or(true, |b| {
 				chrono::Utc.timestamp_millis_opt(b).unwrap() > chrono::Utc::now() - chrono::Duration::minutes(10)
 			}) {
-			common::database::query("INSERT INTO playback_session_revocations(organization_id, room_id, recording_id, user_id, revoke_before) VALUES ($1, $2, $3, $4, $5)")
+			utils::database::query("INSERT INTO playback_session_revocations(organization_id, room_id, recording_id, user_id, revoke_before) VALUES ($1, $2, $3, $4, $5)")
 			.bind(access_token.organization_id)
 			.bind(req.target.and_then(|t| match t.target {
 					Some(playback_session_target::Target::RoomId(room_id)) => Some(room_id.into_ulid()),

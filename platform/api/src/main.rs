@@ -5,11 +5,11 @@ use anyhow::Context as _;
 use async_graphql::SDLExportOptions;
 use binary_helper::global::{setup_database, setup_nats, setup_redis};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
-use common::config::RedisConfig;
-use common::context::Context;
-use common::dataloader::DataLoader;
-use common::global::*;
-use common::grpc::TlsSettings;
+use binary_helper::config::RedisConfig;
+use utils::context::Context;
+use utils::dataloader::DataLoader;
+use binary_helper::global::*;
+use utils::grpc::TlsSettings;
 use platform_api::config::{ApiConfig, IgDbConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
 use platform_api::dataloader::category::CategoryByIdLoader;
 use platform_api::dataloader::global_state::GlobalStateLoader;
@@ -87,7 +87,7 @@ struct GlobalState {
 	config: AppConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<common::database::Pool>,
+	db: Arc<utils::database::Pool>,
 
 	category_by_id_loader: DataLoader<CategoryByIdLoader>,
 	global_state_loader: DataLoader<GlobalStateLoader>,
@@ -99,7 +99,7 @@ struct GlobalState {
 
 	subscription_manager: SubscriptionManager,
 
-	image_processor_s3: common::s3::Bucket,
+	image_processor_s3: binary_helper::s3::Bucket,
 
 	video_room_client: VideoRoomClient,
 	video_playback_session_client: VideoPlaybackSessionClient,
@@ -112,49 +112,49 @@ struct GlobalState {
 
 impl_global_traits!(GlobalState);
 
-impl common::global::GlobalRedis for GlobalState {
+impl binary_helper::global::GlobalRedis for GlobalState {
 	#[inline(always)]
 	fn redis(&self) -> &Arc<fred::clients::RedisPool> {
 		&self.redis
 	}
 }
 
-impl common::global::GlobalConfigProvider<ApiConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<ApiConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &ApiConfig {
 		&self.config.extra.api
 	}
 }
 
-impl common::global::GlobalConfigProvider<TurnstileConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<TurnstileConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &TurnstileConfig {
 		&self.config.extra.turnstile
 	}
 }
 
-impl common::global::GlobalConfigProvider<JwtConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<JwtConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &JwtConfig {
 		&self.config.extra.jwt
 	}
 }
 
-impl common::global::GlobalConfigProvider<ImageUploaderConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<ImageUploaderConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &ImageUploaderConfig {
 		&self.config.extra.image_uploader
 	}
 }
 
-impl common::global::GlobalConfigProvider<VideoApiConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<VideoApiConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &VideoApiConfig {
 		&self.config.extra.video_api
 	}
 }
 
-impl common::global::GlobalConfigProvider<IgDbConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<IgDbConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &IgDbConfig {
 		&self.config.extra.igdb
@@ -194,7 +194,7 @@ impl platform_api::global::ApiState for GlobalState {
 		&self.subscription_manager
 	}
 
-	fn image_uploader_s3(&self) -> &common::s3::Bucket {
+	fn image_uploader_s3(&self) -> &binary_helper::s3::Bucket {
 		&self.image_processor_s3
 	}
 
@@ -257,7 +257,7 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			None
 		};
 
-		let video_api_channel = common::grpc::make_channel(
+		let video_api_channel = utils::grpc::make_channel(
 			vec![config.extra.video_api.address.clone()],
 			Duration::from_secs(30),
 			video_api_tls,

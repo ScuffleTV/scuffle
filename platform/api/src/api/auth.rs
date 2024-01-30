@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use common::http::RouteError;
+use utils::http::RouteError;
 use hyper::StatusCode;
 use ulid::Ulid;
 

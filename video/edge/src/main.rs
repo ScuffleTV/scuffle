@@ -5,8 +5,8 @@ use anyhow::Context as _;
 use async_nats::jetstream::stream::StorageType;
 use binary_helper::global::{setup_database, setup_nats};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
-use common::context::Context;
-use common::global::{GlobalCtx, GlobalDb, GlobalNats};
+use utils::context::Context;
+use binary_helper::global::{GlobalCtx, GlobalDb, GlobalNats};
 use tokio::select;
 use video_edge::config::EdgeConfig;
 use video_edge::global::EdgeState;
@@ -30,7 +30,7 @@ struct GlobalState {
 	config: AppConfig,
 	nats: async_nats::Client,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<common::database::Pool>,
+	db: Arc<utils::database::Pool>,
 	metadata_store: async_nats::jetstream::kv::Store,
 	media_store: async_nats::jetstream::object_store::ObjectStore,
 	subscriber: subscription::SubscriptionManager,
@@ -38,7 +38,7 @@ struct GlobalState {
 
 impl_global_traits!(GlobalState);
 
-impl common::global::GlobalConfigProvider<EdgeConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<EdgeConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &EdgeConfig {
 		&self.config.extra.edge

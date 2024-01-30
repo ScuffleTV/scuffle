@@ -29,8 +29,8 @@ pub fn validate(req: &PlaybackKeyPairModifyRequest) -> tonic::Result<()> {
 pub fn build_query(
 	req: &PlaybackKeyPairModifyRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<common::database::QueryBuilder<'static>> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> tonic::Result<utils::database::QueryBuilder<'static>> {
+	let mut qb = utils::database::QueryBuilder::default();
 
 	qb.push("UPDATE ")
 		.push(<PlaybackKeyPairModifyRequest as TonicRequest>::Table::NAME)
@@ -41,7 +41,7 @@ pub fn build_query(
 	if let Some(tags) = &req.tags {
 		seperated
 			.push("tags = ")
-			.push_bind_unseparated(common::database::Json(tags.tags.clone()));
+			.push_bind_unseparated(utils::database::Json(tags.tags.clone()));
 	}
 
 	if let Some(public_key) = &req.public_key {

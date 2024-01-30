@@ -31,8 +31,8 @@ pub fn validate(req: &S3BucketCreateRequest) -> tonic::Result<()> {
 pub fn build_query<'a>(
 	req: &'a S3BucketCreateRequest,
 	access_token: &AccessToken,
-) -> tonic::Result<common::database::QueryBuilder<'a>> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> tonic::Result<utils::database::QueryBuilder<'a>> {
+	let mut qb = utils::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<S3BucketCreateRequest as TonicRequest>::Table::NAME)
@@ -78,7 +78,7 @@ pub fn build_query<'a>(
 	seperated.push_bind(&req.access_key_id);
 	seperated.push_bind(&req.secret_access_key);
 	seperated.push_bind(&req.public_url);
-	seperated.push_bind(common::database::Json(req.tags.clone().unwrap_or_default().tags));
+	seperated.push_bind(utils::database::Json(req.tags.clone().unwrap_or_default().tags));
 	seperated.push_bind(false);
 
 	qb.push(") RETURNING *");

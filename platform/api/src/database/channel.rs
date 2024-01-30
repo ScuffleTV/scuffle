@@ -1,6 +1,6 @@
 use async_graphql::SimpleObject;
 use chrono::{DateTime, Utc};
-use common::database::json;
+use utils::database::json;
 use ulid::Ulid;
 
 #[derive(Debug, Clone, Default, postgres_from_row::FromRow)]

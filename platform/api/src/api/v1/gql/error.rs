@@ -37,7 +37,7 @@ pub enum GqlError {
 	InternalServerError(&'static str),
 	/// A database error occurred.
 	#[error("database error: {0}")]
-	Database(#[from] Arc<common::database::deadpool_postgres::PoolError>),
+	Database(#[from] Arc<utils::database::deadpool_postgres::PoolError>),
 	/// The input was invalid.
 	#[error("invalid input for {fields:?}: {message}")]
 	InvalidInput {
@@ -73,8 +73,8 @@ pub enum GqlError {
 	Subscription(#[from] Arc<SubscriptionManagerError>),
 }
 
-impl From<common::database::tokio_postgres::Error> for GqlError {
-	fn from(value: common::database::tokio_postgres::Error) -> Self {
+impl From<utils::database::tokio_postgres::Error> for GqlError {
+	fn from(value: utils::database::tokio_postgres::Error) -> Self {
 		Self::Database(Arc::new(value.into()))
 	}
 }
@@ -89,7 +89,7 @@ macro_rules! impl_arc_from {
 	};
 }
 
-impl_arc_from!(common::database::deadpool_postgres::PoolError);
+impl_arc_from!(utils::database::deadpool_postgres::PoolError);
 impl_arc_from!(turnstile::TurnstileError);
 impl_arc_from!(async_nats::PublishError);
 impl_arc_from!(SubscriptionManagerError);

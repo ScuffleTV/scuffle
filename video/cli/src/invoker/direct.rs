@@ -5,12 +5,12 @@ use anyhow::Context as _;
 use async_nats::jetstream::stream::{self, RetentionPolicy};
 use binary_helper::global::{setup_database, setup_nats, setup_redis};
 use binary_helper::impl_global_traits;
-use common::config::RedisConfig;
-use common::context::Context;
-use common::dataloader::DataLoader;
-use common::global::GlobalDb;
-use common::logging;
-use common::prelude::FutureTimeout;
+use binary_helper::config::RedisConfig;
+use utils::context::Context;
+use utils::dataloader::DataLoader;
+use binary_helper::global::GlobalDb;
+use binary_helper::logging;
+use utils::prelude::FutureTimeout;
 use futures_util::stream::BoxStream;
 use pb::scuffle::video::v1::types::{access_token_scope, AccessTokenScope};
 pub use pb::scuffle::video::v1::*;
@@ -36,7 +36,7 @@ impl DirectBackend {
 		logging::init(&global.config.logging.level, global.config.logging.mode).expect("failed to init logging");
 
 		let access_token = if let Some(organization_id) = organization_id {
-			common::database::query("SELECT * FROM organizations WHERE id = $1")
+			utils::database::query("SELECT * FROM organizations WHERE id = $1")
 				.bind(organization_id)
 				.build()
 				.fetch_optional(global.db())
@@ -78,10 +78,10 @@ impl DirectBackend {
 
 	async fn create_organization(&self, req: OrganizationCreateRequest) -> anyhow::Result<Organization> {
 		let org: video_common::database::Organization =
-			common::database::query("INSERT INTO organizations (id, name, tags) VALUES ($1, $2, $3) RETURNING *")
+			utils::database::query("INSERT INTO organizations (id, name, tags) VALUES ($1, $2, $3) RETURNING *")
 				.bind(Ulid::new())
 				.bind(req.name)
-				.bind(common::database::Json(req.tags))
+				.bind(utils::database::Json(req.tags))
 				.build_query_as()
 				.fetch_one(self.global.db())
 				.await
@@ -132,7 +132,7 @@ impl DirectBackend {
 	}
 
 	async fn get_organization(&self, req: OrganizationGetRequest) -> anyhow::Result<Vec<Organization>> {
-		let mut qb = common::database::QueryBuilder::default();
+		let mut qb = utils::database::QueryBuilder::default();
 
 		qb.push("SELECT * FROM organizations");
 
@@ -144,7 +144,7 @@ impl DirectBackend {
 			qb.push(" WHERE ");
 			first = false;
 			qb.push("tags @> ");
-			qb.push_bind(common::database::Json(tags.tags));
+			qb.push_bind(utils::database::Json(tags.tags));
 		}
 
 		if let Some(after_id) = search_options.after_id {
@@ -185,7 +185,7 @@ impl DirectBackend {
 	}
 
 	async fn modify_organization(&self, req: OrganizationModifyRequest) -> anyhow::Result<Organization> {
-		let mut qb = common::database::QueryBuilder::default();
+		let mut qb = utils::database::QueryBuilder::default();
 
 		qb.push("UPDATE organizations SET ");
 
@@ -203,7 +203,7 @@ impl DirectBackend {
 			}
 
 			qb.push("tags = ");
-			qb.push_bind(common::database::Json(tags));
+			qb.push_bind(utils::database::Json(tags));
 		}
 
 		qb.push(" WHERE id = ");
@@ -225,8 +225,8 @@ impl DirectBackend {
 
 	async fn tag_organization(&self, req: OrganizationTagRequest) -> anyhow::Result<TagResponse> {
 		let org: video_common::database::Organization =
-			common::database::query("UPDATE organizations SET tags = tags || $1 WHERE id = $2 RETURNING *")
-				.bind(common::database::Json(req.tags))
+			utils::database::query("UPDATE organizations SET tags = tags || $1 WHERE id = $2 RETURNING *")
+				.bind(utils::database::Json(req.tags))
 				.bind(req.id)
 				.build_query_as()
 				.fetch_one(self.global.db())
@@ -241,7 +241,7 @@ impl DirectBackend {
 
 	async fn untag_organization(&self, req: OrganizationUntagRequest) -> anyhow::Result<TagResponse> {
 		let org: video_common::database::Organization =
-			common::database::query("UPDATE organizations SET tags = tags - $1::text[] WHERE id = $2 RETURNING *")
+			utils::database::query("UPDATE organizations SET tags = tags - $1::text[] WHERE id = $2 RETURNING *")
 				.bind(req.tags)
 				.bind(req.id)
 				.build_query_as()
@@ -285,7 +285,7 @@ struct GlobalState {
 	nats: async_nats::Client,
 	config: AppConfig,
 	jetstream: async_nats::jetstream::Context,
-	db: Arc<common::database::Pool>,
+	db: Arc<utils::database::Pool>,
 	redis: Arc<fred::clients::RedisPool>,
 	access_token_loader: DataLoader<dataloaders::AccessTokenLoader>,
 	recording_state_loader: DataLoader<dataloaders::RecordingStateLoader>,
@@ -295,14 +295,14 @@ struct GlobalState {
 
 impl_global_traits!(GlobalState);
 
-impl common::global::GlobalRedis for GlobalState {
+impl binary_helper::global::GlobalRedis for GlobalState {
 	#[inline(always)]
 	fn redis(&self) -> &Arc<fred::clients::RedisPool> {
 		&self.redis
 	}
 }
 
-impl common::global::GlobalConfigProvider<ApiConfig> for GlobalState {
+impl binary_helper::global::GlobalConfigProvider<ApiConfig> for GlobalState {
 	#[inline(always)]
 	fn provide_config(&self) -> &ApiConfig {
 		&self.config.extra.api
@@ -333,7 +333,7 @@ impl video_api::global::ApiState for GlobalState {
 
 impl GlobalState {
 	async fn new(ctx: Context, config_path: Option<String>) -> anyhow::Result<Self> {
-		let (config, _) = common::config::parse::<AppConfig>(false, config_path).context("failed to parse config")?;
+		let (config, _) = binary_helper::config::parse::<AppConfig>(false, config_path).context("failed to parse config")?;
 
 		let (nats, jetstream) = setup_nats(&config.name, &config.nats)
 			.timeout(Duration::from_secs(2))
@@ -355,7 +355,7 @@ impl GlobalState {
 		let recording_state_loader = dataloaders::RecordingStateLoader::new(db.clone());
 		let room_loader = dataloaders::RoomLoader::new(db.clone());
 
-		common::ratelimiter::load_rate_limiter_script(&*redis)
+		utils::ratelimiter::load_rate_limiter_script(&*redis)
 			.await
 			.context("failed to load rate limiter script")?;
 

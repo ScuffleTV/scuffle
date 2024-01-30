@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use common::database::IntoClient;
+use utils::database::IntoClient;
 use pb::ext::UlidExt;
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
@@ -31,8 +31,8 @@ pub async fn build_query<'a>(
 	req: &'a RecordingConfigModifyRequest,
 	client: impl IntoClient,
 	access_token: &AccessToken,
-) -> tonic::Result<common::database::QueryBuilder<'a>> {
-	let mut qb = common::database::QueryBuilder::default();
+) -> tonic::Result<utils::database::QueryBuilder<'a>> {
+	let mut qb = utils::database::QueryBuilder::default();
 
 	qb.push("UPDATE ")
 		.push(<RecordingConfigModifyRequest as TonicRequest>::Table::NAME)
@@ -62,7 +62,7 @@ pub async fn build_query<'a>(
 				.items
 				.clone()
 				.into_iter()
-				.map(common::database::Protobuf)
+				.map(utils::database::Protobuf)
 				.collect::<Vec<_>>(),
 		);
 	}
@@ -70,11 +70,11 @@ pub async fn build_query<'a>(
 	if let Some(tags) = &req.tags {
 		seperated
 			.push("tags = ")
-			.push_bind_unseparated(common::database::Json(&tags.tags));
+			.push_bind_unseparated(utils::database::Json(&tags.tags));
 	}
 
 	if let Some(s3_bucket_id) = &req.s3_bucket_id {
-		common::database::query("SELECT * FROM s3_buckets WHERE id = $1 AND organization_id = $2")
+		utils::database::query("SELECT * FROM s3_buckets WHERE id = $1 AND organization_id = $2")
 			.bind(s3_bucket_id.into_ulid())
 			.bind(access_token.organization_id)
 			.build()

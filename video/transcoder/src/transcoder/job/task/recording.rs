@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use aws_sdk_s3::types::ObjectCannedAcl;
 use bytes::Bytes;
-use common::s3::{AsyncStreamBody, PutObjectOptions};
+use binary_helper::s3::{AsyncStreamBody, PutObjectOptions};
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use ulid::Ulid;
@@ -35,7 +35,7 @@ pub async fn recording_task(
 	organization_id: Ulid,
 	recording_id: Ulid,
 	rendition: Rendition,
-	bucket: common::s3::Bucket,
+	bucket: binary_helper::s3::Bucket,
 	mut rx: mpsc::Receiver<RecordingTask>,
 ) -> anyhow::Result<()> {
 	while let Some(task) = rx.recv().await {
@@ -73,7 +73,7 @@ pub async fn recording_task(
 							.await
 							.context("upload segment")?;
 
-						if common::database::query(
+						if utils::database::query(
 							r#"
                         INSERT INTO recording_rendition_segments (
                             organization_id,
@@ -148,7 +148,7 @@ pub async fn recording_thumbnail_task(
 	global: Arc<impl TranscoderGlobal>,
 	organization_id: Ulid,
 	recording_id: Ulid,
-	bucket: common::s3::Bucket,
+	bucket: binary_helper::s3::Bucket,
 	mut rx: mpsc::Receiver<RecordingThumbnailTask>,
 ) -> anyhow::Result<()> {
 	while let Some(task) = rx.recv().await {
@@ -168,7 +168,7 @@ pub async fn recording_thumbnail_task(
 					.await
 					.context("upload thumbnail")?;
 
-				if common::database::query(
+				if utils::database::query(
 					r#"
                 INSERT INTO recording_thumbnails (
                     organization_id,

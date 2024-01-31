@@ -47,12 +47,7 @@ fn create_task(file_id: Ulid, input_path: &str, config: &ImageUploaderConfig, ow
 		resize_algorithm: image_processor::task::ResizeAlgorithm::Lanczos3 as i32,
 		upscale: image_processor::task::Upscale::NoPreserveSource as i32,
 		input_image_scaling: true,
-		scales: vec![
-			64,
-			128,
-			256,
-			384,
-		],
+		scales: vec![64, 128, 256, 384],
 		resize_method: image_processor::task::ResizeMethod::PadCenter as i32,
 		output_prefix: format!("{owner_id}/{file_id}"),
 	}

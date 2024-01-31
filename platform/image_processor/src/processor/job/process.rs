@@ -12,7 +12,7 @@ use super::encoder::{AnyEncoder, Encoder, EncoderFrontend, EncoderSettings};
 use super::resize::{ImageResizer, ImageResizerTarget};
 use crate::database::Job;
 use crate::processor::error::{ProcessorError, Result};
-use crate::processor::job::scaling::{ScalingOptions, Ratio};
+use crate::processor::job::scaling::{Ratio, ScalingOptions};
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -142,7 +142,7 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 		task::ResizeMethod::PadLeft => (true, false),
 		task::ResizeMethod::PadRight => (true, false),
 	};
-	
+
 	let upscale = job.task.upscale().into();
 
 	let scales = ScalingOptions {
@@ -151,18 +151,24 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 		input_image_scaling: job.task.input_image_scaling,
 		clamp_aspect_ratio: job.task.clamp_aspect_ratio,
 		scales,
-		aspect_ratio: job.task.aspect_ratio.as_ref().map(|r| Ratio::new(r.numerator as usize, r.denominator as usize)).unwrap_or(Ratio::ONE),
+		aspect_ratio: job
+			.task
+			.aspect_ratio
+			.as_ref()
+			.map(|r| Ratio::new(r.numerator as usize, r.denominator as usize))
+			.unwrap_or(Ratio::ONE),
 		upscale,
 		preserve_aspect_height,
 		preserve_aspect_width,
-	}.compute();
+	}
+	.compute();
 
 	// let base_width = input_width as f64 / job.task.aspect_width as f64;
 	let mut resizers = scales
 		.iter()
 		.map(|scale| {
 			(
-				scale.clone(),
+				*scale,
 				ImageResizer::new(ImageResizerTarget {
 					height: scale.height,
 					width: scale.width,

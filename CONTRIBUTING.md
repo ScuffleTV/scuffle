@@ -240,11 +240,25 @@ uri = "postgres://root@localhost:5432/scuffle_video"
 cargo run --bin video-api -- --config-file local/video-api-config.toml
 ```
 
+You will need to generate organization id and access token via the video-cli
+
+Create an organization
+
+```bash
+cargo run --bin video-cli -- --config-file local/video-api-config.toml organization create --name <org_name>
+```
+
+Create an access token using the organization id just generated
+
+```bash
+cargo run --bin video-cli -- --config-file local/video-api-config.toml --organization-id XXXXXXXXXXXXXXXXXXXXXXXXXX access-token create --scopes all:admin
+```
+
 ### Platform API
 
 Create a local/platform-api-config.toml
 
-You will need to generate organization id and access token via the video-cli
+Add the ids you generated in previous step
 
 ```toml
 [grpc]

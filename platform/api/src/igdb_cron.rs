@@ -589,10 +589,7 @@ fn create_task(
 		callback_subject: config.callback_subject.clone(),
 		upscale: image_processor::task::Upscale::NoPreserveSource as i32,
 		output_prefix: format!("categories/{category_id}/{id}"),
-		scales: vec![
-			720,
-			1080,
-		],
+		scales: vec![720, 1080],
 		input_image_scaling: true,
 		limits: Some(image_processor::task::Limits {
 			max_processing_time_ms: 60000,

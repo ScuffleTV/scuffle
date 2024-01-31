@@ -27,8 +27,8 @@ pub(crate) mod libavif;
 pub(crate) mod libwebp;
 pub(crate) mod process;
 pub(crate) mod resize;
-pub(crate) mod smart_object;
 pub(crate) mod scaling;
+pub(crate) mod smart_object;
 
 pub(crate) struct Job<'a, G: ImageProcessorGlobal> {
 	pub(crate) global: &'a Arc<G>,

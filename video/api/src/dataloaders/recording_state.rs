@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use utils::dataloader::{DataLoader, Loader, LoaderOutput};
 use itertools::Itertools;
 use ulid::Ulid;
+use utils::dataloader::{DataLoader, Loader, LoaderOutput};
 use video_common::database::{Recording, Rendition};
 
 pub struct RecordingStateLoader {

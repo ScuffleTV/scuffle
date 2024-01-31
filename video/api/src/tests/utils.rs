@@ -3,10 +3,10 @@ use std::ops::Add;
 use std::sync::Arc;
 use std::time::Duration;
 
-use utils::context::Handler;
-use utils::prelude::FutureTimeout;
 use pb::scuffle::video::v1::types::{access_token_scope, AccessTokenScope};
 use ulid::Ulid;
+use utils::context::Handler;
+use utils::prelude::FutureTimeout;
 use video_common::database::AccessToken;
 
 use super::global::{mock_global_state, GlobalState};

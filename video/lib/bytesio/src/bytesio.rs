@@ -1,11 +1,11 @@
 use std::time::Duration;
 
 use bytes::{Bytes, BytesMut};
-use utils::prelude::FutureTimeout;
 use futures::SinkExt;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, Framed};
+use utils::prelude::FutureTimeout;
 
 use super::bytesio_errors::BytesIOError;
 

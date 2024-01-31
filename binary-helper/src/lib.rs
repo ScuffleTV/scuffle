@@ -3,20 +3,21 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context as _;
-use self::config::GrpcConfig;
-use utils::context::Context;
-use utils::signal;
 use tokio::signal::unix::SignalKind;
 use tokio::{select, time};
 use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
 pub use traits::{Config, Global};
+use utils::context::Context;
+use utils::signal;
+
+use self::config::GrpcConfig;
 
 pub mod config;
 pub mod global;
 pub mod grpc_health;
-pub mod traits;
 pub mod logging;
 pub mod s3;
+pub mod traits;
 
 pub async fn bootstrap<C: Config, G: Global<C>, F: Future<Output = anyhow::Result<()>> + Send + 'static>(
 	process: impl FnOnce(Arc<G>) -> F,

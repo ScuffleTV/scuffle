@@ -3,11 +3,11 @@ use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 use async_stream::try_stream;
-use utils::prelude::FutureTimeout;
 use futures_util::Stream;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::{ingest_server, ingest_watch_request, IngestWatchRequest, IngestWatchResponse};
 use tonic::{async_trait, Request, Response, Status, Streaming};
+use utils::prelude::FutureTimeout;
 
 use crate::global::{IncomingTranscoder, IngestGlobal};
 

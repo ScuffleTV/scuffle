@@ -3,9 +3,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
+use tokio::net::TcpSocket;
 use utils::context::ContextExt;
 use utils::prelude::FutureTimeout;
-use tokio::net::TcpSocket;
 
 use crate::config::IngestConfig;
 use crate::global::IngestGlobal;
@@ -53,16 +53,16 @@ pub async fn run<G: IngestGlobal>(global: Arc<G>) -> Result<()> {
 	while let Ok(r) = listener.accept().context(global.ctx()).await {
 		let (socket, addr) = r?;
 		tracing::debug!("Accepted connection from {}", addr);
-	
+
 		let tls_acceptor = tls_acceptor.clone();
 		let global = global.clone();
-	
+
 		tokio::spawn(async move {
 			if let Some(tls_acceptor) = tls_acceptor {
 				let Ok(Ok(socket)) = tls_acceptor.accept(socket).timeout(Duration::from_secs(5)).await else {
 					return;
 				};
-	
+
 				tracing::debug!("TLS handshake complete");
 				connection::handle(global, socket, addr.ip()).await;
 			} else {

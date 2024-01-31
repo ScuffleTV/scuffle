@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
+use ::utils::context::ContextExt;
 use anyhow::{Context, Result};
 use tonic::service::interceptor;
 use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
-use ::utils::context::ContextExt;
 
 use crate::api::utils::auth::AuthMiddleware;
 use crate::config::ApiConfig;

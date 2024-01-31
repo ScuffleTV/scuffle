@@ -2,11 +2,11 @@ use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Duration;
 
-use aws_sdk_s3::types::ObjectCannedAcl;
-use bytes::Bytes;
-use ::utils::task::AsyncTask;
 use ::utils::prelude::FutureTimeout;
+use ::utils::task::AsyncTask;
+use aws_sdk_s3::types::ObjectCannedAcl;
 use binary_helper::s3::PutObjectOptions;
+use bytes::Bytes;
 use file_format::FileFormat;
 use futures::FutureExt;
 use prost::Message;

@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
 use async_nats::jetstream::stream::{self, RetentionPolicy};
+use binary_helper::logging;
+use fred::interfaces::ClientLike;
+use postgres_from_row::tokio_postgres::NoTls;
 use utils::context::{Context, Handler};
 use utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
 use utils::database::Pool;
 use utils::dataloader::DataLoader;
-use binary_helper::logging;
 use utils::prelude::FutureTimeout;
-use fred::interfaces::ClientLike;
-use postgres_from_row::tokio_postgres::NoTls;
 
 use crate::config::ApiConfig;
 use crate::dataloaders;

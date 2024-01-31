@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use utils::database::non_null_vec;
-use utils::http::ext::*;
 use hyper::StatusCode;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::LiveRenditionManifest;
 use pb::scuffle::video::v1::types::{AudioConfig, VideoConfig};
 use ulid::Ulid;
+use utils::database::non_null_vec;
+use utils::http::ext::*;
 use video_common::database::{Recording, RecordingThumbnail, Rendition, Visibility};
 use video_player_types::{
 	RenditionPlaylist, RenditionPlaylistRendition, RenditionPlaylistSegment, RenditionPlaylistSegmentPart,

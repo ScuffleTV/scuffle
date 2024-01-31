@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use utils::database::IntoClient;
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, Resource};
 use pb::scuffle::video::v1::{RoomCreateRequest, RoomCreateResponse};
 use tonic::Status;
 use ulid::Ulid;
+use utils::database::IntoClient;
 use video_common::database::{AccessToken, DatabaseTable, Visibility};
 
 use super::utils::create_stream_key;

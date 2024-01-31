@@ -4,11 +4,6 @@ use std::time::Duration;
 
 use anyhow::Context;
 use bytes::Bytes;
-use utils::context::ContextExt;
-use utils::http::router::middleware::Middleware;
-use utils::http::router::Router;
-use utils::http::RouteError;
-use utils::prelude::FutureTimeout;
 use http_body_util::Full;
 use hyper::body::Incoming;
 use hyper::http::header;
@@ -17,6 +12,11 @@ use hyper::service::service_fn;
 use hyper::StatusCode;
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpSocket;
+use utils::context::ContextExt;
+use utils::http::router::middleware::Middleware;
+use utils::http::router::Router;
+use utils::http::RouteError;
+use utils::prelude::FutureTimeout;
 
 use crate::config::EdgeConfig;
 use crate::global::EdgeGlobal;
@@ -126,15 +126,15 @@ pub async fn run<G: EdgeGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 					return;
 				};
 				tracing::debug!("TLS handshake complete");
-				http.serve_connection(
-					TokioIo::new(socket),
-					service,
-				).with_upgrades().await.ok();
+				http.serve_connection(TokioIo::new(socket), service)
+					.with_upgrades()
+					.await
+					.ok();
 			} else {
-				http.serve_connection(
-					TokioIo::new(socket),
-					service,
-				).with_upgrades().await.ok();
+				http.serve_connection(TokioIo::new(socket), service)
+					.with_upgrades()
+					.await
+					.ok();
 			}
 		});
 	}

@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use binary_helper::global::{setup_database, setup_nats};
+use binary_helper::global::{setup_database, setup_nats, GlobalCtx, GlobalDb, GlobalNats};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
-use utils::context::Context;
-use binary_helper::global::{GlobalCtx, GlobalDb, GlobalNats};
 use platform_image_processor::config::ImageProcessorConfig;
 use tokio::select;
+use utils::context::Context;
 
 #[derive(Debug, Clone, Default, config::Config, serde::Deserialize)]
 #[serde(default)]

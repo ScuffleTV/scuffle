@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use utils::dataloader::{DataLoader, Loader, LoaderOutput};
 use ulid::Ulid;
+use utils::dataloader::{DataLoader, Loader, LoaderOutput};
 
 pub struct AccessTokenLoader {
 	db: Arc<utils::database::Pool>,

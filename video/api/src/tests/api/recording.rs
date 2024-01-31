@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
-use binary_helper::global::GlobalNats;
 use ::utils::prelude::FutureTimeout;
+use binary_helper::global::GlobalNats;
 use futures_util::StreamExt;
 use pb::ext::UlidExt;
 use pb::scuffle::video::v1::types::{Tags, Visibility};

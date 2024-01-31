@@ -2,13 +2,12 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_nats::jetstream::stream::{self, RetentionPolicy};
-use binary_helper::global::{setup_database, setup_nats, setup_redis};
-use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
 use binary_helper::config::RedisConfig;
+use binary_helper::global::{setup_database, setup_nats, setup_redis, GlobalCtx, GlobalDb, GlobalNats};
+use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
+use tokio::select;
 use utils::context::Context;
 use utils::dataloader::DataLoader;
-use binary_helper::global::{GlobalCtx, GlobalDb, GlobalNats};
-use tokio::select;
 use video_api::config::ApiConfig;
 use video_api::dataloaders;
 

@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use utils::prelude::FutureTimeout;
 use tokio::process::Command;
 use tokio::sync::mpsc;
+use utils::prelude::FutureTimeout;
 
 use crate::channels::{ChannelData, UniqueID};
 use crate::Session;

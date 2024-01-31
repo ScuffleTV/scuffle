@@ -1,6 +1,6 @@
-use utils::database::protobuf;
 use pb::scuffle::platform::internal::image_processor::Task;
 use ulid::Ulid;
+use utils::database::protobuf;
 
 // The actual table has more columns but we only need id and task to process a
 // job

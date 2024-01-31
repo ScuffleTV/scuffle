@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
-use utils::database::protobuf;
 use pb::ext::UlidExt;
 use pb::scuffle::platform::internal::two_fa::two_fa_request_action::{ChangePassword, Login};
 use pb::scuffle::platform::internal::two_fa::TwoFaRequestAction;
 use ulid::Ulid;
+use utils::database::protobuf;
 
 use super::{Session, User};
 use crate::global::ApiGlobal;

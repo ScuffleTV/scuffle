@@ -1,9 +1,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use utils::prelude::FutureTimeout;
 use tokio::sync::mpsc;
 use ulid::Ulid;
+use utils::prelude::FutureTimeout;
 
 use crate::global::IngestGlobal;
 

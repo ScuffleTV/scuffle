@@ -4,11 +4,6 @@ use std::time::Duration;
 
 use anyhow::Context;
 use bytes::Bytes;
-use utils::context::ContextExt;
-use utils::http::router::Router;
-use utils::http::RouteError;
-use utils::make_response;
-use utils::prelude::FutureTimeout;
 use http_body_util::Full;
 use hyper::body::Incoming;
 use hyper::server::conn::http1;
@@ -16,6 +11,11 @@ use hyper::service::service_fn;
 use hyper_util::rt::TokioIo;
 use serde_json::json;
 use tokio::net::TcpSocket;
+use utils::context::ContextExt;
+use utils::http::router::Router;
+use utils::http::RouteError;
+use utils::make_response;
+use utils::prelude::FutureTimeout;
 
 use self::error::ApiError;
 use crate::config::ApiConfig;
@@ -124,15 +124,15 @@ pub async fn run<G: ApiGlobal>(global: Arc<G>) -> anyhow::Result<()> {
 					return;
 				};
 				tracing::debug!("TLS handshake complete");
-				http.serve_connection(
-					TokioIo::new(socket),
-					service,
-				).with_upgrades().await.ok();
+				http.serve_connection(TokioIo::new(socket), service)
+					.with_upgrades()
+					.await
+					.ok();
 			} else {
-				http.serve_connection(
-					TokioIo::new(socket),
-					service,
-				).with_upgrades().await.ok();
+				http.serve_connection(TokioIo::new(socket), service)
+					.with_upgrades()
+					.await
+					.ok();
 			}
 		});
 	}

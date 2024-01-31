@@ -49,14 +49,13 @@ pub async fn run<G: TranscoderGlobal>(global: Arc<G>) -> Result<()> {
 	let child_token = shutdown_token.child_token();
 	let _drop_guard = shutdown_token.clone().drop_guard();
 
-
 	while let Ok(m) = messages.next().context(global.ctx()).await {
 		let m = match m {
 			Some(Ok(m)) => m,
 			Some(Err(e)) => {
 				tracing::error!("error receiving message: {}", e);
 				continue;
-			},
+			}
 			None => {
 				bail!("nats stream closed");
 			}

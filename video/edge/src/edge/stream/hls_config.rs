@@ -1,7 +1,7 @@
-use utils::http::ext::*;
-use utils::http::RouteError;
 use hyper::{Request, StatusCode};
 use pb::scuffle::video::internal::live_rendition_manifest::RenditionInfo;
+use utils::http::ext::*;
+use utils::http::RouteError;
 
 use super::block_style::BlockStyle;
 use crate::edge::error::Result;

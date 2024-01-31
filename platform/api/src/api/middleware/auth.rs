@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use binary_helper::global::RequestGlobalExt;
+use hyper::http::header;
 use utils::http::ext::*;
 use utils::http::router::ext::RequestExt;
 use utils::http::router::middleware::Middleware;
 use utils::http::RouteError;
-use hyper::http::header;
 
 use crate::api::auth::{AuthData, AuthError};
 use crate::api::error::ApiError;

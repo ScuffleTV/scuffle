@@ -1,8 +1,8 @@
-use std::{net::SocketAddr, sync::Arc};
-
-use crate::logging;
+use std::net::SocketAddr;
+use std::sync::Arc;
 
 use super::Config;
+use crate::logging;
 
 #[derive(Debug, Clone, PartialEq, config::Config, serde::Deserialize)]
 #[serde(default)]

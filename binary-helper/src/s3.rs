@@ -10,8 +10,7 @@ use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::types::ObjectCannedAcl;
 use bytes::Bytes;
 
-use crate::config::S3BucketConfig;
-use crate::config::S3CredentialsConfig;
+use crate::config::{S3BucketConfig, S3CredentialsConfig};
 
 #[derive(Debug, Clone)]
 pub struct Bucket {

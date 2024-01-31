@@ -3,11 +3,10 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_nats::jetstream::stream::StorageType;
-use binary_helper::global::{setup_database, setup_nats};
+use binary_helper::global::{setup_database, setup_nats, GlobalCtx, GlobalDb, GlobalNats};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
-use utils::context::Context;
-use binary_helper::global::{GlobalCtx, GlobalDb, GlobalNats};
 use tokio::select;
+use utils::context::Context;
 use video_edge::config::EdgeConfig;
 use video_edge::global::EdgeState;
 use video_edge::subscription;

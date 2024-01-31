@@ -1,13 +1,13 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use utils::database::IntoClient;
 use pb::ext::UlidExt;
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, Resource};
 use pb::scuffle::video::v1::{RecordingConfigModifyRequest, RecordingConfigModifyResponse};
 use tonic::Status;
+use utils::database::IntoClient;
 use video_common::database::{AccessToken, DatabaseTable, Rendition};
 
 use crate::api::errors::MODIFY_NO_FIELDS;

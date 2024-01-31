@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use utils::http::RouteError;
 use hyper::StatusCode;
 use ulid::Ulid;
+use utils::http::RouteError;
 
 use super::error::ApiError;
 use crate::database::{Role, RolePermission, Session, User};

@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use aws_sdk_s3::types::ObjectCannedAcl;
-use bytes::Bytes;
 use binary_helper::s3::{AsyncStreamBody, PutObjectOptions};
+use bytes::Bytes;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use ulid::Ulid;

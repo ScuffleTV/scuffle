@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
 use aws_sdk_s3::types::ObjectCannedAcl;
-use bytes::Bytes;
-use utils::http::ext::ResultExt;
-use utils::http::RouteError;
-use utils::make_response;
 use binary_helper::s3::PutObjectOptions;
+use bytes::Bytes;
 use hyper::{Response, StatusCode};
 use pb::scuffle::platform::internal::image_processor;
 use pb::scuffle::platform::internal::types::{uploaded_file_metadata, ImageFormat, UploadedFileMetadata};
 use serde_json::json;
 use ulid::Ulid;
+use utils::http::ext::ResultExt;
+use utils::http::RouteError;
+use utils::make_response;
 
 use super::UploadType;
 use crate::api::auth::AuthData;

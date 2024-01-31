@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use binary_helper::global::{GlobalDb, GlobalNats};
 use ::utils::prelude::FutureTimeout;
+use binary_helper::global::{GlobalDb, GlobalNats};
 use futures_util::StreamExt;
 use pb::scuffle::video::v1::types::{SearchOptions, Tags};
 use pb::scuffle::video::v1::{

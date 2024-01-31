@@ -3,13 +3,9 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_graphql::SDLExportOptions;
-use binary_helper::global::{setup_database, setup_nats, setup_redis};
-use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
 use binary_helper::config::RedisConfig;
-use utils::context::Context;
-use utils::dataloader::DataLoader;
-use binary_helper::global::*;
-use utils::grpc::TlsSettings;
+use binary_helper::global::{setup_database, setup_nats, setup_redis, *};
+use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
 use platform_api::config::{ApiConfig, IgDbConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
 use platform_api::dataloader::category::CategoryByIdLoader;
 use platform_api::dataloader::global_state::GlobalStateLoader;
@@ -24,6 +20,9 @@ use platform_api::video_api::{
 };
 use platform_api::{igdb_cron, image_processor_callback, video_event_handler};
 use tokio::select;
+use utils::context::Context;
+use utils::dataloader::DataLoader;
+use utils::grpc::TlsSettings;
 
 #[derive(Debug, Clone, Default, config::Config, serde::Deserialize)]
 #[serde(default)]

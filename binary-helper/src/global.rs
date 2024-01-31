@@ -5,15 +5,16 @@ use std::time::Duration;
 use anyhow::Context as _;
 use async_nats::ServerAddr;
 use bytes::Bytes;
-use utils::http::RouteError;
+use fred::interfaces::ClientLike;
+use fred::types::ServerConfig;
 use hyper::StatusCode;
-use crate::config::{DatabaseConfig, NatsConfig, RedisConfig};
+use rustls::RootCertStore;
 use utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
 use utils::database::tokio_postgres::NoTls;
 use utils::database::Pool;
-use fred::interfaces::ClientLike;
-use fred::types::ServerConfig;
-use rustls::RootCertStore;
+use utils::http::RouteError;
+
+use crate::config::{DatabaseConfig, NatsConfig, RedisConfig};
 
 #[macro_export]
 macro_rules! impl_global_traits {
@@ -78,7 +79,6 @@ pub trait GlobalDb {
 pub trait GlobalRedis {
 	fn redis(&self) -> &Arc<fred::clients::RedisPool>;
 }
-
 
 pub async fn setup_nats(
 	name: &str,

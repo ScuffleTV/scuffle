@@ -3,12 +3,11 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_nats::jetstream::stream::StorageType;
-use binary_helper::global::{setup_database, setup_nats};
+use binary_helper::global::{setup_database, setup_nats, GlobalCtx, GlobalDb, GlobalNats};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
-use utils::context::Context;
-use binary_helper::global::{GlobalCtx, GlobalDb, GlobalNats};
-use utils::grpc::TlsSettings;
 use tokio::select;
+use utils::context::Context;
+use utils::grpc::TlsSettings;
 use video_transcoder::config::TranscoderConfig;
 
 #[derive(Debug, Clone, Default, serde::Deserialize, config::Config)]

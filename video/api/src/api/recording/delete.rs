@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use utils::database::IntoClient;
 use futures_util::StreamExt;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::events::{recording_delete_batch_task, RecordingDeleteBatchTask};
@@ -11,6 +10,7 @@ use pb::scuffle::video::v1::{RecordingDeleteRequest, RecordingDeleteResponse};
 use prost::Message;
 use tonic::Status;
 use ulid::Ulid;
+use utils::database::IntoClient;
 use video_common::database::{AccessToken, DatabaseTable, Rendition};
 
 use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};

@@ -1,12 +1,12 @@
 use std::sync::{Arc, Mutex};
 
+use hyper::body::Incoming;
+use hyper::header::IntoHeaderName;
+use hyper::Request;
 use utils::http::router::ext::RequestExt as _;
 use utils::http::router::extend::{extend_fn, ExtendRouter};
 use utils::http::router::middleware::Middleware;
 use utils::http::RouteError;
-use hyper::body::Incoming;
-use hyper::header::IntoHeaderName;
-use hyper::Request;
 
 use crate::api::error::ApiError;
 use crate::api::Body;

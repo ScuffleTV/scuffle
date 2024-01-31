@@ -265,11 +265,11 @@ cargo run --bin platform-api -- --config-file local/platform-api-config.toml
 
 ### Website
 
-The website uses vite + svelte and uses npm to run in dev mode
+The website uses vite + svelte and uses pnpm to run in dev mode
 
 ```bash
 cd platform/website
-npm run dev
+pnpm run dev
 ```
 
 </details>

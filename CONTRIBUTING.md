@@ -216,6 +216,78 @@ mask dev migrate
 
 We use [Turnstile](https://www.cloudflare.com/products/turnstile/) for captcha services. For local login request validation, set up a local Turnstile instance. Instructions are provided in the guide.
 
+## Dev Env Setup (NOTE: this will change)
+
+<details>
+
+<summary>Expand</summary>
+
+There are currently three major components to get the dev environment up and running
+
+### Video API
+
+Create a local/video-api-config.toml
+
+```toml
+[grpc]
+bind_address = "127.0.0.1:0"
+
+[database]
+uri = "postgres://root@localhost:5432/scuffle_video"
+```
+
+```bash
+cargo run --bin video-api -- --config-file local/video-api-config.toml
+```
+
+You will need to generate organization id and access token via the video-cli
+
+Create an organization
+
+```bash
+cargo run --bin video-cli -- --config-file local/video-api-config.toml organization create --name <org_name>
+```
+
+Create an access token using the organization id just generated
+
+```bash
+cargo run --bin video-cli -- --config-file local/video-api-config.toml --organization-id XXXXXXXXXXXXXXXXXXXXXXXXXX access-token create --scopes all:admin
+```
+
+### Platform API
+
+Create a local/platform-api-config.toml
+
+Add the ids you generated in previous step
+
+```toml
+[grpc]
+bind_address = "127.0.0.1:0"
+
+[database]
+uri = "postgres://root@localhost:5432/scuffle_platform"
+
+[video_api]
+organization_id = "XXXXXXXXXXXXXXXXXXXXXXXXXX"
+access_key = "XXXXXXXXXXXXXXXXXXXXXXXXXX"
+secret_key = "XXXXXXXXXXXXXXXXXXXXXXXXXX"
+```
+
+```bash
+cargo run --bin platform-api -- --config-file local/platform-api-config.toml
+```
+
+### Website
+
+The website uses vite + svelte and uses pnpm to run in dev mode
+
+```bash
+cd platform/website
+pnpm run dev
+```
+
+</details>
+
 ## Questions
 
 For any questions, join our [discord server](https://discord.gg/scuffle), create an issue on the repo, or engage in the discussion section. We're here to assist and ensure a smooth contribution process.

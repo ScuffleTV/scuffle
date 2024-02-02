@@ -165,10 +165,10 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 
 	// let base_width = input_width as f64 / job.task.aspect_width as f64;
 	let mut resizers = scales
-		.iter()
+		.into_iter()
 		.map(|scale| {
 			(
-				*scale,
+				scale,
 				ImageResizer::new(ImageResizerTarget {
 					height: scale.height,
 					width: scale.width,

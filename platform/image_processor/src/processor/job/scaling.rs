@@ -226,8 +226,7 @@ impl ScalingOptions {
 				(scales.len() - 1, input_scale_factor)
 			});
 
-		dbg!(&scales);
-
+			
 		if self.input_image_scaling {
 			let scaled_width = padded_size.width / scales[best_idx].1 / input_scale_factor;
 			let scaled_height = padded_size.height / scales[best_idx].1 / input_scale_factor;
@@ -239,8 +238,6 @@ impl ScalingOptions {
 
 		if self.upscale.preserve_source() {
 			let padded_size = padded_size / input_scale_factor;
-
-			dbg!(&padded_size);
 
 			let size = scales[best_idx].0;
 
@@ -280,7 +277,7 @@ impl ScalingOptions {
 
 		scales
 			.into_iter()
-			.map(|(mut size, _)| {
+			.map(|(mut size, scale)| {
 				let input_aspect_ratio = self.input_aspect_ratio();
 
 				if self.preserve_aspect_height && self.aspect_ratio <= Ratio::ONE {
@@ -291,6 +288,23 @@ impl ScalingOptions {
 					let width = size.width * input_aspect_ratio / self.aspect_ratio;
 					// size.height *= size.width / width;
 					size.width = width;
+				}
+
+				if self.preserve_aspect_height || self.preserve_aspect_width {
+					// need to make sure the new sizes are not larger than the max for this scale
+					let (width, height) = if self.aspect_ratio > Ratio::ONE {
+						(scale * self.aspect_ratio, scale)
+					} else {
+						(scale, scale / self.aspect_ratio)
+					};
+
+					if size.width > width {
+						size.height *= width / size.width;
+						size.width = width;
+					} else if size.height > height {
+						size.width *= height / size.height;
+						size.height = height;
+					}
 				}
 
 				Size {
@@ -333,8 +347,11 @@ impl ScalingOptions {
 
 		let (width, height) = if self.aspect_ratio < Ratio::ONE {
 			(width, width / self.aspect_ratio)
-		} else {
+		} else if self.aspect_ratio > Ratio::ONE {
 			(height * self.aspect_ratio, height)
+		} else {
+			let max = width.max(height);
+			(max, max)
 		};
 
 		Size { width, height }

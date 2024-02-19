@@ -6,7 +6,7 @@ version = "0.0.1"
 authors = ["Troy Benson <troy@scuffle.tv>"]
 categories = ["wasm"]
 readme = "README.md"
-license = "LICENSE.md"
+license = "BSL-1.0"
 edition = "2021"
 
 [lib]

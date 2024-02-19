@@ -2,6 +2,7 @@
 name = "video-transcoder"
 version = "0.0.1"
 edition = "2021"
+license = "BSL-1.0"
 
 [[bin]]
 name = "video-transcoder"

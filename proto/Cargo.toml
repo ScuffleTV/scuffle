@@ -4,6 +4,7 @@ version = "0.0.1"
 edition = "2021"
 authors = ["Scuffle <opensource@scuffle.tv>"]
 description = "Scuffle Protobuf definitions for scuffle"
+license = "BSL-1.0"
 
 [dependencies]
 tonic = "0.10"

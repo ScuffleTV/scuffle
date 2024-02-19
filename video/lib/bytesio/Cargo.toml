@@ -2,6 +2,7 @@
 name = "bytesio"
 version = "0.0.1"
 edition = "2021"
+license = "MIT or Apache-2.0"
 
 [features]
 tokio = ["dep:tokio-util", "dep:tokio-stream", "dep:tokio", "dep:futures", "dep:utils"]

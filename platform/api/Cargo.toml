@@ -4,6 +4,7 @@ version = "0.0.1"
 edition = "2021"
 authors = ["Scuffle <opensource@scuffle.tv>"]
 description = "Scuffle API server"
+license = "MIT or Apache-2.0"
 
 [dependencies]
 tracing = "0.1"

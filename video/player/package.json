@@ -3,6 +3,7 @@
 	"private": true,
 	"version": "0.0.0",
 	"type": "module",
+	"license": "BSL-1.0",
 	"scripts": {
 		"wasm:build": "cargo build --target wasm32-unknown-unknown --profile wasm && wasm-bindgen --out-dir pkg --target web --weak-refs --reference-types --split-linked-modules ../../target/wasm32-unknown-unknown/wasm/video_player.wasm && wasm-opt -Oz -o ./pkg/video_player_bg.wasm ./pkg/video_player_bg.wasm --enable-reference-types",
 		"wasm:build:dev": "cargo build --target wasm32-unknown-unknown && wasm-bindgen --out-dir pkg --target web --weak-refs --reference-types --split-linked-modules ../../target/wasm32-unknown-unknown/debug/video_player.wasm",

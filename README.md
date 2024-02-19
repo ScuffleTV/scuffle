@@ -13,3 +13,13 @@ This project is very much a WIP and has no functional component right now!
 For more information on what this is going to be, check out [our conference](https://www.youtube.com/watch?v=QvQpMRkzoVM&t=593s)
 
 You can also look at our [design documents](./design/README.md).
+
+## License
+
+This project is licensed under multiple licenses.
+
+For all libraries written by Scuffle, the [MIT](./licenses/MIT_LICENSE) or [Apache 2.0](./licenses/APACHE2_LICENSE) license is used.
+
+For non-libary code such as applications, the [BSL 1.0](./licenses/BSL_LICENSE) license is used.
+
+For more information, see the [licenses](./licenses/README.md) readme.

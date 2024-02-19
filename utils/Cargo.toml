@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Scuffle <opensource@scuffle.tv>"]
 description = "Scuffle Utility Library"
 repository = "https://github.com/ScuffleTV/scuffle"
-license = "MIT"
+license = "MIT or Apache-2.0"
 documentation = "https://docs.rs/scuffle-utils"
 
 [lib]

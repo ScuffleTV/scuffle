@@ -4,7 +4,7 @@ version = "0.0.1"
 edition = "2021"
 authors = ["Scuffle <opensource@scuffle.tv>"]
 description = "Scuffle Image Processor"
-license = "MIT or Apache-2.0"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 tracing = "0.1"
@@ -19,14 +19,14 @@ aws-sdk-s3 = { version = "1.12", features = ["behavior-version-latest"] }
 async-trait = "0.1"
 anyhow = "1.0"
 async-nats = "0.33"
-tonic = "0.10"
+tonic = "0.11"
 futures = "0.3"
 thiserror = "1.0"
-file-format = "0.23"
+file-format = "0.24"
 scopeguard = "1.2"
 rgb = "0.8"
 imgref = "1.10"
-libavif-sys = { version = "0.15" }
+libavif-sys = { version = "0.16" }
 libwebp-sys2 = { version = "0.1", features = ["1_2", "demux", "mux", "static"] }
 sha2 = "0.10"
 byteorder = "1.5"
@@ -35,7 +35,7 @@ png = "0.17"
 num_cpus = "1.16"
 bytes = "1.0"
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls"] }
-fast_image_resize = "2.7"
+fast_image_resize = "3.0.4"
 
 utils = { workspace = true, features = ["all"] }
 config = { workspace = true }

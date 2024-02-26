@@ -1,11 +1,11 @@
 [package]
 name = "scuffle-utils"
-version = "0.0.5"
+version = "0.1.0"
 edition = "2021"
 authors = ["Scuffle <opensource@scuffle.tv>"]
 description = "Scuffle Utility Library"
 repository = "https://github.com/ScuffleTV/scuffle"
-license = "MIT or Apache-2.0"
+license = "MIT OR Apache-2.0"
 documentation = "https://docs.rs/scuffle-utils"
 
 [lib]
@@ -13,12 +13,12 @@ name = "scuffle_utils"
 path = "src/lib.rs"
 
 [features]
-grpc = ["dep:tonic", "dep:async-trait", "dep:futures", "dep:http", "dep:tower", "dep:trust-dns-resolver", "dep:tracing", "dep:tonic-build"]
-context = ["dep:tokio", "dep:tokio-util"]
+grpc = ["dep:tonic", "dep:async-trait", "dep:futures", "dep:http", "dep:tower", "dep:trust-dns-resolver", "dep:tracing", "dep:tonic-build", "dep:tokio", "dep:thiserror"]
+context = ["dep:tokio", "dep:tokio-util", "dep:pin-project"]
 prelude = ["dep:tokio", "dep:futures"]
 signal = ["tokio/signal", "tokio/process"]
-database = ["dep:tokio-postgres", "dep:postgres-types", "dep:deadpool-postgres", "dep:postgres-from-row", "dep:prost", "ulid/postgres"]
-dataloader = ["dep:fnv", "dep:futures-util", "dep:futures-channel"]
+database = ["dep:tokio-postgres", "dep:postgres-types", "dep:deadpool-postgres", "dep:postgres-from-row", "dep:prost", "ulid/postgres", "dep:bytes", "dep:futures-util"]
+dataloader = ["dep:fnv", "dep:futures-util", "dep:futures-channel", "dep:tokio", "dep:tokio-util"]
 ratelimiter = ["dep:fred"]
 http = ["dep:http", "dep:thiserror", "dep:futures-util", "dep:tracing", "dep:hyper", "dep:serde_json", "dep:bytes", "dep:http-body-util", "dep:pin-project", "dep:path-tree"]
 task = ["dep:tokio", "dep:thiserror"]
@@ -34,8 +34,8 @@ futures = { version = "0.3", optional = true }
 tracing = { version = "0.1", optional = true }
 tokio-util = { version = "0.7", optional = true }
 async-trait = { version = "0.1", optional = true }
-tonic = { version = "0.10", features = ["tls"], optional = true }
-tokio = { version = "1.35", features = ["sync", "rt"], optional = true }
+tonic = { version = "0.11", features = ["tls"], optional = true }
+tokio = { version = "1.36", features = ["sync", "rt", "time", "macros"], optional = true }
 trust-dns-resolver = { version = "0.23", features = ["tokio-runtime"], optional = true }
 thiserror = { version = "1.0", optional = true }
 fred = { version = "8.0.0", optional = true }
@@ -66,4 +66,4 @@ portpicker = "0.1"
 dotenvy = "0.15"
 
 [build-dependencies]
-tonic-build = { version = "0.10", optional = true }
+tonic-build = { version = "0.11", optional = true }

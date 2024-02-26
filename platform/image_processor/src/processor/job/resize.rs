@@ -131,12 +131,12 @@ impl ImageResizer {
 				);
 				(
 					dst_image,
-					fr::CropBox {
-						height: (height as u32).try_into().unwrap(),
-						width: (width as u32).try_into().unwrap(),
-						left: left as u32,
-						top: top as u32,
-					},
+					(
+						left as u32,
+						top as u32,
+						(height as u32).try_into().unwrap(),
+						(width as u32).try_into().unwrap(),
+					),
 				)
 			} else {
 				let dst_image = fr::Image::new(
@@ -146,16 +146,20 @@ impl ImageResizer {
 				);
 				(
 					dst_image,
-					fr::CropBox {
-						height: (height as u32).try_into().unwrap(),
-						width: (width as u32).try_into().unwrap(),
-						left: 0,
-						top: 0,
-					},
+					(
+						0_u32,
+						0_u32,
+						(height as u32).try_into().unwrap(),
+						(width as u32).try_into().unwrap(),
+					),
 				)
 			};
 
-		let mut cropped_dst_view = dst_image.view_mut().crop(crop_box).unwrap();
+		let mut cropped_dst_view = dst_image
+			.view_mut()
+			.crop(crop_box.0, crop_box.1, crop_box.2, crop_box.3)
+			.context("failed to crop image")
+			.map_err(ProcessorError::ImageResize)?;
 
 		let size = frame.image.buf().len();
 

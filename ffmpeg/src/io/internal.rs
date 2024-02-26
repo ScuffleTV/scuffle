@@ -1,6 +1,5 @@
 use ffmpeg_sys_next::*;
 use libc::c_void;
-use {AVFormatContext, AVIOContext};
 
 use crate::error::FfmpegError;
 use crate::smart_object::SmartPtr;

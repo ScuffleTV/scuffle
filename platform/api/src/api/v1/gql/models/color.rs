@@ -58,9 +58,9 @@ impl From<i32> for RgbColor {
 	}
 }
 
-impl ToString for RgbColor {
-	fn to_string(&self) -> String {
-		format!("#{:06x}", self.0)
+impl std::fmt::Display for RgbColor {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "#{:06x}", self.0)
 	}
 }
 

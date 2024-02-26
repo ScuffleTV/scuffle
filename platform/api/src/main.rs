@@ -4,7 +4,7 @@ use std::time::Duration;
 use anyhow::Context as _;
 use async_graphql::SDLExportOptions;
 use binary_helper::config::RedisConfig;
-use binary_helper::global::{setup_database, setup_nats, setup_redis, *};
+use binary_helper::global::*;
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
 use platform_api::config::{ApiConfig, IgDbConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
 use platform_api::dataloader::category::CategoryByIdLoader;

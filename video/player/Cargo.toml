@@ -13,23 +13,23 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-wasm-bindgen = "0.2.89"
-wasm-bindgen-futures = "0.4.39"
-console_error_panic_hook = "0.1.7"
-tokio = { version = "1.35.0", features = ["sync", "macros"], default-features = false }
-tracing = { version = "0.1.40", default-features = false, features = ["attributes", "std"]}
-tracing-subscriber = { version = "0.3.18", features = ["registry"], default-features = false }
-tracing-core = { version = "0.1.32", default-features = false }
-serde = { version = "1.0.193", features = ["derive"] }
-serde-wasm-bindgen = "0.6.3"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+console_error_panic_hook = "0.1"
+tokio = { version = "1.36", features = ["sync", "macros"], default-features = false }
+tracing = { version = "0.1", default-features = false, features = ["attributes", "std"]}
+tracing-subscriber = { version = "0.3", features = ["registry"], default-features = false }
+tracing-core = { version = "0.1", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
 tsify = "0.4"
-js-sys = "0.3.66"
-ulid = { version = "1.1.0", default-features = false }
-gloo-timers = { version = "0.3.0", features = ["futures"] }
-url = { version = "2.5.0", features = ["serde"] }
-serde_json = "1.0.108"
-bytes = "1.5.0"
-serde_path_to_error = "0.1.14"
+js-sys = "0.3"
+ulid = { version = "1", default-features = false }
+gloo-timers = { version = "0.3", features = ["futures"] }
+url = { version = "2.5", features = ["serde"] }
+serde_json = "1"
+bytes = "1.5"
+serde_path_to_error = "0.1"
 
 video-player-types = { workspace = true }
 mp4 = { workspace = true }
@@ -37,7 +37,7 @@ h264 = { workspace = true }
 bytesio = { workspace = true, default-features = false }
 
 [dependencies.web-sys]
-version = "0.3.66"
+version = "0.3"
 features = [
     "console",
     "Window",

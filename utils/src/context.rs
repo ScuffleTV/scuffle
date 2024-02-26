@@ -32,10 +32,6 @@ impl Display for CancelReason {
 	}
 }
 
-trait CtxInternal {
-	fn done(&self) -> impl Future<Output = CancelReason> + Send + Sync;
-}
-
 impl RawContext {
 	#[must_use]
 	fn new() -> (Self, Handler) {

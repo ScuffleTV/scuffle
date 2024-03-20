@@ -43,10 +43,10 @@ pub fn routes<G: ApiGlobal>(global: &Arc<G>) -> Router<Incoming, Body, RouteErro
 		// The auth middleware checks the Authorization header, and if it's valid, it adds the user
 		// to the request extensions This way, we can access the user in the handlers, this does not
 		// fail the request if the token is invalid or not present.
+		.error_handler(utils::http::error_handler::<ApiError, _>)
 		.middleware(middleware::auth::auth_middleware(global))
 		.scope("/v1", v1::routes(global))
 		// Our error handler
-		.error_handler(utils::http::error_handler::<ApiError, _>)
 		.not_found(|_| async move {
 			Ok(make_response!(
 				hyper::StatusCode::NOT_FOUND,

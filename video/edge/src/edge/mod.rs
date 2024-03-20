@@ -31,8 +31,8 @@ pub fn routes<G: EdgeGlobal>(global: &Arc<G>) -> Router<Incoming, Body, RouteErr
 	let weak = Arc::downgrade(global);
 	Router::builder()
 		.data(weak)
-		.error_handler(utils::http::error_handler::<EdgeError, _>)
 		.middleware(CorsMiddleware::new(&CorsOptions::wildcard()))
+		.error_handler(utils::http::error_handler::<EdgeError, _>)
 		.scope("/", stream::routes(global))
 		.not_found(|_| async move { Err((StatusCode::NOT_FOUND, "not found").into()) })
 		.build()

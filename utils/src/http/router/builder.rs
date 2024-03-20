@@ -9,7 +9,6 @@ use super::Router;
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
 enum MiddlewareKind {
 	Data,
-	Error,
 	Generic,
 }
 
@@ -73,7 +72,7 @@ impl<I: Send + 'static + Send, O: Send + 'static, E: Send + 'static> RouterBuild
 					}
 				}
 			}),
-			MiddlewareKind::Error,
+			MiddlewareKind::Generic,
 		));
 
 		self

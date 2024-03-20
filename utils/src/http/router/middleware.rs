@@ -1,56 +1,43 @@
-use std::fmt::{Debug, Formatter};
+use std::pin::Pin;
 
-use super::types::{BoxFunction, BoxFuture};
+use futures::Future;
+use tonic::async_trait;
 
-pub struct PreMiddlewareHandler<E>(pub(crate) BoxFunction<hyper::Request<()>, BoxFuture<Result<hyper::Request<()>, E>>>);
+mod cors;
+mod response_headers;
 
-impl<E> Debug for PreMiddlewareHandler<E> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		write!(f, "PreMiddlewareHandler(..)")
+pub use cors::{CorsMiddleware, CorsOptions};
+pub use response_headers::{ResponseHeadersMiddleware, ResponseHeadersRequestExt};
+
+use super::builder::RouterBuilder;
+
+pub type NextFn<I, O, E> = Box<dyn FnOnce(hyper::Request<I>) -> NextFut<O, E> + Sync + Send + 'static>;
+pub type NextFut<O, E> = Pin<Box<dyn Future<Output = Result<hyper::Response<O>, E>> + Send + 'static>>;
+
+#[async_trait]
+pub trait Middleware<I: Send, O: Send, E: Send>: Sync + Send + 'static {
+	async fn handle(&self, req: hyper::Request<I>, next: NextFn<I, O, E>) -> Result<hyper::Response<O>, E>;
+
+	fn extend(&self, builder: RouterBuilder<I, O, E>) -> RouterBuilder<I, O, E> {
+		builder
 	}
 }
 
-pub struct PostMiddlewareHandler<O, E>(
-	#[allow(clippy::type_complexity)]
-	pub(crate)  BoxFunction<(hyper::Response<O>, hyper::Request<()>), BoxFuture<Result<hyper::Response<O>, E>>>,
-);
-
-impl<O, E> Debug for PostMiddlewareHandler<O, E> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		write!(f, "PostMiddlewareHandler(..)")
-	}
+pub fn middleware_fn<I: Send + 'static, O: Send + 'static, E: Send + 'static, F, Fut>(f: F) -> impl Middleware<I, O, E>
+where
+	F: Fn(hyper::Request<I>, NextFn<I, O, E>) -> Fut + Sync + Send + 'static,
+	Fut: std::future::Future<Output = Result<hyper::Response<O>, E>> + Send + 'static,
+{
+	f
 }
 
-pub enum Middleware<O, E> {
-	Pre(PreMiddlewareHandler<E>),
-	Post(PostMiddlewareHandler<O, E>),
-}
-
-impl<O, E> Debug for Middleware<O, E> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		match self {
-			Middleware::Pre(_) => write!(f, "Pre(..)"),
-			Middleware::Post(_) => write!(f, "Post(..)"),
-		}
-	}
-}
-
-impl<O: 'static, E: 'static> Middleware<O, E> {
-	pub fn pre<F: std::future::Future<Output = Result<hyper::Request<()>, E>> + Send + Sync + 'static>(
-		handler: impl Fn(hyper::Request<()>) -> F + Send + Sync + 'static,
-	) -> Self {
-		Self::Pre(PreMiddlewareHandler(Box::new(move |req| Box::pin(handler(req)))))
-	}
-
-	pub fn post<F: std::future::Future<Output = Result<hyper::Response<O>, E>> + Send + Sync + 'static>(
-		handler: impl Fn(hyper::Response<O>) -> F + Send + Sync + 'static,
-	) -> Self {
-		Self::Post(PostMiddlewareHandler(Box::new(move |(res, _)| Box::pin(handler(res)))))
-	}
-
-	pub fn post_with_req<F: std::future::Future<Output = Result<hyper::Response<O>, E>> + Send + Sync + 'static>(
-		handler: impl Fn(hyper::Response<O>, hyper::Request<()>) -> F + Send + Sync + 'static,
-	) -> Self {
-		Self::Post(PostMiddlewareHandler(Box::new(move |(res, req)| Box::pin(handler(res, req)))))
+#[async_trait]
+impl<I: Send + 'static, O: Send + 'static, E: Send + 'static, F, Fut> Middleware<I, O, E> for F
+where
+	F: Fn(hyper::Request<I>, NextFn<I, O, E>) -> Fut + Sync + Send + 'static,
+	Fut: std::future::Future<Output = Result<hyper::Response<O>, E>> + Send + 'static,
+{
+	async fn handle(&self, req: hyper::Request<I>, next: NextFn<I, O, E>) -> Result<hyper::Response<O>, E> {
+		self(req, next).await
 	}
 }

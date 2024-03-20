@@ -1,7 +1,10 @@
 use std::fmt::{Debug, Formatter};
+use std::pin::Pin;
+use std::sync::Arc;
+
+use futures::Future;
 
 use super::builder::RouterBuilder;
-use super::types::{BoxFunction, BoxFuture};
 
 pub(crate) enum RouterItem<I, O, E> {
 	Route(Route<I, O, E>),
@@ -17,13 +20,12 @@ impl<I, O, E> Debug for RouterItem<I, O, E> {
 	}
 }
 
-pub(crate) struct RouteHandler<I, O, E>(pub BoxFunction<hyper::Request<I>, BoxFuture<Result<hyper::Response<O>, E>>>);
-
-impl<I, O, E> Debug for RouteHandler<I, O, E> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		write!(f, "RouteHandler(..)")
-	}
-}
+pub(crate) type RouteHandler<I, O, E> = Arc<
+	dyn Fn(hyper::Request<I>) -> Pin<Box<dyn Future<Output = Result<hyper::Response<O>, E>> + Send + 'static>>
+		+ Send
+		+ Sync
+		+ 'static,
+>;
 
 pub(crate) struct Route<I, O, E> {
 	pub method: Option<hyper::Method>,
@@ -32,9 +34,6 @@ pub(crate) struct Route<I, O, E> {
 
 impl<I, O, E> Debug for Route<I, O, E> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("Route")
-			.field("method", &self.method)
-			.field("handler", &self.handler)
-			.finish()
+		f.debug_struct("Route").field("method", &self.method).finish()
 	}
 }

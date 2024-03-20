@@ -12,6 +12,7 @@ use hyper_util::rt::TokioIo;
 use serde_json::json;
 use tokio::net::TcpSocket;
 use utils::context::ContextExt;
+use utils::http::router::middleware::{CorsMiddleware, CorsOptions, ResponseHeadersMiddleware};
 use utils::http::router::Router;
 use utils::http::RouteError;
 use utils::make_response;
@@ -36,15 +37,15 @@ pub fn routes<G: ApiGlobal>(global: &Arc<G>) -> Router<Incoming, Body, RouteErro
 		.data(weak)
 		// These response header middlewares lets us add headers to the response from the request
 		// handlers
-		.extend(middleware::response_headers::response_headers(global))
-		// Our error handler
+		.middleware(ResponseHeadersMiddleware::new())
 		// The CORS middleware adds the CORS headers to the response
-		.extend(middleware::cors::cors_middleware(global))
+		.middleware(CorsMiddleware::new(&CorsOptions::wildcard()))
 		// The auth middleware checks the Authorization header, and if it's valid, it adds the user
 		// to the request extensions This way, we can access the user in the handlers, this does not
 		// fail the request if the token is invalid or not present.
 		.middleware(middleware::auth::auth_middleware(global))
 		.scope("/v1", v1::routes(global))
+		// Our error handler
 		.error_handler(utils::http::error_handler::<ApiError, _>)
 		.not_found(|_| async move {
 			Ok(make_response!(

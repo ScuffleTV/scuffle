@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
 use binary_helper::global::RequestGlobalExt;
+use hyper::body::Incoming;
 use hyper::http::header;
 use utils::http::ext::*;
 use utils::http::router::ext::RequestExt;
-use utils::http::router::middleware::Middleware;
+use utils::http::router::middleware::{middleware_fn, Middleware};
 use utils::http::RouteError;
 
 use crate::api::auth::{AuthData, AuthError};
@@ -14,14 +15,14 @@ use crate::api::request_context::RequestContext;
 use crate::api::Body;
 use crate::global::ApiGlobal;
 
-pub fn auth_middleware<G: ApiGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError<ApiError>> {
-	Middleware::pre(|mut req| async move {
+pub fn auth_middleware<G: ApiGlobal>(_: &Arc<G>) -> impl Middleware<Incoming, Body, RouteError<ApiError>> {
+	middleware_fn(|mut req, next| async move {
 		let context = RequestContext::default();
 		req.provide(context.clone());
 
 		let Some(token) = req.headers().get(header::AUTHORIZATION) else {
 			// No Authorization header
-			return Ok(req);
+			return next(req).await;
 		};
 
 		let global = req.get_global::<G, _>()?;
@@ -42,6 +43,6 @@ pub fn auth_middleware<G: ApiGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError<
 
 		context.set_auth(data).await;
 
-		Ok(req)
+		next(req).await
 	})
 }

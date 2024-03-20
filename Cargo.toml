@@ -58,7 +58,6 @@ video-transcoder = { path = "video/transcoder" }
 binary-helper = { path = "binary-helper" }
 ffmpeg = { path = "ffmpeg" }
 
-
 # These patches are pending PRs to the upstream crates
 # TODO: Remove these once the PRs are merged
 [patch.crates-io]

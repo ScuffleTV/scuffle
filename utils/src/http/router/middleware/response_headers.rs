@@ -2,7 +2,6 @@ use std::sync::{Arc, Mutex};
 
 use hyper::header::IntoHeaderName;
 use hyper::Request;
-use tonic::async_trait;
 
 use crate::http::router::ext::RequestExt;
 
@@ -17,7 +16,7 @@ impl ResponseHeadersMiddleware {
 	}
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl<I: Send + 'static, O: Send + 'static, E: Send + 'static> super::Middleware<I, O, E> for ResponseHeadersMiddleware {
 	async fn handle(&self, mut req: Request<I>, next: super::NextFn<I, O, E>) -> Result<hyper::Response<O>, E> {
 		let headers = ResponseHeadersMagic::default();

@@ -20,7 +20,7 @@ signal = ["tokio/signal", "tokio/process"]
 database = ["dep:tokio-postgres", "dep:postgres-types", "dep:deadpool-postgres", "dep:postgres-from-row", "dep:prost", "ulid/postgres", "dep:bytes", "dep:futures-util"]
 dataloader = ["dep:fnv", "dep:futures-util", "dep:futures-channel", "dep:tokio", "dep:tokio-util"]
 ratelimiter = ["dep:fred"]
-http = ["dep:http", "dep:thiserror", "dep:futures-util", "dep:tracing", "dep:hyper", "dep:serde_json", "dep:bytes", "dep:http-body-util", "dep:pin-project", "dep:path-tree"]
+http = ["dep:async-trait", "dep:http", "dep:thiserror", "dep:futures-util", "dep:tracing", "dep:hyper", "dep:serde_json", "dep:bytes", "dep:http-body-util", "dep:pin-project", "dep:path-tree"]
 task = ["dep:tokio", "dep:thiserror"]
 
 all = ["grpc", "context", "prelude", "signal", "dataloader", "database", "ratelimiter", "http", "task"]

@@ -6,14 +6,13 @@ use anyhow::Context;
 use bytes::Bytes;
 use http_body_util::Full;
 use hyper::body::Incoming;
-use hyper::http::header;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::StatusCode;
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpSocket;
 use utils::context::ContextExt;
-use utils::http::router::middleware::Middleware;
+use utils::http::router::middleware::{CorsMiddleware, CorsOptions};
 use utils::http::router::Router;
 use utils::http::RouteError;
 use utils::prelude::FutureTimeout;
@@ -28,32 +27,12 @@ pub use error::EdgeError;
 
 type Body = Full<Bytes>;
 
-pub fn cors_middleware<G: EdgeGlobal>(_: &Arc<G>) -> Middleware<Body, RouteError<EdgeError>> {
-	Middleware::post(|mut resp| async move {
-		resp.headers_mut()
-			.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*".parse().unwrap());
-		resp.headers_mut()
-			.insert(header::ACCESS_CONTROL_ALLOW_METHODS, "*".parse().unwrap());
-		resp.headers_mut()
-			.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, "*".parse().unwrap());
-		resp.headers_mut()
-			.insert(header::ACCESS_CONTROL_EXPOSE_HEADERS, "Date".parse().unwrap());
-		resp.headers_mut().insert("Timing-Allow-Origin", "*".parse().unwrap());
-		resp.headers_mut().insert(
-			header::ACCESS_CONTROL_MAX_AGE,
-			Duration::from_secs(86400).as_secs().to_string().parse().unwrap(),
-		);
-
-		Ok(resp)
-	})
-}
-
 pub fn routes<G: EdgeGlobal>(global: &Arc<G>) -> Router<Incoming, Body, RouteError<EdgeError>> {
 	let weak = Arc::downgrade(global);
 	Router::builder()
 		.data(weak)
+		.middleware(CorsMiddleware::new(&CorsOptions::wildcard()))
 		.error_handler(utils::http::error_handler::<EdgeError, _>)
-		.middleware(cors_middleware(global))
 		.scope("/", stream::routes(global))
 		.not_found(|_| async move { Err((StatusCode::NOT_FOUND, "not found").into()) })
 		.build()

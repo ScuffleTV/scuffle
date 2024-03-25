@@ -1,66 +1,56 @@
 use std::fmt::{Debug, Formatter};
+use std::sync::Arc;
 
-use super::extend::ExtendRouter;
-use super::middleware::{Middleware, PostMiddlewareHandler, PreMiddlewareHandler};
-use super::route::{Route, RouteHandler, RouterItem};
-use super::types::{ErrorHandler, RouteInfo};
+use super::middleware::{Middleware, NextFn};
+use super::route::{Route, RouterItem};
+use super::types::RouteInfo;
 use super::Router;
+
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
+enum MiddlewareKind {
+	Data,
+	Generic,
+}
 
 pub struct RouterBuilder<I, O, E> {
 	tree: Vec<(&'static str, RouterItem<I, O, E>)>,
-	pre_middleware: Vec<PreMiddlewareHandler<E>>,
-	post_middleware: Vec<PostMiddlewareHandler<O, E>>,
-	error_handler: Option<ErrorHandler<O, E>>,
+	middlewares: Vec<(Arc<dyn Middleware<I, O, E>>, MiddlewareKind)>,
 }
 
 impl<I, O, E> Debug for RouterBuilder<I, O, E> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("RouterBuilder")
-			.field("tree", &self.tree)
-			.field("pre_middleware", &self.pre_middleware)
-			.field("post_middleware", &self.post_middleware)
-			.field("error_handler", &self.error_handler)
-			.finish()
+		f.debug_struct("RouterBuilder").field("tree", &self.tree).finish()
 	}
 }
 
-impl<I: 'static, O: 'static, E: 'static> Default for RouterBuilder<I, O, E> {
+impl<I: 'static + Send, O: Send + 'static, E: Send + 'static> Default for RouterBuilder<I, O, E> {
 	fn default() -> Self {
 		Self::new()
 	}
 }
 
-impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
+impl<I: Send + 'static + Send, O: Send + 'static, E: Send + 'static> RouterBuilder<I, O, E> {
 	pub fn new() -> Self {
 		Self {
 			tree: Vec::new(),
-			post_middleware: Vec::new(),
-			pre_middleware: Vec::new(),
-			error_handler: None,
+			middlewares: Vec::new(),
 		}
 	}
 
-	pub fn extend(self, mut extend: impl ExtendRouter<I, O, E>) -> Self {
-		extend.extend(self)
-	}
-
-	pub fn middleware(mut self, middleware: Middleware<O, E>) -> Self {
-		match middleware {
-			Middleware::Pre(handler) => self.pre_middleware.push(handler),
-			Middleware::Post(handler) => self.post_middleware.push(handler),
-		}
-
+	pub fn middleware(mut self, middleware: impl Middleware<I, O, E> + 'static) -> Self {
+		self.middlewares.push((Arc::new(middleware), MiddlewareKind::Generic));
 		self
 	}
 
 	pub fn data<T: Clone + Send + Sync + 'static>(mut self, data: T) -> Self {
-		self.pre_middleware.insert(
-			0,
-			PreMiddlewareHandler(Box::new(move |mut req: hyper::Request<()>| {
-				req.extensions_mut().insert(data.clone());
-				Box::pin(async move { Ok(req) })
-			})),
-		);
+		self.middlewares.push((
+			Arc::new(move |mut req: hyper::Request<I>, next: NextFn<I, O, E>| {
+				let data = data.clone();
+				req.extensions_mut().insert(data);
+				next(req)
+			}),
+			MiddlewareKind::Data,
+		));
 
 		self
 	}
@@ -69,7 +59,22 @@ impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
 		mut self,
 		handler: impl Fn(hyper::Request<()>, E) -> F + Send + Sync + 'static,
 	) -> Self {
-		self.error_handler = Some(ErrorHandler(Box::new(move |(req, err)| Box::pin(handler(req, err)))));
+		let handler = Arc::new(handler);
+		self.middlewares.push((
+			Arc::new(move |req: hyper::Request<I>, next: NextFn<I, O, E>| {
+				let handler = handler.clone();
+				async move {
+					let (parts, body) = req.into_parts();
+
+					match next(hyper::Request::from_parts(parts.clone(), body)).await {
+						Ok(res) => Ok(res),
+						Err(err) => Ok(handler(hyper::Request::from_parts(parts, ()), err).await),
+					}
+				}
+			}),
+			MiddlewareKind::Generic,
+		));
+
 		self
 	}
 
@@ -163,7 +168,7 @@ impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
 			path,
 			RouterItem::Route(Route {
 				method,
-				handler: RouteHandler(Box::new(move |req| Box::pin(handler(req)))),
+				handler: Arc::new(move |req| Box::pin(handler(req))),
 			}),
 		));
 		self
@@ -181,36 +186,15 @@ impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
 		self.add_route(None, "/*", handler)
 	}
 
-	fn build_scoped(
-		mut self,
-		parent_path: &str,
-		target: &mut Router<I, O, E>,
-		pre_middlewares: &[usize],
-		post_middlewares: &[usize],
-		error_handler: Option<usize>,
-	) {
-		let error_handler = if let Some(error_handler) = self.error_handler.take() {
-			target.error_handlers.push(error_handler);
-			Some(target.error_handlers.len() - 1)
-		} else {
-			error_handler
-		};
+	fn build_scoped(mut self, parent_path: &str, target: &mut Router<I, O, E>, middlewares: &[usize]) {
+		self.middlewares.sort_by_key(|(_, kind)| *kind);
 
-		let pre_middleware_idxs = pre_middlewares
+		let middleware_idxs = middlewares
 			.iter()
 			.copied()
-			.chain(self.pre_middleware.into_iter().map(|handler| {
-				target.pre_middlewares.push(handler);
-				target.pre_middlewares.len() - 1
-			}))
-			.collect::<Vec<_>>();
-
-		let post_middleware_idxs = post_middlewares
-			.iter()
-			.copied()
-			.chain(self.post_middleware.into_iter().map(|handler| {
-				target.post_middlewares.push(handler);
-				target.post_middlewares.len() - 1
+			.chain(self.middlewares.into_iter().map(|(handler, _)| {
+				target.middlewares.push(handler);
+				target.middlewares.len() - 1
 			}))
 			.collect::<Vec<_>>();
 
@@ -221,9 +205,7 @@ impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
 
 					let info = RouteInfo {
 						route: target.routes.len() - 1,
-						pre_middleware: pre_middleware_idxs.clone(),
-						post_middleware: post_middleware_idxs.clone(),
-						error_handler,
+						middleware: middleware_idxs.clone(),
 					};
 
 					let method = if let Some(method) = &route.method {
@@ -255,9 +237,7 @@ impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
 							if parent_path.is_empty() || path.is_empty() { "" } else { "/" }
 						),
 						target,
-						&pre_middleware_idxs,
-						&post_middleware_idxs,
-						error_handler,
+						&middleware_idxs,
 					);
 				}
 			}
@@ -267,13 +247,11 @@ impl<I: 'static, O: 'static, E: 'static> RouterBuilder<I, O, E> {
 	pub fn build(self) -> Router<I, O, E> {
 		let mut router = Router {
 			routes: Vec::new(),
-			pre_middlewares: Vec::new(),
-			post_middlewares: Vec::new(),
-			error_handlers: Vec::new(),
+			middlewares: Vec::new(),
 			tree: path_tree::PathTree::new(),
 		};
 
-		self.build_scoped("", &mut router, &[], &[], None);
+		self.build_scoped("", &mut router, &[]);
 
 		router
 	}

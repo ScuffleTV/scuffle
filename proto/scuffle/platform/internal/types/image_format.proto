@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package scuffle.platform.internal.types;
+
+enum ImageFormat {
+  WEBP = 0;
+  AVIF = 1;
+  GIF = 2;
+  WEBP_STATIC = 3;
+  AVIF_STATIC = 4;
+  PNG_STATIC = 5;
+}

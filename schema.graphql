@@ -3,67 +3,293 @@ The mutation object for authentication
 """
 type AuthMutation {
 	"""
-	Login using a username and password. If via websocket this will authenticate the websocket connection.
+	Fulfill a two-factor authentication request.
+	"""
+	fulfillTwoFaRequest(
+		"""
+		The TOTP code.
+		"""
+		code: String!
+		"""
+		ID of the 2fa request to be fulfilled.
+		"""
+		id: ULID!
+	): TwoFaRequestFulfillResponse
+	"""
+	Login using a username and password. If via websocket this will
+	authenticate the websocket connection.
 	"""
 	login(
+		"""
+		The captcha token from cloudflare turnstile.
+		"""
 		captchaToken: String!
+		"""
+		The password of the user.
+		"""
 		password: String!
+		"""
+		Setting this to false will make it so logging in does not authenticate the connection.
+		"""
 		updateContext: Boolean
+		"""
+		The username of the user.
+		"""
 		username: String!
+		"""
+		The duration of the session in seconds. If not specified it will be 7 days.
+		"""
 		validity: Int
+	): LoginResponse!
+	"""
+	Login with a session token. If via websocket this will authenticate the
+	websocket connection.
+	"""
+	loginWithToken(
+		"""
+		The JWT Session Token
+		"""
+		sessionToken: String!
+		"""
+		Setting this to false will make it so logging in does not authenticate the connection.
+		"""
+		updateContext: Boolean
 	): Session!
 	"""
-	Login with a session token. If via websocket this will authenticate the websocket connection.
+	Logout the user with the given session token. This will invalidate the
+	session token.
 	"""
-	loginWithToken(sessionToken: String!, updateContext: Boolean): Session!
+	logout(
+		"""
+		You can provide a session token to logout of, if not provided the session will logout of the currently authenticated session.
+		"""
+		sessionToken: String
+	): Boolean!
 	"""
-	Logout the user with the given session token. This will invalidate the session token.
-	"""
-	logout(sessionToken: String): Boolean!
-	"""
-	If successful will return a new session for the account which just got created.
+	If successful will return a new session for the account which just got
+	created.
 	"""
 	register(
+		"""
+		The captcha token from cloudflare turnstile.
+		"""
 		captchaToken: String!
+		"""
+		The email of the user.
+		"""
 		email: String!
+		"""
+		The password of the user.
+		"""
 		password: String!
+		"""
+		Setting this to false will make it so logging in does not authenticate the connection.
+		"""
 		updateContext: Boolean
+		"""
+		The username of the user.
+		"""
 		username: String!
+		"""
+		The validity of the session in seconds.
+		"""
 		validity: Int
 	): Session!
+}
+
+type Category {
+	id: ULID!
+	name: String!
+	revision: Int!
+	updatedAt: DateRFC3339!
+}
+
+type CategoryQuery {
+	byId(
+		"""
+		The id of the category.
+		"""
+		id: ULID!
+	): Category
+	searchByName(
+		"""
+		The result limit, default: 5
+		"""
+		limit: Int
+		"""
+		The result offset, default: 0
+		"""
+		offset: Int
+		"""
+		The search query.
+		"""
+		query: String!
+	): CategorySearchResults!
+}
+
+type CategorySearchResult {
+	object: Category!
+	similarity: Float!
+}
+
+type CategorySearchResults {
+	results: [CategorySearchResult!]!
+	totalCount: Int!
+}
+
+union ChangePasswordResponse = TwoFaRequest | User
+
+type Channel {
+	category: Category
+	categoryId: ULID
+	customThumbnailId: ULID
+	description: String
+	followersCount: Int!
+	id: ULID!
+	lastLiveAt: DateRFC3339
+	links: [ChannelLink!]!
+	live: ChannelLive
+	offlineBannerId: ULID
+	streamKey: String
+	title: String
+}
+
+type ChannelLink {
+	name: String!
+	url: String!
+}
+
+type ChannelLive {
+	edgeEndpoint: String!
+	liveViewerCount: Int!
+	organizationId: ULID!
+	playerToken: String
+	roomId: ULID!
+}
+
+type ChannelLiveStream {
+	channelId: ULID!
+	live: Boolean!
+}
+
+type ChannelMutation {
+	title(
+		"""
+		The new title.
+		"""
+		title: String!
+	): User!
+}
+
+type ChannelTitleStream {
+	channelId: ULID!
+	title: String
 }
 
 type ChatMessage {
-	author: User
-	authorId: UUID!
 	channel: User!
-	channelId: UUID!
+	channelId: ULID!
 	content: String!
-	createdAt: DateRFC3339!
-	id: UUID!
+	id: ULID!
 	type: MessageType!
+	user: User
+	userId: ULID!
 }
 
 type ChatMutation {
-	sendMessage(channelId: UUID!, content: String!): ChatMessage!
+	sendMessage(
+		"""
+		ID of chat room where the message will be send.
+		"""
+		channelId: ULID!
+		"""
+		Message content that will be published.
+		"""
+		content: String!
+	): ChatMessage!
 }
 
 scalar DateRFC3339
 
-type DisplayNameStream {
-	displayName: String!
-	username: String!
+type DisplayColor {
+	hsl: HslColor!
+	isGray: Boolean!
+	rgb: RgbColor!
 }
 
-type GlobalRole {
-	allowedPermissions: Int!
-	createdAt: DateRFC3339!
-	deniedPermissions: Int!
-	description: String!
-	id: UUID!
-	name: String!
-	rank: Int!
+enum FileStatus {
+	FAILURE
+	SUCCESS
 }
+
+type FileStatusStream {
+	"""
+	The ID of the file.
+	"""
+	fileId: ULID!
+	"""
+	Only set if status is `Failure`.
+	"""
+	friendlyMessage: String
+	"""
+	Only set if status is `Failure`.
+	"""
+	reason: String
+	"""
+	The status of the file.
+	"""
+	status: FileStatus!
+}
+
+type FollowStream {
+	channelId: ULID!
+	following: Boolean!
+	userId: ULID!
+}
+
+"""
+A HSL color.
+"""
+type HslColor {
+	"""
+	Hue in degrees, value between 0.0 and 360.0.
+	"""
+	h: Float!
+	"""
+	Lightness, value between 0.0 and 1.0.
+	"""
+	l: Float!
+	"""
+	Saturation, value between 0.0 and 1.0.
+	"""
+	s: Float!
+}
+
+type ImageUpload {
+	endpoint: String!
+	id: ULID!
+	variants: [ImageUploadVariant!]!
+}
+
+enum ImageUploadFormat {
+	AVIF
+	AVIF_STATIC
+	GIF
+	PNG_STATIC
+	WEBP
+	WEBP_STATIC
+}
+
+type ImageUploadVariant {
+	byteSize: Int!
+	format: ImageUploadFormat!
+	height: Int!
+	scale: Int!
+	url: String!
+	width: Int!
+}
+
+union LoginResponse = TwoFaRequest | Session
 
 enum MessageType {
 	SYSTEM
@@ -76,23 +302,48 @@ The root mutation type which contains root level fields.
 """
 type Mutation {
 	auth: AuthMutation!
+	channel: ChannelMutation!
 	chat: ChatMutation!
+	user: UserMutation!
 }
 
 """
 The root query type which contains root level fields.
 """
 type Query {
-	noop: Boolean!
-	userById(id: UUID!): User
-	userByUsername(username: String!): User
+	category: CategoryQuery!
+	search(
+		"""
+		The result limit, default: 5
+		"""
+		limit: Int
+		"""
+		The result offset, default: 0
+		"""
+		offset: Int
+		"""
+		The search query.
+		"""
+		query: String!
+	): SearchAllResults!
+	user: UserQuery!
+}
+
+scalar RgbColor
+
+union SearchAllResultData = Category | User
+
+type SearchAllResults {
+	results: [SearchResult!]!
+	totalCount: Int!
+}
+
+type SearchResult {
+	object: SearchAllResultData!
+	similarity: Float!
 }
 
 type Session {
-	"""
-	Created at
-	"""
-	createdAt: DateRFC3339!
 	"""
 	Expires at
 	"""
@@ -100,7 +351,7 @@ type Session {
 	"""
 	The session's id
 	"""
-	id: UUID!
+	id: ULID!
 	"""
 	Last used at
 	"""
@@ -109,47 +360,228 @@ type Session {
 	The session's token
 	"""
 	token: String!
-	user: User!
 	"""
 	The user who owns this session
 	"""
-	userId: UUID!
+	userId: ULID!
 }
 
 type Subscription {
-	chatMessages(channelId: UUID!): ChatMessage!
+	channelFollowersCount(channelId: ULID!): Int!
+	channelFollows(channelId: ULID!): FollowStream!
+	channelLive(channelId: ULID!): ChannelLiveStream!
+	channelTitle(channelId: ULID!): ChannelTitleStream!
+	chatMessages(
+		"""
+		Chat to subscribe to.
+		"""
+		channelId: ULID!
+	): ChatMessage!
+	fileStatus(fileId: ULID!): FileStatusStream!
 	noop: Boolean!
-	userDisplayName(userId: UUID!): DisplayNameStream!
+	userDisplayColor(userId: ULID!): UserDisplayColorStream!
+	userDisplayName(userId: ULID!): UserDisplayNameStream!
+	userFollowing(
+		"""
+		When specified, this subscription is limited to only this channel.
+		"""
+		channelId: ULID
+	): FollowStream!
+	userProfilePicture(userId: ULID!): UserProfilePictureStream!
 }
 
-"""
-A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
-Strings within GraphQL. UUIDs are used to assign unique identifiers to
-entities without requiring a central allocating authority.
+type TotpSecret {
+	"""
+	List of backup codes.
+	"""
+	backupCodes: [String!]!
+	"""
+	Base64 encoded totp qr code.
+	"""
+	qrCode: String!
+}
 
-# References
+type TwoFaMutation {
+	"""
+	Disable TOTP for the currently authenticated user.
+	"""
+	disableTotp(password: String!): User!
+	"""
+	Enable TOTP for the currently authenticated user.
+	"""
+	enableTotp(code: String!): User!
+	"""
+	Generate a new TOTP secret for the currently authenticated user.
+	"""
+	generateTotp: TotpSecret!
+}
 
-* [Wikipedia: Universally Unique Identifier](http://en.wikipedia.org/wiki/Universally_unique_identifier)
-* [RFC4122: A Universally Unique IDentifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
+type TwoFaRequest {
+	id: ULID!
+}
+
+union TwoFaRequestFulfillResponse = Session
+
 """
-scalar UUID @specifiedBy(url: "http://tools.ietf.org/html/rfc4122")
+A ULID (Universally Unique Lexicographically Sortable Identifier) scalar.
+"""
+scalar ULID @specifiedBy(url: "https://github.com/ulid/spec")
 
 type User {
-	createdAt: DateRFC3339!
+	channel: Channel!
+	displayColor: DisplayColor!
 	displayName: String!
 	email: String!
 	emailVerified: Boolean!
-	globalRoles: [GlobalRole!]!
-	id: UUID!
+	id: ULID!
 	lastLoginAt: DateRFC3339!
-	permissions: Int!
-	streamKey: String!
+	pendingProfilePictureId: ULID
+	profilePicture: ImageUpload
+	totpEnabled: Boolean!
 	username: String!
 }
 
+type UserDisplayColorStream {
+	displayColor: DisplayColor!
+	userId: ULID!
+}
+
+type UserDisplayNameStream {
+	displayName: String!
+	userId: ULID!
+}
+
+type UserMutation {
+	"""
+	Change the display color of the currently logged in user.
+	"""
+	displayColor(
+		"""
+		New display color.
+		"""
+		color: RgbColor!
+	): User!
+	"""
+	Change the display name of the currently logged in user.
+	"""
+	displayName(
+		"""
+		New display name.
+		"""
+		displayName: String!
+	): User!
+	"""
+	Change the email address of the currently logged in user.
+	"""
+	email(
+		"""
+		New email address.
+		"""
+		email: String!
+	): User!
+	"""
+	Follow or unfollow a user.
+	"""
+	follow(
+		"""
+		The channel to (un)follow.
+		"""
+		channelId: ULID!
+		"""
+		Set to true for follow and false for unfollow
+		"""
+		follow: Boolean!
+	): Boolean!
+	password(
+		"""
+		Current password
+		"""
+		currentPassword: String!
+		"""
+		New password
+		"""
+		newPassword: String!
+	): ChangePasswordResponse!
+	"""
+	Remove the profile picture of the currently logged in user.
+	"""
+	removeProfilePicture: User!
+	twoFa: TwoFaMutation!
+}
+
+type UserProfilePictureStream {
+	profilePicture: ImageUpload
+	userId: ULID!
+}
+
+type UserQuery {
+	"""
+	Get a user by their id
+	"""
+	byId(
+		"""
+		The id of the user.
+		"""
+		id: ULID!
+	): User
+	"""
+	Get a user by their username
+	"""
+	byUsername(
+		"""
+		The username of the user.
+		"""
+		username: String!
+	): User
+	following(
+		"""
+		The id of the user.
+		"""
+		id: ULID!
+		"""
+		Restricts the number of returned users, default: no limit
+		"""
+		limit: Int
+	): [User!]!
+	"""
+	Get if the current user is following a given channel
+	"""
+	isFollowing(channelId: ULID!): Boolean!
+	searchByUsername(
+		"""
+		The result limit, default: 5
+		"""
+		limit: Int
+		"""
+		The result offset, default: 0
+		"""
+		offset: Int
+		"""
+		The search query.
+		"""
+		query: String!
+	): UserSearchResults!
+	"""
+	Get the user of the current context(session)
+	"""
+	withCurrentContext: User!
+}
+
+type UserSearchResult {
+	object: User!
+	similarity: Float!
+}
+
+type UserSearchResults {
+	results: [UserSearchResult!]!
+	totalCount: Int!
+}
+
+directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 extend schema
 	@link(
-		url: "https://specs.apollo.dev/federation/v2.1"
+		url: "https://specs.apollo.dev/federation/v2.3"
 		import: [
 			"@key"
 			"@tag"
@@ -159,7 +591,7 @@ extend schema
 			"@external"
 			"@provides"
 			"@requires"
+			"@composeDirective"
+			"@interfaceObject"
 		]
 	)
-directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
-directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT

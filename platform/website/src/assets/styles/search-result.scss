@@ -1,0 +1,51 @@
+@import "./variables.scss";
+
+a {
+	color: $textColor;
+	text-decoration: none;
+	padding: 0.5rem;
+
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+
+	border-radius: 0.25rem;
+	background-color: $bgColor;
+
+	transition: background-color 0.2s;
+
+	&:hover,
+	&:focus-visible {
+		background-color: $bgColorLight;
+	}
+
+	.avatar {
+		display: flex;
+		justify-content: center;
+		width: 2.5rem;
+		height: 2.5rem;
+	}
+
+	.text-container {
+		flex-grow: 1;
+
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: 0.4rem;
+
+		overflow: hidden;
+	}
+
+	.ellipsis {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.name {
+		color: $textColor;
+		font-size: 1rem;
+		font-weight: 500;
+	}
+}

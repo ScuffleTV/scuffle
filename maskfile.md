@@ -1,135 +1,5 @@
 # Scuffle Tasks
 
-## build
-
-> Build the project
-
-<!-- Default build all  -->
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-$MASK build rust
-$MASK build website
-```
-
-### rust
-
-> Build all rust code
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-target=$(rustup show active-toolchain | cut -d '-' -f2- | cut -d ' ' -f1)
-
-cargo build --release --target=$target --bins --workspace
-```
-
-### website
-
-> Build the frontend website
-
-**OPTIONS**
-
-- no_gql_prepare
-  - flags: --no-gql-prepare
-  - desc: Don't prepare the GraphQL schema
-- no_player
-  - flags: --no-player
-  - desc: Don't build the player
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-if [ "$no_gql_prepare" != "true" ]; then
-    $MASK gql prepare
-    export SCHEMA_URL=$(realpath frontend/website/schema.graphql)
-fi
-
-if [ "$no_player" != "true" ]; then
-    $MASK build player
-fi
-
-pnpm --filter website build
-```
-
-### player
-
-> Build the player
-
-**OPTIONS**
-
-- dev
-  - flags: --dev
-  - desc: Build the player in dev mode
-- no_demo
-  - flags: --no-demo
-  - desc: Do not build the demo
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-if [ "$dev" == "true" ]; then
-    pnpm --filter @scuffle/player build:dev
-else
-    pnpm --filter @scuffle/player build
-fi
-```
-
-## clean
-
-> Clean the project
-
-**OPTIONS**
-
-- all
-
-  - flags: --all
-  - desc: Removes everything that isn't tracked by git (use with caution, this is irreversible)
-
-- node_modules
-
-  - flags: --node-modules
-  - desc: Removes node_modules
-
-- env
-  - flags: --env
-  - desc: Removes .env
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-if [[ "$all" == "true" ]]; then
-    git clean -xfd
-fi
-
-cargo clean
-pnpm --recursive --parallel --stream run clean
-
-if [ "$node_modules" == "true" ]; then
-    rm -rf node_modules
-fi
-
-if [ "$env" == "true" ]; then
-    rm -rf .env
-fi
-```
-
 ## format
 
 > Format the project
@@ -144,10 +14,6 @@ fi
   - flags: --no-js
   - type: bool
   - desc: Disables JS formatting
-- no_terraform
-  - flags: --no-terraform
-  - type: bool
-  - desc: Disables Terraform formatting
 - no_proto
   - flags: --no-proto
   - type: bool
@@ -163,17 +29,13 @@ if [ "$no_js" != "true" ]; then
     pnpm --recursive --parallel --stream run format
 fi
 
-if [ "$no_terraform" != "true" ]; then
-    terraform fmt -recursive
-fi
-
 if [ "$no_proto" != "true" ]; then
     find . -name '*.proto' -exec clang-format -i {} \;
 fi
 
 if [ "$no_rust" != "true" ]; then
-    cargo fmt --all
-    cargo clippy --fix --allow-dirty --allow-staged
+    cargo +nightly fmt --all
+    cargo +nightly clippy --fix --allow-dirty --allow-staged
 fi
 ```
 
@@ -191,10 +53,6 @@ fi
   - flags: --no-js
   - type: bool
   - desc: Disables JS linting
-- no_terraform
-  - flags: --no-terraform
-  - type: bool
-  - desc: Disables Terraform linting
 - no_proto
   - flags: --no-proto
   - type: bool
@@ -207,9 +65,8 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 if [ "$no_rust" != "true" ]; then
-    cargo clippy -- -D warnings
-    cargo fmt --all --check
-    cargo sqlx prepare --check --workspace -- --all-targets --all-features
+    cargo +nightly clippy -- -D warnings
+    cargo +nightly fmt --all --check
     $MASK gql check
 fi
 
@@ -217,12 +74,8 @@ if [ "$no_js" != "true" ]; then
     pnpm --recursive --parallel --stream run lint
 fi
 
-if [ "$no_terraform" != "true" ]; then
-    terraform fmt -check -recursive
-fi
-
 if [ "$no_proto" != "true" ]; then
-    find . -name '*.proto' -exec clang-format --dry-run --Werror {} \;
+    clang-format --dry-run --Werror **/*.proto
 fi
 ```
 
@@ -249,7 +102,6 @@ fi
 
 if [ "$no_rust" != "true" ]; then
     cargo audit
-    cd frontend/player && cargo audit && cd ../..
 fi
 
 if [ "$no_js" != "true" ]; then
@@ -263,18 +115,14 @@ fi
 
 **OPTIONS**
 
-- no_rust
-  - flags: --no-rust
+- html
+  - flags: --html
   - type: bool
-  - desc: Disables Rust testing
-- no_js
-  - flags: --no-js
+  - desc: Outputs HTML coverage report
+- ci
+  - flags: --ci
   - type: bool
-  - desc: Disables JS testing
-- no_player_build
-  - flags: --no-player-build
-  - type: bool
-  - desc: Disables Player Building
+  - desc: Runs tests in CI mode
 
 ```bash
 set -e
@@ -282,20 +130,20 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-if [ "$no_rust" != "true" ]; then
-  cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace --fail-fast -r
+profile="default"
+extra_args=()
+if [ "$ci" == "true" ]; then
+    profile="ci"
+    extra_args+=(-E 'not test(/_v6/)')
 fi
 
-if [ "$no_js" != "true" ]; then
-    if [ "$no_player_build" != "true" ]; then
-        $MASK build player --dev
-    fi
-
-    pnpm --recursive --parallel --stream run test
+cargo llvm-cov nextest --lcov --output-path lcov.info --ignore-filename-regex "(main\.rs|tests|.*\.nocov\.rs)" --workspace --fail-fast --exclude video-player --profile $profile "${extra_args[@]}"
+if [ "$html" == "true" ]; then
+    cargo llvm-cov report --html
 fi
 ```
 
-## db
+## dev
 
 > Database tasks
 
@@ -303,52 +151,12 @@ fi
 
 > Migrate the database
 
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-sqlx database create
-sqlx migrate run --source ./backend/migrations
-```
-
-#### create (name)
-
-> Create a database migration
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-sqlx migrate add "$name" --source ./backend/migrations -r
-```
-
-### rollback
-
-> Rollback the database
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-sqlx migrate revert --source ./backend/migrations
-```
-
-### prepare
-
-> Prepare the database
-
 **OPTIONS**
 
-- no_format
-  - flags: --no-format
+- refresh
+  - flags: --refresh
   - type: bool
-  - desc: Disables formatting
+  - desc: Drops the database before migrating
 
 ```bash
 set -e
@@ -356,24 +164,28 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-cargo sqlx prepare --workspace -- --all-targets --all-features
-
-if [ "$no_format" != "true" ]; then
-    pnpm exec prettier --write .sqlx
-fi
-```
-
-### reset
-
-> Reset the database
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
+# We load the .env file
+if [ -f .env ]; then
+  export $(cat .env | xargs)
 fi
 
-sqlx database reset --source ./backend/migrations
+action="setup"
+
+if [ "$refresh" == "true" ]; then
+    action="reset -y"
+fi
+
+echo "Migrating platform database"
+DATABASE_URL=$PLATFORM_DATABASE_URL sqlx database $action --source ./platform/migrations
+
+echo "Migrating video database"
+DATABASE_URL=$VIDEO_DATABASE_URL sqlx database $action --source ./video/migrations
+
+echo "Migrating platform test database"
+DATABASE_URL=$PLATFORM_DATABASE_URL_TEST sqlx database $action --source ./platform/migrations
+
+echo "Migrating video test database"
+DATABASE_URL=$VIDEO_DATABASE_URL_TEST sqlx database $action --source ./video/migrations
 ```
 
 ### up
@@ -386,7 +198,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-docker compose --file ./dev-stack/db.docker-compose.yml up -d
+docker compose --file ./dev/docker-compose.yml up -d
 ```
 
 ### down
@@ -399,7 +211,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-docker compose --file ./dev-stack/db.docker-compose.yml down
+docker compose --file ./dev/docker-compose.yml down
 ```
 
 ### status
@@ -412,7 +224,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-docker compose --file ./dev-stack/db.docker-compose.yml ps -a
+docker compose --file ./dev/docker-compose.yml ps -a
 ```
 
 ## env
@@ -430,39 +242,13 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 if [ ! -f .env ]; then
-    echo "DATABASE_URL=postgres://root@localhost:5432/scuffle_dev" > .env
-    echo "RMQ_URL=amqp://rabbitmq:rabbitmq@localhost:5672/scuffle" >> .env
-    echo "REDIS_URL=redis://localhost:6379/0" >> .env
-fi
-```
-
-### backup
-
-> Backup the environment files
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-if [ -f .env ]; then
-    mv .env .env.bak
-fi
-```
-
-### restore
-
-> Restore the environment files
-
-```bash
-set -e
-if [[ "$verbose" == "true" ]]; then
-    set -x
-fi
-
-if [ -f .env.bak ]; then
-    mv .env.bak .env
+    DATABASE_URL=postgres://root@localhost:5432/scuffle
+    echo "PLATFORM_DATABASE_URL=${DATABASE_URL}_platform" >> .env
+    echo "VIDEO_DATABASE_URL=${DATABASE_URL}_video" >> .env
+    echo "PLATFORM_DATABASE_URL_TEST=${DATABASE_URL}_platform_test" >> .env
+    echo "VIDEO_DATABASE_URL_TEST=${DATABASE_URL}_video_test" >> .env
+    echo "NATS_ADDR=localhost:4222" >> .env
+    echo "REDIS_ADDR=localhost:6379" >> .env
 fi
 ```
 
@@ -488,14 +274,10 @@ fi
   - flags: --no-env
   - type: bool
   - desc: Disables environment bootstrapping
-- no_docker
-  - flags: --no-docker
+- no_dev
+  - flags: --no-dev
   - type: bool
-  - desc: Disables docker bootstrapping
-- no_db
-  - flags: --no-db
-  - type: bool
-  - desc: Disables database bootstrapping
+  - desc: Disables dev docker bootstrapping
 
 ```bash
 set -e
@@ -506,14 +288,18 @@ fi
 if [ "$no_rust" != "true" ]; then
     rustup update
 
+    rustup install nightly
+
+    rustup target add wasm32-unknown-unknown
     rustup component add rustfmt clippy llvm-tools-preview
 
     cargo install cargo-binstall
     cargo binstall cargo-watch -y
-    cargo install sqlx-cli --features native-tls,postgres --no-default-features --git https://github.com/launchbadge/sqlx --branch main
+    cargo binstall sqlx-cli -y
     cargo binstall cargo-llvm-cov -y
     cargo binstall cargo-nextest -y
-    cargo install cargo-audit --features vendored-openssl
+    cargo binstall cargo-audit -y
+    cargo binstall wasm-bindgen-cli -y
 fi
 
 if [ "$no_js" != "true" ]; then
@@ -528,13 +314,9 @@ if [ "$no_env" != "true" ]; then
     $MASK env generate
 fi
 
-if [ "$no_docker" != "true" ]; then
-    docker network create scuffle-dev || true
-
-    if [ "$no_db" != "true" ]; then
-        $MASK db up
-        $MASK db migrate
-    fi
+if [ "$no_dev" != "true" ]; then
+    $MASK dev up
+    $MASK dev migrate
 fi
 ```
 
@@ -573,7 +355,7 @@ if [ "$no_rust" != "true" ]; then
 fi
 
 if [ "$no_js" != "true" ]; then
-    pnpm --recursive --stream run update
+    pnpm --recursive --stream run update --latest
 fi
 ```
 
@@ -591,7 +373,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-cargo run --bin api-gql-generator | pnpm exec prettier --stdin-filepath schema.graphql > schema.graphql
+cargo run --bin platform-api -- --export-gql | pnpm exec prettier --stdin-filepath schema.graphql > schema.graphql
 ```
 
 ### check
@@ -604,7 +386,7 @@ if [[ "$verbose" == "true" ]]; then
     set -x
 fi
 
-cargo run --bin api-gql-generator | pnpm exec prettier --stdin-filepath schema.graphql | diff - schema.graphql || (echo "GraphQL schema is out of date. Run 'mask gql prepare' to update it." && exit 1)
+cargo run --bin platform-api -- --export-gql | pnpm exec prettier --stdin-filepath schema.graphql | diff - schema.graphql || (echo "GraphQL schema is out of date. Run 'mask gql prepare' to update it." && exit 1)
 
 echo "GraphQL schema is up to date."
 ```
@@ -620,4 +402,59 @@ if [[ "$verbose" == "true" ]]; then
 fi
 
 cloc $(git ls-files)
+```
+
+## docker
+
+> Builds docker images
+
+**OPTIONS**
+
+- version
+  - flags: --version
+  - type: string
+  - desc: Version to use
+
+```bash
+set -e
+if [[ "$verbose" == "true" ]]; then
+    set -x
+fi
+
+if [ "$version" == "" ]; then
+    version="latest"
+fi
+
+$MASK docker build --file ./docker/platform/api.Dockerfile --tag ghcr.io/scuffletv/platform/api:$version
+$MASK docker build --file ./docker/platform/image-processor.Dockerfile --tag ghcr.io/scuffletv/platform/image-processor:$version
+$MASK docker build --file ./docker/platform/website.Dockerfile --tag ghcr.io/scuffletv/platform/website:$version
+
+$MASK docker build --file ./docker/video/api.Dockerfile --tag ghcr.io/scuffletv/video/api:$version
+$MASK docker build --file ./docker/video/edge.Dockerfile --tag ghcr.io/scuffletv/video/edge:$version
+$MASK docker build --file ./docker/video/ingest.Dockerfile --tag ghcr.io/scuffletv/video/ingest:$version
+$MASK docker build --file ./docker/video/player-demo.Dockerfile --tag ghcr.io/scuffletv/video/player-demo:$version
+$MASK docker build --file ./docker/video/transcoder.Dockerfile --tag ghcr.io/scuffletv/video/transcoder:$version
+
+```
+
+### build
+
+**OPTIONS**
+
+- file
+  - flags: --file
+  - type: string
+  - desc: Dockerfile to use
+- tag
+  - flags: --tag
+  - type: string
+  - desc: Tag to use
+
+```bash
+set -e
+if [[ "$verbose" == "true" ]]; then
+    set -x
+fi
+
+docker build -f $file --tag $tag .
 ```

@@ -50,7 +50,7 @@ impl ImageResizer {
 	pub fn resize(&mut self, frame: &Frame) -> Result<Frame> {
 		let _abort_guard = utils::task::AbortGuard::new();
 
-		let (width, height) = if self.target.method == ResizeMethod::Exact {
+		let (width, height) = if self.target.method == ResizeMethod::Stretch {
 			(self.target.width, self.target.height)
 		} else {
 			let (mut width, mut height) = if frame.image.width() > frame.image.height() {
@@ -117,7 +117,7 @@ impl ImageResizer {
 					ResizeMethod::PadBottom => (0, height_delta, 0, 0),
 					ResizeMethod::PadLeft => (0, 0, width_delta, 0),
 					ResizeMethod::PadRight => (0, 0, 0, width_delta),
-					ResizeMethod::Exact => unreachable!(),
+					ResizeMethod::Stretch => unreachable!(),
 					ResizeMethod::Fit => unreachable!(),
 				};
 

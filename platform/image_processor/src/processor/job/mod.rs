@@ -27,6 +27,7 @@ pub(crate) mod libavif;
 pub(crate) mod libwebp;
 pub(crate) mod process;
 pub(crate) mod resize;
+pub(crate) mod scaling;
 pub(crate) mod smart_object;
 
 pub(crate) struct Job<'a, G: ImageProcessorGlobal> {
@@ -230,11 +231,10 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 								.iter()
 								.map(|image| pb::scuffle::platform::internal::types::ProcessedImageVariant {
 									path: image.url(&self.job.task.output_prefix),
-									format: image.request.1.into(),
+									format: image.request.into(),
 									width: image.width as u32,
 									height: image.height as u32,
 									byte_size: image.data.len() as u32,
-									scale: image.request.0 as u32,
 								})
 								.collect(),
 						},

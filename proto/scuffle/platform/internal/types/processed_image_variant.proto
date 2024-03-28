@@ -8,7 +8,6 @@ message ProcessedImageVariant {
   uint32 width = 1;
   uint32 height = 2;
   ImageFormat format = 3;
-  uint32 scale = 4;
-  uint32 byte_size = 5;
-  string path = 6;
+  uint32 byte_size = 4;
+  string path = 5;
 }

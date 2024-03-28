@@ -611,56 +611,6 @@
 	}
 
 	.volume {
-		appearance: none;
-		-webkit-appearance: none;
 		width: 8rem;
-		background: transparent;
-	}
-
-	.volume:focus {
-		outline: none;
-	}
-
-	.volume::-moz-range-thumb {
-		appearance: none;
-		width: 1rem;
-		height: 1rem;
-		border-radius: 50%;
-		background: white;
-		cursor: pointer;
-	}
-
-	.volume::-ms-thumb {
-		width: 1rem;
-		height: 1rem;
-		border-radius: 50%;
-		background: white;
-		cursor: pointer;
-	}
-
-	.volume::-webkit-slider-thumb {
-		-webkit-appearance: none;
-		margin-top: -0.25rem;
-		width: 1rem;
-		height: 1rem;
-		border-radius: 50%;
-		background: white;
-		cursor: pointer;
-	}
-
-	.volume::-webkit-slider-runnable-track {
-		width: 100%;
-		height: 0.5rem;
-		cursor: pointer;
-		background: rgba($textColor, 0.25);
-		border-radius: 0.25rem;
-	}
-
-	.volume::-moz-range-track {
-		width: 100%;
-		height: 0.5rem;
-		cursor: pointer;
-		background: rgba($textColor, 0.25);
-		border-radius: 0.25rem;
 	}
 </style>

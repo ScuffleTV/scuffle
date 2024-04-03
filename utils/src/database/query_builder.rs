@@ -204,12 +204,22 @@ impl<C: AsRef<tokio_postgres::Client>> std::ops::Deref for Client<'_, C> {
 	}
 }
 
-pub trait ClientLike: Sync + Send {
+#[doc(hidden)]
+mod sealed {
 	#[doc(hidden)]
-	fn get_client(
-		&self,
-	) -> impl std::future::Future<Output = Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError>> + Send;
+	pub trait Sealed: Send + Sync {
+		fn query_builder_client(
+			&self,
+		) -> impl std::future::Future<Output = Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError>> + Send;
+	}
+
 }
+
+/// A trait that represents a client-like object that can be used to build queries.
+/// This trait is cannot be implemented outside of this crate.
+pub trait ClientLike: sealed::Sealed {}
+
+impl<T: sealed::Sealed> ClientLike for T {}
 
 struct ClientWrapper<'a>(&'a tokio_postgres::Client);
 
@@ -251,52 +261,52 @@ impl AsRef<tokio_postgres::Client> for PoolTransactionWrapper<'_> {
 	}
 }
 
-impl ClientLike for tokio_postgres::Client {
-	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
+impl sealed::Sealed for tokio_postgres::Client {
+	async fn query_builder_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
 		Ok(ClientWrapper(self))
 	}
 }
 
-impl ClientLike for tokio_postgres::Transaction<'_> {
-	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
+impl sealed::Sealed for tokio_postgres::Transaction<'_> {
+	async fn query_builder_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
 		Ok(TransactionWrapper(self))
 	}
 }
 
-impl ClientLike for deadpool_postgres::Pool {
-	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
+impl sealed::Sealed for deadpool_postgres::Pool {
+	async fn query_builder_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
 		Ok(PoolClientWrapperOwned(self.get().await?))
 	}
 }
 
-impl ClientLike for deadpool_postgres::Client {
-	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
+impl sealed::Sealed for deadpool_postgres::Client {
+	async fn query_builder_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
 		Ok(PoolClientWrapperBorrowed(self))
 	}
 }
 
-impl ClientLike for deadpool_postgres::Transaction<'_> {
-	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
+impl sealed::Sealed for deadpool_postgres::Transaction<'_> {
+	async fn query_builder_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
 		Ok(PoolTransactionWrapper(self))
 	}
 }
 
-impl<T: ClientLike + Sync + Send> ClientLike for Arc<T> {
-	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
-		self.as_ref().get_client().await
+impl<T: ClientLike + Sync + Send> sealed::Sealed for Arc<T> {
+	async fn query_builder_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
+		self.as_ref().query_builder_client().await
 	}
 }
 
-impl<T: ClientLike + Sync> ClientLike for &T {
-	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
-		(*self).get_client().await
+impl<T: ClientLike + Sync> sealed::Sealed for &T {
+	async fn query_builder_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
+		(*self).query_builder_client().await
 	}
 }
 
 impl<T: RowParse<Item = O>, O> Query<'_, T, O> {
 	pub async fn execute(self, conn: impl ClientLike) -> Result<u64, deadpool_postgres::PoolError> {
 		Ok(conn
-			.get_client()
+			.query_builder_client()
 			.await?
 			.as_ref()
 			.execute(self.query, &params(self.params))
@@ -305,7 +315,7 @@ impl<T: RowParse<Item = O>, O> Query<'_, T, O> {
 
 	pub async fn fetch_all(self, conn: impl ClientLike) -> Result<Vec<O>, deadpool_postgres::PoolError> {
 		Ok(conn
-			.get_client()
+			.query_builder_client()
 			.await?
 			.as_ref()
 			.query(self.query, &params(self.params))
@@ -317,7 +327,7 @@ impl<T: RowParse<Item = O>, O> Query<'_, T, O> {
 
 	pub async fn fetch_one(self, conn: impl ClientLike) -> Result<O, deadpool_postgres::PoolError> {
 		Ok(T::try_from_row(
-			conn.get_client()
+			conn.query_builder_client()
 				.await?
 				.as_ref()
 				.query_one(self.query, &params(self.params))
@@ -327,7 +337,7 @@ impl<T: RowParse<Item = O>, O> Query<'_, T, O> {
 
 	pub async fn fetch_optional(self, conn: impl ClientLike) -> Result<Option<O>, deadpool_postgres::PoolError> {
 		Ok(conn
-			.get_client()
+			.query_builder_client()
 			.await?
 			.as_ref()
 			.query_opt(self.query, &params(self.params))
@@ -341,7 +351,7 @@ impl<T: RowParse<Item = O>, O> Query<'_, T, O> {
 		conn: impl ClientLike,
 	) -> Result<impl Stream<Item = Result<O, deadpool_postgres::PoolError>> + Send + Sync, deadpool_postgres::PoolError> {
 		Ok(conn
-			.get_client()
+			.query_builder_client()
 			.await?
 			.as_ref()
 			.query_raw(self.query, params(self.params).into_iter())

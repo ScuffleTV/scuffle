@@ -205,7 +205,7 @@ impl<C: AsRef<tokio_postgres::Client>> std::ops::Deref for Client<'_, C> {
 }
 
 /// A trait that represents a client-like object that can be used to build queries.
-pub trait ClientLike {
+pub trait ClientLike: Send + Sync {
 	#[doc(hidden)]
 	fn query_builder_client(
 		&self,

@@ -92,10 +92,7 @@ impl<B> CorsMiddleware<B> {
 #[async_trait::async_trait]
 impl<I: Send + 'static, O: Send + 'static, E: Send + 'static> Middleware<I, O, E> for CorsMiddleware<O> {
 	async fn handle(&self, req: hyper::Request<I>, next: NextFn<I, O, E>) -> Result<hyper::Response<O>, E> {
-		let origin = match req.headers().get(header::ORIGIN) {
-			Some(origin) => Some(origin.clone()),
-			None => None,
-		};
+		let origin = req.headers().get(header::ORIGIN).cloned();
 
 		let mut resp = next(req).await?;
 

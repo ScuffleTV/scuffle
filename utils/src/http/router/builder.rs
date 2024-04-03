@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use super::middleware::{Middleware, NextFn};
 use super::route::{Route, RouterItem};
-use super::types::RouteInfo;
+use super::types::{ErrorHandler, RouteInfo};
 use super::Router;
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
@@ -12,9 +12,12 @@ enum MiddlewareKind {
 	Generic,
 }
 
+type MiddlewareItem<I, O, E> = (Arc<dyn Middleware<I, O, E>>, MiddlewareKind);
+
 pub struct RouterBuilder<I, O, E> {
 	tree: Vec<(&'static str, RouterItem<I, O, E>)>,
-	middlewares: Vec<(Arc<dyn Middleware<I, O, E>>, MiddlewareKind)>,
+	error_handler: Option<ErrorHandler<O, E>>,
+	middlewares: Vec<MiddlewareItem<I, O, E>>,
 }
 
 impl<I, O, E> Debug for RouterBuilder<I, O, E> {
@@ -33,6 +36,7 @@ impl<I: Send + 'static + Send, O: Send + 'static, E: Send + 'static> RouterBuild
 	pub fn new() -> Self {
 		Self {
 			tree: Vec::new(),
+			error_handler: None,
 			middlewares: Vec::new(),
 		}
 	}
@@ -60,20 +64,10 @@ impl<I: Send + 'static + Send, O: Send + 'static, E: Send + 'static> RouterBuild
 		handler: impl Fn(hyper::Request<()>, E) -> F + Send + Sync + 'static,
 	) -> Self {
 		let handler = Arc::new(handler);
-		self.middlewares.push((
-			Arc::new(move |req: hyper::Request<I>, next: NextFn<I, O, E>| {
-				let handler = handler.clone();
-				async move {
-					let (parts, body) = req.into_parts();
-
-					match next(hyper::Request::from_parts(parts.clone(), body)).await {
-						Ok(res) => Ok(res),
-						Err(err) => Ok(handler(hyper::Request::from_parts(parts, ()), err).await),
-					}
-				}
-			}),
-			MiddlewareKind::Generic,
-		));
+		self.error_handler = Some(Arc::new(move |req, err| {
+			let handler = handler.clone();
+			Box::pin(handler(req, err))
+		}));
 
 		self
 	}
@@ -198,6 +192,16 @@ impl<I: Send + 'static + Send, O: Send + 'static, E: Send + 'static> RouterBuild
 			}))
 			.collect::<Vec<_>>();
 
+		if let Some(handler) = self.error_handler.take() {
+			target.error_handlers.push(handler);
+		}
+
+		let error_handler = if target.error_handlers.is_empty() {
+			None
+		} else {
+			Some(target.error_handlers.len() - 1)
+		};
+
 		for (path, item) in self.tree.drain(..) {
 			match item {
 				RouterItem::Route(route) => {
@@ -205,6 +209,7 @@ impl<I: Send + 'static + Send, O: Send + 'static, E: Send + 'static> RouterBuild
 
 					let info = RouteInfo {
 						route: target.routes.len() - 1,
+						error_handler,
 						middleware: middleware_idxs.clone(),
 					};
 
@@ -248,6 +253,7 @@ impl<I: Send + 'static + Send, O: Send + 'static, E: Send + 'static> RouterBuild
 		let mut router = Router {
 			routes: Vec::new(),
 			middlewares: Vec::new(),
+			error_handlers: Vec::new(),
 			tree: path_tree::PathTree::new(),
 		};
 

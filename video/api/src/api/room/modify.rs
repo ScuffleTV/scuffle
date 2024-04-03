@@ -6,7 +6,7 @@ use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, Resource};
 use pb::scuffle::video::v1::{RoomModifyRequest, RoomModifyResponse};
 use tonic::Status;
-use utils::database::IntoClient;
+use utils::database::ClientLike;
 use video_common::database::{AccessToken, DatabaseTable, Visibility};
 
 use crate::api::errors::MODIFY_NO_FIELDS;
@@ -28,7 +28,7 @@ pub fn validate(req: &RoomModifyRequest) -> tonic::Result<()> {
 
 pub async fn build_query<'a>(
 	req: &'a RoomModifyRequest,
-	client: impl IntoClient,
+	client: impl ClientLike,
 	access_token: &AccessToken,
 ) -> tonic::Result<utils::database::QueryBuilder<'a>> {
 	let mut qb = utils::database::QueryBuilder::default();

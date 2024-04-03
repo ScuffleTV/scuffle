@@ -204,9 +204,11 @@ impl<C: AsRef<tokio_postgres::Client>> std::ops::Deref for Client<'_, C> {
 	}
 }
 
-#[allow(async_fn_in_trait)]
-pub trait IntoClient {
-	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError>;
+pub trait ClientLike: Sync + Send {
+	#[doc(hidden)]
+	fn get_client(
+		&self,
+	) -> impl std::future::Future<Output = Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError>> + Send;
 }
 
 struct ClientWrapper<'a>(&'a tokio_postgres::Client);
@@ -249,50 +251,50 @@ impl AsRef<tokio_postgres::Client> for PoolTransactionWrapper<'_> {
 	}
 }
 
-impl IntoClient for tokio_postgres::Client {
+impl ClientLike for tokio_postgres::Client {
 	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
 		Ok(ClientWrapper(self))
 	}
 }
 
-impl IntoClient for tokio_postgres::Transaction<'_> {
+impl ClientLike for tokio_postgres::Transaction<'_> {
 	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
 		Ok(TransactionWrapper(self))
 	}
 }
 
-impl IntoClient for deadpool_postgres::Pool {
+impl ClientLike for deadpool_postgres::Pool {
 	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
 		Ok(PoolClientWrapperOwned(self.get().await?))
 	}
 }
 
-impl IntoClient for deadpool_postgres::Client {
+impl ClientLike for deadpool_postgres::Client {
 	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
 		Ok(PoolClientWrapperBorrowed(self))
 	}
 }
 
-impl IntoClient for deadpool_postgres::Transaction<'_> {
+impl ClientLike for deadpool_postgres::Transaction<'_> {
 	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
 		Ok(PoolTransactionWrapper(self))
 	}
 }
 
-impl<T: IntoClient> IntoClient for Arc<T> {
+impl<T: ClientLike + Sync + Send> ClientLike for Arc<T> {
 	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
 		self.as_ref().get_client().await
 	}
 }
 
-impl<T: IntoClient> IntoClient for &T {
+impl<T: ClientLike + Sync> ClientLike for &T {
 	async fn get_client(&self) -> Result<impl AsRef<tokio_postgres::Client> + '_, deadpool_postgres::PoolError> {
 		(*self).get_client().await
 	}
 }
 
 impl<T: RowParse<Item = O>, O> Query<'_, T, O> {
-	pub async fn execute(self, conn: impl IntoClient) -> Result<u64, deadpool_postgres::PoolError> {
+	pub async fn execute(self, conn: impl ClientLike) -> Result<u64, deadpool_postgres::PoolError> {
 		Ok(conn
 			.get_client()
 			.await?
@@ -301,7 +303,7 @@ impl<T: RowParse<Item = O>, O> Query<'_, T, O> {
 			.await?)
 	}
 
-	pub async fn fetch_all(self, conn: impl IntoClient) -> Result<Vec<O>, deadpool_postgres::PoolError> {
+	pub async fn fetch_all(self, conn: impl ClientLike) -> Result<Vec<O>, deadpool_postgres::PoolError> {
 		Ok(conn
 			.get_client()
 			.await?
@@ -313,7 +315,7 @@ impl<T: RowParse<Item = O>, O> Query<'_, T, O> {
 			.collect::<Result<_, Error>>()?)
 	}
 
-	pub async fn fetch_one(self, conn: impl IntoClient) -> Result<O, deadpool_postgres::PoolError> {
+	pub async fn fetch_one(self, conn: impl ClientLike) -> Result<O, deadpool_postgres::PoolError> {
 		Ok(T::try_from_row(
 			conn.get_client()
 				.await?
@@ -323,7 +325,7 @@ impl<T: RowParse<Item = O>, O> Query<'_, T, O> {
 		)?)
 	}
 
-	pub async fn fetch_optional(self, conn: impl IntoClient) -> Result<Option<O>, deadpool_postgres::PoolError> {
+	pub async fn fetch_optional(self, conn: impl ClientLike) -> Result<Option<O>, deadpool_postgres::PoolError> {
 		Ok(conn
 			.get_client()
 			.await?
@@ -336,7 +338,7 @@ impl<T: RowParse<Item = O>, O> Query<'_, T, O> {
 
 	pub async fn fetch_many(
 		self,
-		conn: impl IntoClient,
+		conn: impl ClientLike,
 	) -> Result<impl Stream<Item = Result<O, deadpool_postgres::PoolError>> + Send + Sync, deadpool_postgres::PoolError> {
 		Ok(conn
 			.get_client()

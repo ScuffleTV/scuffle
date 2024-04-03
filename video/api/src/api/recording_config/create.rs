@@ -7,7 +7,7 @@ use pb::scuffle::video::v1::types::{event, Resource};
 use pb::scuffle::video::v1::{RecordingConfigCreateRequest, RecordingConfigCreateResponse};
 use tonic::Status;
 use ulid::Ulid;
-use utils::database::IntoClient;
+use utils::database::ClientLike;
 use video_common::database::{AccessToken, DatabaseTable, Rendition, S3Bucket};
 
 use crate::api::utils::tags::validate_tags;
@@ -28,7 +28,7 @@ pub fn validate(req: &RecordingConfigCreateRequest) -> tonic::Result<()> {
 
 pub async fn build_query(
 	req: &RecordingConfigCreateRequest,
-	client: &impl IntoClient,
+	client: impl ClientLike,
 	access_token: &AccessToken,
 ) -> tonic::Result<utils::database::QueryBuilder<'static>> {
 	let mut qb = utils::database::QueryBuilder::default();

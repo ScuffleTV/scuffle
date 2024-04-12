@@ -10,7 +10,7 @@ clap = { version = "4.4", features = ["derive", "env"] }
 ulid = "1.1"
 chrono = { version = "0.4", features = ["serde"] }
 fred = { version = "8.0.0", features = ["enable-rustls", "sentinel-client", "dns"] }
-async-nats = "0.33"
+async-nats = "0.34"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 async-trait = "0.1"
@@ -19,7 +19,7 @@ tonic = "0.11"
 futures = "0.3"
 futures-util = "0.3"
 serde_yaml = "0.9"
-base64 = "0.21"
+base64 = "0.22"
 
 pb = { workspace = true }
 config = { workspace = true }

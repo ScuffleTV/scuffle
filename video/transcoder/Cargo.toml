@@ -27,11 +27,11 @@ tokio-util = { version = "0.7", features = ["compat"] }
 tokio-stream = "0.1"
 ulid = { version = "1.1", features = ["uuid"] }
 uuid = { version = "1.6", features = ["serde", "v4"] }
-async-nats = "0.33"
+async-nats = "0.34"
 thiserror = "1.0"
 aws-config = "1.1"
 aws-sdk-s3 = { version = "1.12", features = ["behavior-version-latest"] }
-image = "0.24"
+image = "0.25"
 
 aac = { workspace = true }
 mp4 = { workspace = true }

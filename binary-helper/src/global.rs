@@ -230,7 +230,7 @@ pub async fn setup_redis(config: &RedisConfig) -> anyhow::Result<Arc<fred::clien
 
 		let certs = rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(cert))).collect::<Result<Vec<_>, _>>()?;
 
-		let mut cert_store = RootCertStore::empty();
+		let mut cert_store = tokio_rustls::rustls::RootCertStore::empty();
 		if let Some(ca_cert) = &tls.ca_cert {
 			let ca_cert = tokio::fs::read(ca_cert).await.context("failed to read redis ca cert")?;
 			let ca_certs =
@@ -240,11 +240,13 @@ pub async fn setup_redis(config: &RedisConfig) -> anyhow::Result<Arc<fred::clien
 			}
 		}
 
-		Some(fred::types::TlsConfig::from(fred::types::TlsConnector::from(
-			rustls::ClientConfig::builder()
-				.with_root_certificates(cert_store)
-				.with_client_auth_cert(certs, key)
-				.context("failed to create redis tls config")?,
+		Some(fred::types::TlsConfig::from(fred::types::TlsConnector::Rustls(
+			tokio_rustls::TlsConnector::from(
+				Arc::new(tokio_rustls::rustls::ClientConfig::builder()
+					.with_root_certificates(cert_store)
+					.with_client_auth_cert(certs, key)
+					.context("failed to create redis tls config")?)
+			),
 		)))
 	} else {
 		None

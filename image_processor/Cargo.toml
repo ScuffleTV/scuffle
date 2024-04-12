@@ -18,7 +18,7 @@ aws-config = "1.1"
 aws-sdk-s3 = { version = "1.12", features = ["behavior-version-latest"] }
 async-trait = "0.1"
 anyhow = "1.0"
-async-nats = "0.33"
+async-nats = "0.34"
 tonic = "0.11"
 futures = "0.3"
 thiserror = "1.0"
@@ -34,7 +34,7 @@ gifski = "1.13"
 png = "0.17"
 num_cpus = "1.16"
 bytes = "1.0"
-reqwest = { version = "0.11", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 fast_image_resize = "3.0.4"
 
 utils = { workspace = true, features = ["all"] }

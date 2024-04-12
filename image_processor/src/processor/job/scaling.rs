@@ -226,7 +226,6 @@ impl ScalingOptions {
 				(scales.len() - 1, input_scale_factor)
 			});
 
-			
 		if self.input_image_scaling {
 			let scaled_width = padded_size.width / scales[best_idx].1 / input_scale_factor;
 			let scaled_height = padded_size.height / scales[best_idx].1 / input_scale_factor;

@@ -22,7 +22,7 @@ pub fn screenshot_task(mut recv: mpsc::Receiver<Frame>, send: mpsc::Sender<(Byte
 		}
 
 		encoder
-			.encode(data, width, height, image::ColorType::Rgba8)
+			.encode(data, width, height, image::ExtendedColorType::Rgba8)
 			.context("failed to encode jpeg")?;
 
 		let data = Bytes::from(writer);

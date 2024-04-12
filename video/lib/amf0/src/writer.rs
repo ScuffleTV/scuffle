@@ -39,7 +39,7 @@ impl Amf0Writer {
 	}
 
 	pub fn write_string(writer: &mut BytesWriter, value: &str) -> Result<(), Amf0WriteError> {
-		if value.len() > (u16::max_value() as usize) {
+		if value.len() > (u16::MAX as usize) {
 			return Err(Amf0WriteError::NormalStringTooLong);
 		}
 		writer.write_u8(Amf0Marker::String as u8)?;

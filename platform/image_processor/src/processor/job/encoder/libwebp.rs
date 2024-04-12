@@ -224,7 +224,12 @@ impl Encoder for WebpEncoder {
 
 			// Safety: The functions are correct, but the library requires picture.writer to
 			// be a "safe" function and we only have a "unsafe" function.
-			self.picture.writer = Some(unsafe { std::mem::transmute(libwebp_sys::WebPMemoryWrite as *const ()) });
+			self.picture.writer = Some(unsafe {
+				std::mem::transmute::<
+					unsafe extern "C" fn(*const u8, usize, *const libwebp_sys::WebPPicture) -> i32,
+					extern "C" fn(*const u8, usize, *const libwebp_sys::WebPPicture) -> i32,
+				>(libwebp_sys::WebPMemoryWrite)
+			});
 			self.picture.custom_ptr = &mut *memory_writer as *mut _ as _;
 
 			// Safety: The picture is valid.

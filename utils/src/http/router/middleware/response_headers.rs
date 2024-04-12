@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use hyper::header::IntoHeaderName;
+use http::header::IntoHeaderName;
 use hyper::Request;
 
 use crate::http::router::ext::RequestExt;
@@ -54,6 +54,6 @@ impl<B> ResponseHeadersRequestExt for Request<B> {
 	{
 		let headers = self.data::<ResponseHeadersMagic>().unwrap();
 		let mut headers = headers.0.lock().expect("failed to lock headers");
-		key.insert(&mut headers, value.into());
+		headers.insert(key, value.into());
 	}
 }

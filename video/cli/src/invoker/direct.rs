@@ -163,7 +163,7 @@ impl DirectBackend {
 		}
 
 		qb.push(" LIMIT ");
-		qb.push_bind(search_options.limit.max(100).min(1000));
+		qb.push_bind(search_options.limit.clamp(100, 1000));
 
 		let orgs: Vec<video_common::database::Organization> = qb
 			.build_query_as()

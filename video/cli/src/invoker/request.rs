@@ -35,6 +35,7 @@ pub struct OrganizationDeleteRequest {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct OrganizationGetRequest {
 	pub ids: Vec<Ulid>,
 	pub search_options: Option<pb::scuffle::video::v1::types::SearchOptions>,

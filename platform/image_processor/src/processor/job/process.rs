@@ -13,6 +13,7 @@ use crate::database::Job;
 use crate::processor::error::{ProcessorError, Result};
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Image {
 	pub width: usize,
 	pub height: usize,

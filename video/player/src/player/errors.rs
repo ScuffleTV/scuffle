@@ -49,6 +49,7 @@ impl EventError {
 	}
 }
 
+#[allow(dead_code)]
 pub trait EventErrorExt<T>
 where
 	Self: Sized,

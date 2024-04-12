@@ -61,7 +61,7 @@
 					<ul class="socials">
 						{#each data.user.channel.links as link}
 							<li>
-								<a href={link.url} target="_blank">
+								<a href={link.url} target="_blank" rel="noopener noreferrer">
 									<BrandIcon url={link.url} />
 									<span>{link.name}</span>
 								</a>

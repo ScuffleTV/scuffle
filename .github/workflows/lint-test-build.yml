@@ -34,7 +34,7 @@ jobs:
   lint:
     needs: pre_job
     if: needs.pre_job.outputs.should_skip != 'true'
-    runs-on: scuffle-ci
+    runs-on: ubuntu-latest
     container: ghcr.io/scuffletv/ci/build:latest
     steps:
       - uses: actions/checkout@v4
@@ -42,13 +42,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install -r
 
+      - name: Fix git safe directory
+        run: git config --global --add safe.directory '*'
+
       - name: Lint
         run: mask lint
 
   test:
     needs: pre_job
     if: needs.pre_job.outputs.should_skip != 'true'
-    runs-on: scuffle-ci
+    runs-on: ubuntu-latest
     container: ghcr.io/scuffletv/ci/build:latest
     services:
       cockroach:
@@ -128,7 +131,7 @@ jobs:
   build:
     needs: [pre_job, lint, test]
     if: needs.pre_job.outputs.should_skip != 'true'
-    runs-on: scuffle-ci
+    runs-on: ubuntu-latest
     container: ghcr.io/scuffletv/ci/build:latest
     steps:
       - uses: actions/checkout@v4

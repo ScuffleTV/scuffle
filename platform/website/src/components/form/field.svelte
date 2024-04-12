@@ -11,7 +11,7 @@
 
 	export type FieldStatus = { type: FieldStatusType; message?: string };
 
-	let resetFns: { [key: number]: () => void } = {};
+	let resetFns: Map<number, () => void> = new Map();
 
 	export function resetAllFields() {
 		for (let reset of Object.values(resetFns)) {
@@ -43,13 +43,13 @@
 	let id = fieldCounter++;
 
 	onMount(() => {
-		resetFns[id] = () => {
+		resetFns.set(id, () => {
 			touched = false;
 			value = "";
 			status = { type: FieldStatusType.None };
-		};
+		});
 		return () => {
-			delete resetFns[id];
+			resetFns.delete(id);
 		};
 	});
 

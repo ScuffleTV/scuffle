@@ -11,6 +11,7 @@ use super::recording::Recording;
 use crate::global::TranscoderGlobal;
 use crate::transcoder::job::renditions::determine_output_renditions;
 
+#[allow(dead_code)]
 pub struct SqlOperations {
 	pub transcoding_config: TranscodingConfig,
 	pub recording: Option<Recording>,

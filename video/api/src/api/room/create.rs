@@ -6,7 +6,7 @@ use pb::scuffle::video::v1::types::{event, Resource};
 use pb::scuffle::video::v1::{RoomCreateRequest, RoomCreateResponse};
 use tonic::Status;
 use ulid::Ulid;
-use utils::database::IntoClient;
+use utils::database::ClientLike;
 use video_common::database::{AccessToken, DatabaseTable, Visibility};
 
 use super::utils::create_stream_key;
@@ -28,7 +28,7 @@ pub fn validate(req: &RoomCreateRequest) -> tonic::Result<()> {
 
 pub async fn build_query(
 	req: &RoomCreateRequest,
-	client: impl IntoClient,
+	client: impl ClientLike,
 	access_token: &AccessToken,
 ) -> tonic::Result<utils::database::QueryBuilder<'static>> {
 	let mut qb = utils::database::QueryBuilder::default();

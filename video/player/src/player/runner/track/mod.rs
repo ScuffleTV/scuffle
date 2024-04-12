@@ -985,7 +985,7 @@ impl<T> TrackState<T> {
 		if was_dvr {
 			let mut inner = inner.borrow_mut();
 			inner.runner_settings.dvr_supported = manifest.dvr_prefix.is_some();
-			inner.runner_settings.thumbnail_prefix = manifest.thumbnail_prefix.clone();
+			inner.runner_settings.thumbnail_prefix.clone_from(&manifest.thumbnail_prefix);
 
 			manifest.thumbnails.iter().for_each(|t| {
 				match inner.runner_settings.thumbnails.binary_search_by(|a| a.idx.cmp(&t.idx)) {

@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use hyper::header::IntoHeaderName;
+use http::header::IntoHeaderName;
 use hyper::Request;
 
 use crate::http::router::ext::RequestExt;
@@ -9,6 +9,12 @@ use crate::http::router::ext::RequestExt;
 struct ResponseHeadersMagic(Arc<Mutex<hyper::HeaderMap>>);
 
 pub struct ResponseHeadersMiddleware;
+
+impl Default for ResponseHeadersMiddleware {
+	fn default() -> Self {
+		Self::new()
+	}
+}
 
 impl ResponseHeadersMiddleware {
 	pub fn new() -> Self {
@@ -48,6 +54,6 @@ impl<B> ResponseHeadersRequestExt for Request<B> {
 	{
 		let headers = self.data::<ResponseHeadersMagic>().unwrap();
 		let mut headers = headers.0.lock().expect("failed to lock headers");
-		key.insert(&mut headers, value.into());
+		headers.insert(key, value.into());
 	}
 }

@@ -27,6 +27,7 @@ trait UploadType: serde::de::DeserializeOwned + Default {
 
 	fn get_max_size<G: ApiGlobal>(global: &Arc<G>) -> usize;
 
+	#[allow(dead_code)]
 	fn validate_permissions(&self, auth: &AuthData) -> bool;
 
 	async fn handle<G: ApiGlobal>(

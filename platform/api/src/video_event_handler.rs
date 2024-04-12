@@ -65,7 +65,7 @@ async fn handle_room_event<G: ApiGlobal>(global: &Arc<G>, event: event::Room, ti
 			let channel_id = utils::database::query("UPDATE users SET channel_active_connection_id = $1, channel_live_viewer_count = $2, channel_live_viewer_count_updated_at = NOW(), channel_last_live_at = $3 WHERE channel_room_id = $4 RETURNING id")
 				.bind(connection_id.into_ulid())
 				.bind(live_viewer_count)
-				.bind(chrono::NaiveDateTime::from_timestamp_millis(timestamp))
+				.bind(chrono::DateTime::from_timestamp_millis(timestamp))
 				.bind(room_id.into_ulid())
 				.build_query_single_scalar()
 				.fetch_one(global.db())

@@ -46,6 +46,7 @@ impl From<AuthError> for RouteError<ApiError> {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct AuthData {
 	pub session: Session,
 	pub user_roles: Vec<Role>,

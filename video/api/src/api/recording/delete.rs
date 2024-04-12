@@ -10,7 +10,7 @@ use pb::scuffle::video::v1::{RecordingDeleteRequest, RecordingDeleteResponse};
 use prost::Message;
 use tonic::Status;
 use ulid::Ulid;
-use utils::database::IntoClient;
+use utils::database::ClientLike;
 use video_common::database::{AccessToken, DatabaseTable, Rendition};
 
 use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
@@ -156,15 +156,15 @@ async fn handle_end_of_stream(global: &Arc<impl ApiGlobal>, batch: &mut Recordin
 	Some(())
 }
 
-async fn handle_query<B: UpdateBatch>(
+async fn handle_query<B>(
 	global: &Arc<impl ApiGlobal>,
-	client: impl IntoClient,
+	client: impl ClientLike,
 	deleted_recordings: &HashMap<Ulid, Ulid>,
 	batch: &mut RecordingDeleteBatchTask,
 	qb: &mut utils::database::QueryBuilder<'_>,
 ) -> Option<()>
 where
-	B: postgres_from_row::FromRow + Send + Unpin,
+	B: UpdateBatch + postgres_from_row::FromRow + Send + Unpin,
 {
 	let mut qb = qb
 		.build_query_as::<B>()

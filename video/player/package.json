@@ -13,7 +13,7 @@
 		"build": "pnpm run clean && pnpm run wasm:build && tsc && vite build",
 		"dev": "pnpm run wasm:watch & vite",
 		"preview": "vite preview",
-		"lint": "prettier --check \"**/*\" -u && eslint . --ext .js,.ts && cargo +nightly fmt --check && cargo +nightly clippy -- -D warnings",
+		"lint": "prettier --check \"**/*\" -u && eslint . --ignore-pattern '**/pkg/**' --ignore-pattern '**/dist/**' && cargo +nightly fmt --check && cargo +nightly clippy -- -D warnings",
 		"format": "prettier --write \"**/*\" -u && cargo +nightly fmt && cargo +nightly clippy --fix --allow-dirty --allow-staged",
 		"clean": "rimraf dist pkg"
 	},
@@ -23,15 +23,15 @@
 		"pkg"
 	],
 	"devDependencies": {
-		"@typescript-eslint/eslint-plugin": "^6.20.0",
-		"@typescript-eslint/parser": "^6.20.0",
 		"astring": "^1.8.6",
-		"eslint": "^8.56.0",
+		"eslint": "^9.0.0",
 		"eslint-config-prettier": "^9.1.0",
-		"prettier": "^3.2.4",
+		"globals": "^13.6.0",
+		"prettier": "^3.2.5",
 		"rimraf": "^5.0.5",
-		"typescript": "^5.3.3",
-		"vite": "^5.0.12",
-		"vite-plugin-dts": "^3.7.2"
+		"typescript": "^5.4.5",
+		"typescript-eslint": "^7.6.0",
+		"vite": "^5.2.8",
+		"vite-plugin-dts": "^3.8.1"
 	}
 }

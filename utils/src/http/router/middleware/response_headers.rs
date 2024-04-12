@@ -11,9 +11,9 @@ struct ResponseHeadersMagic(Arc<Mutex<hyper::HeaderMap>>);
 pub struct ResponseHeadersMiddleware;
 
 impl Default for ResponseHeadersMiddleware {
-    fn default() -> Self {
-        Self::new()
-    }
+	fn default() -> Self {
+		Self::new()
+	}
 }
 
 impl ResponseHeadersMiddleware {

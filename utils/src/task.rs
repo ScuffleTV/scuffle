@@ -233,9 +233,9 @@ pub fn get_abort() -> Arc<AtomicBool> {
 pub struct AbortGuard;
 
 impl Default for AbortGuard {
-    fn default() -> Self {
-        Self::new()
-    }
+	fn default() -> Self {
+		Self::new()
+	}
 }
 
 impl AbortGuard {

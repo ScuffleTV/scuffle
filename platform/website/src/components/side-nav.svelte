@@ -151,7 +151,7 @@
 		<div class="container hide-on-mobile">
 			<div class="loading heading"></div>
 			<div class="streamer-cards">
-				{#each Array(followingLimit) as _}
+				{#each Array(followingLimit) as i (i)}
 					<LoadingStreamerCard collapsed={$sideNavCollapsed} />
 				{/each}
 			</div>

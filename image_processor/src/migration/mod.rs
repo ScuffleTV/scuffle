@@ -65,6 +65,8 @@ async fn run_migration<S: ImageProcessorGlobal>(
 	global: &Arc<S>,
 	migration: &'static dyn Migration<S>,
 ) -> anyhow::Result<()> {
+	tracing::info!("Applying migration");
+
 	let mut client = global.db().get().await.context("Failed to get database connection")?;
 	let tx = client.transaction().await.context("Failed to start transaction")?;
 
@@ -78,6 +80,8 @@ async fn run_migration<S: ImageProcessorGlobal>(
 		.context("Failed to update migration version")?;
 
 	tx.commit().await.context("Failed to commit transaction")?;
+
+	tracing::info!("Migration applied");
 
 	Ok(())
 }

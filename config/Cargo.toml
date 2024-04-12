@@ -1,0 +1,43 @@
+[package]
+name = "scuffle-config"
+version = "0.0.1"
+edition = "2021"
+authors = ["Scuffle <opensource@scuffle.tv>"]
+description = "Extensible config solution"
+repository = "https://github.com/ScuffleTV/scuffle"
+categories = ["config"]
+keywords = ["config", "cli", "proc-macro"]
+license = "MIT OR Apache-2.0"
+documentation = "https://docs.rs/scuffle-config"
+
+[lib]
+name = "config"
+path = "src/lib.rs"
+
+[dependencies]
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive", "rc"] }
+tracing = "0.1"
+serde_ignored = "0.1"
+serde-value = "0.7"
+serde_path_to_error = "0.1"
+humantime = "2.1"
+num-order = "1.2"
+uuid = { version = "1.6", features = ["serde"] }
+ulid = { version = "1.1", features = ["serde", "uuid"] }
+
+# Parsing files
+serde_json = "1.0"
+serde_yaml = "0.9"
+toml = "0.8"
+
+# CLI
+clap = { version = "4.4", features = ["cargo", "string"] }
+convert_case = "0.6"
+
+# Derive macro
+config_derive = { path = "derive", package = "scuffle_config_derive", version = "0.0.1"}
+
+[[example]]
+name = "derive"
+path = "examples/derive.rs"

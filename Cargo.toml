@@ -1,32 +1,67 @@
 [workspace]
 
 members = [
-    "backend/api",
+    "platform/api",
+    "platform/image_processor",
     "video/edge",
     "video/ingest",
     "video/transcoder",
-    "video/bytesio",
-    "video/container/flv",
-    "video/container/mp4",
-    "video/codec/h264",
-    "video/codec/h265",
-    "video/codec/av1",
-    "video/codec/aac",
-    "video/protocol/rtmp",
-    "video/transmuxer",
-    "video/utils/amf0",
-    "video/utils/exp_golomb",
-    "common",
-    "config/config",
-    "config/config_derive",
-    "config/config_test"
+    "video/lib/*",
+    "video/api",
+    "video/player",
+    "video/player_types",
+    "video/common",
+    "video/cli",
+    "binary-helper",
+    "utils",
+    "proto",
+    "config",
+    "config/derive",
+    "ffmpeg",
 ]
 
-exclude = [
-    "frontend/player",
-]
+resolver = "2"
 
+[profile.release-fat]
+inherits = "release"
+lto = 'fat'
+
+[profile.wasm]
+lto = 'fat'
+panic = 'abort'
+opt-level = "z"
+codegen-units = 1
+strip = true
+inherits = "release"
+
+[workspace.dependencies]
+aac = { path = "video/lib/aac" }
+amf0 = { path = "video/lib/amf0" }
+av1 = { path = "video/lib/av1" }
+bytesio = { path = "video/lib/bytesio", default-features = false }
+exp_golomb = { path = "video/lib/exp_golomb" }
+flv = { path = "video/lib/flv" }
+h264 = { path = "video/lib/h264" }
+h265 = { path = "video/lib/h265" }
+mp4 = { path = "video/lib/mp4" }
+rtmp = { path = "video/lib/rtmp" }
+transmuxer = { path = "video/lib/transmuxer" }
+utils = { path = "utils", default-features = false, package = "scuffle-utils" }
+config = { path = "config", package = "scuffle-config" }
+pb = { path = "proto" }
+video-common = { path = "video/common" }
+video-player-types = { path = "video/player_types" }
+video-api = { path = "video/api" }
+video-edge = { path = "video/edge" }
+video-ingest = { path = "video/ingest" }
+video-transcoder = { path = "video/transcoder" }
+binary-helper = { path = "binary-helper" }
+ffmpeg = { path = "ffmpeg" }
+
+# These patches are pending PRs to the upstream crates
+# TODO: Remove these once the PRs are merged
 [patch.crates-io]
-fred = { git = "https://github.com/ScuffleTV/fred.rs" }
-tracing-log = { git = "https://github.com/ScuffleTV/tracing" }
-tracing-subscriber = { git = "https://github.com/ScuffleTV/tracing" }
+# https://github.com/remkop22/postgres-from-row/pull/9
+postgres-from-row = { git = "https://github.com/ScuffleTV/postgres-from-row.git", branch = "troy/from_fn" }
+# https://github.com/madonoharu/tsify/pull/32
+tsify = { git = "https://github.com/ScuffleTV/tsify.git", branch = "sisou/comments" }

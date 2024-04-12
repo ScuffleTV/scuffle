@@ -1,7 +1,9 @@
 * @ScuffleTV/maintainers
 
-frontend/ @ScuffleTV/frontend @ScuffleTV/maintainers
+platform/website @ScuffleTV/frontend @ScuffleTV/maintainers
 
 video/ @ScuffleTV/video @ScuffleTV/maintainers
 
-backend/ @ScuffleTV/backend @ScuffleTV/maintainers
+video/player @ScuffleTV/video @ScuffleTV/frontend @ScuffleTV/maintainers 
+
+platform/backend @ScuffleTV/backend @ScuffleTV/maintainers

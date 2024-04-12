@@ -1,0 +1,63 @@
+[package]
+name = "platform-api"
+version = "0.0.1"
+edition = "2021"
+authors = ["Scuffle <opensource@scuffle.tv>"]
+description = "Scuffle API server"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+tracing = "0.1"
+tokio = { version = "1.36", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+hyper = { version = "1.1", features = ["full"] }
+utils = { workspace = true, features = ["all"] }
+rustls = "0.22"
+rustls-pemfile = "2.0"
+tokio-rustls = "0.25"
+path-tree = "0.7"
+serde_json = "1.0"
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false}
+chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
+async-graphql = { version = "7.0.1", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "string_number"] }
+hyper-tungstenite = "0"
+async-stream = "0.3"
+futures = "0.3"
+futures-util = "0.3"
+arc-swap = "1.6"
+jwt-next = "0.17"
+hmac = "0.12"
+sha2 = "0.10"
+tonic = { version = "0.11", features = ["tls"] }
+prost = "0.12"
+uuid = "1.6"
+bitmask-enum = "2.2"
+argon2 = "0.5"
+ulid = { version = "1.1", features = ["uuid"] }
+rand = "0.8"
+tokio-stream = { version = "0.1", features = ["sync"] }
+async-nats = "0.33"
+async-trait = "0.1"
+bytes = "1.5"
+totp-rs = { version = "5.4", features = ["qr"] }
+thiserror = "1.0"
+anyhow = "1.0"
+multer = "3.0"
+aws-config = "1.1"
+aws-sdk-s3 = { version = "1.12", features = ["behavior-version-latest"] }
+http-body = "1.0"
+http-body-util = "0.1"
+hyper-util = "0.1"
+pin-project = "1.1"
+base64 = "0.21"
+postgres-from-row = "0.5"
+postgres-types = "0.2"
+fred = { version = "8.0", features = ["enable-rustls", "sentinel-client", "dns"] }
+
+config = { workspace = true }
+pb = { workspace = true }
+binary-helper = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.8"
+http = "1.0"

@@ -1,0 +1,8 @@
+[advisories]
+ignore = [
+    "RUSTSEC-2023-0071", # RSA Marvin Attack: potential key recovery through timing sidechannels (not exploitable in our usage)
+]
+
+[target]
+arch = "x86_64"
+os = "linux"

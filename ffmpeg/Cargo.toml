@@ -1,0 +1,22 @@
+[package]
+name = "ffmpeg"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+ffmpeg-sys-next = "6.1"
+libc = "0.2"
+bytes = { optional = true, version = "1" }
+tokio = { optional = true, version = "1" }
+crossbeam-channel = { optional = true, version = "0.5" }
+tracing = { optional = true, version = "0.1" }
+utils = { workspace = true, optional = true }
+
+[features]
+default = []
+task-abort = ["dep:utils"]
+channel = ["dep:bytes"]
+tokio-channel = ["channel", "dep:tokio"]
+crossbeam-channel = ["channel", "dep:crossbeam-channel"]
+tracing = ["dep:tracing"]

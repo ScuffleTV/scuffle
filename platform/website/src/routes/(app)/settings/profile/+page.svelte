@@ -18,6 +18,9 @@
 	import { FileStatus } from "$/gql/graphql";
 	import ErrorDialog from "$/components/error-dialog.svelte";
 	import { colorToStyle, rgbHexToHsl } from "$/lib/colors";
+	import ImageEditorDialog from "$/components/settings/image-editor-dialog.svelte";
+
+	const imageEditorTypes = ["image/png", "image/jls", "image/jpeg", "image/jxl", "image/bmp"];
 
 	const recommendedColors = ["#ff7a00", "#ffe457", "#57ff86", "#00ffd1", "#5786ff", "#8357ff"];
 
@@ -37,7 +40,8 @@
 	let displayColorRgb = $user?.displayColor.rgb;
 	let displayColorInput: HTMLInputElement;
 
-	let avatarFiles: FileList;
+	let avatarFiles: FileList | null = null;
+	let avatarSrc: string | null = null;
 	let avatarInput: HTMLInputElement;
 
 	$: status =
@@ -168,12 +172,13 @@
 
 	let turnstileToken: string | null = null;
 
-	function uploadProfilePicture() {
-		if (turnstileToken) {
+	function uploadProfilePicture(blob: Blob | null) {
+		if (turnstileToken && blob) {
+			status = Status.Saving;
 			uploadFile(
 				`${PUBLIC_UPLOAD_ENDPOINT}/profile-picture`,
 				{ set_active: true },
-				avatarFiles[0],
+				blob,
 				turnstileToken,
 			)
 				.then((res) => res.json())
@@ -189,6 +194,7 @@
 					fileError = err;
 					status = Status.Unchanged;
 				});
+			resetAvatarFile();
 		}
 	}
 
@@ -220,9 +226,23 @@
 
 	$: {
 		if (avatarFiles && avatarFiles[0]) {
-			status = Status.Saving;
-			uploadProfilePicture();
+			if (imageEditorTypes.includes(avatarFiles[0].type)) {
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					if (!e.target) return;
+					avatarSrc = e.target.result as string;
+				};
+
+				reader.readAsDataURL(avatarFiles[0]);
+			} else {
+				uploadProfilePicture(avatarFiles[0]);
+			}
 		}
+	}
+
+	function resetAvatarFile() {
+		avatarFiles = null;
+		avatarSrc = null;
 	}
 </script>
 
@@ -232,6 +252,13 @@
 			heading="Failed to upload"
 			message={fileError}
 			on:close={() => (fileError = null)}
+		/>
+	{/if}
+	{#if avatarSrc}
+		<ImageEditorDialog
+			src={avatarSrc}
+			on:close={resetAvatarFile}
+			on:submit={(e) => uploadProfilePicture(e.detail.blob)}
 		/>
 	{/if}
 	<SectionContainer>

@@ -6,8 +6,8 @@ use async_nats::jetstream::consumer::pull::Config;
 use async_nats::jetstream::consumer::DeliverPolicy;
 use async_nats::jetstream::stream::RetentionPolicy;
 use futures::StreamExt;
+use scuffle_utils::context::ContextExt;
 use tokio_util::sync::CancellationToken;
-use utils::context::ContextExt;
 
 use crate::config::TranscoderConfig;
 use crate::global::TranscoderGlobal;

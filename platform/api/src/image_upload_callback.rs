@@ -9,7 +9,7 @@ use pb::ext::UlidExt;
 use pb::scuffle::platform::internal::events::{processed_image, ProcessedImage};
 use pb::scuffle::platform::internal::types::{uploaded_file_metadata, ProcessedImageVariant, UploadedFileMetadata};
 use prost::Message;
-use utils::context::ContextExt;
+use scuffle_utils::context::ContextExt;
 
 use crate::config::ImageUploaderConfig;
 use crate::database::{FileType, UploadedFile};
@@ -131,7 +131,7 @@ async fn handle_success(
 	let mut client = global.db().get().await.context("failed to get db connection")?;
 	let tx = client.transaction().await.context("failed to start transaction")?;
 
-	let uploaded_file: UploadedFile = match utils::database::query("UPDATE uploaded_files SET status = 'completed', metadata = $1, updated_at = NOW() WHERE id = $2 AND status = 'queued' RETURNING *")
+	let uploaded_file: UploadedFile = match scuffle_utils::database::query("UPDATE uploaded_files SET status = 'completed', metadata = $1, updated_at = NOW() WHERE id = $2 AND status = 'queued' RETURNING *")
 		.bind(utils::database::Protobuf(UploadedFileMetadata {
 			metadata: Some(uploaded_file_metadata::Metadata::Image(uploaded_file_metadata::Image {
 				versions: variants,
@@ -169,7 +169,7 @@ async fn handle_success(
 	match uploaded_file.ty {
 		FileType::CategoryArtwork | FileType::CategoryCover => {}
 		FileType::ProfilePicture => {
-			let user_updated = utils::database::query("UPDATE users SET profile_picture_id = $1, pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $2 AND pending_profile_picture_id = $1")
+			let user_updated = scuffle_utils::database::query("UPDATE users SET profile_picture_id = $1, pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $2 AND pending_profile_picture_id = $1")
 				.bind(uploaded_file.id)
 				.bind(uploaded_file.owner_id)
 				.build()
@@ -213,7 +213,7 @@ async fn handle_failure(
 	let mut client = global.db().get().await.context("failed to get db connection")?;
 	let tx = client.transaction().await.context("failed to start transaction")?;
 
-	let uploaded_file: UploadedFile = match utils::database::query("UPDATE uploaded_files SET status = 'failed', failed = $1, updated_at = NOW() WHERE id = $2 AND status = 'queued' RETURNING *")
+	let uploaded_file: UploadedFile = match scuffle_utils::database::query("UPDATE uploaded_files SET status = 'failed', failed = $1, updated_at = NOW() WHERE id = $2 AND status = 'queued' RETURNING *")
 		.bind(reason.clone())
 		.bind(job_id)
 		.build_query_as()
@@ -250,7 +250,7 @@ async fn handle_failure(
 	let update_count = match uploaded_file.ty {
 		FileType::CategoryArtwork | FileType::CategoryCover => false,
 		FileType::ProfilePicture => {
-			utils::database::query(
+			scuffle_utils::database::query(
 				"UPDATE users SET pending_profile_picture_id = NULL, updated_at = NOW() WHERE id = $1 AND pending_profile_picture_id = $2",
 			)
 			.bind(uploaded_file.owner_id)

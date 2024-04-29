@@ -1,35 +1,29 @@
-use binary_helper::s3::Bucket;
+use scuffle_utils::context::Context;
 
 use crate::config::ImageProcessorConfig;
 
-pub trait ImageProcessorState {
-	fn s3_source_bucket(&self) -> &Bucket;
-	fn s3_target_bucket(&self) -> &Bucket;
+pub struct ImageProcessorGlobalImpl {
+	ctx: Context,
+	config: ImageProcessorConfig,
+	http_client: reqwest::Client,
+}
+
+pub trait ImageProcessorGlobal: Send + Sync + 'static {
+	fn ctx(&self) -> &Context;
+	fn config(&self) -> &ImageProcessorConfig;
 	fn http_client(&self) -> &reqwest::Client;
 }
 
-pub trait ImageProcessorGlobal:
-	binary_helper::global::GlobalCtx
-	+ binary_helper::global::GlobalConfigProvider<ImageProcessorConfig>
-	+ binary_helper::global::GlobalNats
-	+ binary_helper::global::GlobalDb
-	+ binary_helper::global::GlobalConfig
-	+ ImageProcessorState
-	+ Send
-	+ Sync
-	+ 'static
-{
-}
+impl ImageProcessorGlobal for ImageProcessorGlobalImpl {
+	fn ctx(&self) -> &Context {
+		&self.ctx
+	}
 
-impl<T> ImageProcessorGlobal for T where
-	T: binary_helper::global::GlobalCtx
-		+ binary_helper::global::GlobalConfigProvider<ImageProcessorConfig>
-		+ binary_helper::global::GlobalNats
-		+ binary_helper::global::GlobalDb
-		+ binary_helper::global::GlobalConfig
-		+ ImageProcessorState
-		+ Send
-		+ Sync
-		+ 'static
-{
+	fn config(&self) -> &ImageProcessorConfig {
+		&self.config
+	}
+
+	fn http_client(&self) -> &reqwest::Client {
+		&self.http_client
+	}
 }

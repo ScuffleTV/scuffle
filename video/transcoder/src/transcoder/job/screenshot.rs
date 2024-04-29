@@ -1,13 +1,13 @@
 use anyhow::Context;
 use bytes::Bytes;
-use ffmpeg::ffi::AVPixelFormat;
-use ffmpeg::frame::Frame;
 use image::codecs::jpeg::JpegEncoder;
+use scuffle_ffmpeg::ffi::AVPixelFormat;
+use scuffle_ffmpeg::frame::Frame;
 use tokio::sync::mpsc;
 
 pub fn screenshot_task(mut recv: mpsc::Receiver<Frame>, send: mpsc::Sender<(Bytes, f64)>) -> anyhow::Result<()> {
 	while let Some(frame) = recv.blocking_recv() {
-		let _guard = utils::task::AbortGuard::new();
+		let _guard = scuffle_utils::task::AbortGuard::new();
 
 		let frame = frame.video();
 

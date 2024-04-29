@@ -5,10 +5,10 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use binary_helper::global::{setup_database, setup_nats, GlobalCtx, GlobalDb, GlobalNats};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
+use scuffle_utils::context::Context;
 use tokio::select;
 use tokio::sync::{mpsc, Mutex};
 use ulid::Ulid;
-use utils::context::Context;
 use video_ingest::config::IngestConfig;
 use video_ingest::global::IncomingTranscoder;
 

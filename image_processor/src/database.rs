@@ -1,13 +1,14 @@
-use pb::scuffle::platform::internal::image_processor::Task;
+use mongodb::bson::oid::ObjectId;
 use ulid::Ulid;
-use utils::database::protobuf;
 
-// The actual table has more columns but we only need id and task to process a
-// job
+use crate::pb::Task;
 
-#[derive(Debug, Clone, Default, postgres_from_row::FromRow)]
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct Job {
-	pub id: Ulid,
-	#[from_row(from_fn = "protobuf")]
+	#[serde(rename = "_id")]
+	pub id: ObjectId,
+	pub priority: i32,
+	pub hold_until: Option<chrono::DateTime<chrono::Utc>>,
 	pub task: Task,
+	pub claimed_by_id: Option<ObjectId>,
 }

@@ -314,7 +314,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			uploaded_file_id: Ulid,
 		}
 
-		utils::database::query("INSERT INTO igdb_image (uploaded_file_id, image_id)")
+		scuffle_utils::database::query("INSERT INTO igdb_image (uploaded_file_id, image_id)")
 			.push_values(&image_ids, |mut sep, item| {
 				sep.push_bind(item.0);
 				sep.push_bind(item.1);
@@ -325,13 +325,14 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			.await
 			.context("insert igdb_image")?;
 
-		let image_ids =
-			utils::database::query("SELECT image_id, uploaded_file_id FROM igdb_image WHERE image_id = ANY($1::TEXT[])")
-				.bind(image_ids.iter().map(|x| x.1).collect::<Vec<_>>())
-				.build_query_as::<ImageId>()
-				.fetch_all(&tx)
-				.await
-				.context("select igdb_image")?;
+		let image_ids = scuffle_utils::database::query(
+			"SELECT image_id, uploaded_file_id FROM igdb_image WHERE image_id = ANY($1::TEXT[])",
+		)
+		.bind(image_ids.iter().map(|x| x.1).collect::<Vec<_>>())
+		.build_query_as::<ImageId>()
+		.fetch_all(&tx)
+		.await
+		.context("select igdb_image")?;
 
 		let image_ids = image_ids
 			.into_iter()
@@ -387,22 +388,23 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			})
 			.collect::<Vec<_>>();
 
-		let uploaded_files_ids =
-			utils::database::query("INSERT INTO uploaded_files (id, name, type, metadata, total_size, path, status) ")
-				.push_values(&uploaded_files, |mut sep, item| {
-					sep.push_bind(item.id);
-					sep.push_bind(&item.name);
-					sep.push_bind(item.ty);
-					sep.push_bind(utils::database::Protobuf(item.metadata.clone()));
-					sep.push_bind(item.total_size);
-					sep.push_bind(&item.path);
-					sep.push_bind(item.status);
-				})
-				.push("ON CONFLICT (id) DO NOTHING RETURNING id;")
-				.build_query_single_scalar::<Ulid>()
-				.fetch_all(&tx)
-				.await
-				.context("insert uploaded_files")?;
+		let uploaded_files_ids = scuffle_utils::database::query(
+			"INSERT INTO uploaded_files (id, name, type, metadata, total_size, path, status) ",
+		)
+		.push_values(&uploaded_files, |mut sep, item| {
+			sep.push_bind(item.id);
+			sep.push_bind(&item.name);
+			sep.push_bind(item.ty);
+			sep.push_bind(utils::database::Protobuf(item.metadata.clone()));
+			sep.push_bind(item.total_size);
+			sep.push_bind(&item.path);
+			sep.push_bind(item.status);
+		})
+		.push("ON CONFLICT (id) DO NOTHING RETURNING id;")
+		.build_query_single_scalar::<Ulid>()
+		.fetch_all(&tx)
+		.await
+		.context("insert uploaded_files")?;
 
 		let resp = resp
 			.into_iter()
@@ -433,7 +435,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 		offset += resp.len();
 		let count = resp.len();
 
-		let categories = utils::database::query("INSERT INTO categories (id, igdb_id, name, aliases, keywords, storyline, summary, over_18, cover_id, rating, updated_at, artwork_ids, igdb_similar_game_ids, websites) ")
+		let categories = scuffle_utils::database::query("INSERT INTO categories (id, igdb_id, name, aliases, keywords, storyline, summary, over_18, cover_id, rating, updated_at, artwork_ids, igdb_similar_game_ids, websites) ")
 			.push_values(&resp, |mut sep, item| {
 			sep.push_bind(item.id);
 			sep.push_bind(item.igdb_id);
@@ -480,7 +482,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			})
 			.collect::<HashMap<_, _>>();
 
-		utils::database::query("WITH updated(id, category) AS (")
+		scuffle_utils::database::query("WITH updated(id, category) AS (")
 			.push_values(categories.iter().collect::<Vec<_>>(), |mut sep, item| {
 				sep.push_bind(item.0).push_unseparated("::UUID");
 				sep.push_bind(item.1).push_unseparated("::UUID");
@@ -505,7 +507,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 				.await
 				.context("start transaction image_jobs")?;
 
-			let unqueued = utils::database::query(
+			let unqueued = scuffle_utils::database::query(
 				"UPDATE uploaded_files SET status = 'queued' WHERE id = ANY($1::UUID[]) AND status = 'unqueued' RETURNING id, path;",
 			)
 			.bind(uploaded_files_ids)
@@ -515,7 +517,7 @@ async fn refresh_igdb<G: ApiGlobal>(global: &Arc<G>, config: &IgDbConfig) -> any
 			.context("update uploaded_files")?;
 
 			if !unqueued.is_empty() {
-				utils::database::query("INSERT INTO image_jobs (id, priority, task) ")
+				scuffle_utils::database::query("INSERT INTO image_jobs (id, priority, task) ")
 					.bind(image_processor_config.igdb_image_task_priority as i64)
 					.push_values(unqueued, |mut sep, (id, path)| {
 						sep.push_bind(id).push("$1").push_bind(utils::database::Protobuf(create_task(

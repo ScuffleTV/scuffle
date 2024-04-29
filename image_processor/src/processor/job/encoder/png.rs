@@ -33,7 +33,7 @@ impl Encoder for PngEncoder {
 	}
 
 	fn add_frame(&mut self, frame: &Frame) -> Result<()> {
-		let _abort_guard = utils::task::AbortGuard::new();
+		let _abort_guard = scuffle_utils::task::AbortGuard::new();
 
 		if self.result.is_some() {
 			return Err(ProcessorError::PngEncode(anyhow::anyhow!("encoder already finished")));

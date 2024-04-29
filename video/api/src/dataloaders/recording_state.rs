@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use itertools::Itertools;
+use scuffle_utilsdataloader::{DataLoader, Loader, LoaderOutput};
 use ulid::Ulid;
-use utils::dataloader::{DataLoader, Loader, LoaderOutput};
 use video_common::database::{Recording, Rendition};
 
 pub struct RecordingStateLoader {
@@ -53,7 +53,7 @@ impl Loader for RecordingStateLoader {
 	type Value = RecordingState;
 
 	async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
-		let results: Vec<RecordingRenditionState> = utils::database::query("SELECT organization_id, recording_id, rendition, COUNT(size_bytes) AS size_bytes, MAX(end_time) AS end_time, MAX(start_time) AS start_time FROM recording_rendition_segments WHERE (organization_id, recording_id) IN ")
+		let results: Vec<RecordingRenditionState> = scuffle_utils::database::query("SELECT organization_id, recording_id, rendition, COUNT(size_bytes) AS size_bytes, MAX(end_time) AS end_time, MAX(start_time) AS start_time FROM recording_rendition_segments WHERE (organization_id, recording_id) IN ")
 			.push_tuples(keys, |mut qb, (organization_id, recording_id)| {
 			qb.push_bind(organization_id).push_bind(recording_id);
 		}).push(" GROUP BY organization_id, recording_id, rendition ORDER BY organization_id, recording_id").build_query_as().fetch_all(&self.db).await.map_err(|err| {

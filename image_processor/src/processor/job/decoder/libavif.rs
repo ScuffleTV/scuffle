@@ -114,7 +114,7 @@ impl Decoder for AvifDecoder<'_> {
 	}
 
 	fn decode(&mut self) -> Result<Option<Frame>> {
-		let _abort_guard = utils::task::AbortGuard::new();
+		let _abort_guard = scuffle_utils::task::AbortGuard::new();
 
 		if AvifError::from_code(unsafe { libavif_sys::avifDecoderNextImage(self.decoder.as_ptr()) }).is_err() {
 			return Ok(None);

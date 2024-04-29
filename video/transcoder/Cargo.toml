@@ -35,13 +35,13 @@ image = "0.25"
 
 aac = { workspace = true }
 mp4 = { workspace = true }
-utils = { workspace = true, features = ["all"] }
+scuffle-utils = { workspace = true, features = ["all"] }
 bytesio = { workspace = true, features = ["default"] }
 config = { workspace = true }
 pb = { workspace = true }
 video-common = { workspace = true }
 binary-helper = { workspace = true }
-ffmpeg = { workspace = true, features = ["tokio-channel", "tracing", "task-abort"] }
+scuffle-ffmpeg = { workspace = true, features = ["tokio-channel", "tracing", "task-abort"] }
 
 [dev-dependencies]
 dotenvy = "0.15"

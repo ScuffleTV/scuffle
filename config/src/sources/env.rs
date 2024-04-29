@@ -174,6 +174,6 @@ fn extract_keys(
 
 impl<C: Config> Source<C> for EnvSource<C> {
 	fn get_key(&self, path: &KeyPath) -> Result<Option<Value>> {
-		utils::get_key::<C>(&self.value, path).map_err(|e| e.with_source(ErrorSource::Env))
+		scuffle_utilsget_key::<C>(&self.value, path).map_err(|e| e.with_source(ErrorSource::Env))
 	}
 }

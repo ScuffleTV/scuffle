@@ -1,5 +1,7 @@
 use std::ops::{Mul, MulAssign};
 
+use crate::pb::Upscale;
+
 #[derive(Debug, Clone)]
 pub struct ScalingOptions {
 	pub input_width: usize,
@@ -11,23 +13,6 @@ pub struct ScalingOptions {
 	pub upscale: Upscale,
 	pub input_image_scaling: bool,
 	pub scales: Vec<usize>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Upscale {
-	Yes,
-	No,
-	NoPreserveSource,
-}
-
-impl From<pb::scuffle::platform::internal::image_processor::task::Upscale> for Upscale {
-	fn from(value: pb::scuffle::platform::internal::image_processor::task::Upscale) -> Self {
-		match value {
-			pb::scuffle::platform::internal::image_processor::task::Upscale::Yes => Upscale::Yes,
-			pb::scuffle::platform::internal::image_processor::task::Upscale::No => Upscale::No,
-			pb::scuffle::platform::internal::image_processor::task::Upscale::NoPreserveSource => Upscale::NoPreserveSource,
-		}
-	}
 }
 
 impl Upscale {

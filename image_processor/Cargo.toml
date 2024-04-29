@@ -36,9 +36,12 @@ num_cpus = "1.16"
 bytes = "1.0"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 fast_image_resize = "3.0.4"
+chrono = "0.4"
 
-utils = { workspace = true, features = ["all"] }
-config = { workspace = true }
-pb = { workspace = true }
-binary-helper = { workspace = true }
-ffmpeg = { workspace = true, features = ["task-abort", "tracing"] }
+scuffle-utils = { version = "*", path = "../utils", features = ["all"] }
+scuffle-ffmpeg = { version = "*", path = "../ffmpeg", features = ["task-abort", "tracing"] }
+
+mongodb = { version = "2.0", features = ["tokio-runtime"] }
+
+[build-dependencies]
+tonic-build = "0.11"

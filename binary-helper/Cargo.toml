@@ -40,5 +40,5 @@ postgres-from-row = { version = "0.5" }
 prost = { version = "0.12" }
 
 config = { workspace = true }
-utils = { workspace = true, features = ["all"] }
+scuffle-utils = { workspace = true, features = ["all"] }
 pb = { workspace = true }

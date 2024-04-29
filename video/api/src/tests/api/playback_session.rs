@@ -22,7 +22,7 @@ use crate::tests::utils::{self, teardown};
 
 #[tokio::test]
 async fn test_playback_session_count_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![
 		(
@@ -60,12 +60,12 @@ async fn test_playback_session_count_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_session_get_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![
 		(
@@ -204,12 +204,12 @@ async fn test_playback_session_get_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_session_count() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording = create_recording(
@@ -295,12 +295,12 @@ async fn test_playback_session_count() {
 	assert_eq!(response.count, 300);
 	assert_eq!(response.deduplicated_count, 200);
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_session_revoke() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording = create_recording(
@@ -416,12 +416,12 @@ async fn test_playback_session_revoke() {
 		"revoke_before should be within 5 seconds of now"
 	);
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_session_revoke_2() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording = create_recording(
@@ -478,12 +478,12 @@ async fn test_playback_session_revoke_2() {
 	// Half of them are authorized, so 50 should be revoked
 	assert_eq!(response.revoked, 50);
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_session_get() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording = create_recording(
@@ -564,10 +564,10 @@ async fn test_playback_session_get() {
 
 #[tokio::test]
 async fn test_playback_session_boiler_plate() {
-	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
+	let (global, handler, main_access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let no_scopes_token =
-		utils::create_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
+		scuffle_utilscreate_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
 
 	let server = PlaybackSessionServer::<GlobalState>::new();
 
@@ -703,5 +703,5 @@ async fn test_playback_session_boiler_plate() {
 	assert_eq!(response.code(), tonic::Code::PermissionDenied);
 	assert_eq!(response.message(), "missing required scope: playback_session:delete");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }

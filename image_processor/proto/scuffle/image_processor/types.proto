@@ -1,0 +1,249 @@
+syntax = "proto3";
+
+package scuffle.image_processor;
+
+// When submitting a task these formats are used to determine what the image processor should do.
+// If the image processor is unable to generate a requested format it will not hard fail unless the task is set to hard fail.
+// Otherwise it will generate as many formats as it can and return the results with any errors in the response.
+enum ImageFormat {
+    WEBP_ANIM = 0;
+    AVIF_ANIM = 1;
+    GIF_ANIM = 2;
+    WEBP_STATIC = 3;
+    AVIF_STATIC = 4;
+    PNG_STATIC = 5;
+}
+
+// The resize method determines how the image processor should resize the image.
+enum ResizeMethod {
+    // Fit will resize the image to fit within the desired dimensions without changing the aspect ratio.
+    Fit = 0;
+    // Stretch will stretch the image to fit the desired dimensions. (This will change the aspect ratio of the image.)
+    Stretch = 1;
+    // Pad will resize the image to fit the desired dimentions and pad the bottom left of the image with the background color if necessary.
+    PadBottomLeft = 2;
+    // Pad will resize the image to fit the desired dimentions and pad the bottom right of the image with the background color if necessary.
+    PadBottomRight = 3;
+    // Pad will resize the image to fit the desired dimentions and pad the top left of the image with the background color if necessary.
+    PadTopLeft = 4;
+    // Pad will resize the image to fit the desired dimentions and pad the top right of the image with the background color if necessary.
+    PadTopRight = 5;
+    // Pad will resize the image to fit the desired dimentions and pad the center of the image with the background color if necessary.
+    PadCenter = 6;
+    // Pad will resize the image to fit the desired dimentions and pad the center of the image with the background color if necessary.
+    PadCenterRight = 7;
+    // Pad will resize the image to fit the desired dimentions and pad the center of the image with the background color if necessary.
+    PadCenterLeft = 8;
+    // Pad will resize the image to fit the desired dimentions and pad the top center of the image with the background color if necessary.
+    PadTopCenter = 9;
+    // Pad will resize the image to fit the desired dimentions and pad the bottom center of the image with the background color if necessary.
+    PadBottomCenter = 10;
+    // Pad will resize the image to fit the desired dimentions and pad the top of the image with the background color if necessary, the left and right will be unchanged.
+    PadTop = 11;
+    // Pad will resize the image to fit the desired dimentions and pad the bottom of the image with the background color if necessary, the left and right will be unchanged.
+    PadBottom = 12;
+    // Pad will resize the image to fit the desired dimentions and pad the left of the image with the background color if necessary, the top and bottom will be unchanged.
+    PadLeft = 13;
+    // Pad will resize the image to fit the desired dimentions and pad the right of the image with the background color if necessary, the top and bottom will be unchanged.
+    PadRight = 14;
+}
+
+// The resize algorithm determines the algorithm used to resize the image.
+enum ResizeAlgorithm {
+    Nearest = 0;
+    Box = 1;
+    Bilinear = 2;
+    Hamming = 3;
+    CatmullRom = 4;
+    Mitchell = 5;
+    Lanczos3 = 6;
+}
+
+// Limits are used to determine how much processing time and resources the image processor should use.
+message Limits {
+    // The maximum amount of time the image processor should spend processing the image.
+    optional uint32 max_processing_time_ms = 1;
+    // The maximum input frame count the image processor should accept.
+    optional uint32 max_input_frame_count = 2;
+    // The maximum input width the image processor should accept.
+    optional uint32 max_input_width = 3;
+    // The maximum input height the image processor should accept.
+    optional uint32 max_input_height = 4;
+    // The maximum input file duration the image processor should accept. (if the input is a video or animated image)
+    optional uint32 max_input_duration_ms = 5;
+}
+
+message Ratio {
+    // The width of the ratio.
+    uint32 width = 1;
+    // The height of the ratio.
+    uint32 height = 2;
+}
+
+// Crop is used to determine what part of the image the image processor should crop.
+// The processor will crop the image before resizing it.
+message Crop {
+    // The x coordinate of the top left corner of the crop.
+    uint32 x = 1;
+    // The y coordinate of the top left corner of the crop.
+    uint32 y = 2;
+    // The width of the crop.
+    uint32 width = 3;
+    // The height of the crop.
+    uint32 height = 4;
+}
+
+// Upscale is used to determine if the image processor should upscale the image.
+enum Upscale {
+    Yes = 0;
+    No = 1;
+    NoPreserveSource = 2;
+}
+
+// Provide extra information about the input to the image processor.
+message InputMetadata {
+    // If the input is not animated, this will generate a fatal error. If there are not enough frames this will generate a fatal error.
+    // Otherwise this will be the frame used for static variants.
+    optional uint32 static_frame_index = 1; 
+    // If this is different from the actual frame count the image processor will generate a fatal error.
+    optional uint32 frame_count = 2;
+    // If this is different from the actual width the image processor will generate a fatal error.
+    optional uint32 width = 3;
+    // If this is different from the actual height the image processor will generate a fatal error.
+    optional uint32 height = 4;
+}
+
+// Scale is used to determine what the output image size should be.
+message Scale {
+    // The width of the output image. (in pixels, use -1 to keep the aspect ratio)
+    int32 width = 1;
+    // The height of the output image. (in pixels, use -1 to keep the aspect ratio)
+    int32 height = 2;
+    // Name of the scale. ALlows for template arguments to be passed in.
+    // For example if the name is "thumbnail_{width}x{height}" and the width is 100 and the height is 200 the name will be "thumbnail_100x200".
+    // If not set will be "{width}x{height}"
+    // If multiple scales have the same name the processor will generate a fatal error.
+    optional string name = 3;
+
+    // Allow upscale for this scale.
+    // If NoPreserveSource is set and this scale is larger than the input image we will just use the source dimensions.
+    // If Yes, we will upscale the image.
+    // If No, we will ignore this scale.
+    Upscale upscale = 4;
+}
+
+message InputUpload {
+    // The input image as a binary blob.
+    bytes binary = 1;
+
+    // The path to upload the image to.
+    // Must be in the format <drive>://<path> where drive is a drive defined in the image processor config.
+    // Allows for template arguments to be passed in. For example if the path is "images/{id}.png" and the id is 123 the path will be "images/123.png".
+    string path = 2;
+}
+
+message Input {
+    // The path to the input image.
+    // Must be in the format <drive>://<path> where drive is a drive defined in the image processor config.
+    // This can be used in combination with the ImageUpload message to upload the image to a specific path.
+    // Allows for template arguments to be passed in. For example if the path is "images/{id}.png" and the id is 123 the path will be "images/123.png". 
+    string path = 1;
+    // Extra information about the input image.
+    optional InputMetadata metadata = 2;
+}
+
+message OutputFormat {
+    message Webp {
+        bool static = 1;
+    }
+    message Avif {
+        bool static = 1;
+    }
+    message Gif {}
+    message Png {}
+
+    // The name is used in the template argument for the output path.
+    // By default the name is the same as the format.
+    // Webp (static) -> webp_static
+    // Webp (animated) -> webp_animated
+    // Avif (static) -> avif_static
+    // Avif (animated) -> avif_animated
+    // Gif -> gif
+    // Png -> png
+    string name = 1;
+
+    oneof format {
+        Webp webp = 2;
+        Avif avif = 3;
+        Gif gif = 4;
+        Png png = 5;
+    }
+}
+
+message Output {
+    // The image processor will save the results to this path.
+    // Must either be a format '<drive>://<path>' where drive is a drive defined in the image processor config.
+    // Allows for template arguments to be passed in. For example if the path is "images/{id}/{scale}_{format}.{ext}" and the id is 123 the path will be "images/123/100x100_webp_static.webp".
+    // If multiple outputs resolve to the same path the processor will generate a fatal error.
+    string path = 1;
+    // The desired formats to encode the output image.
+    repeated OutputFormat formats = 2;
+    // The resize method used to resize the image.
+    ResizeMethod resize_method = 3;
+    // The resize algorithm used to resize the image.
+    ResizeAlgorithm resize_algorithm = 4;
+    // The crop used to crop the image before resizing. If the crop settings are not possible the processor will generate a fatal error.
+    optional Crop crop = 5;
+    // The minimum and maximum ratios for the scaled image. Used to prevent upscaling too much on wide or tall images.
+    // If the image does not fit into the min and max ratios the processor will generate a fatal error. If unset the processor will not check the ratios.
+    // These checks are done after the crop. If the resize method allows for padding or stretching we will use the padded or stretched dimentions to perform the check.
+    // If scales are provided that are not within the min and max ratios the processor will generate a fatal error.
+    optional Ratio min_ratio = 6;
+    optional Ratio max_ratio = 7;
+    // The target ratio for the scale image, if unset the processor will use the input ratio (after crop but before resize).
+    // The min and max ratios will be used to detemine if padding or stretching is needed to reach the target ratio.
+    optional Ratio target_ratio = 8;
+    // The desired scales of the output image.
+    repeated Scale scales = 9;
+}
+
+// Events must be in the format
+// <event_queue>://<topic> where event_queue is a queue defined in the image processor config.
+// The topic argument is used in the template for the event queue settings defined in the image processor config.
+// Setting any of the events to an empty string will disable the event.
+message Events {
+    // The event to trigger when the task is completed successfully
+    string on_success = 1;
+    // The event to trigger when the task fails
+    string on_fail = 2;
+    // The event to trigger when the task is cancelled
+    string on_cancel = 3;
+    // The event to trigger when the task is started
+    string on_start = 4;
+}
+
+message Task {
+    // The input image to process.
+    Input input = 1;
+    // The output image to generate.
+    Output output = 2;    
+    // Result output
+    Events events = 3;
+    // The limits for the image processor.
+    optional Limits limits = 4;
+}
+
+message Error {
+    // The error message.
+    string message = 1;
+    // The error code.
+    ErrorCode code = 2;
+}
+
+enum ErrorCode {
+    Unknown = 0;
+}
+
+message EventPayload {
+    string id = 1;
+}

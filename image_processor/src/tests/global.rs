@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use utils::context::Context;
+use scuffle_utils::context::Context;
 
 use crate::config::ImageProcessorConfig;
 
@@ -13,6 +13,7 @@ pub struct GlobalState {
 	s3_source_bucket: binary_helper::s3::Bucket,
 	s3_target_bucket: binary_helper::s3::Bucket,
 	http_client: reqwest::Client,
+	instance_id: ulid::Ulid,
 }
 
 impl binary_helper::global::GlobalCtx for GlobalState {
@@ -57,6 +58,10 @@ impl crate::global::ImageProcessorState for GlobalState {
 	fn http_client(&self) -> &reqwest::Client {
 		&self.http_client
 	}
+
+	fn instance_id(&self) -> ulid::Ulid {
+		self.instance_id
+	}
 }
 
 // pub async fn mock_global_state(config: ImageProcessorConfig) ->
@@ -79,7 +84,7 @@ impl crate::global::ImageProcessorState for GlobalState {
 // nats"); 	let jetstream = async_nats::jetstream::new(nats.clone());
 
 // 	let db = Arc::new(
-// 		utils::database::Pool::connect(&database_uri)
+// 		scuffle_utils::database::Pool::connect(&database_uri)
 // 			.await
 // 			.expect("failed to connect to database"),
 // 	);

@@ -29,7 +29,7 @@ impl<G: ApiGlobal> ChannelMutation<G> {
 			.await?
 			.map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
-		let user: database::User = utils::database::query(
+		let user: database::User = scuffle_utils::database::query(
 			r#"
 			UPDATE users
 			SET

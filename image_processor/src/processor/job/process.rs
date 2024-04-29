@@ -2,8 +2,6 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
 use bytes::Bytes;
-use pb::scuffle::platform::internal::image_processor::task;
-use pb::scuffle::platform::internal::types::ImageFormat;
 use rgb::ComponentBytes;
 use sha2::Digest;
 
@@ -11,6 +9,7 @@ use super::decoder::{Decoder, DecoderBackend, LoopCount};
 use super::encoder::{AnyEncoder, Encoder, EncoderFrontend, EncoderSettings};
 use super::resize::{ImageResizer, ImageResizerTarget};
 use crate::database::Job;
+use crate::pb::{ImageFormat, ResizeMethod};
 use crate::processor::error::{ProcessorError, Result};
 use crate::processor::job::scaling::{Ratio, ScalingOptions};
 
@@ -126,21 +125,21 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 	};
 
 	let (preserve_aspect_height, preserve_aspect_width) = match job.task.resize_method() {
-		task::ResizeMethod::Fit => (true, true),
-		task::ResizeMethod::Stretch => (false, false),
-		task::ResizeMethod::PadBottomLeft => (false, false),
-		task::ResizeMethod::PadBottomRight => (false, false),
-		task::ResizeMethod::PadTopLeft => (false, false),
-		task::ResizeMethod::PadTopRight => (false, false),
-		task::ResizeMethod::PadCenter => (false, false),
-		task::ResizeMethod::PadCenterLeft => (false, false),
-		task::ResizeMethod::PadCenterRight => (false, false),
-		task::ResizeMethod::PadTopCenter => (false, false),
-		task::ResizeMethod::PadBottomCenter => (false, false),
-		task::ResizeMethod::PadTop => (false, true),
-		task::ResizeMethod::PadBottom => (false, true),
-		task::ResizeMethod::PadLeft => (true, false),
-		task::ResizeMethod::PadRight => (true, false),
+		ResizeMethod::Fit => (true, true),
+		ResizeMethod::Stretch => (false, false),
+		ResizeMethod::PadBottomLeft => (false, false),
+		ResizeMethod::PadBottomRight => (false, false),
+		ResizeMethod::PadTopLeft => (false, false),
+		ResizeMethod::PadTopRight => (false, false),
+		ResizeMethod::PadCenter => (false, false),
+		ResizeMethod::PadCenterLeft => (false, false),
+		ResizeMethod::PadCenterRight => (false, false),
+		ResizeMethod::PadTopCenter => (false, false),
+		ResizeMethod::PadBottomCenter => (false, false),
+		ResizeMethod::PadTop => (false, true),
+		ResizeMethod::PadBottom => (false, true),
+		ResizeMethod::PadLeft => (true, false),
+		ResizeMethod::PadRight => (true, false),
 	};
 
 	let upscale = job.task.upscale().into();
@@ -172,7 +171,7 @@ pub fn process_job(backend: DecoderBackend, job: &Job, data: Cow<'_, [u8]>) -> R
 				ImageResizer::new(ImageResizerTarget {
 					height: scale.height,
 					width: scale.width,
-					algorithm: job.task.resize_algorithm(),
+					algorithm: job.task.output(),
 					method: job.task.resize_method(),
 					upscale: upscale.is_yes(),
 				}),

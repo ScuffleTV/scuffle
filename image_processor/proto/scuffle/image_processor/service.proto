@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package scuffle.image_processor;
+
+import "scuffle/image_processor/types.proto";
+
+// The ImageProcessor service provides methods to process images
+service ImageProcessor {
+  // Submit a task to process an image
+  rpc ProcessImage(ProcessImageRequest) returns (ProcessImageResponse) {}
+  // Cancel a task
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse) {}
+}
+
+// The Payload for a ImageProcessor.ProcessImage request
+message ProcessImageRequest {
+  // The task to process
+  Task task = 1;
+
+  // The priority of the task
+  // The higher the priority, the sooner the task will be processed
+  uint32 priority = 2;
+
+  // The time-to-live of the task in seconds
+  // If the task has not started processing within the TTL, it will be removed.
+  optional uint32 ttl = 3;
+
+  // Optionally provide an image to process
+  // Providing an image will override the input image path in the task
+  optional InputUpload input_upload = 4;
+}
+
+// The Payload for a ImageProcessor.ProcessImage response
+message ProcessImageResponse {
+  // A unique identifier for the task
+  string id = 1;
+  // Pre-errors that occurred when creating the task.
+  repeated Error errors = 2;
+}
+
+// The Payload for a ImageProcessor.CancelTask request
+message CancelTaskRequest {
+  // The unique identifier of the task to cancel
+  string id = 1;
+}
+
+// The Payload for a ImageProcessor.CancelTask response
+message CancelTaskResponse {
+  // The status of the task
+  optional string error = 1;
+}

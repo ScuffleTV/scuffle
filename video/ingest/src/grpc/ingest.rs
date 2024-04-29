@@ -6,8 +6,8 @@ use async_stream::try_stream;
 use futures_util::Stream;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::{ingest_server, ingest_watch_request, IngestWatchRequest, IngestWatchResponse};
+use scuffle_utils::prelude::FutureTimeout;
 use tonic::{async_trait, Request, Response, Status, Streaming};
-use utils::prelude::FutureTimeout;
 
 use crate::global::{IncomingTranscoder, IngestGlobal};
 

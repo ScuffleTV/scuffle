@@ -19,10 +19,10 @@ use platform_api::video_api::{
 	setup_video_room_client, VideoEventsClient, VideoPlaybackSessionClient, VideoRoomClient,
 };
 use platform_api::{igdb_cron, image_upload_callback, video_event_handler};
+use scuffle_utils::context::Context;
+use scuffle_utilsdataloader::DataLoader;
+use scuffle_utilsgrpc::TlsSettings;
 use tokio::select;
-use utils::context::Context;
-use utils::dataloader::DataLoader;
-use utils::grpc::TlsSettings;
 
 #[derive(Debug, Clone, Default, config::Config, serde::Deserialize)]
 #[serde(default)]
@@ -256,7 +256,7 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 			None
 		};
 
-		let video_api_channel = utils::grpc::make_channel(
+		let video_api_channel = scuffle_utilsgrpc::make_channel(
 			vec![config.extra.video_api.address.clone()],
 			Duration::from_secs(30),
 			video_api_tls,

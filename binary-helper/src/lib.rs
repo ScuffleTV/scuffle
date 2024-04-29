@@ -3,12 +3,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use scuffle_utils::context::Context;
+use scuffle_utils::signal;
 use tokio::signal::unix::SignalKind;
 use tokio::{select, time};
 use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
 pub use traits::{Config, Global};
-use utils::context::Context;
-use utils::signal;
 
 use self::config::GrpcConfig;
 

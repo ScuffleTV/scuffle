@@ -4,8 +4,8 @@ use chrono::{Duration, Utc};
 use pb::ext::UlidExt;
 use pb::scuffle::platform::internal::two_fa::two_fa_request_action::{ChangePassword, Login};
 use pb::scuffle::platform::internal::two_fa::TwoFaRequestAction;
+use scuffle_utils::database::protobuf;
 use ulid::Ulid;
-use utils::database::protobuf;
 
 use super::{Session, User};
 use crate::global::ApiGlobal;
@@ -27,7 +27,7 @@ pub trait TwoFaRequestActionTrait<G: ApiGlobal> {
 }
 
 impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
-	type Result = Result<Session, utils::database::deadpool_postgres::PoolError>;
+	type Result = Result<Session, scuffle_utils::database::deadpool_postgres::PoolError>;
 
 	async fn execute(self, global: &Arc<G>, user_id: Ulid) -> Self::Result {
 		let expires_at = Utc::now() + Duration::seconds(self.login_duration as i64);
@@ -36,7 +36,7 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
 		let mut client = global.db().get().await?;
 		let tx = client.transaction().await?;
 
-		let session = utils::database::query(
+		let session = scuffle_utils::database::query(
 			r#"
 			INSERT INTO user_sessions (
 				id,
@@ -56,7 +56,7 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
 		.fetch_one(&tx)
 		.await?;
 
-		utils::database::query(
+		scuffle_utils::database::query(
 			r#"
 			UPDATE users
 			SET
@@ -76,13 +76,13 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for Login {
 }
 
 impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for ChangePassword {
-	type Result = Result<(), utils::database::deadpool_postgres::PoolError>;
+	type Result = Result<(), scuffle_utils::database::deadpool_postgres::PoolError>;
 
 	async fn execute(self, global: &Arc<G>, user_id: Ulid) -> Self::Result {
 		let mut client = global.db().get().await?;
 		let tx = client.transaction().await?;
 
-		let user: User = utils::database::query(
+		let user: User = scuffle_utils::database::query(
 			r#"
 			UPDATE
 				users
@@ -100,7 +100,7 @@ impl<G: ApiGlobal> TwoFaRequestActionTrait<G> for ChangePassword {
 		.await?;
 
 		// Delete all sessions except current
-		utils::database::query(
+		scuffle_utils::database::query(
 			r#"
 			DELETE FROM
 				user_sessions

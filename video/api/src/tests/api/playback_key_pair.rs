@@ -19,7 +19,7 @@ use crate::tests::utils;
 
 #[tokio::test]
 async fn test_playback_key_pair_get_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
@@ -57,12 +57,12 @@ async fn test_playback_key_pair_get_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_key_pair_create_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![(
 		PlaybackKeyPairCreateRequest {
@@ -80,12 +80,12 @@ async fn test_playback_key_pair_create_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_key_pair_modify_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
@@ -135,12 +135,12 @@ async fn test_playback_key_pair_modify_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_key_pair_tag_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
@@ -169,12 +169,12 @@ async fn test_playback_key_pair_tag_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_key_pair_untag_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
@@ -199,12 +199,12 @@ async fn test_playback_key_pair_untag_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_key_pair_tag() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
@@ -228,12 +228,12 @@ async fn test_playback_key_pair_tag() {
 	assert_eq!(tags.tags.get("key").unwrap(), &"value");
 	assert_eq!(tags.tags.get("key2").unwrap(), &"value2");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_key_pair_untag() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
@@ -260,12 +260,12 @@ async fn test_playback_key_pair_untag() {
 	assert_eq!(tags.tags.len(), 1, "Only 1 tag should be left");
 	assert_eq!(tags.tags.get("key2").unwrap(), &"value2");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_key_pair_create() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let (_, fingerprint) = validate_public_key(include_str!("../certs/ec384/public.pem")).unwrap();
 
@@ -293,12 +293,12 @@ async fn test_playback_key_pair_create() {
 	let created = response.playback_key_pair.as_ref().unwrap();
 	assert_eq!(created.tags.as_ref().unwrap().tags.get("tag_key").unwrap(), "tag_value");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_key_pair_modify() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let playback_key_pair = create_playback_keypair(
 		&global,
@@ -357,12 +357,12 @@ async fn test_playback_key_pair_modify() {
 		"Fingerprint should not change"
 	);
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_key_pair_get() {
-	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
+	let (global, handler, main_access_token) = scuffle_utilssetup(Default::default()).await;
 
 	// Create multiple playback key pair with different tags for testing
 	let created = vec![
@@ -447,12 +447,12 @@ async fn test_playback_key_pair_get() {
 	// Assertions for limit and reverse options
 	assert_eq!(fetched.len(), 1, "Should fetch only one playback key pair due to limit");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_key_pair_delete() {
-	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
+	let (global, handler, main_access_token) = scuffle_utilssetup(Default::default()).await;
 
 	// Create access tokens to be deleted
 	let keypair_to_delete = create_playback_keypair(
@@ -479,15 +479,15 @@ async fn test_playback_key_pair_delete() {
 	);
 	assert!(failed_deletions.is_empty(), "No deletions should fail in this scenario");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_playback_key_pair_boiler_plate() {
-	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
+	let (global, handler, main_access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let no_scopes_token =
-		utils::create_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
+		scuffle_utilscreate_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
 
 	let server = PlaybackKeyPairServer::<GlobalState>::new();
 
@@ -721,5 +721,5 @@ async fn test_playback_key_pair_boiler_plate() {
 	assert_eq!(response.code(), tonic::Code::PermissionDenied);
 	assert_eq!(response.message(), "missing required scope: playback_key_pair:delete");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }

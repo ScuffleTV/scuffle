@@ -1,11 +1,10 @@
 use anyhow::Context;
 use fast_image_resize as fr;
 use imgref::Img;
-use pb::scuffle::platform::internal::image_processor::task::{ResizeAlgorithm, ResizeMethod};
 use rgb::{ComponentBytes, RGBA};
 
 use super::frame::Frame;
-use crate::processor::error::{ProcessorError, Result};
+use crate::{pb::{ResizeAlgorithm, ResizeMethod}, processor::error::{ProcessorError, Result}};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct ImageResizerTarget {
@@ -48,7 +47,7 @@ impl ImageResizer {
 	/// resized frame. After this function returns original frame can be
 	/// dropped, the returned frame is valid for the lifetime of the Resizer.
 	pub fn resize(&mut self, frame: &Frame) -> Result<Frame> {
-		let _abort_guard = utils::task::AbortGuard::new();
+		let _abort_guard = scuffle_utils::task::AbortGuard::new();
 
 		let (width, height) = if self.target.method == ResizeMethod::Stretch {
 			(self.target.width, self.target.height)

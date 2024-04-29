@@ -44,7 +44,7 @@ pub async fn create_playback_session(
 	let client = global.db().get().await.unwrap();
 
 	for inserts in &inserts.chunks(u16::MAX as usize / 5) {
-		let mut qb = utils::database::QueryBuilder::default();
+		let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 		qb.push("INSERT INTO playback_sessions (id, organization_id, room_id, recording_id, user_id, ip_address) ");
 
@@ -66,7 +66,7 @@ pub async fn create_playback_session(
 }
 
 pub async fn create_room(global: &Arc<GlobalState>, organization_id: Ulid) -> video_common::database::Room {
-	utils::database::query("INSERT INTO rooms (id, organization_id, stream_key) VALUES ($1, $2, $3) RETURNING *")
+	scuffle_utils::database::query("INSERT INTO rooms (id, organization_id, stream_key) VALUES ($1, $2, $3) RETURNING *")
 		.bind(Ulid::new())
 		.bind(organization_id)
 		.bind(create_stream_key())
@@ -84,7 +84,7 @@ pub async fn create_recording(
 	recording_config_id: Option<Ulid>,
 	tags: HashMap<String, String>,
 ) -> video_common::database::Recording {
-	utils::database::query("INSERT INTO recordings (id, organization_id, s3_bucket_id, room_id, recording_config_id, tags) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *").bind(Ulid::new()).bind(organization_id).bind(s3_bucket_id).bind(room_id).bind(recording_config_id).bind(utils::database::Json(tags)).build_query_as().fetch_one(global.db()).await.unwrap()
+	scuffle_utils::database::query("INSERT INTO recordings (id, organization_id, s3_bucket_id, room_id, recording_config_id, tags) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *").bind(Ulid::new()).bind(organization_id).bind(s3_bucket_id).bind(room_id).bind(recording_config_id).bind(utils::database::Json(tags)).build_query_as().fetch_one(global.db()).await.unwrap()
 }
 
 pub async fn create_recording_thumbnail(
@@ -98,7 +98,7 @@ pub async fn create_recording_thumbnail(
 	let client = global.db().get().await.unwrap();
 
 	for inserts in &inserts.chunks(u16::MAX as usize / 5) {
-		let mut qb = utils::database::QueryBuilder::default();
+		let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 		qb.push("INSERT INTO recording_thumbnails (organization_id, recording_id, idx, id, start_time) ");
 
@@ -129,7 +129,7 @@ pub async fn create_recording_segment(
 	let client = global.db().get().await.unwrap();
 
 	for inserts in &inserts.chunks(u16::MAX as usize / 14) {
-		let mut qb = utils::database::QueryBuilder::default();
+		let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 		qb.push(
 			"INSERT INTO recording_rendition_segments (organization_id, recording_id, rendition, idx, id, start_time, end_time) ",
@@ -159,7 +159,7 @@ pub async fn create_recording_config(
 	s3_bucket_id: Ulid,
 	tags: HashMap<String, String>,
 ) -> video_common::database::RecordingConfig {
-	utils::database::query(
+	scuffle_utils::database::query(
 		"INSERT INTO recording_configs (id, organization_id, s3_bucket_id, tags) VALUES ($1, $2, $3, $4) RETURNING *",
 	)
 	.bind(Ulid::new())
@@ -177,14 +177,16 @@ pub async fn create_transcoding_config(
 	organization_id: Ulid,
 	tags: HashMap<String, String>,
 ) -> video_common::database::TranscodingConfig {
-	utils::database::query("INSERT INTO transcoding_configs (id, organization_id, tags) VALUES ($1, $2, $3) RETURNING *")
-		.bind(Ulid::new())
-		.bind(organization_id)
-		.bind(utils::database::Json(tags))
-		.build_query_as()
-		.fetch_one(global.db())
-		.await
-		.unwrap()
+	scuffle_utils::database::query(
+		"INSERT INTO transcoding_configs (id, organization_id, tags) VALUES ($1, $2, $3) RETURNING *",
+	)
+	.bind(Ulid::new())
+	.bind(organization_id)
+	.bind(utils::database::Json(tags))
+	.build_query_as()
+	.fetch_one(global.db())
+	.await
+	.unwrap()
 }
 
 pub async fn create_s3_bucket(
@@ -192,7 +194,7 @@ pub async fn create_s3_bucket(
 	organization_id: Ulid,
 	tags: HashMap<String, String>,
 ) -> video_common::database::S3Bucket {
-	utils::database::query(
+	scuffle_utils::database::query(
 		"INSERT INTO s3_buckets (id, organization_id, name, region, access_key_id, secret_access_key, managed, tags) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
 	)
 	.bind(Ulid::new())
@@ -216,7 +218,7 @@ pub async fn create_playback_keypair(
 ) -> video_common::database::PlaybackKeyPair {
 	let (key, fingerprint) = validate_public_key(include_str!("../certs/ec384/public.pem")).unwrap();
 
-	utils::database::query(
+	scuffle_utils::database::query(
 	"INSERT INTO playback_key_pairs (id, organization_id, public_key, fingerprint, updated_at, tags) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
 	)
 	.bind(Ulid::new())

@@ -1,5 +1,5 @@
 use anyhow::Context;
-use utils::task::Task;
+use scuffle_utils::task::Task;
 
 use super::{Encoder, EncoderFrontend, EncoderInfo, EncoderSettings};
 use crate::processor::error::{ProcessorError, Result};
@@ -59,7 +59,7 @@ impl Encoder for GifskiEncoder {
 	}
 
 	fn add_frame(&mut self, frame: &Frame) -> Result<()> {
-		let _abort_guard = utils::task::AbortGuard::new();
+		let _abort_guard = scuffle_utils::task::AbortGuard::new();
 
 		let frame = frame.to_owned();
 		self.info.height = frame.image.height();
@@ -74,7 +74,7 @@ impl Encoder for GifskiEncoder {
 	}
 
 	fn finish(self) -> Result<Vec<u8>> {
-		let _abort_guard = utils::task::AbortGuard::new();
+		let _abort_guard = scuffle_utils::task::AbortGuard::new();
 
 		drop(self.collector);
 

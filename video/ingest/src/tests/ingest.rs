@@ -18,13 +18,13 @@ use pb::scuffle::video::internal::{ingest_watch_request, ingest_watch_response, 
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::{event, Event, Rendition};
 use prost::Message;
+use scuffle_utils::context::ContextExt;
+use scuffle_utils::prelude::FutureTimeout;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use ulid::Ulid;
-use utils::context::ContextExt;
-use utils::prelude::FutureTimeout;
 use uuid::Uuid;
 use video_common::database::Room;
 use video_common::keys::{self, event_subject};
@@ -126,7 +126,7 @@ impl Watcher {
 
 		tracing::info!("connecting to ingest server at {}", advertise_addr);
 
-		let channel = utils::grpc::make_channel(vec![advertise_addr], Duration::from_secs(30), None).unwrap();
+		let channel = scuffle_utilsgrpc::make_channel(vec![advertise_addr], Duration::from_secs(30), None).unwrap();
 
 		let mut client = IngestClient::new(channel);
 
@@ -153,7 +153,7 @@ struct TestState {
 	pub org_id: Ulid,
 	pub room_id: Ulid,
 	pub global: Arc<GlobalState>,
-	pub handler: utils::context::Handler,
+	pub handler: scuffle_utils::context::Handler,
 	pub transcoder_requests: Pin<Box<dyn futures::Stream<Item = TranscoderRequestTask>>>,
 	pub events: Pin<Box<dyn futures::Stream<Item = Event>>>,
 	pub ingest_handle: JoinHandle<anyhow::Result<()>>,
@@ -237,7 +237,7 @@ impl TestState {
 			})
 		};
 
-		utils::database::query("INSERT INTO organizations (id, name) VALUES ($1, $2)")
+		scuffle_utils::database::query("INSERT INTO organizations (id, name) VALUES ($1, $2)")
 			.bind(org_id)
 			.bind("test")
 			.build()
@@ -247,7 +247,7 @@ impl TestState {
 
 		let room_id = Ulid::new();
 
-		utils::database::query("INSERT INTO rooms (organization_id, id, stream_key) VALUES ($1, $2, $3)")
+		scuffle_utils::database::query("INSERT INTO rooms (organization_id, id, stream_key) VALUES ($1, $2, $3)")
 			.bind(org_id)
 			.bind(room_id)
 			.bind(room_id.to_string())
@@ -321,7 +321,7 @@ async fn test_ingest_stream() {
 	}
 
 	let room: video_common::database::Room =
-		utils::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
+		scuffle_utils::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
 			.bind(state.org_id)
 			.bind(state.room_id)
 			.build_query_as()
@@ -508,7 +508,7 @@ async fn test_ingest_stream() {
 
 	tracing::info!("waiting for transcoder to exit");
 
-	let room: Room = utils::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
+	let room: Room = scuffle_utils::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
 		.bind(state.org_id)
 		.bind(state.room_id)
 		.build_query_as()
@@ -710,7 +710,7 @@ async fn test_ingest_stream_shutdown() {
 		_ => panic!("unexpected event"),
 	}
 
-	let room: Room = utils::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
+	let room: Room = scuffle_utils::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
 		.bind(state.org_id)
 		.bind(state.room_id)
 		.build_query_as()
@@ -751,7 +751,7 @@ async fn test_ingest_stream_transcoder_full() {
 		_ => panic!("unexpected event"),
 	}
 
-	let room: Room = utils::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
+	let room: Room = scuffle_utils::database::query("SELECT * FROM rooms WHERE organization_id = $1 AND id = $2")
 		.bind(state.org_id)
 		.bind(state.room_id)
 		.build_query_as()

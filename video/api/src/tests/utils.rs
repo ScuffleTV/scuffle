@@ -4,9 +4,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use pb::scuffle::video::v1::types::{access_token_scope, AccessTokenScope};
+use scuffle_utils::context::Handler;
+use scuffle_utils::prelude::FutureTimeout;
 use ulid::Ulid;
-use utils::context::Handler;
-use utils::prelude::FutureTimeout;
 use video_common::database::AccessToken;
 
 use super::global::{mock_global_state, GlobalState};
@@ -14,15 +14,17 @@ use crate::config::ApiConfig;
 use crate::global::ApiGlobal;
 
 pub async fn create_organization(global: &Arc<impl ApiGlobal>) -> video_common::database::Organization {
-	utils::database::query("INSERT INTO organizations (id, name, updated_at, tags) VALUES ($1, $2, $3, $4) RETURNING *")
-		.bind(Ulid::new())
-		.bind("test")
-		.bind(chrono::Utc::now())
-		.bind(utils::database::Json(std::collections::HashMap::<String, String>::default()))
-		.build_query_as()
-		.fetch_one(global.db())
-		.await
-		.unwrap()
+	scuffle_utils::database::query(
+		"INSERT INTO organizations (id, name, updated_at, tags) VALUES ($1, $2, $3, $4) RETURNING *",
+	)
+	.bind(Ulid::new())
+	.bind("test")
+	.bind(chrono::Utc::now())
+	.bind(utils::database::Json(std::collections::HashMap::<String, String>::default()))
+	.build_query_as()
+	.fetch_one(global.db())
+	.await
+	.unwrap()
 }
 
 pub async fn create_access_token(
@@ -31,7 +33,7 @@ pub async fn create_access_token(
 	scopes: Vec<utils::database::Protobuf<AccessTokenScope>>,
 	tags: std::collections::HashMap<String, String>,
 ) -> video_common::database::AccessToken {
-	utils::database::query("INSERT INTO access_tokens (id, organization_id, secret_token, last_active_at, updated_at, expires_at, scopes, tags) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *")
+	scuffle_utils::database::query("INSERT INTO access_tokens (id, organization_id, secret_token, last_active_at, updated_at, expires_at, scopes, tags) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *")
 		.bind(Ulid::new())
 		.bind(organization_id)
 		.bind(Ulid::new())

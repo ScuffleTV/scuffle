@@ -23,7 +23,7 @@ base64 = "0.22"
 
 pb = { workspace = true }
 config = { workspace = true }
-utils = { workspace = true, features = ["all"] }
+scuffle-utils = { workspace = true, features = ["all"] }
 video-api = { workspace = true }
 video-common = { workspace = true }
 binary-helper = { workspace = true }

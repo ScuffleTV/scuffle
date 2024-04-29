@@ -41,7 +41,7 @@ thiserror = "1.0"
 http-body-util = "0.1"
 hyper-util = "0.1"
 
-utils = { workspace = true, features = ["all"] }
+scuffle-utils = { workspace = true, features = ["all"] }
 config = { workspace = true }
 pb = { workspace = true }
 video-common = { workspace = true }

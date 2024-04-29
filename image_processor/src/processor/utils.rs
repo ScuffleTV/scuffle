@@ -8,7 +8,7 @@ use crate::global::ImageProcessorGlobal;
 use crate::processor::error::Result;
 
 pub async fn query_job(global: &Arc<impl ImageProcessorGlobal>, limit: usize) -> Result<Vec<Job>> {
-	Ok(utils::database::query(
+	Ok(scuffle_utils::database::query(
 		"UPDATE image_jobs
 		SET claimed_by = $1,
 			hold_until = NOW() + INTERVAL '30 seconds'
@@ -23,7 +23,7 @@ pub async fn query_job(global: &Arc<impl ImageProcessorGlobal>, limit: usize) ->
 		WHERE image_jobs.id = job.id
 		RETURNING image_jobs.id, image_jobs.task",
 	)
-	.bind(global.config().instance_id)
+	.bind(global.instance_id())
 	.bind(limit as i64)
 	.build_query_as()
 	.fetch_all(global.db())
@@ -31,13 +31,13 @@ pub async fn query_job(global: &Arc<impl ImageProcessorGlobal>, limit: usize) ->
 }
 
 pub async fn refresh_job(global: &Arc<impl ImageProcessorGlobal>, job_id: Ulid) -> Result<()> {
-	let result = utils::database::query(
+	let result = scuffle_utils::database::query(
 		"UPDATE image_jobs
 		SET hold_until = NOW() + INTERVAL '30 seconds'
 		WHERE image_jobs.id = $1 AND image_jobs.claimed_by = $2",
 	)
 	.bind(job_id)
-	.bind(global.config().instance_id)
+	.bind(global.instance_id())
 	.build()
 	.execute(global.db())
 	.await?;
@@ -46,8 +46,9 @@ pub async fn refresh_job(global: &Arc<impl ImageProcessorGlobal>, job_id: Ulid) 
 }
 
 pub async fn delete_job(global: &Arc<impl ImageProcessorGlobal>, job_id: Ulid) -> Result<()> {
-	utils::database::query("DELETE FROM image_jobs WHERE id = $1")
+	scuffle_utils::database::query("DELETE FROM image_jobs WHERE id = $1 AND claimed_by = $2")
 		.bind(job_id)
+		.bind(global.instance_id())
 		.build()
 		.execute(global.db())
 		.await?;

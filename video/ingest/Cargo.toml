@@ -34,7 +34,7 @@ tokio-stream = "0.1"
 default-net = "0.22"
 postgres-from-row = "0.5"
 
-utils = { workspace = true, features = ["all"] }
+scuffle-utils = { workspace = true, features = ["all"] }
 rtmp = { workspace = true }
 bytesio = { workspace = true }
 flv = { workspace = true }

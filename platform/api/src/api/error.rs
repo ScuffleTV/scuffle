@@ -1,4 +1,4 @@
-use utils::http::RouteError;
+use scuffle_utils::http::RouteError;
 
 use super::auth::AuthError;
 use crate::turnstile::TurnstileError;
@@ -18,11 +18,11 @@ pub enum ApiError {
 	#[error("failed to query turnstile: {0}")]
 	Turnstile(#[from] TurnstileError),
 	#[error("failed to query database: {0}")]
-	Database(#[from] utils::database::deadpool_postgres::PoolError),
+	Database(#[from] scuffle_utils::database::deadpool_postgres::PoolError),
 }
 
 impl From<utils::database::tokio_postgres::Error> for ApiError {
-	fn from(value: utils::database::tokio_postgres::Error) -> Self {
+	fn from(value: scuffle_utils::database::tokio_postgres::Error) -> Self {
 		Self::Database(value.into())
 	}
 }

@@ -2,10 +2,9 @@ use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Duration;
 
-use ::utils::prelude::FutureTimeout;
-use ::utils::task::AsyncTask;
+use scuffle_utils::prelude::FutureTimeout;
+use scuffle_utils::task::AsyncTask;
 use aws_sdk_s3::types::ObjectCannedAcl;
-use binary_helper::s3::PutObjectOptions;
 use bytes::Bytes;
 use file_format::FileFormat;
 use futures::FutureExt;
@@ -16,7 +15,7 @@ use tracing::Instrument;
 use self::decoder::DecoderBackend;
 use super::error::{ProcessorError, Result};
 use super::utils;
-use crate::database;
+use crate::{database, pb};
 use crate::global::ImageProcessorGlobal;
 use crate::processor::utils::refresh_job;
 
@@ -94,14 +93,8 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 				.nats()
 				.publish(
 					self.job.task.callback_subject.clone(),
-					pb::scuffle::platform::internal::events::ProcessedImage {
-						job_id: Some(self.job.id.into()),
-						result: Some(pb::scuffle::platform::internal::events::processed_image::Result::Failure(
-							pb::scuffle::platform::internal::events::processed_image::Failure {
-								reason: e.to_string(),
-								friendly_message: e.friendly_message(),
-							},
-						)),
+					pb::EventPayload {
+						id: todo!(),
 					}
 					.encode_to_vec()
 					.into(),
@@ -222,23 +215,8 @@ impl<'a, G: ImageProcessorGlobal> Job<'a, G> {
 			.nats()
 			.publish(
 				self.job.task.callback_subject.clone(),
-				pb::scuffle::platform::internal::events::ProcessedImage {
-					job_id: Some(self.job.id.into()),
-					result: Some(pb::scuffle::platform::internal::events::processed_image::Result::Success(
-						pb::scuffle::platform::internal::events::processed_image::Success {
-							variants: images
-								.images
-								.iter()
-								.map(|image| pb::scuffle::platform::internal::types::ProcessedImageVariant {
-									path: image.url(&self.job.task.output_prefix),
-									format: image.request.into(),
-									width: image.width as u32,
-									height: image.height as u32,
-									byte_size: image.data.len() as u32,
-								})
-								.collect(),
-						},
-					)),
+				pb::EventPayload {
+					id: todo!(),
 				}
 				.encode_to_vec()
 				.into(),

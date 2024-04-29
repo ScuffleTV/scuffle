@@ -40,7 +40,7 @@ http = "=0.2"
 hyper = "=0.14"
 
 postgres-from-row = "0.5"
-utils = { workspace = true, features = ["all"] }
+scuffle-utils = { workspace = true, features = ["all"] }
 config = { workspace = true }
 pb = { workspace = true }
 video-common = { workspace = true }

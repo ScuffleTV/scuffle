@@ -22,10 +22,10 @@ pub enum ProcessorError {
 	SemaphoreAcquire(#[from] tokio::sync::AcquireError),
 
 	#[error("database: {0}")]
-	Database(#[from] utils::database::tokio_postgres::Error),
+	Database(#[from] scuffle_utils::database::tokio_postgres::Error),
 
 	#[error("database pool: {0}")]
-	DatabasePool(#[from] utils::database::deadpool_postgres::PoolError),
+	DatabasePool(#[from] scuffle_utils::database::deadpool_postgres::PoolError),
 
 	#[error("lost job")]
 	LostJob,

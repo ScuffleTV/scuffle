@@ -18,7 +18,7 @@ impl<'a> Packets<'a> {
 
 	pub fn receive(&mut self) -> Result<Option<Packet>, FfmpegError> {
 		#[cfg(feature = "task-abort")]
-		let _abort_guard = utils::task::AbortGuard::new();
+		let _abort_guard = scuffle_utils::task::AbortGuard::new();
 
 		let mut packet = Packet::new()?;
 

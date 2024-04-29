@@ -10,9 +10,9 @@ use crate::processor::error::{DecoderError, ProcessorError, Result};
 use crate::processor::job::frame::Frame;
 
 pub struct FfmpegDecoder<'data> {
-	input: ffmpeg::io::Input<std::io::Cursor<Cow<'data, [u8]>>>,
-	decoder: ffmpeg::decoder::VideoDecoder,
-	scaler: ffmpeg::scalar::Scalar,
+	input: scuffle_ffmpeg::io::Input<std::io::Cursor<Cow<'data, [u8]>>>,
+	decoder: scuffle_ffmpeg::decoder::VideoDecoder,
+	scaler: scuffle_ffmpeg::scalar::Scalar,
 	info: DecoderInfo,
 	input_stream_index: i32,
 	average_frame_duration_ts: u64,
@@ -30,17 +30,17 @@ static FFMPEG_LOGGING_INITIALIZED: std::sync::Once = std::sync::Once::new();
 impl<'data> FfmpegDecoder<'data> {
 	pub fn new(job: &Job, data: Cow<'data, [u8]>) -> Result<Self> {
 		FFMPEG_LOGGING_INITIALIZED.call_once(|| {
-			ffmpeg::log::log_callback_tracing();
+			scuffle_ffmpeg::log::log_callback_tracing();
 		});
 
-		let input = ffmpeg::io::Input::seekable(std::io::Cursor::new(data))
+		let input = scuffle_ffmpeg::io::Input::seekable(std::io::Cursor::new(data))
 			.context("input")
 			.map_err(DecoderError::Other)
 			.map_err(ProcessorError::FfmpegDecode)?;
 
 		let input_stream = input
 			.streams()
-			.best(ffmpeg::ffi::AVMediaType::AVMEDIA_TYPE_VIDEO)
+			.best(scuffle_ffmpeg::ffi::AVMediaType::AVMEDIA_TYPE_VIDEO)
 			.ok_or_else(|| ProcessorError::FfmpegDecode(DecoderError::Other(anyhow!("no video stream"))))?;
 
 		let input_stream_index = input_stream.index();
@@ -58,12 +58,12 @@ impl<'data> FfmpegDecoder<'data> {
 			))));
 		}
 
-		let decoder = match ffmpeg::decoder::Decoder::new(&input_stream)
+		let decoder = match scuffle_ffmpeg::decoder::Decoder::new(&input_stream)
 			.context("video decoder")
 			.map_err(DecoderError::Other)
 			.map_err(ProcessorError::FfmpegDecode)?
 		{
-			ffmpeg::decoder::Decoder::Video(decoder) => decoder,
+			scuffle_ffmpeg::decoder::Decoder::Video(decoder) => decoder,
 			_ => {
 				return Err(ProcessorError::FfmpegDecode(DecoderError::Other(anyhow!(
 					"not a video decoder"
@@ -97,13 +97,13 @@ impl<'data> FfmpegDecoder<'data> {
 			return Err(ProcessorError::FfmpegDecode(DecoderError::TooLong(duration)));
 		}
 
-		let scaler = ffmpeg::scalar::Scalar::new(
+		let scaler = scuffle_ffmpeg::scalar::Scalar::new(
 			decoder.width(),
 			decoder.height(),
 			decoder.pixel_format(),
 			decoder.width(),
 			decoder.height(),
-			ffmpeg::ffi::AVPixelFormat::AV_PIX_FMT_RGBA,
+			scuffle_ffmpeg::ffi::AVPixelFormat::AV_PIX_FMT_RGBA,
 		)
 		.context("scaler")
 		.map_err(DecoderError::Other)

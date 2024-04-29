@@ -102,7 +102,7 @@ impl Decoder for WebpDecoder<'_> {
 	}
 
 	fn decode(&mut self) -> Result<Option<Frame>> {
-		let _abort_guard = utils::task::AbortGuard::new();
+		let _abort_guard = scuffle_utils::task::AbortGuard::new();
 
 		let mut buf = std::ptr::null_mut();
 		let previous_timestamp = self.timestamp;

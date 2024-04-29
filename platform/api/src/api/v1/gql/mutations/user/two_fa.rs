@@ -67,7 +67,7 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 		let hex_backup_codes = backup_codes.iter().map(|c| format!("{:08x}", c)).collect();
 
 		// Save secret and backup codes to database.
-		utils::database::query(
+		scuffle_utils::database::query(
 			r#"
 			UPDATE
 				users
@@ -130,7 +130,7 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 		}
 
 		// Enable 2fa
-		let user: database::User = utils::database::query(
+		let user: database::User = scuffle_utils::database::query(
 			r#"
 			UPDATE
 				users
@@ -179,7 +179,7 @@ impl<G: ApiGlobal> TwoFaMutation<G> {
 		}
 
 		// Disable 2fa, remove secret and backup codes.
-		let user: database::User = utils::database::query(
+		let user: database::User = scuffle_utils::database::query(
 			r#"
 			UPDATE users
 			SET

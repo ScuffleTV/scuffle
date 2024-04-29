@@ -1,0 +1,25 @@
+[package]
+name = "examples"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[example]]
+name = "simple"
+path = "src/simple.rs"
+
+[[example]]
+name = "http"
+path = "src/http.rs"
+
+[dependencies]
+scuffle-foundations = { path = "../" }
+tracing = "0.1"
+tokio = { version = "1", features = ["full"] }
+
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+socket2 = "0.5"
+http-body-util = "0.1"
+opentelemetry = { version = "0.22" }
+rand = "0.8"

@@ -1,0 +1,199 @@
+[package]
+name = "scuffle-foundations"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", optional = true }
+tokio-util = { version = "0.7", optional = true }
+pin-project = { version = "1", optional = true }
+futures = { version = "0.3", optional = true }
+
+num_cpus = { version = "1", optional = true }
+rand = { version = "0.8", optional = true }
+
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", optional = true }
+
+opentelemetry = { version = "0.22", optional = true }
+opentelemetry_sdk = { version = "0.22", optional = true }
+opentelemetry-otlp = { version = "0.15", optional = true, features = ["http-proto"]}
+
+tikv-jemallocator = { version = "0.5", optional = true, features = ["unprefixed_malloc_on_supported_platforms"] }
+tikv-jemalloc-ctl = { version = "0.5", optional = true }
+jemalloc_pprof = { version = "0.1", optional = true }
+anyhow = { version = "1" }
+
+thread_local = { version = "1", optional = true }
+spin = { version = "0.9", optional = true }
+itertools = { version = "0.12", optional = true }
+
+scuffle-foundations-macros = { path = "./macros", optional = true, version = "0.0.0" }
+
+pprof = { version = "0.13", optional = true, features = ["prost-codec"] }
+prost = { version = "0.12", optional = true }
+flate2 = { version = "1", optional = true }
+
+matchers = { version = "0.1", optional = true }
+regex = { version = "1", optional = true }
+once_cell = { version = "1", optional = true }
+scc = { version = "2", optional = true }
+
+serde = { version = "1", optional = true, features = ["derive", "rc"] }
+serde_yaml = { version = "0.9", optional = true }
+
+clap = { version = "4", optional = true }
+const-str = { version = "0.5", optional = true }
+
+prometheus-client = { version = "0.22", optional = true }
+parking_lot = { version = "0.12", optional = true }
+
+humantime-serde = { version = "1", optional = true }
+
+axum = { version = "0.7", optional = true }
+humantime = { version = "2", optional = true }
+
+[features]
+
+disable-jemalloc-config = []
+
+context = [
+    "pin-project",
+    "tokio-util",
+    "tokio/sync",
+    "once_cell",
+]
+
+_telemetry = [
+    "tracing",
+    "serde",
+]
+
+signal = [
+    "tokio/signal",
+    "futures",
+]
+
+telemetry-server = [
+    "_telemetry",
+    "axum",
+    "humantime",
+    "tokio",
+]
+
+macros = [
+    "scuffle-foundations-macros",
+]
+
+runtime = [
+    "num_cpus",
+    "rand",
+    "tokio",
+    "tokio/rt",
+    "tokio/rt-multi-thread",
+]
+
+heap = [
+    "_telemetry",
+    "tikv-jemallocator",
+]
+
+pprof = [
+    "pprof-cpu",
+    "pprof-heap",
+]
+
+pprof-cpu = [
+    "_telemetry",
+    "dep:pprof",
+    "prost",
+    "flate2",
+]
+
+pprof-heap = [
+    "_telemetry",
+    "heap",
+    "jemalloc_pprof",
+    "tikv-jemallocator/profiling",
+    "tikv-jemalloc-ctl",
+]
+
+opentelemetry = [
+    "_telemetry",
+    "itertools",
+    "dep:opentelemetry",
+    "opentelemetry_sdk",
+    "opentelemetry-otlp",
+    "thread_local",
+    "tokio/sync",
+    "rand",
+    "tracing",
+    "tracing-subscriber",
+    "spin",
+    "runtime",
+]
+
+env-filter = [
+    "_telemetry",
+    "once_cell",
+    "scc",
+    "matchers",
+    "regex",
+    "thread_local",
+    "tracing",
+    "tracing-subscriber",
+]
+
+logging = [
+    "_telemetry",
+    "tracing",
+    "env-filter",
+    "tracing-subscriber/json",
+    "tracing-subscriber/chrono",
+]
+
+metrics = [
+    "_telemetry",
+    "prometheus-client",
+    "parking_lot",
+    "once_cell",
+]
+
+settings = [
+    "serde",
+    "serde_yaml",
+    "macros",
+    "humantime-serde",
+]
+
+cli = [
+    "clap",
+    "const-str",
+    "settings",
+]
+
+bootstrap = [
+    "settings",
+    "cli",
+    "runtime",
+    "macros",
+]
+
+default = [
+    "opentelemetry",
+    "runtime",
+    "heap",
+    "pprof-cpu",
+    "pprof-heap",
+    "pprof",
+    "macros",
+    "logging",
+    "env-filter",
+    "settings",
+    "bootstrap",
+    "cli",
+    "metrics",
+    "telemetry-server",
+    "context",
+    "signal",
+]

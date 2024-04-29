@@ -91,7 +91,7 @@ impl Variant {
                 })
                 .collect::<Vec<_>>();
 
-            let insert = if docs.is_empty() {
+            let insert = if docs.is_empty() || field.flatten {
                 quote::quote! {}
             } else {
                 quote::quote! {
@@ -99,7 +99,7 @@ impl Variant {
                 }
             };
 
-            let name_push = if self.fields.len() == 1 && field.name.is_none() {
+            let name_push = if (self.fields.len() == 1 && field.name.is_none()) || field.flatten {
                 quote::quote! {}
             } else {
                 let name = field

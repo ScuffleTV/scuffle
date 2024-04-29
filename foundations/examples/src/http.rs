@@ -11,7 +11,7 @@ use scuffle_foundations::runtime::spawn;
 use scuffle_foundations::settings::cli::Matches;
 use scuffle_foundations::telementry::opentelemetry::OpenTelemetrySpanExt;
 use scuffle_foundations::telementry::settings::TelementrySettings;
-use scuffle_foundations::{settings::settings, wrapped, BootstrapResult};
+use scuffle_foundations::{settings::auto_settings, wrapped, BootstrapResult};
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::net::TcpListener as StdTcpListener;
@@ -19,7 +19,7 @@ use tokio::net::{TcpListener, TcpStream};
 
 type Body = http_body_util::Full<Bytes>;
 
-#[settings]
+#[auto_settings]
 #[serde(default)]
 struct Config {
     telemetry: TelementrySettings,

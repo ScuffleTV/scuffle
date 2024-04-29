@@ -153,3 +153,5 @@ where
         (**self.0).add_docs(parent_key, docs);
     }
 }
+
+impl Settings for () {}

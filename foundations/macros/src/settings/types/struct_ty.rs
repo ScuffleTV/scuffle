@@ -100,7 +100,7 @@ impl Struct {
                 })
                 .collect::<Vec<_>>();
 
-            let insert = if docs.is_empty() {
+            let insert = if docs.is_empty() || field.flatten {
                 quote::quote! {}
             } else {
                 quote::quote! {
@@ -111,10 +111,18 @@ impl Struct {
             let name = &name.serialize;
             let ident = field.item.ident.as_ref().unwrap();
 
+            let name_push = if field.flatten {
+                quote::quote! {}
+            } else {
+                quote::quote! {
+                    parent_key.push(::std::borrow::Cow::Borrowed(#name));
+                }
+            };
+
             quote::quote! {
                 {
                     let mut parent_key = parent_key.to_vec();
-                    parent_key.push(::std::borrow::Cow::Borrowed(#name));
+                    #name_push
                     (&&&&#crate_path::settings::Wrapped(&self.#ident)).add_docs(&parent_key, docs);
                     #insert
                 }

@@ -13,7 +13,7 @@ use opentelemetry_sdk::Resource;
 #[cfg(feature = "logging")]
 use tracing_subscriber::fmt::time::{ChronoLocal, ChronoUtc};
 
-#[crate::settings::settings(crate_path = "crate")]
+#[crate::settings::auto_settings(crate_path = "crate")]
 pub struct TelementrySettings {
     /// Settings for metric exporting.
     pub metrics: MetricsSettings,
@@ -30,7 +30,7 @@ pub struct TelementrySettings {
 }
 
 #[cfg(feature = "metrics")]
-#[crate::settings::settings(crate_path = "crate")]
+#[crate::settings::auto_settings(crate_path = "crate")]
 pub struct MetricsSettings {
     /// Whether to enable metrics.
     #[settings(default = true)]
@@ -40,7 +40,7 @@ pub struct MetricsSettings {
 }
 
 #[cfg(feature = "opentelemetry")]
-#[crate::settings::settings(crate_path = "crate")]
+#[crate::settings::auto_settings(crate_path = "crate")]
 #[serde(default)]
 pub struct OpentelemetrySettings {
     /// Whether to enable opentelemetry span exporting.
@@ -98,7 +98,7 @@ pub struct OpentelemetrySettings {
 }
 
 #[cfg(feature = "opentelemetry")]
-#[crate::settings::settings(crate_path = "crate")]
+#[crate::settings::auto_settings(crate_path = "crate")]
 #[serde(default)]
 pub struct OpentelemetrySettingsLogging {
     #[settings(default = OpentelemetrySettingsLoggingLevel::Warn)]
@@ -110,7 +110,7 @@ pub struct OpentelemetrySettingsLogging {
 }
 
 #[cfg(feature = "opentelemetry")]
-#[crate::settings::settings(crate_path = "crate")]
+#[crate::settings::auto_settings(crate_path = "crate")]
 #[serde(rename_all = "lowercase")]
 pub enum OpentelemetrySettingsLoggingLevel {
     /// Error level logging.
@@ -129,7 +129,7 @@ pub enum OpentelemetrySettingsLoggingLevel {
 }
 
 #[cfg(feature = "opentelemetry")]
-#[crate::settings::settings(crate_path = "crate")]
+#[crate::settings::auto_settings(crate_path = "crate")]
 #[serde(rename_all = "lowercase")]
 pub enum OpentelemetrySettingsExportMethod {
     #[settings(default)]
@@ -140,7 +140,7 @@ pub enum OpentelemetrySettingsExportMethod {
 }
 
 #[cfg(feature = "opentelemetry")]
-#[crate::settings::settings(crate_path = "crate")]
+#[crate::settings::auto_settings(crate_path = "crate")]
 #[serde(rename_all = "lowercase")]
 pub enum OpentelemetrySettingsSampler {
     /// Always sample all spans.
@@ -174,7 +174,7 @@ fn default_true() -> bool {
 }
 
 #[cfg(feature = "logging")]
-#[crate::settings::settings(crate_path = "crate")]
+#[crate::settings::auto_settings(crate_path = "crate")]
 #[serde(default)]
 pub struct LoggingSettings {
     /// Whether to enable logging.
@@ -209,7 +209,7 @@ pub struct LoggingSettings {
 }
 
 #[cfg(feature = "logging")]
-#[crate::settings::settings(crate_path = "crate")]
+#[crate::settings::auto_settings(crate_path = "crate")]
 #[serde(rename_all = "lowercase")]
 pub enum LoggingSettingsTimestamps {
     /// Show timestamps in logs in the local timezone.
@@ -222,7 +222,7 @@ pub enum LoggingSettingsTimestamps {
 }
 
 #[cfg(feature = "logging")]
-#[crate::settings::settings(crate_path = "crate")]
+#[crate::settings::auto_settings(crate_path = "crate")]
 #[serde(rename_all = "lowercase")]
 pub enum LoggingSettingsFormat {
     #[settings(default)]
@@ -240,7 +240,7 @@ pub enum LoggingSettingsFormat {
     any(feature = "pprof-cpu", feature = "pprof-heap", feature = "metrics",),
     feature = "telemetry-server"
 ))]
-#[crate::settings::settings(crate_path = "crate")]
+#[crate::settings::auto_settings(crate_path = "crate")]
 #[serde(default)]
 pub struct ServerSettings {
     /// Whether to enable the server.

@@ -3,7 +3,7 @@ use syn::{LitStr, Meta};
 use crate::helpers::parse_docs;
 
 use super::{
-    serde::{parse_default_fn, Name, RenameAll},
+    serde::{parse_default_fn, serde_flatten, Name, RenameAll},
     Args,
 };
 
@@ -14,6 +14,7 @@ pub struct Field {
     pub default_fn: Option<proc_macro2::TokenStream>,
     pub args: FieldArgs,
     pub item: syn::Field,
+    pub flatten: bool,
 }
 
 impl Field {
@@ -27,6 +28,7 @@ impl Field {
             docs: parse_docs(&item.attrs),
             default_fn: parse_default_fn(&item.attrs)?,
             args: FieldArgs::parse(&item.attrs)?,
+            flatten: serde_flatten(&item.attrs)?,
             item,
         })
     }

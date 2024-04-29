@@ -1,6 +1,6 @@
 use scuffle_foundations::{
     bootstrap::{bootstrap, Bootstrap, RuntimeSettings},
-    settings::{cli::Matches, settings},
+    settings::{cli::Matches, auto_settings},
     telementry::{metrics::metrics, settings::TelementrySettings},
 };
 
@@ -24,7 +24,7 @@ mod http_server {
     pub fn requests_failed_total(endpoint_name: &Arc<String>, status_code: u16) -> Counter;
 }
 
-#[settings]
+#[auto_settings]
 pub struct HttpServerSettings {
     /// Telementry Settings
     telementry: TelementrySettings,

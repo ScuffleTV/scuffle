@@ -7,7 +7,7 @@ use serde_yaml::Value;
 pub mod cli;
 
 #[cfg(feature = "macros")]
-pub use scuffle_foundations_macros::{auto_settings as settings, Settings};
+pub use scuffle_foundations_macros::{auto_settings, Settings};
 
 #[derive(Debug, Clone)]
 pub struct SettingsParser<S> {

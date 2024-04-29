@@ -163,6 +163,13 @@ pub fn parse_default_fn(attrs: &[syn::Attribute]) -> syn::Result<Option<proc_mac
     })
 }
 
+pub fn serde_flatten(attrs: &[syn::Attribute]) -> syn::Result<bool> {
+    parse_serde_attrs(attrs, false, |state, meta| match meta {
+        Meta::Path(meta) if meta.is_ident("flatten") => *state = true,
+        _ => {}
+    })
+}
+
 fn parse_serde_attrs<T>(
     attr: &[syn::Attribute],
     state: T,

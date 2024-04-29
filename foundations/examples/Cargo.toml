@@ -12,6 +12,10 @@ path = "src/simple.rs"
 name = "http"
 path = "src/http.rs"
 
+[[example]]
+name = "generics"
+path = "src/generics.rs"
+
 [dependencies]
 scuffle-foundations = { path = "../" }
 tracing = "0.1"

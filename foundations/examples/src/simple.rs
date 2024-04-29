@@ -33,6 +33,8 @@ pub struct HttpServerSettings {
 }
 
 impl Bootstrap for HttpServerSettings {
+    type Settings = Self;
+
     fn runtime_mode(&self) -> RuntimeSettings {
         self.runtime.clone()
     }

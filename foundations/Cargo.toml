@@ -159,6 +159,12 @@ metrics = [
     "once_cell",
 ]
 
+health-check = [
+    "scc",
+    "telemetry-server",
+    "once_cell",
+]
+
 settings = [
     "serde",
     "serde_yaml",

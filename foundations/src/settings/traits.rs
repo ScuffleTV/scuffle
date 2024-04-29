@@ -1,39 +1,35 @@
-/*!
-This module contains an auto-deref specialization to help with adding doc comments to sub-types.
-You can read more about how it works here
-https://lukaskalbertodt.github.io/2019/12/05/generalized-autoref-based-specialization.html
-*/
+//! This module contains an auto-deref specialization to help with adding doc
+//! comments to sub-types. You can read more about how it works here
+//! https://lukaskalbertodt.github.io/2019/12/05/generalized-autoref-based-specialization.html
 
-use std::{
-    borrow::Cow,
-    collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, LinkedList, VecDeque},
-    hash::Hash,
-};
+use std::borrow::Cow;
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, LinkedList, VecDeque};
+use std::hash::Hash;
 
 use super::to_yaml_string;
 
 pub trait Settings {
-    #[doc(hidden)]
-    fn add_docs(
-        &self,
-        parent_key: &[Cow<'static, str>],
-        docs: &mut HashMap<Vec<Cow<'static, str>>, Cow<'static, [Cow<'static, str>]>>,
-    ) {
-        let (_, _) = (parent_key, docs);
-    }
+	#[doc(hidden)]
+	fn add_docs(
+		&self,
+		parent_key: &[Cow<'static, str>],
+		docs: &mut HashMap<Vec<Cow<'static, str>>, Cow<'static, [Cow<'static, str>]>>,
+	) {
+		let (_, _) = (parent_key, docs);
+	}
 
-    fn docs(&self) -> HashMap<Vec<Cow<'static, str>>, Cow<'static, [Cow<'static, str>]>> {
-        let mut docs = HashMap::new();
-        self.add_docs(&[], &mut docs);
-        docs
-    }
+	fn docs(&self) -> HashMap<Vec<Cow<'static, str>>, Cow<'static, [Cow<'static, str>]>> {
+		let mut docs = HashMap::new();
+		self.add_docs(&[], &mut docs);
+		docs
+	}
 
-    fn to_yaml_string(&self) -> Result<String, serde_yaml::Error>
-    where
-        Self: serde::Serialize + Sized,
-    {
-        to_yaml_string(self)
-    }
+	fn to_yaml_string(&self) -> Result<String, serde_yaml::Error>
+	where
+		Self: serde::Serialize + Sized,
+	{
+		to_yaml_string(self)
+	}
 }
 
 #[doc(hidden)]
@@ -44,13 +40,13 @@ impl<T> Settings for Wrapped<&T> {}
 
 /// Specialization for adding docs to a type that implements SerdeDocs.
 impl<T: Settings> Settings for &Wrapped<&T> {
-    fn add_docs(
-        &self,
-        parent_key: &[Cow<'static, str>],
-        docs: &mut HashMap<Vec<Cow<'static, str>>, Cow<'static, [Cow<'static, str>]>>,
-    ) {
-        <T as Settings>::add_docs(self.0, parent_key, docs)
-    }
+	fn add_docs(
+		&self,
+		parent_key: &[Cow<'static, str>],
+		docs: &mut HashMap<Vec<Cow<'static, str>>, Cow<'static, [Cow<'static, str>]>>,
+	) {
+		<T as Settings>::add_docs(self.0, parent_key, docs)
+	}
 }
 
 /// Specialization for adding docs an array type that implements SerdeDocs.
@@ -129,29 +125,30 @@ impl_map!(<K: Keyable, V: Settings> Settings for &Wrapped<&BTreeMap<K, V>>);
 
 /// Specialization for adding docs to an option type that implements SerdeDocs.
 impl<O: Settings> Settings for &Wrapped<&Option<O>> {
-    fn add_docs(
-        &self,
-        parent_key: &[Cow<'static, str>],
-        docs: &mut HashMap<Vec<Cow<'static, str>>, Cow<'static, [Cow<'static, str>]>>,
-    ) {
-        if let Some(inner) = self.0 {
-            inner.add_docs(parent_key, docs);
-        }
-    }
+	fn add_docs(
+		&self,
+		parent_key: &[Cow<'static, str>],
+		docs: &mut HashMap<Vec<Cow<'static, str>>, Cow<'static, [Cow<'static, str>]>>,
+	) {
+		if let Some(inner) = self.0 {
+			inner.add_docs(parent_key, docs);
+		}
+	}
 }
 
-/// Specialization for any type that derefs into a type that implements SerdeDocs.
+/// Specialization for any type that derefs into a type that implements
+/// SerdeDocs.
 impl<R, V: Settings> Settings for &&Wrapped<&R>
 where
-    R: std::ops::Deref<Target = V>,
+	R: std::ops::Deref<Target = V>,
 {
-    fn add_docs(
-        &self,
-        parent_key: &[Cow<'static, str>],
-        docs: &mut HashMap<Vec<Cow<'static, str>>, Cow<'static, [Cow<'static, str>]>>,
-    ) {
-        (**self.0).add_docs(parent_key, docs);
-    }
+	fn add_docs(
+		&self,
+		parent_key: &[Cow<'static, str>],
+		docs: &mut HashMap<Vec<Cow<'static, str>>, Cow<'static, [Cow<'static, str>]>>,
+	) {
+		(**self.0).add_docs(parent_key, docs);
+	}
 }
 
 impl Settings for () {}

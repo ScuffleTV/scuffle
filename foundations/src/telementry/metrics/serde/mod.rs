@@ -1,40 +1,38 @@
 //! Serde bridge.
 
+use std::fmt;
+use std::hash::Hash;
+
 use parking_lot::MappedRwLockReadGuard;
-use prometheus_client::{
-    encoding::{EncodeLabelSet, EncodeMetric, LabelSetEncoder, MetricEncoder},
-    metrics::{
-        family::{Family as InnerFamily, MetricConstructor},
-        MetricType, TypedMetric,
-    },
-};
+use prometheus_client::encoding::{EncodeLabelSet, EncodeMetric, LabelSetEncoder, MetricEncoder};
+use prometheus_client::metrics::family::{Family as InnerFamily, MetricConstructor};
+use prometheus_client::metrics::{MetricType, TypedMetric};
 use serde::ser::Serialize;
-use std::{fmt, hash::Hash};
 
 mod top;
 mod value;
 
 #[derive(Debug)]
 enum Error {
-    Unexpected(String),
-    Fmt(std::fmt::Error),
+	Unexpected(String),
+	Fmt(std::fmt::Error),
 }
 
 impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Unexpected(msg) => write!(f, "unexpected error: {}", msg),
-            Self::Fmt(_) => write!(f, "formatting error"),
-        }
-    }
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Unexpected(msg) => write!(f, "unexpected error: {}", msg),
+			Self::Fmt(_) => write!(f, "formatting error"),
+		}
+	}
 }
 
 impl std::error::Error for Error {}
 
 impl serde::ser::Error for Error {
-    fn custom<T: fmt::Display>(msg: T) -> Self {
-        Self::Unexpected(msg.to_string())
-    }
+	fn custom<T: fmt::Display>(msg: T) -> Self {
+		Self::Unexpected(msg.to_string())
+	}
 }
 
 /// A wrapper around [`prometheus_client::metrics::family::Family`] which
@@ -99,73 +97,73 @@ impl serde::ser::Error for Error {
 /// ```
 #[derive(Debug)]
 pub struct Family<S, M, C = fn() -> M> {
-    inner: InnerFamily<Bridge<S>, M, C>,
+	inner: InnerFamily<Bridge<S>, M, C>,
 }
 
 impl<S, M, C> Family<S, M, C>
 where
-    S: Clone + Eq + Hash,
+	S: Clone + Eq + Hash,
 {
-    pub fn new_with_constructor(constructor: C) -> Self {
-        Self {
-            inner: InnerFamily::new_with_constructor(constructor),
-        }
-    }
+	pub fn new_with_constructor(constructor: C) -> Self {
+		Self {
+			inner: InnerFamily::new_with_constructor(constructor),
+		}
+	}
 }
 
 impl<S, M> Default for Family<S, M>
 where
-    S: Clone + Eq + Hash,
-    M: Default,
+	S: Clone + Eq + Hash,
+	M: Default,
 {
-    fn default() -> Self {
-        Self {
-            inner: Default::default(),
-        }
-    }
+	fn default() -> Self {
+		Self {
+			inner: Default::default(),
+		}
+	}
 }
 
 impl<S, M, C> Family<S, M, C>
 where
-    S: Clone + Eq + Hash,
-    C: MetricConstructor<M>,
+	S: Clone + Eq + Hash,
+	C: MetricConstructor<M>,
 {
-    pub fn get_or_create(&self, label_set: &S) -> MappedRwLockReadGuard<M> {
-        self.inner.get_or_create(Bridge::from_ref(label_set))
-    }
+	pub fn get_or_create(&self, label_set: &S) -> MappedRwLockReadGuard<M> {
+		self.inner.get_or_create(Bridge::from_ref(label_set))
+	}
 }
 
 impl<S, M, C> EncodeMetric for Family<S, M, C>
 where
-    S: Clone + Eq + Hash + Serialize,
-    M: EncodeMetric + TypedMetric,
-    C: MetricConstructor<M>,
+	S: Clone + Eq + Hash + Serialize,
+	M: EncodeMetric + TypedMetric,
+	C: MetricConstructor<M>,
 {
-    fn encode(&self, encoder: MetricEncoder) -> fmt::Result {
-        self.inner.encode(encoder)
-    }
+	fn encode(&self, encoder: MetricEncoder) -> fmt::Result {
+		self.inner.encode(encoder)
+	}
 
-    fn metric_type(&self) -> MetricType {
-        M::TYPE
-    }
+	fn metric_type(&self) -> MetricType {
+		M::TYPE
+	}
 }
 
 impl<S, M, C> TypedMetric for Family<S, M, C>
 where
-    M: TypedMetric,
+	M: TypedMetric,
 {
-    const TYPE: MetricType = <M as TypedMetric>::TYPE;
+	const TYPE: MetricType = <M as TypedMetric>::TYPE;
 }
 
 impl<S, M, C> Clone for Family<S, M, C>
 where
-    C: Clone,
+	C: Clone,
 {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
-    }
+	fn clone(&self) -> Self {
+		Self {
+			inner: self.inner.clone(),
+		}
+	}
 }
 
 #[derive(Clone, Eq, Hash, PartialEq)]
@@ -173,29 +171,29 @@ where
 struct Bridge<S>(S);
 
 impl<S> Bridge<S> {
-    fn from_ref(label_set: &S) -> &Self {
-        // SAFETY: `Self` is a transparent newtype wrapper.
-        unsafe { &*(label_set as *const S as *const Bridge<S>) }
-    }
+	fn from_ref(label_set: &S) -> &Self {
+		// SAFETY: `Self` is a transparent newtype wrapper.
+		unsafe { &*(label_set as *const S as *const Bridge<S>) }
+	}
 }
 
 impl<S> EncodeLabelSet for Bridge<S>
 where
-    S: Serialize,
+	S: Serialize,
 {
-    fn encode(&self, encoder: LabelSetEncoder) -> fmt::Result {
-        self.0.serialize(top::serializer(encoder)).map_err(|err| {
-            tracing::error!("failed to serialize labels: {}", err);
-            fmt::Error
-        })
-    }
+	fn encode(&self, encoder: LabelSetEncoder) -> fmt::Result {
+		self.0.serialize(top::serializer(encoder)).map_err(|err| {
+			tracing::error!("failed to serialize labels: {}", err);
+			fmt::Error
+		})
+	}
 }
 
 impl<S> fmt::Debug for Bridge<S>
 where
-    S: fmt::Debug,
+	S: fmt::Debug,
 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		self.0.fmt(f)
+	}
 }

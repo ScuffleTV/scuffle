@@ -29,6 +29,8 @@ struct Config {
 }
 
 impl Bootstrap for Config {
+    type Settings = Self;
+
     fn runtime_mode(&self) -> RuntimeSettings {
         self.runtime.clone()
     }

@@ -11,7 +11,7 @@ impl SignalHandler {
 		Self::default()
 	}
 
-	pub fn with_signal(&mut self, kind: SignalKind) -> &mut Self {
+	pub fn with_signal(mut self, kind: SignalKind) -> Self {
 		if self.signals.iter().any(|(k, _)| k == &kind) {
 			return self;
 		}

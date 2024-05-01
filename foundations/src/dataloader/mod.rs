@@ -142,27 +142,24 @@ impl<L: Loader> DataLoader<L> {
 
 		let batches = self.extend_loader(key_set.iter().cloned()).await;
 
-		let batches = futures::future::join_all(
-			batches
-				.iter()
-				.map(|(keys, batch)| batch.wait().map(move |result| result.map(|result| (keys, result)))),
-		)
-		.await;
+		let (batch_keys, batches): (Vec<_>, Vec<_>) = batches.into_iter().unzip();
 
-		batches
+		let results = futures::future::join_all(batches.iter().map(|batch| batch.wait())).await;
+
+		results
 			.into_iter()
-			.flatten()
-			.try_fold(HashMap::new(), |mut acc, (keys, batch)| match batch {
-				Ok(batch) => {
+			.zip(batch_keys.into_iter())
+			.try_fold(HashMap::new(), |mut acc, (result, keys)| match result {
+				Some(Ok(result)) => {
 					acc.extend(
 						keys.into_iter()
-							.cloned()
-							.filter_map(|key| batch.get(&key).cloned().map(|value| (key, value))),
+							.filter_map(|key| result.get(&key).cloned().map(|value| (key, value))),
 					);
 
 					Ok(acc)
 				}
-				Err(err) => Err(err.clone()),
+				Some(Err(err)) => Err(err.clone()),
+				None => Ok(acc),
 			})
 	}
 

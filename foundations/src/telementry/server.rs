@@ -160,7 +160,7 @@ async fn metrics(
 }
 
 #[cfg(feature = "health-check")]
-pub use health_check::{register as register_health_check, unregister as unregister_health_check, HealthCheck};
+pub use health_check::{register as register_health_check, unregister as unregister_health_check, HealthCheck, HealthCheckFn};
 
 #[cfg(feature = "health-check")]
 mod health_check {
@@ -170,17 +170,31 @@ mod health_check {
 	use futures::Future;
 	use scc::HashMap;
 
+	pub struct HealthCheckFn<F>(F);
+
+	impl<F, Fut> HealthCheck for HealthCheckFn<F>
+	where
+		F: Fn() -> Fut + Send + Sync + 'static,
+		Fut: Future<Output = bool> + Send + 'static,
+	{
+		fn check(&self) -> Pin<Box<dyn Future<Output = bool> + Send + '_>> {
+			Box::pin((self.0)())
+		}
+	}
+
 	pub trait HealthCheck: Send + Sync + 'static {
 		fn check(&self) -> Pin<Box<dyn Future<Output = bool> + Send + '_>>;
 	}
 
-	impl<F, Fut> HealthCheck for F
-	where
-		F: Fn() -> Fut + Send + Sync + 'static,
-		Fut: Future<Output = bool> + Send + Sync + 'static,
-	{
+	impl<H: HealthCheck> HealthCheck for std::sync::Arc<H> {
 		fn check(&self) -> Pin<Box<dyn Future<Output = bool> + Send + '_>> {
-			Box::pin((self)())
+			self.as_ref().check()
+		}
+	}
+
+	impl<H: HealthCheck> HealthCheck for Box<H> {
+		fn check(&self) -> Pin<Box<dyn Future<Output = bool> + Send + '_>> {
+			self.as_ref().check()
 		}
 	}
 

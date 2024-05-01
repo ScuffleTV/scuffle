@@ -11,7 +11,11 @@ pub enum Runtime {
 }
 
 impl Runtime {
-	pub fn new_steal(thread_count: usize, name: &str) -> std::io::Result<Self> {
+	pub fn new_steal(mut thread_count: usize, name: &str) -> std::io::Result<Self> {
+		if thread_count == 0 {
+			thread_count = num_cpus::get();
+		}
+
 		Ok(Self::Steal(
 			tokio::runtime::Builder::new_multi_thread()
 				.worker_threads(thread_count)

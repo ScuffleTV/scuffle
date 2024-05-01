@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use anyhow::Context;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ServerSettings {
 	pub bind: SocketAddr,
 	#[cfg(feature = "pprof-cpu")]
@@ -13,6 +13,8 @@ pub struct ServerSettings {
 	pub metrics_path: Option<String>,
 	#[cfg(feature = "health-check")]
 	pub health_path: Option<String>,
+	#[cfg(feature = "health-check")]
+	pub health_timeout: Option<std::time::Duration>,
 	#[cfg(feature = "context")]
 	pub context: Option<crate::context::Context>,
 }
@@ -29,6 +31,8 @@ impl Default for ServerSettings {
 			metrics_path: Some("/metrics".into()),
 			#[cfg(feature = "health-check")]
 			health_path: Some("/health".into()),
+			#[cfg(feature = "health-check")]
+			health_timeout: Some(std::time::Duration::from_secs(5)),
 			#[cfg(feature = "context")]
 			context: Some(crate::context::Context::global()),
 		}
@@ -160,7 +164,9 @@ async fn metrics(
 }
 
 #[cfg(feature = "health-check")]
-pub use health_check::{register as register_health_check, unregister as unregister_health_check, HealthCheck, HealthCheckFn};
+pub use health_check::{
+	register as register_health_check, unregister as unregister_health_check, HealthCheck, HealthCheckFn,
+};
 
 #[cfg(feature = "health-check")]
 mod health_check {
@@ -237,8 +243,21 @@ mod health_check {
 }
 
 #[cfg(feature = "health-check")]
-async fn health() -> axum::response::Response<axum::body::Body> {
-	if health_check::is_healthy().await {
+async fn health(
+	axum::Extension(timeout): axum::Extension<Option<std::time::Duration>>,
+) -> axum::response::Response<axum::body::Body> {
+	let healthy = if let Some(timeout) = timeout {
+		tokio::time::timeout(timeout, health_check::is_healthy())
+			.await
+			.map_err(|err| {
+				tracing::error!(%err, "failed to check health, timed out");
+			})
+			.unwrap_or(false)
+	} else {
+		health_check::is_healthy().await
+	};
+
+	if healthy {
 		axum::response::Response::builder()
 			.status(axum::http::StatusCode::OK)
 			.body("ok".into())
@@ -275,7 +294,9 @@ pub async fn init(settings: ServerSettings) -> anyhow::Result<()> {
 
 	#[cfg(feature = "health-check")]
 	if let Some(path) = &settings.health_path {
-		router = router.route(path, axum::routing::get(health));
+		router = router
+			.layer(axum::Extension(settings.health_timeout))
+			.route(path, axum::routing::get(health));
 	}
 
 	router = router.fallback(axum::routing::any(not_found));

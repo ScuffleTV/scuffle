@@ -20,11 +20,8 @@ pub struct TelementrySettings {
 	pub opentelemetry: OpentelemetrySettings,
 	/// Settings for logging.
 	pub logging: LoggingSettings,
-	#[cfg(all(
-		any(feature = "pprof-cpu", feature = "pprof-heap", feature = "metrics",),
-		feature = "telemetry-server"
-	))]
 	/// Settings for the http server.
+	#[cfg(feature = "telemetry-server")]
 	pub server: ServerSettings,
 }
 
@@ -43,7 +40,7 @@ pub struct MetricsSettings {
 #[serde(default)]
 pub struct OpentelemetrySettings {
 	/// Whether to enable opentelemetry span exporting.
-	#[settings(default = true)]
+	#[settings(default = false)]
 	pub enabled: bool,
 	/// A map of additional labels to add to opentelemetry spans.
 	pub labels: HashMap<String, String>,
@@ -247,7 +244,7 @@ pub struct ServerSettings {
 	#[settings(default = true)]
 	pub enabled: bool,
 	/// The address to bind the server to.
-	#[settings(default = SocketAddr::from(([127, 0, 0, 1], 9090)))]
+	#[settings(default = SocketAddr::from(([127, 0, 0, 1], 9000)))]
 	pub bind: SocketAddr,
 	/// The path to the pprof heap endpoint. If `None`, the endpoint is
 	/// disabled.
@@ -267,6 +264,11 @@ pub struct ServerSettings {
 	#[cfg(feature = "health-check")]
 	#[settings(default = Some("/health".into()))]
 	pub health_path: Option<String>,
+	/// Health check timeout.
+	#[cfg(feature = "health-check")]
+	#[settings(default = Some(std::time::Duration::from_secs(5)))]
+	#[serde(with = "humantime_serde")]
+	pub health_timeout: Option<std::time::Duration>,
 }
 
 pub async fn init(info: crate::ServiceInfo, settings: TelementrySettings) {
@@ -463,6 +465,8 @@ pub async fn init(info: crate::ServiceInfo, settings: TelementrySettings) {
 				pprof_heap_path: settings.server.pprof_heap_path,
 				#[cfg(feature = "health-check")]
 				health_path: settings.server.health_path,
+				#[cfg(feature = "health-check")]
+				health_timeout: settings.server.health_timeout,
 				#[cfg(feature = "context")]
 				context: Some(crate::context::Context::global()),
 			})

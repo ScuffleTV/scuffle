@@ -178,6 +178,14 @@ cli = [
     "settings",
 ]
 
+dataloader = [
+    "tokio/sync",
+    "tokio/time",
+    "runtime",
+    "futures",
+    "tracing",
+]
+
 bootstrap = [
     "settings",
     "cli",
@@ -202,4 +210,5 @@ default = [
     "telemetry-server",
     "context",
     "signal",
+    "dataloader",
 ]

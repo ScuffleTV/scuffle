@@ -39,6 +39,9 @@ pub mod signal;
 #[cfg(feature = "context")]
 pub mod context;
 
+#[cfg(feature = "dataloader")]
+pub mod dataloader;
+
 #[derive(Debug, Clone, Copy, Default)]
 /// Information about the service.
 pub struct ServiceInfo {

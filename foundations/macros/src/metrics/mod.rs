@@ -334,7 +334,7 @@ fn metric_function(
 
 	let metric_ident = if has_args {
 		quote::quote! {
-			#crate_path::telementry::metrics::serde::Family<__Args, #ret>
+			#crate_path::telemetry::metrics::serde::Family<__Args, #ret>
 		}
 	} else {
 		quote::quote! {
@@ -347,14 +347,14 @@ fn metric_function(
 			let constructor = quote::quote! {
 				{
 					(|| {
-						#crate_path::telementry::metrics::MetricBuilder::build(&#builder)
+						#crate_path::telemetry::metrics::MetricBuilder::build(&#builder)
 					}) as fn() -> #ret
 				}
 			};
 
 			if has_args {
 				quote::quote! {
-					#crate_path::telementry::metrics::serde::Family::new_with_constructor(#constructor)
+					#crate_path::telemetry::metrics::serde::Family::new_with_constructor(#constructor)
 				}
 			} else {
 				quote::quote! {
@@ -364,7 +364,7 @@ fn metric_function(
 		} else {
 			if has_args {
 				quote::quote! {
-					#crate_path::telementry::metrics::serde::Family::default()
+					#crate_path::telemetry::metrics::serde::Family::default()
 				}
 			} else {
 				quote::quote! {
@@ -375,11 +375,11 @@ fn metric_function(
 
 		let registry = if item.attrs.options.optional || options.optional {
 			quote::quote! {
-				#crate_path::telementry::metrics::registries::Registries::get_optional_sub_registry(stringify!(#module_name))
+				#crate_path::telemetry::metrics::registries::Registries::get_optional_sub_registry(stringify!(#module_name))
 			}
 		} else {
 			quote::quote! {
-				#crate_path::telementry::metrics::registries::Registries::get_main_sub_registry(stringify!(#module_name))
+				#crate_path::telemetry::metrics::registries::Registries::get_main_sub_registry(stringify!(#module_name))
 			}
 		};
 

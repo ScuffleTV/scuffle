@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use itertools::Itertools;
-use opentelemetry::trace::TraceError;
+use ::opentelemetry::trace::TraceError;
 use opentelemetry_otlp::SpanExporter;
 use opentelemetry_sdk::Resource;
 use thread_local::ThreadLocal;
@@ -15,8 +15,8 @@ use super::node::SpanNode;
 use crate::runtime::spawn;
 
 #[cfg(feature = "metrics")]
-#[crate::telementry::metrics::metrics(crate_path = "crate")]
-mod opentelementry {
+#[crate::telemetry::metrics::metrics(crate_path = "crate")]
+mod opentelemetry {
 	use prometheus_client::metrics::counter::Counter;
 
 	#[derive(serde::Serialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -97,8 +97,8 @@ impl BatchExporter {
 
 	pub fn with_service_info(&mut self, info: crate::ServiceInfo) -> &mut Self {
 		self.resource.merge(&Resource::new(vec![
-			opentelemetry::KeyValue::new("service.name", info.metric_name),
-			opentelemetry::KeyValue::new("service.version", info.version),
+			::opentelemetry::KeyValue::new("service.name", info.metric_name),
+			::opentelemetry::KeyValue::new("service.version", info.version),
 		]));
 
 		self
@@ -177,18 +177,18 @@ fn export_batch(internal: Arc<ExportInternal>, batch: Vec<SpanNode>, pending_per
 			#[cfg(feature = "metrics")]
 			if internal.config.metrics {
 				let reason = match err {
-					TraceError::ExportTimedOut(_) => opentelementry::SpanDroppedReason::ExportTimeout,
-					_ => opentelementry::SpanDroppedReason::ExportFailed,
+					TraceError::ExportTimedOut(_) => opentelemetry::SpanDroppedReason::ExportTimeout,
+					_ => opentelemetry::SpanDroppedReason::ExportFailed,
 				};
 
-				opentelementry::spans_dropped(reason).inc_by(size as u64);
+				opentelemetry::spans_dropped(reason).inc_by(size as u64);
 			}
 
 			(internal.config.error_handler)(err, size);
 		} else {
 			#[cfg(feature = "metrics")]
 			if internal.config.metrics {
-				opentelementry::spans_exported().inc_by(size as u64);
+				opentelemetry::spans_exported().inc_by(size as u64);
 			}
 
 			(internal.config.export_handler)(size);
@@ -239,7 +239,7 @@ impl Exporter {
 
 		#[cfg(feature = "metrics")]
 		if self.internal.config.metrics {
-			opentelementry::spans_dropped(opentelementry::SpanDroppedReason::ThreadBackpressure)
+			opentelemetry::spans_dropped(opentelemetry::SpanDroppedReason::ThreadBackpressure)
 				.inc_by(total_dropped as u64);
 		}
 
@@ -285,7 +285,7 @@ impl Exporter {
 
 			#[cfg(feature = "metrics")]
 			if self.internal.config.metrics {
-				opentelementry::spans_dropped(opentelementry::SpanDroppedReason::PendingExportBackpressure)
+				opentelemetry::spans_dropped(opentelemetry::SpanDroppedReason::PendingExportBackpressure)
 					.inc_by(pending_total_dropped as u64);
 			}
 

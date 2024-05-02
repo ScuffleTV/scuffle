@@ -76,7 +76,7 @@ async fn pprof_cpu(
 	}
 
 	match tokio::task::spawn_blocking(move || {
-		crate::telementry::pprof::Cpu::new(query.frequency, &query.blocklist)
+		crate::telemetry::pprof::Cpu::new(query.frequency, &query.blocklist)
 			.capture(std::time::Duration::from_secs(query.seconds as u64))
 	})
 	.await
@@ -106,7 +106,7 @@ async fn pprof_cpu(
 
 #[cfg(feature = "pprof-heap")]
 async fn pprof_heap() -> axum::response::Response<axum::body::Body> {
-	match tokio::task::spawn_blocking(|| crate::telementry::pprof::Heap::new().capture()).await {
+	match tokio::task::spawn_blocking(|| crate::telemetry::pprof::Heap::new().capture()).await {
 		Ok(Ok(contents)) => axum::response::Response::builder()
 			.status(axum::http::StatusCode::OK)
 			.header("content-type", "application/octet-stream")
@@ -140,7 +140,7 @@ struct MetricsQuery {
 async fn metrics(
 	axum::extract::Query(query): axum::extract::Query<MetricsQuery>,
 ) -> axum::response::Response<axum::body::Body> {
-	match tokio::task::spawn_blocking(move || crate::telementry::metrics::collect(query.optional)).await {
+	match tokio::task::spawn_blocking(move || crate::telemetry::metrics::collect(query.optional)).await {
 		Ok(Ok(contents)) => axum::response::Response::builder()
 			.status(axum::http::StatusCode::OK)
 			.header("content-type", "text/plain")

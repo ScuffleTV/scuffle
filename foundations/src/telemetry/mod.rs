@@ -26,7 +26,7 @@ pub mod server;
 type Underlying = tracing::level_filters::LevelFilter;
 
 #[cfg(feature = "env-filter")]
-type Underlying = crate::telementry::EnvFilter;
+type Underlying = crate::telemetry::EnvFilter;
 
 #[derive(Debug)]
 pub struct LevelFilter(Underlying);

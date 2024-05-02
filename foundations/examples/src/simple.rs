@@ -1,14 +1,14 @@
 use scuffle_foundations::bootstrap::{bootstrap, Bootstrap, RuntimeSettings};
 use scuffle_foundations::settings::auto_settings;
 use scuffle_foundations::settings::cli::Matches;
-use scuffle_foundations::telementry::metrics::metrics;
-use scuffle_foundations::telementry::settings::TelementrySettings;
+use scuffle_foundations::telemetry::metrics::metrics;
+use scuffle_foundations::telemetry::settings::TelemetrySettings;
 
 #[metrics]
 mod http_server {
 	use std::sync::Arc;
 
-	use scuffle_foundations::telementry::metrics::prometheus_client::metrics::counter::Counter;
+	use scuffle_foundations::telemetry::metrics::prometheus_client::metrics::counter::Counter;
 
 	/// Number of active client connections.
 	pub fn active_connections(endpoint_name: &str) -> Counter;
@@ -26,8 +26,8 @@ mod http_server {
 
 #[auto_settings]
 pub struct HttpServerSettings {
-	/// Telementry Settings
-	telementry: TelementrySettings,
+	/// Telemetry Settings
+	telemetry: TelemetrySettings,
 	/// Runtime Settings
 	runtime: RuntimeSettings,
 }
@@ -39,8 +39,8 @@ impl Bootstrap for HttpServerSettings {
 		self.runtime.clone()
 	}
 
-	fn telemetry_config(&self) -> Option<TelementrySettings> {
-		Some(self.telementry.clone())
+	fn telemetry_config(&self) -> Option<TelemetrySettings> {
+		Some(self.telemetry.clone())
 	}
 }
 

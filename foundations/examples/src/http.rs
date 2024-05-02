@@ -11,8 +11,8 @@ use scuffle_foundations::bootstrap::{bootstrap, Bootstrap, RuntimeSettings};
 use scuffle_foundations::runtime::spawn;
 use scuffle_foundations::settings::auto_settings;
 use scuffle_foundations::settings::cli::Matches;
-use scuffle_foundations::telementry::opentelemetry::OpenTelemetrySpanExt;
-use scuffle_foundations::telementry::settings::TelementrySettings;
+use scuffle_foundations::telemetry::opentelemetry::OpenTelemetrySpanExt;
+use scuffle_foundations::telemetry::settings::TelemetrySettings;
 use scuffle_foundations::{wrapped, BootstrapResult};
 use socket2::Socket;
 use tokio::net::{TcpListener, TcpStream};
@@ -22,7 +22,7 @@ type Body = http_body_util::Full<Bytes>;
 #[auto_settings]
 #[serde(default)]
 struct Config {
-	telemetry: TelementrySettings,
+	telemetry: TelemetrySettings,
 	runtime: RuntimeSettings,
 	#[settings(default = SocketAddr::from(([127, 0, 0, 1], 8080)))]
 	bind: SocketAddr,
@@ -37,7 +37,7 @@ impl Bootstrap for Config {
 		self.runtime.clone()
 	}
 
-	fn telemetry_config(&self) -> Option<TelementrySettings> {
+	fn telemetry_config(&self) -> Option<TelemetrySettings> {
 		Some(self.telemetry.clone())
 	}
 }

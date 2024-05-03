@@ -137,7 +137,7 @@ pub enum OpentelemetrySettingsExportMethod {
 
 #[cfg(feature = "opentelemetry")]
 #[crate::settings::auto_settings(crate_path = "crate")]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 pub enum OpentelemetrySettingsSampler {
 	/// Always sample all spans.
 	#[settings(default)]

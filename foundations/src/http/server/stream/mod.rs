@@ -6,7 +6,9 @@ pub mod tls;
 
 use std::convert::Infallible;
 
-use axum::response::IntoResponse;
+pub use axum::extract::Request;
+pub use axum::response::{IntoResponse, Response};
+pub use axum::body::Body;
 
 use super::Error;
 
@@ -32,7 +34,7 @@ pub trait ServiceHandler: Clone + Send + Sync + 'static {
 		async {}
 	}
 	/// Called when a request is received.
-	fn on_request(&self, req: axum::extract::Request) -> impl std::future::Future<Output = impl IntoResponse> + Send;
+	fn on_request(&self, req: Request) -> impl std::future::Future<Output = impl IntoResponse> + Send;
 }
 
 pub trait MakeService: Clone + Send + Sync + 'static {

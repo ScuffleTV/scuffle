@@ -4,6 +4,8 @@ use std::sync::Arc;
 mod builder;
 pub mod stream;
 
+pub use axum;
+
 use hyper_util::rt::TokioExecutor;
 #[cfg(not(feature = "runtime"))]
 use tokio::spawn;

@@ -31,7 +31,7 @@ pub mod settings;
 pub mod bootstrap;
 
 #[cfg(feature = "_telemetry")]
-pub mod telementry;
+pub mod telemetry;
 
 #[cfg(feature = "signal")]
 pub mod signal;

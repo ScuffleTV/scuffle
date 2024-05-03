@@ -35,7 +35,7 @@ pub fn bootstrap<C: Bootstrap, F: Fn(Matches<C>) -> Fut, Fut: Future<Output = an
 	runtime.block_on(async move {
 		#[cfg(feature = "_telemetry")]
 		if let Some(telemetry) = matches.settings.telemetry_config() {
-			crate::telementry::settings::init(info, telemetry).await;
+			crate::telemetry::settings::init(info, telemetry).await;
 		}
 
 		main(matches).await
@@ -67,7 +67,7 @@ pub trait Bootstrap: Sized + From<Self::Settings> {
 	}
 
 	#[cfg(feature = "_telemetry")]
-	fn telemetry_config(&self) -> Option<crate::telementry::settings::TelementrySettings> {
+	fn telemetry_config(&self) -> Option<crate::telemetry::settings::TelemetrySettings> {
 		None
 	}
 

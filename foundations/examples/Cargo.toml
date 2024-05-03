@@ -21,7 +21,7 @@ name = "http-server"
 path = "src/http-server.rs"
 
 [dependencies]
-scuffle-foundations = { path = "../" }
+scuffle-foundations = { path = "../", features = ["http3"] }
 tracing = "0.1"
 tokio = { version = "1", features = ["full"] }
 

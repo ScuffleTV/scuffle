@@ -4,7 +4,7 @@ use anyhow::Context;
 
 #[derive(Debug, Clone)]
 pub struct ServerSettings {
-	pub bind: SocketAddr,
+	pub builder: crate::http::server::ServerBuilder,
 	#[cfg(feature = "pprof-cpu")]
 	pub pprof_cpu_path: Option<String>,
 	#[cfg(feature = "pprof-heap")]
@@ -22,7 +22,7 @@ pub struct ServerSettings {
 impl Default for ServerSettings {
 	fn default() -> Self {
 		Self {
-			bind: SocketAddr::from(([127, 0, 0, 1], 9090)),
+			builder: SocketAddr::from(([127, 0, 0, 1], 9000)).into(),
 			#[cfg(feature = "pprof-cpu")]
 			pprof_cpu_path: Some("/debug/pprof/profile".into()),
 			#[cfg(feature = "pprof-heap")]
@@ -274,6 +274,7 @@ async fn not_found() -> &'static str {
 	"not found"
 }
 
+#[tracing::instrument(name = "telemetry::server", skip(settings))]
 pub async fn init(settings: ServerSettings) -> anyhow::Result<()> {
 	let mut router = axum::routing::Router::new();
 
@@ -301,22 +302,12 @@ pub async fn init(settings: ServerSettings) -> anyhow::Result<()> {
 
 	router = router.fallback(axum::routing::any(not_found));
 
-	let tcp_listener = tokio::net::TcpListener::bind(settings.bind)
-		.await
-		.context("failed to bind tcp listener")?;
+	let mut server = settings
+		.builder
+		.build(router)
+		.context("failed to build server")?;
 
-	tracing::info!("telemetry server listening on {}", settings.bind);
+	server.start_and_wait().await.context("failed to start server")?;
 
-	let server = axum::serve(tcp_listener, router);
-
-	#[cfg(feature = "context")]
-	let server = server.with_graceful_shutdown(async move {
-		if let Some(context) = settings.context {
-			context.done().await;
-		} else {
-			std::future::pending::<()>().await;
-		}
-	});
-
-	server.await.context("failed to serve")
+	Ok(())
 }

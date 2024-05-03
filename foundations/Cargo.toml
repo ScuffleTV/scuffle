@@ -53,6 +53,22 @@ humantime-serde = { version = "1", optional = true }
 axum = { version = "0.7", optional = true }
 humantime = { version = "2", optional = true }
 
+tower = { version = "0.4", optional = true }
+
+hyper = { version = "1", optional = true }
+hyper-util = { version = "0.1", optional = true }
+http = { version = "1", optional = true }
+h3 = { version = "0.0.4", optional = true }
+h3-quinn = { version = "0.0.5", optional = true }
+h3-webtransport = { version = "0.1.0", optional = true }
+quinn = { version = "0.10", default-features = false, features = ["runtime-tokio", "tls-rustls", "ring" ], optional = true}
+rustls = { version = "0.21.12", optional = true }
+tokio-rustls = { version = "0.24.1", optional = true }
+bytes = { version = "1", optional = true }
+thiserror = { version = "1", optional = true }
+http-body = { version = "1", optional = true }
+socket2 = { version = "0.5", optional = true }
+
 [features]
 
 disable-jemalloc-config = []
@@ -193,6 +209,52 @@ bootstrap = [
     "macros",
 ]
 
+http = [
+    "axum",
+    "tokio",
+    "tokio/net",
+    "tower",
+    "dep:http",
+    "hyper",
+    "hyper-util",
+    "dep:http",
+    "bytes",
+    "thiserror",
+    "http-body",
+    "futures",
+    "context",
+    "socket2",
+    "tracing"
+]
+
+http-tls = [
+    "http",
+    "rustls",
+    "tokio-rustls",
+]
+
+http2 = [
+    "http",
+    "hyper-util/http2",
+]
+
+# Http3 isnt very stable yet, the current h3 crate is very early stage
+http3 = [
+    "http",
+    "h3",
+    "h3-quinn",
+    "quinn",
+    "bytes",
+    "spin",
+]
+
+# WebTransport does not work in the current h3-webtransport crate.
+# This feature does not work yet
+http3-webtransport = [
+    "http3",
+    "h3-webtransport",
+]
+
 default = [
     "opentelemetry",
     "runtime",
@@ -212,4 +274,8 @@ default = [
     "signal",
     "dataloader",
     "health-check",
+    "http",
+    "http-tls",
+    "http2",
+    # "http3",
 ]

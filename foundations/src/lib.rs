@@ -42,6 +42,9 @@ pub mod context;
 #[cfg(feature = "dataloader")]
 pub mod dataloader;
 
+#[cfg(feature = "http")]
+pub mod http;
+
 #[derive(Debug, Clone, Copy, Default)]
 /// Information about the service.
 pub struct ServiceInfo {

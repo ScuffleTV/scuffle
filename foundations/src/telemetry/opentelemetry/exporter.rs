@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use itertools::Itertools;
 use ::opentelemetry::trace::TraceError;
+use itertools::Itertools;
 use opentelemetry_otlp::SpanExporter;
 use opentelemetry_sdk::Resource;
 use thread_local::ThreadLocal;
@@ -239,8 +239,7 @@ impl Exporter {
 
 		#[cfg(feature = "metrics")]
 		if self.internal.config.metrics {
-			opentelemetry::spans_dropped(opentelemetry::SpanDroppedReason::ThreadBackpressure)
-				.inc_by(total_dropped as u64);
+			opentelemetry::spans_dropped(opentelemetry::SpanDroppedReason::ThreadBackpressure).inc_by(total_dropped as u64);
 		}
 
 		total_dropped

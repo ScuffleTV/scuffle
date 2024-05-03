@@ -456,7 +456,7 @@ pub async fn init(info: crate::ServiceInfo, settings: TelemetrySettings) {
 
 		spawn(async move {
 			match crate::telemetry::server::init(super::server::ServerSettings {
-				bind: settings.server.bind,
+				builder: settings.server.bind.into(),
 				#[cfg(feature = "metrics")]
 				metrics_path: settings.server.metrics_path,
 				#[cfg(feature = "pprof-cpu")]

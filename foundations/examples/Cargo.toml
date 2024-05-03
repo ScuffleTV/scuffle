@@ -16,14 +16,27 @@ path = "src/http.rs"
 name = "generics"
 path = "src/generics.rs"
 
+[[example]]
+name = "http-server"
+path = "src/http-server.rs"
+
 [dependencies]
 scuffle-foundations = { path = "../" }
 tracing = "0.1"
 tokio = { version = "1", features = ["full"] }
 
 hyper = { version = "1", features = ["full"] }
-hyper-util = { version = "0.1", features = ["tokio"] }
+hyper-util = { version = "0.1", features = ["tokio", "http2"] }
 socket2 = "0.5"
 http-body-util = "0.1"
 opentelemetry = { version = "0.22" }
 rand = "0.8"
+rustls-pemfile = { version = "1.0.4" }
+rustls = "0.21"
+futures = "0.3.21"
+tower = "0.4"
+quinn = "0.10"
+axum = "0.7"
+h3 = "0.0.4"
+# h3-webtransport = "0.1"
+h3-quinn = "0.0.5"

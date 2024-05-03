@@ -6,6 +6,8 @@ use super::{Settings, SettingsParser};
 const GENERATE_ARG_ID: &str = "generate";
 const CONFIG_ARG_ID: &str = "config";
 
+pub use clap;
+
 #[derive(Debug)]
 pub struct Cli<S: Settings + serde::de::DeserializeOwned + serde::Serialize> {
 	settings: SettingsParser<S>,

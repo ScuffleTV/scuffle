@@ -4,7 +4,8 @@ use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::Arc;
 use std::task::Poll;
 
-use tokio_util::sync::{CancellationToken, WaitForCancellationFutureOwned};
+use futures::Stream;
+use tokio_util::sync::{CancellationToken, WaitForCancellationFuture, WaitForCancellationFutureOwned};
 
 #[derive(Debug)]
 struct ContextTracker(Arc<ContextTrackerInner>);
@@ -74,7 +75,7 @@ impl ContextTrackerInner {
 #[derive(Clone, Debug)]
 pub struct Context {
 	token: CancellationToken,
-	_trackers: Vec<ContextTracker>,
+	_tracker: ContextTracker,
 }
 
 impl Context {
@@ -90,11 +91,7 @@ impl Context {
 
 		(
 			Self {
-				_trackers: {
-					let mut trackers = self._trackers.clone();
-					trackers.push(tracker.child());
-					trackers
-				},
+				_tracker: tracker.child(),
 				token: token.clone(),
 			},
 			Handler {
@@ -123,6 +120,7 @@ impl Context {
 	}
 }
 
+#[derive(Debug, Clone)]
 struct TokenDropGuard(CancellationToken);
 
 impl TokenDropGuard {
@@ -142,6 +140,7 @@ impl Drop for TokenDropGuard {
 	}
 }
 
+#[derive(Debug, Clone)]
 pub struct Handler {
 	_token: TokenDropGuard,
 	tracker: Arc<ContextTrackerInner>,
@@ -172,8 +171,12 @@ impl Handler {
 	}
 
 	pub async fn shutdown(&self) {
-		self.tracker.stop();
 		self.cancel();
+		self.done().await;
+	}
+
+	pub async fn done(&self) {
+		self._token.0.cancelled().await;
 		self.tracker.wait().await;
 	}
 
@@ -181,7 +184,7 @@ impl Handler {
 	pub fn context(&self) -> Context {
 		Context {
 			token: self._token.child(),
-			_trackers: vec![self.tracker.child()],
+			_tracker: self.tracker.child(),
 		}
 	}
 
@@ -191,44 +194,113 @@ impl Handler {
 	}
 
 	pub fn cancel(&self) {
+		self.tracker.stop();
 		self._token.cancel();
 	}
 }
 
-pub trait ContextExt {
-	fn context(self, ctx: Context) -> FutureWithContext<Self>
+#[pin_project::pin_project(project = ContextRefProj)]
+pub enum ContextRef<'a> {
+	#[allow(private_interfaces)]
+	Owned(#[pin] WaitForCancellationFutureOwned, ContextTracker),
+	Ref(#[pin] WaitForCancellationFuture<'a>),
+}
+
+impl ContextRef<'_> {
+	pub fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<()> {
+		match self.project() {
+			ContextRefProj::Owned(fut, _) => fut.poll(cx),
+			ContextRefProj::Ref(fut) => fut.poll(cx),
+		}
+	}
+}
+
+impl From<Context> for ContextRef<'_> {
+	fn from(ctx: Context) -> Self {
+		ContextRef::Owned(ctx.token.cancelled_owned(), ctx._tracker)
+	}
+}
+
+impl<'a> From<&'a Context> for ContextRef<'a> {
+	fn from(ctx: &'a Context) -> Self {
+		ContextRef::Ref(ctx.token.cancelled())
+	}
+}
+
+pub trait ContextFutExt {
+	fn with_context<'a>(self, ctx: impl Into<ContextRef<'a>>) -> FutureWithContext<'a, Self>
 	where
 		Self: Sized;
 }
 
-impl<F: Future> ContextExt for F {
-	fn context(self, ctx: Context) -> FutureWithContext<Self> {
+impl<F: Future> ContextFutExt for F {
+	fn with_context<'a>(self, ctx: impl Into<ContextRef<'a>>) -> FutureWithContext<'a, Self> {
 		FutureWithContext {
 			future: self,
-			_channels: ctx._trackers,
-			ctx: Box::pin(ctx.token.cancelled_owned()),
+			ctx: ctx.into(),
+		}
+	}
+}
+
+pub trait ContextStreamExt {
+	fn with_context<'a>(self, ctx: impl Into<ContextRef<'a>>) -> StreamWithContext<'a, Self>
+	where
+		Self: Sized;
+}
+
+impl<F: Stream> ContextStreamExt for F {
+	fn with_context<'a>(self, ctx: impl Into<ContextRef<'a>>) -> StreamWithContext<'a, Self> {
+		StreamWithContext {
+			stream: self,
+			ctx: ctx.into(),
 		}
 	}
 }
 
 #[pin_project::pin_project]
-pub struct FutureWithContext<F> {
+pub struct FutureWithContext<'a, F> {
 	#[pin]
 	future: F,
-	_channels: Vec<ContextTracker>,
-	ctx: Pin<Box<WaitForCancellationFutureOwned>>,
+	#[pin]
+	ctx: ContextRef<'a>,
 }
 
-impl<F: Future> Future for FutureWithContext<F> {
+impl<'a, F: Future> Future for FutureWithContext<'a, F> {
 	type Output = Option<F::Output>;
 
 	fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
-		let this = self.as_mut().project();
+		let mut this = self.as_mut().project();
 
 		match (this.ctx.as_mut().poll(cx), this.future.poll(cx)) {
 			(_, Poll::Ready(v)) => std::task::Poll::Ready(Some(v)),
 			(Poll::Ready(_), Poll::Pending) => std::task::Poll::Ready(None),
 			_ => std::task::Poll::Pending,
 		}
+	}
+}
+
+#[pin_project::pin_project]
+pub struct StreamWithContext<'a, F> {
+	#[pin]
+	stream: F,
+	#[pin]
+	ctx: ContextRef<'a>,
+}
+
+impl<'a, F: Stream> Stream for StreamWithContext<'a, F> {
+	type Item = F::Item;
+
+	fn poll_next(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Option<Self::Item>> {
+		let mut this = self.as_mut().project();
+
+		match (this.ctx.as_mut().poll(cx), this.stream.poll_next(cx)) {
+			(_, Poll::Ready(v)) => std::task::Poll::Ready(v),
+			(Poll::Ready(_), Poll::Pending) => std::task::Poll::Ready(None),
+			_ => std::task::Poll::Pending,
+		}
+	}
+
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		self.stream.size_hint()
 	}
 }

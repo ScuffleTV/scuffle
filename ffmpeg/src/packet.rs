@@ -17,9 +17,6 @@ impl<'a> Packets<'a> {
 	}
 
 	pub fn receive(&mut self) -> Result<Option<Packet>, FfmpegError> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = scuffle_utils::task::AbortGuard::new();
-
 		let mut packet = Packet::new()?;
 
 		// Safety: av_read_frame is safe to call, 'packet' is a valid pointer

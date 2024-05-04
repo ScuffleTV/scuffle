@@ -87,9 +87,6 @@ impl Scalar {
 	}
 
 	pub fn process<'a>(&'a mut self, frame: &Frame) -> Result<&'a VideoFrame, FfmpegError> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = scuffle_utils::task::AbortGuard::new();
-
 		// Safety: `frame` is a valid pointer, and `self.ptr` is a valid pointer.
 		let ret = unsafe {
 			sws_scale(

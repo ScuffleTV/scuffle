@@ -302,10 +302,7 @@ pub async fn init(settings: ServerSettings) -> anyhow::Result<()> {
 
 	router = router.fallback(axum::routing::any(not_found));
 
-	let mut server = settings
-		.builder
-		.build(router)
-		.context("failed to build server")?;
+	let mut server = settings.builder.build(router).context("failed to build server")?;
 
 	server.start_and_wait().await.context("failed to start server")?;
 

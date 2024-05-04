@@ -254,7 +254,6 @@ async fn serve_request(service: &impl ServiceHandler, request: Request, mut stre
 	tracing::trace!(?parts, "sending response");
 	send.send_response(Response::from_parts(parts, ())).await?;
 
-
 	let mut body = std::pin::pin!(body);
 
 	tracing::trace!("sending response body");
@@ -274,10 +273,10 @@ async fn serve_request(service: &impl ServiceHandler, request: Request, mut stre
 			}
 			None => {
 				send.finish().await?;
-			},
+			}
 		}
 	}
-	
+
 	tracing::trace!("response body finished");
 
 	Ok(())

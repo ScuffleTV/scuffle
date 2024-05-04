@@ -11,11 +11,9 @@ bytes = { optional = true, version = "1" }
 tokio = { optional = true, version = "1" }
 crossbeam-channel = { optional = true, version = "0.5" }
 tracing = { optional = true, version = "0.1" }
-scuffle-utils = { path = "../utils", version = "*", optional = true, features = ["task"]}
 
 [features]
 default = []
-task-abort = ["dep:scuffle-utils"]
 channel = ["dep:bytes"]
 tokio-channel = ["channel", "dep:tokio"]
 crossbeam-channel = ["channel", "dep:crossbeam-channel"]

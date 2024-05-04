@@ -1,0 +1,23 @@
+[package]
+name = "scuffle-image-processor-proto"
+version = "0.0.0"
+edition = "2021"
+authors = ["Scuffle <opensource@scuffle.tv>"]
+description = "Scuffle Image Processor Protocol Buffers"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+prost = "0.12.4"
+tonic = "0.11.0"
+serde = { version = "1", optional = true, features = ["derive"] }
+
+[build-dependencies]
+prost-build = "0.12.4"
+tonic-build = "0.11.0"
+
+[features]
+server = []
+client = []
+serde = [ "dep:serde" ]
+
+default = ["server", "client", "serde"]

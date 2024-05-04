@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package scuffle.image_processor;
+
+message EventCallback {
+    message Success {}
+
+    message Fail {}
+
+    message Cancel {}
+
+    message Start {}
+
+    oneof event {
+        Success success = 1;
+        Fail fail = 2;
+        Cancel cancel = 3;
+        Start start = 4;
+    }
+}

@@ -6,9 +6,9 @@ pub mod tls;
 
 use std::convert::Infallible;
 
+pub use axum::body::Body;
 pub use axum::extract::Request;
 pub use axum::response::{IntoResponse, Response};
-pub use axum::body::Body;
 
 use super::Error;
 

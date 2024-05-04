@@ -995,7 +995,7 @@ dependencies = [
  "aws-smithy-types",
  "bytes",
  "deadpool-postgres",
- "fred",
+ "fred 8.0.6",
  "futures-util",
  "http-body 1.0.0",
  "hyper 1.3.1",
@@ -1118,6 +1118,7 @@ dependencies = [
  "ahash 0.8.11",
  "base64 0.13.1",
  "bitvec",
+ "chrono",
  "hex",
  "indexmap 2.2.6",
  "js-sys",
@@ -1380,12 +1381,9 @@ dependencies = [
 
 [[package]]
 name = "cookie-factory"
-version = "0.3.3"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9885fa71e26b8ab7855e2ec7cae6e9b380edff76cd052e07c683a0319d51b3a2"
-dependencies = [
- "futures",
-]
+checksum = "396de984970346b0d9e93d1415082923c679e5ae5c3ee3dcbd104f5610af126b"
 
 [[package]]
 name = "core-foundation"
@@ -2183,7 +2181,7 @@ dependencies = [
  "log",
  "parking_lot",
  "rand",
- "redis-protocol",
+ "redis-protocol 4.1.0",
  "rustls 0.22.4",
  "rustls-native-certs 0.7.0",
  "rustls-webpki 0.102.3",
@@ -2194,6 +2192,32 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "trust-dns-resolver 0.23.2",
+ "url",
+ "urlencoding",
+]
+
+[[package]]
+name = "fred"
+version = "9.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "915e065b377f6e16d5c01eae96bf31eeaf81e1e300b76f938761b3c21307cad8"
+dependencies = [
+ "arc-swap",
+ "async-trait",
+ "bytes",
+ "bytes-utils",
+ "crossbeam-queue",
+ "float-cmp",
+ "futures",
+ "log",
+ "parking_lot",
+ "rand",
+ "redis-protocol 5.0.1",
+ "semver 1.0.22",
+ "socket2 0.5.7",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
  "url",
  "urlencoding",
 ]
@@ -4217,7 +4241,7 @@ dependencies = [
  "bitmask-enum",
  "bytes",
  "chrono",
- "fred",
+ "fred 8.0.6",
  "futures",
  "futures-util",
  "hmac",
@@ -4254,46 +4278,6 @@ dependencies = [
  "tracing",
  "ulid",
  "uuid",
-]
-
-[[package]]
-name = "platform-image-processor"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "async-nats",
- "async-trait",
- "aws-config",
- "aws-sdk-s3",
- "byteorder",
- "bytes",
- "chrono",
- "fast_image_resize",
- "file-format",
- "futures",
- "gifski",
- "imgref",
- "libavif-sys",
- "libwebp-sys2",
- "mongodb",
- "num_cpus",
- "png",
- "postgres-from-row",
- "prost 0.12.4",
- "reqwest",
- "rgb",
- "scopeguard",
- "scuffle-ffmpeg",
- "scuffle-utils",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
- "tokio",
- "tonic",
- "tonic-build",
- "tracing",
- "ulid",
 ]
 
 [[package]]
@@ -4807,6 +4791,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "redis-protocol"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65deb7c9501fbb2b6f812a30d59c0253779480853545153a51d8e9e444ddc99f"
+dependencies = [
+ "bytes",
+ "bytes-utils",
+ "cookie-factory",
+ "crc16",
+ "log",
+ "nom",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5296,7 +5294,6 @@ dependencies = [
  "crossbeam-channel",
  "ffmpeg-sys-next",
  "libc",
- "scuffle-utils",
  "tokio",
  "tracing",
 ]
@@ -5368,6 +5365,64 @@ dependencies = [
 ]
 
 [[package]]
+name = "scuffle-image-processor"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "async-nats",
+ "async-trait",
+ "aws-config",
+ "aws-sdk-s3",
+ "aws-smithy-runtime-api",
+ "aws-smithy-types",
+ "bson",
+ "byteorder",
+ "bytes",
+ "chrono",
+ "fast_image_resize",
+ "file-format",
+ "fred 9.0.3",
+ "futures",
+ "gifski",
+ "http 1.1.0",
+ "imgref",
+ "libavif-sys",
+ "libwebp-sys2",
+ "mongodb",
+ "num_cpus",
+ "png",
+ "postgres-from-row",
+ "prost 0.12.4",
+ "reqwest",
+ "rgb",
+ "scopeguard",
+ "scuffle-ffmpeg",
+ "scuffle-foundations",
+ "scuffle-image-processor-proto",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tonic",
+ "tonic-build",
+ "tracing",
+ "ulid",
+ "url",
+]
+
+[[package]]
+name = "scuffle-image-processor-proto"
+version = "0.0.0"
+dependencies = [
+ "prost 0.12.4",
+ "prost-build",
+ "serde",
+ "tonic",
+ "tonic-build",
+]
+
+[[package]]
 name = "scuffle-utils"
 version = "0.1.0"
 dependencies = [
@@ -5377,7 +5432,7 @@ dependencies = [
  "deadpool-postgres",
  "dotenvy",
  "fnv",
- "fred",
+ "fred 8.0.6",
  "futures",
  "futures-channel",
  "futures-util",
@@ -6861,7 +6916,7 @@ dependencies = [
  "bytes",
  "chrono",
  "dotenvy",
- "fred",
+ "fred 8.0.6",
  "futures",
  "futures-util",
  "hex",
@@ -6902,7 +6957,7 @@ dependencies = [
  "binary-helper",
  "chrono",
  "clap",
- "fred",
+ "fred 8.0.6",
  "futures",
  "futures-util",
  "pb",

@@ -9,7 +9,7 @@ use scuffle_foundations::bootstrap::{bootstrap, Bootstrap, RuntimeSettings};
 use scuffle_foundations::http::server::stream::{IncomingConnection, MakeService, ServiceHandler, SocketKind};
 use scuffle_foundations::http::server::Server;
 use scuffle_foundations::settings::auto_settings;
-use scuffle_foundations::settings::cli::{Matches, clap};
+use scuffle_foundations::settings::cli::{clap, Matches};
 use scuffle_foundations::telemetry::settings::TelemetrySettings;
 use tokio::signal::unix::SignalKind;
 
@@ -37,20 +37,22 @@ impl Bootstrap for HttpServerSettings {
 
 	fn additional_args() -> Vec<clap::Arg> {
 		vec![
-			clap::Arg::new("tls-cert")
-				.long("tls-cert")
-				.value_name("FILE"),
-			clap::Arg::new("tls-key")
-				.long("tls-key")
-				.value_name("FILE"),
+			clap::Arg::new("tls-cert").long("tls-cert").value_name("FILE"),
+			clap::Arg::new("tls-key").long("tls-key").value_name("FILE"),
 		]
 	}
 }
 
 #[bootstrap]
 async fn main(settings: Matches<HttpServerSettings>) {
-	let tls_cert = settings.args.get_one::<String>("tls-cert").or(settings.settings.tls_cert.as_ref());
-	let tls_key = settings.args.get_one::<String>("tls-key").or(settings.settings.tls_key.as_ref());
+	let tls_cert = settings
+		.args
+		.get_one::<String>("tls-cert")
+		.or(settings.settings.tls_cert.as_ref());
+	let tls_key = settings
+		.args
+		.get_one::<String>("tls-key")
+		.or(settings.settings.tls_key.as_ref());
 
 	let Some((tls_cert, tls_key)) = tls_cert.zip(tls_key) else {
 		panic!("TLS certificate and key are required");

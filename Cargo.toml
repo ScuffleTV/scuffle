@@ -3,6 +3,7 @@
 members = [
     "platform/api",
     "image_processor",
+    "image_processor/proto",
     "video/edge",
     "video/ingest",
     "video/transcoder",

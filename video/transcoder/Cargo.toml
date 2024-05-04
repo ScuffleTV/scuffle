@@ -41,7 +41,7 @@ config = { workspace = true }
 pb = { workspace = true }
 video-common = { workspace = true }
 binary-helper = { workspace = true }
-scuffle-ffmpeg = { workspace = true, features = ["tokio-channel", "tracing", "task-abort"] }
+scuffle-ffmpeg = { workspace = true, features = ["tokio-channel", "tracing"] }
 
 [dev-dependencies]
 dotenvy = "0.15"

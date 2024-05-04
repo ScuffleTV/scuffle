@@ -1,5 +1,5 @@
 [package]
-name = "platform-image-processor"
+name = "scuffle-image-processor"
 version = "0.0.1"
 edition = "2021"
 authors = ["Scuffle <opensource@scuffle.tv>"]
@@ -37,11 +37,20 @@ bytes = "1.0"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 fast_image_resize = "3.0.4"
 chrono = "0.4"
+url = { version = "2", features = ["serde"] }
+http = "1"
 
-scuffle-utils = { version = "*", path = "../utils", features = ["all"] }
-scuffle-ffmpeg = { version = "*", path = "../ffmpeg", features = ["task-abort", "tracing"] }
+scuffle-foundations = { version = "*", path = "../foundations" }
+scuffle-ffmpeg = { version = "*", path = "../ffmpeg", features = ["tracing"] }
 
-mongodb = { version = "2.0", features = ["tokio-runtime"] }
+scuffle-image-processor-proto = { version = "*", path = "./proto" }
+
+mongodb = { version = "2", features = ["tokio-runtime", "bson-chrono-0_4"] }
+bson = { version = "2", features = ["chrono-0_4"] }
+
+aws-smithy-types = "1"
+aws-smithy-runtime-api = "1"
+fred = "9.0.3"
 
 [build-dependencies]
 tonic-build = "0.11"

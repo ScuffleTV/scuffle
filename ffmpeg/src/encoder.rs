@@ -426,9 +426,6 @@ impl Encoder {
 		outgoing_time_base: AVRational,
 		settings: impl Into<EncoderSettings>,
 	) -> Result<Self, FfmpegError> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = scuffle_utils::task::AbortGuard::new();
-
 		if codec.as_ptr().is_null() {
 			return Err(FfmpegError::NoEncoder);
 		}
@@ -489,9 +486,6 @@ impl Encoder {
 	}
 
 	pub fn send_eof(&mut self) -> Result<(), FfmpegError> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = scuffle_utils::task::AbortGuard::new();
-
 		// Safety: `self.encoder` is a valid pointer.
 		let ret = unsafe { avcodec_send_frame(self.encoder.as_mut_ptr(), std::ptr::null()) };
 		if ret == 0 {
@@ -502,9 +496,6 @@ impl Encoder {
 	}
 
 	pub fn send_frame(&mut self, frame: &Frame) -> Result<(), FfmpegError> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = scuffle_utils::task::AbortGuard::new();
-
 		// Safety: `self.encoder` and `frame` are valid pointers.
 		let ret = unsafe { avcodec_send_frame(self.encoder.as_mut_ptr(), frame.as_ptr()) };
 		if ret == 0 {
@@ -515,9 +506,6 @@ impl Encoder {
 	}
 
 	pub fn receive_packet(&mut self) -> Result<Option<Packet>, FfmpegError> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = scuffle_utils::task::AbortGuard::new();
-
 		let mut packet = Packet::new()?;
 
 		const AVERROR_EAGAIN: i32 = AVERROR(EAGAIN);
@@ -631,9 +619,6 @@ impl<T: Send + Sync> MuxerEncoder<T> {
 	}
 
 	pub fn send_eof(&mut self) -> Result<(), FfmpegError> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = scuffle_utils::task::AbortGuard::new();
-
 		self.encoder.send_eof()?;
 		self.handle_packets()?;
 

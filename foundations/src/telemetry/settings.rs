@@ -447,7 +447,12 @@ pub async fn init(info: crate::ServiceInfo, settings: TelemetrySettings) {
 
 		use tracing_subscriber::prelude::*;
 
-		tracing_subscriber::registry().with(logging).with(opentelemetry).init();
+		let registry = tracing_subscriber::registry();
+		#[cfg(feature = "opentelemetry")]
+		let registry = registry.with(opentelemetry);
+		#[cfg(feature = "logging")]
+		let registry = registry.with(logging);
+		registry.init();
 	}
 
 	#[cfg(all(

@@ -14,6 +14,20 @@ enum ImageFormat {
     PNG_STATIC = 5;
 }
 
+message DrivePath {
+    string drive = 1;
+    string path = 2;
+}
+
+message InputPath {
+    oneof input_path {
+        // Drive path to the image.
+        DrivePath drive_path = 1;
+        // Public URL to the image.
+        string public_url = 2;
+    }
+}
+
 // The resize method determines how the image processor should resize the image.
 enum ResizeMethod {
     // Fit will resize the image to fit within the desired dimensions without changing the aspect ratio.
@@ -135,19 +149,13 @@ message Scale {
 message InputUpload {
     // The input image as a binary blob.
     bytes binary = 1;
-
-    // The path to upload the image to.
-    // Must be in the format <drive>://<path> where drive is a drive defined in the image processor config.
-    // Allows for template arguments to be passed in. For example if the path is "images/{id}.png" and the id is 123 the path will be "images/123.png".
-    string path = 2;
+    // The path to save the image to.
+    DrivePath path = 2;
 }
 
 message Input {
     // The path to the input image.
-    // Must be in the format <drive>://<path> where drive is a drive defined in the image processor config.
-    // This can be used in combination with the ImageUpload message to upload the image to a specific path.
-    // Allows for template arguments to be passed in. For example if the path is "images/{id}.png" and the id is 123 the path will be "images/123.png". 
-    string path = 1;
+    InputPath path = 1;
     // Extra information about the input image.
     optional InputMetadata metadata = 2;
 }
@@ -181,11 +189,7 @@ message OutputFormat {
 }
 
 message Output {
-    // The image processor will save the results to this path.
-    // Must either be a format '<drive>://<path>' where drive is a drive defined in the image processor config.
-    // Allows for template arguments to be passed in. For example if the path is "images/{id}/{scale}_{format}.{ext}" and the id is 123 the path will be "images/123/100x100_webp_static.webp".
-    // If multiple outputs resolve to the same path the processor will generate a fatal error.
-    string path = 1;
+    DrivePath path = 1;
     // The desired formats to encode the output image.
     repeated OutputFormat formats = 2;
     // The resize method used to resize the image.
@@ -210,16 +214,20 @@ message Output {
 // Events must be in the format
 // <event_queue>://<topic> where event_queue is a queue defined in the image processor config.
 // The topic argument is used in the template for the event queue settings defined in the image processor config.
-// Setting any of the events to an empty string will disable the event.
 message Events {
     // The event to trigger when the task is completed successfully
-    string on_success = 1;
+    optional EventQueue on_success = 1;
     // The event to trigger when the task fails
-    string on_fail = 2;
+    optional EventQueue on_fail = 2;
     // The event to trigger when the task is cancelled
-    string on_cancel = 3;
+    optional EventQueue on_cancel = 3;
     // The event to trigger when the task is started
-    string on_start = 4;
+    optional EventQueue on_start = 4;
+}
+
+message EventQueue {
+    string name = 1;
+    string topic = 2;
 }
 
 message Task {
@@ -242,6 +250,8 @@ message Error {
 
 enum ErrorCode {
     Unknown = 0;
+    InvalidInput = 1;
+    InternalError = 2;
 }
 
 message EventPayload {

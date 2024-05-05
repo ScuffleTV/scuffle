@@ -8,19 +8,19 @@ use aws_smithy_runtime_api::client::result::SdkError;
 use bytes::Bytes;
 use scuffle_foundations::service_info;
 
-use super::{Disk, DiskError, DiskWriteOptions};
-use crate::config::{DiskMode, S3DiskConfig};
+use super::{Drive, DriveError, DriveWriteOptions};
+use crate::config::{DriveMode, S3DriveConfig};
 
 #[derive(Debug)]
-pub struct S3Disk {
+pub struct S3Drive {
 	name: String,
-	mode: DiskMode,
+	mode: DriveMode,
 	client: aws_sdk_s3::Client,
 	bucket: String,
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum S3DiskError {
+pub enum S3DriveError {
 	#[error("s3: {0}")]
 	S3Error(#[from] aws_sdk_s3::Error),
 	#[error("byte stream: {0}")]
@@ -33,9 +33,9 @@ pub enum S3DiskError {
 	DeleteError(#[from] SdkError<DeleteObjectError, HttpResponse>),
 }
 
-impl S3Disk {
+impl S3Drive {
 	#[tracing::instrument(skip(config), name = "S3Disk::new", fields(name = %config.name), err)]
-	pub async fn new(config: &S3DiskConfig) -> Result<Self, S3DiskError> {
+	pub async fn new(config: &S3DriveConfig) -> Result<Self, DriveError> {
 		tracing::debug!("setting up s3 disk");
 		Ok(Self {
 			name: config.name.clone(),
@@ -62,15 +62,15 @@ impl S3Disk {
 	}
 }
 
-impl Disk for S3Disk {
+impl Drive for S3Drive {
 	fn name(&self) -> &str {
 		&self.name
 	}
 
 	#[tracing::instrument(skip(self), name = "S3Disk::read", err)]
-	async fn read(&self, path: &str) -> Result<Bytes, DiskError> {
-		if self.mode == DiskMode::Write {
-			return Err(DiskError::ReadOnly);
+	async fn read(&self, path: &str) -> Result<Bytes, DriveError> {
+		if self.mode == DriveMode::Write {
+			return Err(DriveError::ReadOnly);
 		}
 
 		let result = self
@@ -80,17 +80,17 @@ impl Disk for S3Disk {
 			.key(path)
 			.send()
 			.await
-			.map_err(S3DiskError::from)?;
+			.map_err(S3DriveError::from)?;
 
-		let bytes = result.body.collect().await.map_err(S3DiskError::from)?;
+		let bytes = result.body.collect().await.map_err(S3DriveError::from)?;
 
 		Ok(bytes.into_bytes())
 	}
 
 	#[tracing::instrument(skip(self, data), name = "S3Disk::write", err, fields(size = data.len()))]
-	async fn write(&self, path: &str, data: Bytes, options: Option<DiskWriteOptions>) -> Result<(), DiskError> {
-		if self.mode == DiskMode::Read {
-			return Err(DiskError::WriteOnly);
+	async fn write(&self, path: &str, data: Bytes, options: Option<DriveWriteOptions>) -> Result<(), DriveError> {
+		if self.mode == DriveMode::Read {
+			return Err(DriveError::WriteOnly);
 		}
 
 		let mut req = self.client.put_object().bucket(&self.bucket).key(path).body(data.into());
@@ -110,15 +110,15 @@ impl Disk for S3Disk {
 			}
 		}
 
-		req.send().await.map_err(S3DiskError::from)?;
+		req.send().await.map_err(S3DriveError::from)?;
 
 		Ok(())
 	}
 
 	#[tracing::instrument(skip(self), name = "S3Disk::delete", err)]
-	async fn delete(&self, path: &str) -> Result<(), DiskError> {
-		if self.mode == DiskMode::Read {
-			return Err(DiskError::WriteOnly);
+	async fn delete(&self, path: &str) -> Result<(), DriveError> {
+		if self.mode == DriveMode::Read {
+			return Err(DriveError::WriteOnly);
 		}
 
 		self.client
@@ -127,7 +127,7 @@ impl Disk for S3Disk {
 			.key(path)
 			.send()
 			.await
-			.map_err(S3DiskError::from)?;
+			.map_err(S3DriveError::from)?;
 
 		Ok(())
 	}

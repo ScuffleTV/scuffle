@@ -3,20 +3,20 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
 use url::Url;
 
-use super::{Disk, DiskError, DiskWriteOptions};
-use crate::config::{DiskMode, HttpDiskConfig};
+use super::{Drive, DriveError, DriveWriteOptions};
+use crate::config::{DriveMode, HttpDriveConfig};
 
 #[derive(Debug)]
-pub struct HttpDisk {
+pub struct HttpDrive {
 	name: String,
 	base_url: Url,
-	mode: DiskMode,
+	mode: DriveMode,
 	semaphore: Option<tokio::sync::Semaphore>,
 	client: reqwest::Client,
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum HttpDiskError {
+pub enum HttpDriveError {
 	#[error("invalid path")]
 	InvalidPath(#[from] url::ParseError),
 	#[error("reqwest: {0}")]
@@ -27,9 +27,9 @@ pub enum HttpDiskError {
 	InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
 }
 
-impl HttpDisk {
+impl HttpDrive {
 	#[tracing::instrument(skip(config), name = "HttpDisk::new", fields(name = %config.name), err)]
-	pub async fn new(config: &HttpDiskConfig) -> Result<Self, HttpDiskError> {
+	pub async fn new(config: &HttpDriveConfig) -> Result<Self, DriveError> {
 		tracing::debug!("setting up http disk");
 		Ok(Self {
 			name: config.name.clone(),
@@ -50,28 +50,31 @@ impl HttpDisk {
 				let mut headers = HeaderMap::new();
 
 				for (key, value) in &config.headers {
-					headers.insert(key.parse::<HeaderName>()?, value.parse::<HeaderValue>()?);
+					headers.insert(
+						key.parse::<HeaderName>().map_err(HttpDriveError::InvalidHeaderName)?,
+						value.parse::<HeaderValue>().map_err(HttpDriveError::InvalidHeaderValue)?,
+					);
 				}
 
 				builder = builder.default_headers(headers);
 
-				builder.build().map_err(HttpDiskError::Reqwest)?
+				builder.build().map_err(HttpDriveError::Reqwest)?
 			},
 		})
 	}
 }
 
-impl Disk for HttpDisk {
+impl Drive for HttpDrive {
 	fn name(&self) -> &str {
 		&self.name
 	}
 
 	#[tracing::instrument(skip(self), name = "HttpDisk::read", fields(name = %self.name), err)]
-	async fn read(&self, path: &str) -> Result<Bytes, DiskError> {
+	async fn read(&self, path: &str) -> Result<Bytes, DriveError> {
 		tracing::debug!("reading file");
 
-		if self.mode == DiskMode::Write {
-			return Err(DiskError::ReadOnly);
+		if self.mode == DriveMode::Write {
+			return Err(DriveError::ReadOnly);
 		}
 
 		let _permit = if let Some(semaphore) = &self.semaphore {
@@ -80,21 +83,21 @@ impl Disk for HttpDisk {
 			None
 		};
 
-		let url = self.base_url.join(path).map_err(HttpDiskError::InvalidPath)?;
+		let url = self.base_url.join(path).map_err(HttpDriveError::InvalidPath)?;
 
-		let response = self.client.get(url).send().await.map_err(HttpDiskError::Reqwest)?;
+		let response = self.client.get(url).send().await.map_err(HttpDriveError::Reqwest)?;
 
-		let response = response.error_for_status().map_err(HttpDiskError::Reqwest)?;
+		let response = response.error_for_status().map_err(HttpDriveError::Reqwest)?;
 
-		Ok(response.bytes().await.map_err(HttpDiskError::Reqwest)?)
+		Ok(response.bytes().await.map_err(HttpDriveError::Reqwest)?)
 	}
 
 	#[tracing::instrument(skip(self, data), name = "HttpDisk::write", fields(name = %self.name, size = data.len()), err)]
-	async fn write(&self, path: &str, data: Bytes, options: Option<DiskWriteOptions>) -> Result<(), DiskError> {
+	async fn write(&self, path: &str, data: Bytes, options: Option<DriveWriteOptions>) -> Result<(), DriveError> {
 		tracing::debug!("writing file");
 
-		if self.mode == DiskMode::Read {
-			return Err(DiskError::WriteOnly);
+		if self.mode == DriveMode::Read {
+			return Err(DriveError::WriteOnly);
 		}
 
 		let _permit = if let Some(semaphore) = &self.semaphore {
@@ -103,51 +106,51 @@ impl Disk for HttpDisk {
 			None
 		};
 
-		let url = self.base_url.join(path).map_err(HttpDiskError::InvalidPath)?;
+		let url = self.base_url.join(path).map_err(HttpDriveError::InvalidPath)?;
 
 		let mut request = self
 			.client
 			.request(Method::POST, url)
 			.body(data)
 			.build()
-			.map_err(HttpDiskError::Reqwest)?;
+			.map_err(HttpDriveError::Reqwest)?;
 
 		if let Some(options) = options {
 			if let Some(cache_control) = &options.cache_control {
 				request.headers_mut().insert(
 					reqwest::header::CACHE_CONTROL,
-					cache_control.parse().map_err(HttpDiskError::InvalidHeaderValue)?,
+					cache_control.parse().map_err(HttpDriveError::InvalidHeaderValue)?,
 				);
 			}
 
 			if let Some(content_type) = &options.content_type {
 				request.headers_mut().insert(
 					reqwest::header::CONTENT_TYPE,
-					content_type.parse().map_err(HttpDiskError::InvalidHeaderValue)?,
+					content_type.parse().map_err(HttpDriveError::InvalidHeaderValue)?,
 				);
 			}
 
 			if let Some(acl) = &options.acl {
 				request.headers_mut().insert(
 					reqwest::header::HeaderName::from_static("x-amz-acl"),
-					acl.parse().map_err(HttpDiskError::InvalidHeaderValue)?,
+					acl.parse().map_err(HttpDriveError::InvalidHeaderValue)?,
 				);
 			}
 		}
 
-		let resp = self.client.execute(request).await.map_err(HttpDiskError::Reqwest)?;
+		let resp = self.client.execute(request).await.map_err(HttpDriveError::Reqwest)?;
 
-		resp.error_for_status().map_err(HttpDiskError::Reqwest)?;
+		resp.error_for_status().map_err(HttpDriveError::Reqwest)?;
 
 		Ok(())
 	}
 
 	#[tracing::instrument(skip(self), name = "HttpDisk::delete", fields(name = %self.name), err)]
-	async fn delete(&self, path: &str) -> Result<(), DiskError> {
+	async fn delete(&self, path: &str) -> Result<(), DriveError> {
 		tracing::debug!("deleting file");
 
-		if self.mode == DiskMode::Read {
-			return Err(DiskError::WriteOnly);
+		if self.mode == DriveMode::Read {
+			return Err(DriveError::WriteOnly);
 		}
 
 		let _permit = if let Some(semaphore) = &self.semaphore {
@@ -156,11 +159,11 @@ impl Disk for HttpDisk {
 			None
 		};
 
-		let url = self.base_url.join(path).map_err(HttpDiskError::InvalidPath)?;
+		let url = self.base_url.join(path).map_err(HttpDriveError::InvalidPath)?;
 
-		let response = self.client.delete(url).send().await.map_err(HttpDiskError::Reqwest)?;
+		let response = self.client.delete(url).send().await.map_err(HttpDriveError::Reqwest)?;
 
-		response.error_for_status().map_err(HttpDiskError::Reqwest)?;
+		response.error_for_status().map_err(HttpDriveError::Reqwest)?;
 
 		Ok(())
 	}

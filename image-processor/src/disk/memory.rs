@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use bytes::Bytes;
 use tokio::sync::RwLock;
 
-use super::{Disk, DiskError, DiskWriteOptions};
-use crate::config::{DiskMode, MemoryDiskConfig};
+use super::{Drive, DriveError, DriveWriteOptions};
+use crate::config::{DriveMode, MemoryDriveConfig};
 
 #[derive(Debug)]
 struct FileHolder {
@@ -17,9 +17,9 @@ impl FileHolder {
 		self.files.get(path)
 	}
 
-	fn insert(&mut self, path: String, file: MemoryFile) -> Result<Option<MemoryFile>, MemoryDiskError> {
+	fn insert(&mut self, path: String, file: MemoryFile) -> Result<Option<MemoryFile>, DriveError> {
 		if file.data.len() > self.remaining_capacity {
-			return Err(MemoryDiskError::NoSpaceLeft);
+			return Err(MemoryDriveError::NoSpaceLeft.into());
 		}
 
 		self.remaining_capacity -= file.data.len();
@@ -40,9 +40,9 @@ impl FileHolder {
 }
 
 #[derive(Debug)]
-pub struct MemoryDisk {
+pub struct MemoryDrive {
 	name: String,
-	mode: DiskMode,
+	mode: DriveMode,
 	files: RwLock<FileHolder>,
 	global: bool,
 }
@@ -50,18 +50,18 @@ pub struct MemoryDisk {
 #[derive(Debug, Clone)]
 pub struct MemoryFile {
 	data: Bytes,
-	_options: DiskWriteOptions,
+	_options: DriveWriteOptions,
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum MemoryDiskError {
+pub enum MemoryDriveError {
 	#[error("no space left on disk")]
 	NoSpaceLeft,
 }
 
-impl MemoryDisk {
+impl MemoryDrive {
 	#[tracing::instrument(skip(config), name = "MemoryDisk::new", fields(name = %config.name), err)]
-	pub async fn new(config: &MemoryDiskConfig) -> Result<Self, MemoryDiskError> {
+	pub async fn new(config: &MemoryDriveConfig) -> Result<Self, MemoryDriveError> {
 		tracing::debug!("setting up memory disk");
 		Ok(Self {
 			name: config.name.clone(),
@@ -75,17 +75,17 @@ impl MemoryDisk {
 	}
 }
 
-impl Disk for MemoryDisk {
+impl Drive for MemoryDrive {
 	fn name(&self) -> &str {
 		&self.name
 	}
 
 	#[tracing::instrument(skip(self), name = "MemoryDisk::read", err)]
-	async fn read(&self, path: &str) -> Result<Bytes, DiskError> {
+	async fn read(&self, path: &str) -> Result<Bytes, DriveError> {
 		tracing::debug!("reading file");
 
-		if self.mode == DiskMode::Write {
-			return Err(DiskError::ReadOnly);
+		if self.mode == DriveMode::Write {
+			return Err(DriveError::ReadOnly);
 		}
 
 		Ok(self
@@ -94,15 +94,15 @@ impl Disk for MemoryDisk {
 			.await
 			.get(path)
 			.map(|file| file.data.clone())
-			.ok_or(DiskError::NotFound)?)
+			.ok_or(DriveError::NotFound)?)
 	}
 
 	#[tracing::instrument(skip(self, data), name = "MemoryDisk::write", err, fields(size = data.len()))]
-	async fn write(&self, path: &str, data: Bytes, options: Option<DiskWriteOptions>) -> Result<(), DiskError> {
+	async fn write(&self, path: &str, data: Bytes, options: Option<DriveWriteOptions>) -> Result<(), DriveError> {
 		tracing::debug!("writing file");
 
-		if self.mode == DiskMode::Read {
-			return Err(DiskError::WriteOnly);
+		if self.mode == DriveMode::Read {
+			return Err(DriveError::WriteOnly);
 		}
 
 		let mut files = self.files.write().await;
@@ -119,14 +119,14 @@ impl Disk for MemoryDisk {
 	}
 
 	#[tracing::instrument(skip(self), name = "MemoryDisk::delete", err)]
-	async fn delete(&self, path: &str) -> Result<(), DiskError> {
+	async fn delete(&self, path: &str) -> Result<(), DriveError> {
 		tracing::debug!("deleting file");
 
-		if self.mode == DiskMode::Read {
-			return Err(DiskError::WriteOnly);
+		if self.mode == DriveMode::Read {
+			return Err(DriveError::WriteOnly);
 		}
 
-		self.files.write().await.remove(path).ok_or(DiskError::NotFound)?;
+		self.files.write().await.remove(path).ok_or(DriveError::NotFound)?;
 		Ok(())
 	}
 

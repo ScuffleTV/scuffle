@@ -165,18 +165,19 @@ async fn metrics(
 
 #[cfg(feature = "health-check")]
 pub use health_check::{
-	register as register_health_check, unregister as unregister_health_check, HealthCheck, HealthCheckFn,
+	register as register_health_check, require as require_health_check, unregister as unregister_health_check, HealthCheck,
+	HealthCheckFn,
 };
 
 #[cfg(feature = "health-check")]
 mod health_check {
 	use std::pin::Pin;
-	use std::sync::atomic::AtomicUsize;
+	use std::sync::atomic::{AtomicBool, AtomicUsize};
 
 	use futures::Future;
 	use scc::HashMap;
 
-	pub struct HealthCheckFn<F>(F);
+	pub struct HealthCheckFn<F>(pub F);
 
 	impl<F, Fut> HealthCheck for HealthCheckFn<F>
 	where
@@ -207,12 +208,14 @@ mod health_check {
 	#[derive(Default)]
 	struct HealthChecker {
 		id: AtomicUsize,
+		require_check: AtomicBool,
 		health_checks: HashMap<usize, Box<dyn HealthCheck>>,
 	}
 
 	static HEALTH_CHECK: once_cell::sync::Lazy<HealthChecker> =
 		once_cell::sync::Lazy::<HealthChecker>::new(|| HealthChecker::default());
 
+	/// Register a health check and return an id
 	pub fn register(check: impl HealthCheck) -> usize {
 		let id = HEALTH_CHECK.id.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 		HEALTH_CHECK
@@ -223,11 +226,23 @@ mod health_check {
 		id
 	}
 
+	/// Unregister a health check by id
 	pub fn unregister(id: usize) {
 		HEALTH_CHECK.health_checks.remove(&id);
 	}
 
+	/// Require a health check to be registered, if no health checks are
+	/// registered the server will always return 503 Service Unavailable This is
+	/// useful for ensuring that the server is healthy before accepting traffic
+	pub fn require() {
+		HEALTH_CHECK.require_check.store(true, std::sync::atomic::Ordering::Relaxed);
+	}
+
 	pub async fn is_healthy() -> bool {
+		if HEALTH_CHECK.require_check.load(std::sync::atomic::Ordering::Relaxed) && HEALTH_CHECK.health_checks.is_empty() {
+			return false;
+		}
+
 		let mut o_entry = HEALTH_CHECK.health_checks.first_entry_async().await;
 
 		while let Some(entry) = o_entry {

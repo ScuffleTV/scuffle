@@ -1,11 +1,11 @@
 use bytes::Bytes;
 
-use self::http::{HttpDisk, HttpDiskError};
-use self::local::{LocalDisk, LocalDiskError};
-use self::memory::{MemoryDisk, MemoryDiskError};
-use self::public_http::{PublicHttpDisk, PublicHttpDiskError};
-use self::s3::{S3Disk, S3DiskError};
-use crate::config::DiskConfig;
+use self::http::{HttpDrive, HttpDriveError};
+use self::local::{LocalDrive, LocalDriveError};
+use self::memory::{MemoryDrive, MemoryDriveError};
+use self::public_http::{PublicHttpDrive, PublicHttpDriveError};
+use self::s3::{S3Drive, S3DriveError};
+use crate::config::DriveConfig;
 
 pub mod http;
 pub mod local;
@@ -14,17 +14,17 @@ pub mod public_http;
 pub mod s3;
 
 #[derive(Debug, thiserror::Error)]
-pub enum DiskError {
+pub enum DriveError {
 	#[error("http: {0}")]
-	Http(#[from] HttpDiskError),
+	Http(#[from] HttpDriveError),
 	#[error("local: {0}")]
-	Local(#[from] LocalDiskError),
+	Local(#[from] LocalDriveError),
 	#[error("s3: {0}")]
-	S3(#[from] S3DiskError),
+	S3(#[from] S3DriveError),
 	#[error("memory: {0}")]
-	Memory(#[from] MemoryDiskError),
+	Memory(#[from] MemoryDriveError),
 	#[error("public http: {0}")]
-	PublicHttp(#[from] PublicHttpDiskError),
+	PublicHttp(#[from] PublicHttpDriveError),
 	#[error("not found")]
 	NotFound,
 	#[error("read only")]
@@ -34,30 +34,30 @@ pub enum DiskError {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct DiskWriteOptions {
+pub struct DriveWriteOptions {
 	pub cache_control: Option<String>,
 	pub content_type: Option<String>,
 	pub acl: Option<String>,
 	pub content_disposition: Option<String>,
 }
 
-pub trait Disk {
-	/// Get the name of the disk
+pub trait Drive {
+	/// Get the name of the drive
 	fn name(&self) -> &str;
 
-	/// Read data from a disk
-	fn read(&self, path: &str) -> impl std::future::Future<Output = Result<Bytes, DiskError>> + Send;
+	/// Read data from a drive
+	fn read(&self, path: &str) -> impl std::future::Future<Output = Result<Bytes, DriveError>> + Send;
 
-	/// Write data to a disk
+	/// Write data to a drive
 	fn write(
 		&self,
 		path: &str,
 		data: Bytes,
-		options: Option<DiskWriteOptions>,
-	) -> impl std::future::Future<Output = Result<(), DiskError>> + Send;
+		options: Option<DriveWriteOptions>,
+	) -> impl std::future::Future<Output = Result<(), DriveError>> + Send;
 
-	/// Delete data from a disk
-	fn delete(&self, path: &str) -> impl std::future::Future<Output = Result<(), DiskError>> + Send;
+	/// Delete data from a drive
+	fn delete(&self, path: &str) -> impl std::future::Future<Output = Result<(), DriveError>> + Send;
 
 	/// Can be scoped to a specific request
 	fn scoped(&self) -> Option<Self>
@@ -66,65 +66,69 @@ pub trait Disk {
 	{
 		None
 	}
+
+	fn healthy(&self) -> impl std::future::Future<Output = bool> + Send {
+		async { true }
+	}
 }
 
 #[derive(Debug)]
-pub enum AnyDisk {
-	Local(LocalDisk),
-	S3(S3Disk),
-	Memory(MemoryDisk),
-	Http(HttpDisk),
-	PublicHttp(PublicHttpDisk),
+pub enum AnyDrive {
+	Local(LocalDrive),
+	S3(S3Drive),
+	Memory(MemoryDrive),
+	Http(HttpDrive),
+	PublicHttp(PublicHttpDrive),
 }
 
-impl Disk for AnyDisk {
+impl Drive for AnyDrive {
 	fn name(&self) -> &str {
 		match self {
-			AnyDisk::Local(disk) => disk.name(),
-			AnyDisk::S3(disk) => disk.name(),
-			AnyDisk::Memory(disk) => disk.name(),
-			AnyDisk::Http(disk) => disk.name(),
-			AnyDisk::PublicHttp(disk) => disk.name(),
+			AnyDrive::Local(drive) => drive.name(),
+			AnyDrive::S3(drive) => drive.name(),
+			AnyDrive::Memory(drive) => drive.name(),
+			AnyDrive::Http(drive) => drive.name(),
+			AnyDrive::PublicHttp(drive) => drive.name(),
 		}
 	}
 
-	async fn read(&self, path: &str) -> Result<Bytes, DiskError> {
+	async fn read(&self, path: &str) -> Result<Bytes, DriveError> {
 		match self {
-			AnyDisk::Local(disk) => disk.read(path).await,
-			AnyDisk::S3(disk) => disk.read(path).await,
-			AnyDisk::Memory(disk) => disk.read(path).await,
-			AnyDisk::Http(disk) => disk.read(path).await,
-			AnyDisk::PublicHttp(disk) => disk.read(path).await,
+			AnyDrive::Local(drive) => drive.read(path).await,
+			AnyDrive::S3(drive) => drive.read(path).await,
+			AnyDrive::Memory(drvie) => drvie.read(path).await,
+			AnyDrive::Http(drive) => drive.read(path).await,
+			AnyDrive::PublicHttp(drive) => drive.read(path).await,
 		}
 	}
 
-	async fn write(&self, path: &str, data: Bytes, options: Option<DiskWriteOptions>) -> Result<(), DiskError> {
+	async fn write(&self, path: &str, data: Bytes, options: Option<DriveWriteOptions>) -> Result<(), DriveError> {
 		match self {
-			AnyDisk::Local(disk) => disk.write(path, data, options).await,
-			AnyDisk::S3(disk) => disk.write(path, data, options).await,
-			AnyDisk::Memory(disk) => disk.write(path, data, options).await,
-			AnyDisk::Http(disk) => disk.write(path, data, options).await,
-			AnyDisk::PublicHttp(disk) => disk.write(path, data, options).await,
+			AnyDrive::Local(drive) => drive.write(path, data, options).await,
+			AnyDrive::S3(drive) => drive.write(path, data, options).await,
+			AnyDrive::Memory(drive) => drive.write(path, data, options).await,
+			AnyDrive::Http(drive) => drive.write(path, data, options).await,
+			AnyDrive::PublicHttp(drive) => drive.write(path, data, options).await,
 		}
 	}
 
-	async fn delete(&self, path: &str) -> Result<(), DiskError> {
+	async fn delete(&self, path: &str) -> Result<(), DriveError> {
 		match self {
-			AnyDisk::Local(disk) => disk.delete(path).await,
-			AnyDisk::S3(disk) => disk.delete(path).await,
-			AnyDisk::Memory(disk) => disk.delete(path).await,
-			AnyDisk::Http(disk) => disk.delete(path).await,
-			AnyDisk::PublicHttp(disk) => disk.delete(path).await,
+			AnyDrive::Local(drive) => drive.delete(path).await,
+			AnyDrive::S3(drive) => drive.delete(path).await,
+			AnyDrive::Memory(drive) => drive.delete(path).await,
+			AnyDrive::Http(drive) => drive.delete(path).await,
+			AnyDrive::PublicHttp(drive) => drive.delete(path).await,
 		}
 	}
 }
 
-pub async fn build_disk(config: &DiskConfig) -> Result<AnyDisk, DiskError> {
+pub async fn build_drive(config: &DriveConfig) -> Result<AnyDrive, DriveError> {
 	match config {
-		DiskConfig::Local(local) => Ok(AnyDisk::Local(LocalDisk::new(local).await?)),
-		DiskConfig::S3(s3) => Ok(AnyDisk::S3(S3Disk::new(s3).await?)),
-		DiskConfig::Memory(memory) => Ok(AnyDisk::Memory(MemoryDisk::new(memory).await?)),
-		DiskConfig::Http(http) => Ok(AnyDisk::Http(HttpDisk::new(http).await?)),
-		DiskConfig::PublicHttp(public_http) => Ok(AnyDisk::PublicHttp(PublicHttpDisk::new(public_http).await?)),
+		DriveConfig::Local(local) => Ok(AnyDrive::Local(LocalDrive::new(local).await?)),
+		DriveConfig::S3(s3) => Ok(AnyDrive::S3(S3Drive::new(s3).await?)),
+		DriveConfig::Memory(memory) => Ok(AnyDrive::Memory(MemoryDrive::new(memory).await?)),
+		DriveConfig::Http(http) => Ok(AnyDrive::Http(HttpDrive::new(http).await?)),
+		DriveConfig::PublicHttp(public_http) => Ok(AnyDrive::PublicHttp(PublicHttpDrive::new(public_http).await?)),
 	}
 }

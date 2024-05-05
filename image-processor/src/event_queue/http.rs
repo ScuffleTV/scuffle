@@ -3,7 +3,7 @@ use scuffle_image_processor_proto::EventCallback;
 use url::Url;
 
 use super::{EventQueue, EventQueueError, PROTOBUF_CONTENT_TYPE};
-use crate::config::HttpEventQueueConfig;
+use crate::config::{HttpEventQueueConfig, MessageEncoding};
 
 #[derive(Debug)]
 pub struct HttpEventQueue {
@@ -11,7 +11,7 @@ pub struct HttpEventQueue {
 	url: Url,
 	client: reqwest::Client,
 	semaphore: Option<tokio::sync::Semaphore>,
-	allow_protobuf: bool,
+	message_encoding: MessageEncoding,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -26,7 +26,7 @@ pub enum HttpEventQueueError {
 
 impl HttpEventQueue {
 	#[tracing::instrument(skip(config), name = "HttpEventQueue::new", fields(name = %config.name), err)]
-	pub async fn new(config: &HttpEventQueueConfig) -> Result<Self, HttpEventQueueError> {
+	pub async fn new(config: &HttpEventQueueConfig) -> Result<Self, EventQueueError> {
 		tracing::debug!("setting up http event queue");
 		Ok(Self {
 			name: config.name.clone(),
@@ -45,8 +45,11 @@ impl HttpEventQueue {
 
 				for (key, value) in &config.headers {
 					headers.insert(
-						key.parse::<reqwest::header::HeaderName>()?,
-						value.parse::<reqwest::header::HeaderValue>()?,
+						key.parse::<reqwest::header::HeaderName>()
+							.map_err(HttpEventQueueError::from)?,
+						value
+							.parse::<reqwest::header::HeaderValue>()
+							.map_err(HttpEventQueueError::from)?,
 					);
 				}
 
@@ -55,7 +58,7 @@ impl HttpEventQueue {
 				builder.build().map_err(|e| HttpEventQueueError::Reqwest(e))?
 			},
 			url: config.url.clone(),
-			allow_protobuf: config.allow_protobuf,
+			message_encoding: config.message_encoding,
 			semaphore: config.max_connections.map(|max| tokio::sync::Semaphore::new(max)),
 		})
 	}
@@ -76,7 +79,7 @@ impl EventQueue for HttpEventQueue {
 
 		let mut req = self.client.post(self.url.clone()).header("X-Topic", topic);
 
-		if self.allow_protobuf {
+		if self.message_encoding == MessageEncoding::Protobuf {
 			req = req.header("Content-Type", PROTOBUF_CONTENT_TYPE).body(data.encode_to_vec());
 		} else {
 			req = req.json(&data);

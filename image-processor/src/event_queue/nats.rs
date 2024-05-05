@@ -2,12 +2,12 @@ use prost::Message;
 use scuffle_image_processor_proto::EventCallback;
 
 use super::{EventQueue, EventQueueError, PROTOBUF_CONTENT_TYPE};
-use crate::config::NatsEventQueueConfig;
+use crate::config::{MessageEncoding, NatsEventQueueConfig};
 
 #[derive(Debug)]
 pub struct NatsEventQueue {
 	name: String,
-	allow_protobuf: bool,
+	message_encoding: MessageEncoding,
 	nats: async_nats::Client,
 }
 
@@ -23,13 +23,13 @@ pub enum NatsEventQueueError {
 
 impl NatsEventQueue {
 	#[tracing::instrument(skip(config), name = "NatsEventQueue::new", fields(name = %config.name), err)]
-	pub async fn new(config: &NatsEventQueueConfig) -> Result<Self, NatsEventQueueError> {
+	pub async fn new(config: &NatsEventQueueConfig) -> Result<Self, EventQueueError> {
 		tracing::debug!("setting up nats event queue");
-		let nats = async_nats::connect(&config.url).await?;
+		let nats = async_nats::connect(&config.url).await.map_err(NatsEventQueueError::from)?;
 
 		Ok(Self {
 			name: config.name.clone(),
-			allow_protobuf: config.allow_protobuf,
+			message_encoding: config.message_encoding,
 			nats,
 		})
 	}
@@ -44,7 +44,7 @@ impl EventQueue for NatsEventQueue {
 	async fn publish(&self, topic: &str, data: EventCallback) -> Result<(), EventQueueError> {
 		let mut header_map = async_nats::HeaderMap::new();
 
-		let payload = if self.allow_protobuf {
+		let payload = if self.message_encoding == MessageEncoding::Protobuf {
 			header_map.insert("Content-Type", PROTOBUF_CONTENT_TYPE);
 			data.encode_to_vec()
 		} else {
@@ -61,5 +61,9 @@ impl EventQueue for NatsEventQueue {
 			.map_err(NatsEventQueueError::Publish)?;
 
 		Ok(())
+	}
+
+	async fn healthy(&self) -> bool {
+		matches!(self.nats.connection_state(), async_nats::connection::State::Connected)
 	}
 }

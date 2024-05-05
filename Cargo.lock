@@ -3088,6 +3088,15 @@ dependencies = [
 
 [[package]]
 name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
@@ -4034,6 +4043,43 @@ dependencies = [
  "ulid",
  "uuid",
  "walkdir",
+]
+
+[[package]]
+name = "pbjson"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1030c719b0ec2a2d25a5df729d6cff1acf3cc230bf766f4f97833591f7577b90"
+dependencies = [
+ "base64 0.21.7",
+ "serde",
+]
+
+[[package]]
+name = "pbjson-build"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2580e33f2292d34be285c5bc3dba5259542b083cfad6037b6d70345f24dcb735"
+dependencies = [
+ "heck 0.4.1",
+ "itertools 0.11.0",
+ "prost 0.12.4",
+ "prost-types",
+]
+
+[[package]]
+name = "pbjson-types"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18f596653ba4ac51bdecbb4ef6773bc7f56042dc13927910de1684ad3d32aa12"
+dependencies = [
+ "bytes",
+ "chrono",
+ "pbjson",
+ "pbjson-build",
+ "prost 0.12.4",
+ "prost-build",
+ "serde",
 ]
 
 [[package]]
@@ -5390,6 +5436,7 @@ dependencies = [
  "libwebp-sys2",
  "mongodb",
  "num_cpus",
+ "once_cell",
  "png",
  "postgres-from-row",
  "prost 0.12.4",
@@ -5402,6 +5449,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "strfmt",
  "thiserror",
  "tokio",
  "tonic",
@@ -5409,12 +5457,16 @@ dependencies = [
  "tracing",
  "ulid",
  "url",
+ "urlencoding",
 ]
 
 [[package]]
 name = "scuffle-image-processor-proto"
 version = "0.0.0"
 dependencies = [
+ "pbjson",
+ "pbjson-build",
+ "pbjson-types",
  "prost 0.12.4",
  "prost-build",
  "serde",
@@ -5905,6 +5957,12 @@ name = "static_assertions_next"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7beae5182595e9a8b683fa98c4317f956c9a2dec3b9716990d20023cc60c766"
+
+[[package]]
+name = "strfmt"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a8348af2d9fc3258c8733b8d9d8db2e56f54b2363a4b5b81585c7875ed65e65"
 
 [[package]]
 name = "stringprep"

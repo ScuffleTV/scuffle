@@ -1,6 +1,9 @@
 use std::collections::HashMap;
+use std::net::SocketAddr;
 
-use scuffle_foundations::{bootstrap::RuntimeSettings, settings::auto_settings, telemetry::settings::TelemetrySettings};
+use scuffle_foundations::bootstrap::RuntimeSettings;
+use scuffle_foundations::settings::auto_settings;
+use scuffle_foundations::telemetry::settings::TelemetrySettings;
 use url::Url;
 
 #[auto_settings]
@@ -8,15 +11,14 @@ use url::Url;
 pub struct ImageProcessorConfig {
 	/// MongoDB database configuration
 	pub database: DatabaseConfig,
-	/// The disk configurations for the image processor
-	pub disks: Vec<DiskConfig>,
+	/// The drive configurations for the image processor
+	pub drives: Vec<DriveConfig>,
 	/// The event queues for the image processor
 	pub event_queues: Vec<EventQueueConfig>,
-	/// Concurrency limit, defaults to number of CPUs
-	/// 0 means all CPUs
-	#[settings(default = 0)]
-	pub concurrency: usize,
-
+	/// The worker configuration
+	pub worker: WorkerConfig,
+	/// The management configuration
+	pub management: ManagementConfig,
 	/// Telemetry configuration
 	pub telemetry: TelemetrySettings,
 	/// Runtime configuration
@@ -25,40 +27,83 @@ pub struct ImageProcessorConfig {
 
 #[auto_settings]
 #[serde(default)]
+pub struct ManagementConfig {
+	/// The gRPC configuration
+	pub grpc: GrpcConfig,
+	/// The HTTP configuration
+	pub http: HttpConfig,
+}
+
+#[auto_settings]
+#[serde(default)]
+pub struct GrpcConfig {
+	/// Enable the gRPC server
+	#[settings(default = true)]
+	pub enabled: bool,
+	/// The gRPC server address
+	#[settings(default = SocketAddr::from(([0, 0, 0, 0], 50051)))]
+	pub bind: SocketAddr,
+}
+
+#[auto_settings]
+#[serde(default)]
+pub struct HttpConfig {
+	/// Enable the HTTP server
+	#[settings(default = true)]
+	pub enabled: bool,
+	/// The HTTP server address
+	#[settings(default = SocketAddr::from(([0, 0, 0, 0], 8080)))]
+	pub bind: SocketAddr,
+}
+
+#[auto_settings]
+#[serde(default)]
+pub struct WorkerConfig {
+	/// Enable the worker server
+	pub enabled: bool,
+	/// The number of workers to start
+	/// Default is 0, which means the number of workers is equal to the number
+	/// of CPU cores
+	#[settings(default = 0)]
+	pub workers: usize,
+}
+
+#[auto_settings]
+#[serde(default)]
 pub struct DatabaseConfig {
-	#[settings(default = "mongodb://localhost:27017".into())]
+	#[settings(default = "mongodb://localhost:27017/scuffle-image-processor".into())]
 	pub uri: String,
 }
 
 #[auto_settings(impl_default = false)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
-pub enum DiskConfig {
-	/// Local disk
-	Local(LocalDiskConfig),
+pub enum DriveConfig {
+	/// Local drive
+	Local(LocalDriveConfig),
 	/// S3 bucket
-	S3(S3DiskConfig),
-	/// Memory disk
-	Memory(MemoryDiskConfig),
-	/// HTTP disk
-	Http(HttpDiskConfig),
-	/// Public web http disk
-	PublicHttp(PublicHttpDiskConfig),
+	S3(S3DriveConfig),
+	/// Memory drive
+	Memory(MemoryDriveConfig),
+	/// HTTP drive
+	Http(HttpDriveConfig),
+	/// Public web http drive
+	PublicHttp(PublicHttpDriveConfig),
 }
 
 #[auto_settings]
-pub struct LocalDiskConfig {
-	/// The name of the disk
+pub struct LocalDriveConfig {
+	/// The name of the drive
 	pub name: String,
-	/// The path to the local disk
+	/// The path to the local drive
 	pub path: std::path::PathBuf,
-	/// The disk mode
+	/// The drive mode
 	#[serde(default)]
-	pub mode: DiskMode,
+	pub mode: DriveMode,
 }
 
 #[auto_settings]
-pub struct S3DiskConfig {
-	/// The name of the disk
+pub struct S3DriveConfig {
+	/// The name of the drive
 	pub name: String,
 	/// The S3 bucket name
 	pub bucket: String,
@@ -78,9 +123,9 @@ pub struct S3DiskConfig {
 	/// Use path style
 	#[serde(default)]
 	pub path_style: bool,
-	/// The disk mode
+	/// The drive mode
 	#[serde(default)]
-	pub mode: DiskMode,
+	pub mode: DriveMode,
 	/// The maximum number of concurrent connections
 	#[serde(default)]
 	pub max_connections: Option<usize>,
@@ -91,19 +136,19 @@ fn default_region() -> String {
 }
 
 #[auto_settings]
-pub struct MemoryDiskConfig {
-	/// The name of the disk
+pub struct MemoryDriveConfig {
+	/// The name of the drive
 	pub name: String,
-	/// The maximum capacity of the memory disk
+	/// The maximum capacity of the memory drive
 	#[serde(default)]
 	pub capacity: Option<usize>,
-	/// Global, shared memory disk for all tasks otherwise each task gets its
-	/// own memory disk
+	/// Global, shared memory drive for all tasks otherwise each task gets its
+	/// own memory drive
 	#[serde(default = "default_true")]
 	pub global: bool,
-	/// The disk mode
+	/// The drive mode
 	#[serde(default)]
-	pub mode: DiskMode,
+	pub mode: DriveMode,
 }
 
 fn default_true() -> bool {
@@ -111,24 +156,24 @@ fn default_true() -> bool {
 }
 
 #[auto_settings(impl_default = false)]
-pub struct HttpDiskConfig {
-	/// The name of the disk
+pub struct HttpDriveConfig {
+	/// The name of the drive
 	pub name: String,
-	/// The base URL for the HTTP disk
+	/// The base URL for the HTTP drive
 	pub url: Url,
-	/// The timeout for the HTTP disk
+	/// The timeout for the HTTP drive
 	#[serde(default = "default_timeout")]
 	pub timeout: Option<std::time::Duration>,
 	/// Allow insecure TLS
 	#[serde(default)]
 	pub allow_insecure: bool,
-	/// The disk mode
+	/// The drive mode
 	#[serde(default)]
-	pub mode: DiskMode,
+	pub mode: DriveMode,
 	/// The maximum number of concurrent connections
 	#[serde(default)]
 	pub max_connections: Option<usize>,
-	/// Additional headers for the HTTP disk
+	/// Additional headers for the HTTP drive
 	#[serde(default)]
 	pub headers: HashMap<String, String>,
 }
@@ -140,7 +185,7 @@ fn default_timeout() -> Option<std::time::Duration> {
 #[auto_settings]
 #[serde(rename_all = "kebab-case")]
 #[derive(Copy, PartialEq, Eq, Hash)]
-pub enum DiskMode {
+pub enum DriveMode {
 	/// Read only
 	Read,
 	#[settings(default)]
@@ -150,13 +195,13 @@ pub enum DiskMode {
 	Write,
 }
 
-/// Public http disks do not have a name because they will be invoked if the
-/// input path is a URL that starts with 'http' or 'https'. Public http disks
-/// can only be read-only. If you do not have a public http disk, the image
+/// Public http drives do not have a name because they will be invoked if the
+/// input path is a URL that starts with 'http' or 'https'. Public http drives
+/// can only be read-only. If you do not have a public http drive, the image
 /// processor will not be able to download images using HTTP.
 #[auto_settings]
-pub struct PublicHttpDiskConfig {
-	/// The timeout for the HTTP disk
+pub struct PublicHttpDriveConfig {
+	/// The timeout for the HTTP drive
 	#[serde(default = "default_timeout")]
 	pub timeout: Option<std::time::Duration>,
 	/// Allow insecure TLS
@@ -165,7 +210,7 @@ pub struct PublicHttpDiskConfig {
 	/// The maximum number of concurrent connections
 	#[serde(default)]
 	pub max_connections: Option<usize>,
-	/// Additional headers for the HTTP disk
+	/// Additional headers for the HTTP drive
 	#[serde(default)]
 	pub headers: HashMap<String, String>,
 	/// Whitelist of allowed domains or IPs can be subnets or CIDR ranges
@@ -193,9 +238,9 @@ pub struct NatsEventQueueConfig {
 	/// The Nats URL
 	/// For example: nats://localhost:4222
 	pub url: String,
-	/// Allow Protobuf messages
+	/// The message encoding for the event queue
 	#[serde(default)]
-	pub allow_protobuf: bool,
+	pub message_encoding: MessageEncoding,
 }
 
 #[auto_settings(impl_default = false)]
@@ -220,9 +265,9 @@ pub struct HttpEventQueueConfig {
 	/// Default is None
 	#[serde(default)]
 	pub max_connections: Option<usize>,
-	/// Allow Protobuf messages
+	/// The message encoding for the event queue
 	#[serde(default)]
-	pub allow_protobuf: bool,
+	pub message_encoding: MessageEncoding,
 }
 
 #[auto_settings(impl_default = false)]
@@ -231,7 +276,18 @@ pub struct RedisEventQueueConfig {
 	pub name: String,
 	/// The Redis URL, for example: redis://localhost:6379
 	pub url: String,
-	/// Allow Protobuf messages
+	/// The message encoding for the event queue
 	#[serde(default)]
-	pub allow_protobuf: bool,
+	pub message_encoding: MessageEncoding,
+}
+
+#[auto_settings]
+#[derive(Copy, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
+pub enum MessageEncoding {
+	/// JSON encoding
+	#[settings(default)]
+	Json,
+	/// Protobuf encoding
+	Protobuf,
 }

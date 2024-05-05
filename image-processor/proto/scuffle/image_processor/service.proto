@@ -34,8 +34,8 @@ message ProcessImageRequest {
 message ProcessImageResponse {
   // A unique identifier for the task
   string id = 1;
-  // Pre-errors that occurred when creating the task.
-  repeated Error errors = 2;
+  // Errors that occurred when creating the task.
+  optional Error error = 2;
 }
 
 // The Payload for a ImageProcessor.CancelTask request
@@ -46,6 +46,6 @@ message CancelTaskRequest {
 
 // The Payload for a ImageProcessor.CancelTask response
 message CancelTaskResponse {
-  // The status of the task
-  optional string error = 1;
+  // The status of the response
+  optional Error error = 1;
 }

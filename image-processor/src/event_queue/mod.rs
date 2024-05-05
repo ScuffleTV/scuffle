@@ -29,6 +29,10 @@ pub trait EventQueue {
 		topic: &str,
 		data: EventCallback,
 	) -> impl std::future::Future<Output = Result<(), EventQueueError>> + Send;
+
+	fn healthy(&self) -> impl std::future::Future<Output = bool> + Send {
+		async { true }
+	}
 }
 
 #[derive(Debug)]

@@ -3,22 +3,29 @@ use std::collections::HashMap;
 #[cfg(feature = "telemetry-server")]
 use std::net::SocketAddr;
 
+#[cfg(feature = "opentelemetry")]
 use opentelemetry_otlp::WithExportConfig;
+#[cfg(feature = "opentelemetry")]
 use opentelemetry_sdk::Resource;
+
 #[cfg(feature = "logging")]
 use tracing_subscriber::fmt::time::{ChronoLocal, ChronoUtc};
 
 #[cfg(feature = "logging")]
 use crate::telemetry::logging::TimeFormatter;
+#[cfg(feature = "opentelemetry")]
 use crate::telemetry::opentelemetry::{complex_rate_sampler, BatchExporter, Sampler, SpanObserver};
 
 #[crate::settings::auto_settings(crate_path = "crate")]
 pub struct TelemetrySettings {
 	/// Settings for metric exporting.
+	#[cfg(feature = "metrics")]
 	pub metrics: MetricsSettings,
 	/// Settings for opentelemetry span exporting.
+	#[cfg(feature = "opentelemetry")]
 	pub opentelemetry: OpentelemetrySettings,
 	/// Settings for logging.
+	#[cfg(feature = "logging")]
 	pub logging: LoggingSettings,
 	/// Settings for the http server.
 	#[cfg(feature = "telemetry-server")]
@@ -447,7 +454,7 @@ pub async fn init(info: crate::ServiceInfo, settings: TelemetrySettings) {
 		any(feature = "pprof-cpu", feature = "pprof-heap", feature = "metrics",),
 		feature = "telemetry-server"
 	))]
-	{
+	if settings.server.enabled {
 		#[cfg(not(feature = "runtime"))]
 		use tokio::spawn;
 

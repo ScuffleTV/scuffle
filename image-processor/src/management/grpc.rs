@@ -17,10 +17,7 @@ impl ManagementServer {
 
 #[async_trait::async_trait]
 impl scuffle_image_processor_proto::image_processor_server::ImageProcessor for ManagementServer {
-	async fn process_image(
-		&self,
-		request: Request<ProcessImageRequest>,
-	) -> tonic::Result<Response<ProcessImageResponse>> {
+	async fn process_image(&self, request: Request<ProcessImageRequest>) -> tonic::Result<Response<ProcessImageResponse>> {
 		let resp = match self.process_image(request.into_inner()).await {
 			Ok(resp) => resp,
 			Err(err) => ProcessImageResponse {
@@ -32,15 +29,10 @@ impl scuffle_image_processor_proto::image_processor_server::ImageProcessor for M
 		Ok(Response::new(resp))
 	}
 
-	async fn cancel_task(
-		&self,
-		request: Request<CancelTaskRequest>,
-	) -> tonic::Result<Response<CancelTaskResponse>> {
+	async fn cancel_task(&self, request: Request<CancelTaskRequest>) -> tonic::Result<Response<CancelTaskResponse>> {
 		let resp = match self.cancel_task(request.into_inner()).await {
 			Ok(resp) => resp,
-			Err(err) => CancelTaskResponse {
-				error: Some(err),
-			},
+			Err(err) => CancelTaskResponse { error: Some(err) },
 		};
 
 		Ok(Response::new(resp))

@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use scuffle_foundations::bootstrap::{bootstrap, Bootstrap};
-use scuffle_foundations::settings::cli::Matches;
 use scuffle_foundations::runtime;
+use scuffle_foundations::settings::cli::Matches;
 use scuffle_image_processor_proto::{event_callback, EventCallback};
 use tokio::signal::unix::SignalKind;
 
@@ -96,7 +96,6 @@ async fn main(cfg: Matches<ImageProcessorConfig>) {
 			}
 		}
 	}
-
 
 	std::process::exit(0);
 }

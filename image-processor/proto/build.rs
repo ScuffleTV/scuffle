@@ -27,12 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	#[cfg(feature = "serde")]
 	pbjson_build::Builder::new()
 		.register_descriptors(&descriptor_set)?
-		.build(
-			&[
-				".scuffle.image_processor",
-			],
-		)?;
-
+		.build(&[".scuffle.image_processor"])?;
 
 	Ok(())
 }

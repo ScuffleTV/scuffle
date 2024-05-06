@@ -129,7 +129,7 @@ impl HealthCheck for Global {
 				return false;
 			}
 
-			for disk in self.drive().values() {
+			for disk in self.drives().values() {
 				if !disk.healthy().await {
 					tracing::error!(name = %disk.name(), "disk check failed");
 					return false;

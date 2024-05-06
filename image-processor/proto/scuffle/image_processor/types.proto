@@ -2,30 +2,28 @@ syntax = "proto3";
 
 package scuffle.image_processor;
 
-// When submitting a task these formats are used to determine what the image processor should do.
-// If the image processor is unable to generate a requested format it will not hard fail unless the task is set to hard fail.
-// Otherwise it will generate as many formats as it can and return the results with any errors in the response.
-enum ImageFormat {
-    WEBP_ANIM = 0;
-    AVIF_ANIM = 1;
-    GIF_ANIM = 2;
-    WEBP_STATIC = 3;
-    AVIF_STATIC = 4;
-    PNG_STATIC = 5;
+// The output format type
+enum OutputFormat {
+    // Animated WebP format
+    WebpAnim = 0;
+    // Animated AVIF format.
+    AvifAnim = 1;
+    // Animated GIF format.
+    GifAnim = 2;
+    // Static WebP format.
+    WebpStatic = 3;
+    // Static AVIF format.
+    AvifStatic = 4;
+    // Static PNG format.
+    PngStatic = 5;
 }
 
+// DrivePath is used to determine where the image should be stored.
 message DrivePath {
+    // The drive to locate the image.
     string drive = 1;
+    // The path in the drive.
     string path = 2;
-}
-
-message InputPath {
-    oneof input_path {
-        // Drive path to the image.
-        DrivePath drive_path = 1;
-        // Public URL to the image.
-        string public_url = 2;
-    }
 }
 
 // The resize method determines how the image processor should resize the image.
@@ -87,13 +85,6 @@ message Limits {
     optional uint32 max_input_duration_ms = 5;
 }
 
-message Ratio {
-    // The width of the ratio.
-    uint32 width = 1;
-    // The height of the ratio.
-    uint32 height = 2;
-}
-
 // Crop is used to determine what part of the image the image processor should crop.
 // The processor will crop the image before resizing it.
 message Crop {
@@ -107,13 +98,6 @@ message Crop {
     uint32 height = 4;
 }
 
-// Upscale is used to determine if the image processor should upscale the image.
-enum Upscale {
-    Yes = 0;
-    No = 1;
-    NoPreserveSource = 2;
-}
-
 // Provide extra information about the input to the image processor.
 message InputMetadata {
     // If the input is not animated, this will generate a fatal error. If there are not enough frames this will generate a fatal error.
@@ -122,93 +106,207 @@ message InputMetadata {
     // If this is different from the actual frame count the image processor will generate a fatal error.
     optional uint32 frame_count = 2;
     // If this is different from the actual width the image processor will generate a fatal error.
-    optional uint32 width = 3;
+    uint32 width = 3;
     // If this is different from the actual height the image processor will generate a fatal error.
-    optional uint32 height = 4;
+    uint32 height = 4;
 }
 
-// Scale is used to determine what the output image size should be.
-message Scale {
-    // The width of the output image. (in pixels, use -1 to keep the aspect ratio)
-    int32 width = 1;
-    // The height of the output image. (in pixels, use -1 to keep the aspect ratio)
-    int32 height = 2;
-    // Name of the scale. ALlows for template arguments to be passed in.
-    // For example if the name is "thumbnail_{width}x{height}" and the width is 100 and the height is 200 the name will be "thumbnail_100x200".
-    // If not set will be "{width}x{height}"
-    // If multiple scales have the same name the processor will generate a fatal error.
-    optional string name = 3;
-
-    // Allow upscale for this scale.
-    // If NoPreserveSource is set and this scale is larger than the input image we will just use the source dimensions.
-    // If Yes, we will upscale the image.
-    // If No, we will ignore this scale.
-    Upscale upscale = 4;
+// Confine the aspect ratio of the image to a specific range.
+// For example if you want to allow all images that are 3:1 to 1:3 you would set min_ratio to 1/3 and max_ratio to 3.
+// Setting the min and max to the same value will restrict the aspect ratio to that value.
+// Setting both values to 0 will use the input image's aspect ratio.
+// Setting one of the values to 0 will allow any aspect ratio that is less than or greater than the other value.
+message AspectRatio {
+    // The minimum ratio of the image.
+    // Set to 0 to have no minimum ratio.
+    // An aspect ratio is the ratio of the width to the height of the image.
+    double min_ratio = 1;
+    // The maximum ratio of the image.
+    // Set to 0 to have no maximum ratio.
+    // An aspect ratio is the ratio of the width to the height of the image.
+    double max_ratio = 2;
 }
 
+// InputUpload is used to upload an image to a drive configured in the image processor config.
 message InputUpload {
     // The input image as a binary blob.
     bytes binary = 1;
-    // The path to save the image to.
+    // A prefix to use for the folder the image will be stored in.
     DrivePath path = 2;
 }
 
+// Input is used to determine the input image to process.
 message Input {
     // The path to the input image.
-    InputPath path = 1;
+    oneof path {
+        // Drive path to the image.
+        // The image processor will download the image from the drive.
+        DrivePath drive_path = 1;
+        // Public URL to the image.
+        // If public downloads is disabled this will generate a fatal error.
+        string public_url = 2;
+    }
+
     // Extra information about the input image.
-    optional InputMetadata metadata = 2;
+    optional InputMetadata metadata = 3;
 }
 
-message OutputFormat {
-    message Webp {
-        bool static = 1;
-    }
-    message Avif {
-        bool static = 1;
-    }
-    message Gif {}
-    message Png {}
+// How to handle scales that are larger than the input image.
+enum Upscale {
+    // Do not upscale the image.
+    UpscaleNo = 0;
+    // Upscale the image to the desired dimensions.
+    UpscaleYes = 1;
+    // Do not upscale the image, however if not all variants are generated due to the image being too small
+    // generate a single last variant that has the input image dimensions.
+    UpscaleNoPreserveSource = 2;
+}
 
-    // The name is used in the template argument for the output path.
-    // By default the name is the same as the format.
-    // Webp (static) -> webp_static
-    // Webp (animated) -> webp_animated
-    // Avif (static) -> avif_static
-    // Avif (animated) -> avif_animated
-    // Gif -> gif
-    // Png -> png
-    string name = 1;
+// Scaling is used to specify a linear scaling factor for the various dimensions of the image.
+// For example, if you have an image that is 100x100 (and use this as the base) and you want to generate 1x, 2x, and 3x images you would set the scales to [1, 2, 3].
+// The sizes of the output images would be [100x100, 200x200, 300x300].
+message Scaling {
+    oneof base {
+        // This is the scale for the input image (after cropping or aspect ratio adjustments are made).
+        uint32 fixed = 1;
+        // This is used to automatically determine the scale of the input image based on the width.
+        // We know what aspect ratio to use based on the aspect ratio adjustments made to the input image.
+        // We can then use that to determine the (input_width / base_width) scale.
+        // The scale would be the largest integer that is less than or equal to (input_width / base_width), 
+        // or 1 if the input width is less than base_width.
+        uint32 base_width = 2;
+        // Functionally the same as base_width but allows you to specify in terms of height instead.
+        uint32 base_height = 3;
+    }
 
-    oneof format {
-        Webp webp = 2;
-        Avif avif = 3;
-        Gif gif = 4;
-        Png png = 5;
+    // The various scales.
+    // For example to generate a 1x, 2x, and 3x image you would set scales to [1, 2, 3].
+    IntegerList scales = 4;
+}
+
+// A list of integers.
+message IntegerList {
+    repeated uint32 values = 1;
+}
+
+message AnimationConfig {
+    // Specify an animation loop count for animated images.
+    // If this is set to -1 the image will loop indefinitely.
+    // If this is set to 0 the image will not loop.
+    // If this is set to a positive number the image will loop that many times.
+    // If this is unset the image will be encoded with the loop value the input image has.
+    optional int32 loop_count = 1;
+    
+    oneof frame_rate {
+        // Specify the frame duration for every frame in the output image.
+        // This can be used to specify a constant frame rate for the output image.
+        // frame_rate = 1000 / frame_duration_ms
+        uint32 duration_ms = 2;
+        // Frame durations for each frame in the output image.
+        // Specify the frame duration for each frame in the output image.
+        // If this number does not match the number of frames in the output image the processor will generate a fatal error.
+        IntegerList durations_ms = 3;
+        // Factor to multiply the frame duration by.
+        // This can be used to speed up or slow down the animation.
+        // The frame duration will be multiplied by this value.
+        // Each frame has a minimum duration of 1ms, if the factor creates some frames that are less than 1ms the processor will,
+        // drop frames and adjust timings of others to ensure that the total duration of the animation is correctly multiplied.
+        // This rule only applies for when the factor is greater than 1.
+        double factor = 4;
+    }
+
+    // Remove frames idx's from the input image.
+    // This can be used to reduce the size of the output image.
+    // If you specify an index that is out of bounds the processor will generate a fatal error.
+    // If you specify the same index multiple times the processor will ignore the duplicates.
+    repeated uint32 remove_frame_idxs = 5;
+}
+
+enum OutputQuality {
+    // Auto quality output. (default)
+    Auto = 0;
+    // High quality output. (large file size)
+    High = 1;
+    // Medium quality output. (medium file size)
+    Medium = 2;
+    // Low quality output. (smaller file size)
+    Low = 3;
+    // Lossless output. (very large file size)
+    Lossless = 4;
+}
+
+message OutputFormatOptions {
+    // The format of the output image.
+    OutputFormat format = 1;
+    // The quality of the output image.
+    OutputQuality quality = 2;
+}
+
+message OutputVariants {
+    // A suffix that will be appended to the output.drive_path.path to create the output path.
+    // This suffix is special as it allows for template arguments.
+    // Possible template argument values are:
+    // - {id}           - The id of the task.
+    // - {format}       - The format of the output image. (e.g 'webp_anim', 'avif_static', 'png_static', etc.)
+    // - {scale}        - The scale of the output image. (if scaling is used, otherwise empty)
+    // - {width}        - The resulting width of the output image.
+    // - {height}       - The resulting height of the output image.
+    // - {format_idx}   - The index of the output format in the list.
+    // - {resize_idx}   - The index of the resize operation, if the operation is width or height its the index of the value in the list.
+    //                    If its scaling its the index of the scale in the list.
+    // - {static}       - '_static' if the input image is static, otherwise empty.
+    // - {ext}          - The extension of the output image. (e.g. 'webp', 'avif', etc.)
+    string suffix = 1;
+
+    // The desired format to encode the output image.
+    repeated OutputFormatOptions formats = 2;
+
+    // Allow upscaling if the determined dimensions are larger than the input image.
+    Upscale upscale = 3;
+
+    // Sometimes we might specify that we want 'WebpAnim' but the input image is a static image.
+    // In this case we would typically fatally error because we can't generate an animated image from a static image.
+    // However if this is set to true the processor will ignore these errors and skip the format.
+    bool skip_impossible_formats = 4;
+
+    // Skips resizing if the resize operation is impossible.
+    // For example if the resize results in a width or height of less than 1.
+    // If this is set to true the processor will ignore these errors and skip the resize operation.
+    bool skip_impossible_resizes = 5;
+    
+    // There must be at least one element in the list.
+    oneof resize {
+        // Resize to a specific width, the height will be determined by the aspect ratio.
+        IntegerList width = 6;
+        // Resize to a specific height, the width will be determined by the aspect ratio.
+        IntegerList height = 7;
+        // A scaling config to determine how each dimension should be scaled.
+        Scaling scaling = 8;
     }
 }
 
 message Output {
-    DrivePath path = 1;
+    // The drive path to store the output image.
+    // This is a prefix and the processor will append the suffix to this path to determine the final path.
+    // The suffix is defined in the OutputVariantsConfig.
+    DrivePath drive_path = 1;
+
     // The desired formats to encode the output image.
-    repeated OutputFormat formats = 2;
+    OutputVariants variants = 2;
     // The resize method used to resize the image.
     ResizeMethod resize_method = 3;
     // The resize algorithm used to resize the image.
     ResizeAlgorithm resize_algorithm = 4;
-    // The crop used to crop the image before resizing. If the crop settings are not possible the processor will generate a fatal error.
-    optional Crop crop = 5;
-    // The minimum and maximum ratios for the scaled image. Used to prevent upscaling too much on wide or tall images.
-    // If the image does not fit into the min and max ratios the processor will generate a fatal error. If unset the processor will not check the ratios.
-    // These checks are done after the crop. If the resize method allows for padding or stretching we will use the padded or stretched dimentions to perform the check.
-    // If scales are provided that are not within the min and max ratios the processor will generate a fatal error.
-    optional Ratio min_ratio = 6;
-    optional Ratio max_ratio = 7;
-    // The target ratio for the scale image, if unset the processor will use the input ratio (after crop but before resize).
-    // The min and max ratios will be used to detemine if padding or stretching is needed to reach the target ratio.
-    optional Ratio target_ratio = 8;
-    // The desired scales of the output image.
-    repeated Scale scales = 9;
+
+    // The animation configuration for the output image.
+    optional AnimationConfig animation_config = 5;
+
+    // A crop is applied to the image before resizing and before an aspect ratio change.s
+    optional Crop crop = 6;
+
+    // Choose one of the following options to determine the aspect ratio of the image.
+    // An aspect ratio is the ratio of the width to the height of the image.
+    AspectRatio aspect_ratio = 7;
 }
 
 // Events must be in the format
@@ -218,29 +316,37 @@ message Events {
     // The event to trigger when the task is completed successfully
     optional EventQueue on_success = 1;
     // The event to trigger when the task fails
-    optional EventQueue on_fail = 2;
+    optional EventQueue on_failure = 2;
     // The event to trigger when the task is cancelled
     optional EventQueue on_cancel = 3;
     // The event to trigger when the task is started
     optional EventQueue on_start = 4;
+
+    // Metadata to send with the event.
+    map<string, string> metadata = 5;
 }
 
+// EventQueue is used to determine where the image processor should send events.
 message EventQueue {
+    // The name of the event queue.
     string name = 1;
+    // The topic of the event queue.
     string topic = 2;
 }
 
+// A task to process an image.
 message Task {
     // The input image to process.
     Input input = 1;
     // The output image to generate.
-    Output output = 2;    
+    Output output = 2;
     // Result output
     Events events = 3;
     // The limits for the image processor.
     optional Limits limits = 4;
 }
 
+// A error message.
 message Error {
     // The error message.
     string message = 1;
@@ -248,10 +354,12 @@ message Error {
     ErrorCode code = 2;
 }
 
+// ErrorCode is used to determine the type of error that occurred.
 enum ErrorCode {
-    Unknown = 0;
+    // Internal error occurred, please file a bug report.
+    InternalError = 0;
+    // Invalid input error. Please refer to the error message for more information, and resubmit the task with valid input.
     InvalidInput = 1;
-    InternalError = 2;
 }
 
 message EventPayload {

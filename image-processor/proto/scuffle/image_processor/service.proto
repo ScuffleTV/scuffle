@@ -8,6 +8,7 @@ import "scuffle/image_processor/types.proto";
 service ImageProcessor {
   // Submit a task to process an image
   rpc ProcessImage(ProcessImageRequest) returns (ProcessImageResponse) {}
+
   // Cancel a task
   rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse) {}
 }

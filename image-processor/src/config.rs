@@ -119,10 +119,10 @@ pub struct S3DriveConfig {
 	pub endpoint: Option<String>,
 	/// The S3 bucket prefix path
 	#[serde(default)]
-	pub path: Option<String>,
+	pub prefix_path: Option<String>,
 	/// Use path style
 	#[serde(default)]
-	pub path_style: bool,
+	pub force_path_style: Option<bool>,
 	/// The drive mode
 	#[serde(default)]
 	pub mode: DriveMode,

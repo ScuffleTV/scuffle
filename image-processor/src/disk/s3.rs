@@ -1,4 +1,4 @@
-use aws_config::{AppName, Region, SdkConfig};
+use aws_config::{AppName, Region};
 use aws_sdk_s3::config::{Credentials, SharedCredentialsProvider};
 use aws_sdk_s3::operation::delete_object::DeleteObjectError;
 use aws_sdk_s3::operation::get_object::GetObjectError;
@@ -17,6 +17,8 @@ pub struct S3Drive {
 	mode: DriveMode,
 	client: aws_sdk_s3::Client,
 	bucket: String,
+	path_prefix: Option<String>,
+	semaphore: Option<tokio::sync::Semaphore>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -38,14 +40,18 @@ impl S3Drive {
 	pub async fn new(config: &S3DriveConfig) -> Result<Self, DriveError> {
 		tracing::debug!("setting up s3 disk");
 		Ok(Self {
-			name: config.name.clone(),
+			name: config.bucket.clone(),
 			mode: config.mode,
-			client: aws_sdk_s3::Client::new(&{
-				let mut builder = SdkConfig::builder();
+			client: aws_sdk_s3::Client::from_conf({
+				let mut builder = aws_sdk_s3::Config::builder();
+
+				builder.set_endpoint_url(config.endpoint.clone());
 
 				builder.set_app_name(Some(AppName::new(service_info!().name).unwrap()));
 
 				builder.set_region(Some(Region::new(config.region.clone())));
+
+				builder.set_force_path_style(config.force_path_style);
 
 				builder.set_credentials_provider(Some(SharedCredentialsProvider::new(Credentials::new(
 					config.access_key.clone(),
@@ -57,7 +63,9 @@ impl S3Drive {
 
 				builder.build()
 			}),
+			path_prefix: config.prefix_path.clone(),
 			bucket: config.bucket.clone(),
+			semaphore: config.max_connections.map(tokio::sync::Semaphore::new),
 		})
 	}
 }
@@ -73,11 +81,22 @@ impl Drive for S3Drive {
 			return Err(DriveError::ReadOnly);
 		}
 
+		let _permit = if let Some(semaphore) = &self.semaphore {
+			Some(semaphore.acquire().await)
+		} else {
+			None
+		};
+
+		let path = self
+			.path_prefix
+			.as_ref()
+			.map_or_else(|| path.to_string(), |prefix| format!("{}/{}", prefix, path));
+
 		let result = self
 			.client
 			.get_object()
 			.bucket(&self.bucket)
-			.key(path)
+			.key(path.trim_start_matches('/'))
 			.send()
 			.await
 			.map_err(S3DriveError::from)?;
@@ -93,7 +112,23 @@ impl Drive for S3Drive {
 			return Err(DriveError::WriteOnly);
 		}
 
-		let mut req = self.client.put_object().bucket(&self.bucket).key(path).body(data.into());
+		let _permit = if let Some(semaphore) = &self.semaphore {
+			Some(semaphore.acquire().await)
+		} else {
+			None
+		};
+
+		let path = self
+			.path_prefix
+			.as_ref()
+			.map_or_else(|| path.to_string(), |prefix| format!("{}/{}", prefix, path));
+
+		let mut req = self
+			.client
+			.put_object()
+			.bucket(&self.bucket)
+			.key(path.trim_start_matches('/'))
+			.body(data.into());
 
 		if let Some(options) = options {
 			if let Some(cache_control) = &options.cache_control {
@@ -121,10 +156,21 @@ impl Drive for S3Drive {
 			return Err(DriveError::WriteOnly);
 		}
 
+		let _permit = if let Some(semaphore) = &self.semaphore {
+			Some(semaphore.acquire().await)
+		} else {
+			None
+		};
+
+		let path = self
+			.path_prefix
+			.as_ref()
+			.map_or_else(|| path.to_string(), |prefix| format!("{}/{}", prefix, path));
+
 		self.client
 			.delete_object()
 			.bucket(&self.bucket)
-			.key(path)
+			.key(path.trim_start_matches('/'))
 			.send()
 			.await
 			.map_err(S3DriveError::from)?;

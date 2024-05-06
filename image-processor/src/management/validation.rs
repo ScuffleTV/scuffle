@@ -185,19 +185,15 @@ fn validate_event_queue(global: &Arc<Global>, mut fragment: Fragment, event: Opt
 		});
 	}
 
-	if event_queue.topic.is_empty() {
-		return Err(Error {
-			code: ErrorCode::InvalidInput as i32,
-			message: format!("{}: is required", fragment.push("topic")),
-		});
-	}
-
 	if global.event_queue(&event_queue.name).is_none() {
 		return Err(Error {
 			code: ErrorCode::InvalidInput as i32,
 			message: format!("{fragment}: event queue not found"),
 		});
 	}
+
+	// Validate the topic template string
+	validate_template_string(fragment.push("topic"), &["id"], &event_queue.topic)?;
 
 	Ok(())
 }

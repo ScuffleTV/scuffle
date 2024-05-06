@@ -23,6 +23,8 @@ message DrivePath {
     // The drive to locate the image.
     string drive = 1;
     // The path in the drive.
+    // Possible template argument values are:
+    // - {id}   - The id of the task.
     string path = 2;
 }
 
@@ -331,6 +333,8 @@ message EventQueue {
     // The name of the event queue.
     string name = 1;
     // The topic of the event queue.
+    // Possible template argument values are:
+    // - {id}   - The id of the task.
     string topic = 2;
 }
 

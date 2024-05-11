@@ -3999,7 +3999,6 @@ dependencies = [
  "scuffle-foundations",
  "scuffle-image-processor-proto",
  "serde",
- "serde-aux",
  "serde_json",
  "sha2",
  "strfmt",
@@ -4096,17 +4095,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ddc6f9cc94d67c0e21aaf7eda3a010fd3af78ebf6e096aa6e2e13c79749cce4f"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde-aux"
-version = "4.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d2e8bfba469d06512e11e3311d4d051a4a387a5b42d010404fecf3200321c95"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
 ]
 
 [[package]]

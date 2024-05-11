@@ -52,6 +52,3 @@ aws-smithy-runtime-api = "1"
 fred = "9.0.3"
 strfmt = "0.2"
 once_cell = "1.8"
-
-[build-dependencies]
-tonic-build = "0.11"

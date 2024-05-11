@@ -4005,7 +4005,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tonic",
- "tonic-build",
  "tracing",
  "url",
  "urlencoding",

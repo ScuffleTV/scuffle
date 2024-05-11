@@ -447,6 +447,6 @@ impl<C: Config> CliSource<C> {
 
 impl<C: Config> Source<C> for CliSource<C> {
 	fn get_key(&self, path: &KeyPath) -> Result<Option<Value>> {
-		scuffle_utilsget_key::<C>(&self.value, path).map_err(|e| e.with_source(ErrorSource::Cli))
+		utils::get_key::<C>(&self.value, path).map_err(|e| e.with_source(ErrorSource::Cli))
 	}
 }

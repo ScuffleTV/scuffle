@@ -2,19 +2,26 @@ syntax = "proto3";
 
 package scuffle.image_processor;
 
+import "scuffle/image_processor/types.proto";
+
 message EventCallback {
     message Success {}
 
-    message Fail {}
+    message Fail {
+        Error error = 1;
+    }
 
     message Cancel {}
 
     message Start {}
 
+    string id = 1;
+    uint64 timestamp = 2;
+
     oneof event {
-        Success success = 1;
-        Fail fail = 2;
-        Cancel cancel = 3;
-        Start start = 4;
+        Success success = 3;
+        Fail fail = 4;
+        Cancel cancel = 5;
+        Start start = 6;
     }
 }

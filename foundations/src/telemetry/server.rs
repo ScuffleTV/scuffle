@@ -213,7 +213,7 @@ mod health_check {
 	}
 
 	static HEALTH_CHECK: once_cell::sync::Lazy<HealthChecker> =
-		once_cell::sync::Lazy::<HealthChecker>::new(|| HealthChecker::default());
+		once_cell::sync::Lazy::<HealthChecker>::new(HealthChecker::default);
 
 	/// Register a health check and return an id
 	pub fn register(check: impl HealthCheck) -> usize {

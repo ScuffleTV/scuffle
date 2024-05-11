@@ -219,7 +219,7 @@ impl<S: ServiceHandler> Connection<S> {
 			tokio::spawn(
 				async move {
 					if let Err(err) = serve_request(&service, request, stream).await {
-						service.on_error(err.into()).await;
+						service.on_error(err).await;
 					}
 
 					drop(ctx);

@@ -56,7 +56,7 @@ impl PublicHttpDrive {
 
 				builder = builder.default_headers(headers);
 
-				builder.build().map_err(|e| PublicHttpDriveError::Reqwest(e))?
+				builder.build().map_err(PublicHttpDriveError::Reqwest)?
 			},
 			semaphore: config.max_connections.map(|max| tokio::sync::Semaphore::new(max)),
 		})

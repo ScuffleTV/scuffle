@@ -1,8 +1,7 @@
-use imgref::ImgVec;
 use rgb::ComponentBytes;
 
 #[derive(Debug)]
-pub struct AvifRgbImage(libavif_sys::avifRGBImage, imgref::ImgVec<rgb::RGBA8>);
+pub struct AvifRgbImage(libavif_sys::avifRGBImage, Vec<rgb::RGBA8>);
 
 impl AvifRgbImage {
 	pub fn new(dec: &libavif_sys::avifDecoder) -> Self {
@@ -17,19 +16,15 @@ impl AvifRgbImage {
 
 		assert_eq!(channels, 4, "unexpected channel count");
 
-		let mut data = imgref::ImgVec::new(
-			vec![rgb::RGBA::default(); img.width as usize * img.height as usize],
-			img.width as usize,
-			img.height as usize,
-		);
+		let mut data = vec![rgb::RGBA::default(); img.width as usize * img.height as usize];
 
-		img.pixels = data.as_mut().buf_mut().as_bytes_mut().as_mut_ptr() as *mut _;
+		img.pixels = data.as_bytes_mut().as_mut_ptr();
 		img.rowBytes = img.width * 4;
 
 		Self(img, data)
 	}
 
-	pub fn data(&self) -> &ImgVec<rgb::RGBA8> {
+	pub fn data(&self) -> &Vec<rgb::RGBA8> {
 		&self.1
 	}
 }

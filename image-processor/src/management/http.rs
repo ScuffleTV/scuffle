@@ -61,6 +61,12 @@ async fn cancel_task(
 fn map_error_code(code: ErrorCode) -> http::StatusCode {
 	match code {
 		ErrorCode::InvalidInput => http::StatusCode::BAD_REQUEST,
-		ErrorCode::InternalError => http::StatusCode::INTERNAL_SERVER_ERROR,
+		ErrorCode::Internal => http::StatusCode::INTERNAL_SERVER_ERROR,
+		ErrorCode::NotImplemented => http::StatusCode::NOT_IMPLEMENTED,
+		ErrorCode::Decode => http::StatusCode::INTERNAL_SERVER_ERROR,
+		ErrorCode::Encode => http::StatusCode::INTERNAL_SERVER_ERROR,
+		ErrorCode::InputDownload => http::StatusCode::INTERNAL_SERVER_ERROR,
+		ErrorCode::OutputUpload => http::StatusCode::INTERNAL_SERVER_ERROR,
+		ErrorCode::Resize => http::StatusCode::INTERNAL_SERVER_ERROR,
 	}
 }

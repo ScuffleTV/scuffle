@@ -55,7 +55,7 @@ impl HttpEventQueue {
 
 				builder = builder.default_headers(headers);
 
-				builder.build().map_err(|e| HttpEventQueueError::Reqwest(e))?
+				builder.build().map_err(HttpEventQueueError::Reqwest)?
 			},
 			url: config.url.clone(),
 			message_encoding: config.message_encoding,

@@ -1,12 +1,12 @@
 use std::ptr::NonNull;
 
-use anyhow::Context;
+use libavif_sys::{AVIF_QUALITY_LOSSLESS, AVIF_QUANTIZER_BEST_QUALITY, AVIF_SPEED_FASTEST, AVIF_SPEED_SLOWEST};
+use scuffle_image_processor_proto::OutputQuality;
 
-use super::{Encoder, EncoderFrontend, EncoderInfo, EncoderSettings};
-use crate::processor::error::{ProcessorError, Result};
-use crate::processor::job::frame::Frame;
-use crate::processor::job::libavif::AvifError;
-use crate::processor::job::smart_object::{SmartObject, SmartPtr};
+use super::{Encoder, EncoderBackend, EncoderError, EncoderInfo, EncoderSettings};
+use crate::worker::process::frame::FrameRef;
+use crate::worker::process::libavif::AvifError;
+use crate::worker::process::smart_object::{SmartObject, SmartPtr};
 
 pub struct AvifEncoder {
 	encoder: SmartPtr<libavif_sys::avifEncoder>,
@@ -18,25 +18,41 @@ pub struct AvifEncoder {
 }
 
 impl AvifEncoder {
-	pub fn new(settings: EncoderSettings) -> Result<Self> {
+	#[tracing::instrument(skip(settings), fields(name = "AvifEncoder::new"))]
+	pub fn new(settings: EncoderSettings) -> Result<Self, EncoderError> {
 		let mut encoder = SmartPtr::new(
-			NonNull::new(unsafe { libavif_sys::avifEncoderCreate() })
-				.ok_or(AvifError::OutOfMemory)
-				.context("failed to create avif encoder")
-				.map_err(ProcessorError::AvifEncode)?,
+			NonNull::new(unsafe { libavif_sys::avifEncoderCreate() }).ok_or(AvifError::OutOfMemory)?,
 			|ptr| unsafe { libavif_sys::avifEncoderDestroy(ptr.as_ptr()) },
 		);
 
 		encoder.as_mut().maxThreads = 1;
 		encoder.as_mut().timescale = settings.timescale;
 		encoder.as_mut().autoTiling = 1;
-		encoder.as_mut().speed = if settings.fast { 8 } else { 2 };
+		encoder.as_mut().quality = match settings.quality {
+			OutputQuality::Auto => encoder.as_mut().quality,
+			OutputQuality::Lossless => AVIF_QUALITY_LOSSLESS as i32,
+			OutputQuality::High => 75,
+			OutputQuality::Medium => 50,
+			OutputQuality::Low => 25_i32,
+		};
+		encoder.as_mut().qualityAlpha = encoder.as_mut().quality;
+		encoder.as_mut().minQuantizer = match settings.quality {
+			OutputQuality::Auto => encoder.as_mut().minQuantizer,
+			OutputQuality::Lossless => AVIF_QUANTIZER_BEST_QUALITY as i32,
+			OutputQuality::High => 5,
+			OutputQuality::Medium => 15,
+			OutputQuality::Low => 30,
+		};
+		encoder.as_mut().speed = match settings.quality {
+			OutputQuality::Auto => 8,
+			OutputQuality::Lossless => AVIF_SPEED_SLOWEST as i32,
+			OutputQuality::High => 5,
+			OutputQuality::Medium => 8,
+			OutputQuality::Low => AVIF_SPEED_FASTEST as i32,
+		};
 
 		let mut image = SmartPtr::new(
-			NonNull::new(unsafe { libavif_sys::avifImageCreateEmpty() })
-				.ok_or(AvifError::OutOfMemory)
-				.context("failed to create avif image")
-				.map_err(ProcessorError::AvifEncode)?,
+			NonNull::new(unsafe { libavif_sys::avifImageCreateEmpty() }).ok_or(AvifError::OutOfMemory)?,
 			|ptr| unsafe { libavif_sys::avifImageDestroy(ptr.as_ptr()) },
 		);
 
@@ -56,9 +72,11 @@ impl AvifEncoder {
 			first_duration: None,
 			static_image: settings.static_image,
 			info: EncoderInfo {
+				name: settings.name,
 				duration: 0,
 				frame_count: 0,
-				frontend: EncoderFrontend::LibAvif,
+				format: settings.format,
+				frontend: EncoderBackend::LibAvif,
 				height: 0,
 				loop_count: settings.loop_count,
 				timescale: settings.timescale,
@@ -67,26 +85,23 @@ impl AvifEncoder {
 		})
 	}
 
-	fn flush_frame(&mut self, duration: u64, flags: u32) -> Result<()> {
+	fn flush_frame(&mut self, duration: u64, flags: u32) -> Result<(), EncoderError> {
 		// Safety: The image is valid.
 		AvifError::from_code(unsafe {
 			libavif_sys::avifEncoderAddImage(self.encoder.as_mut(), self.image.as_mut(), duration, flags)
-		})
-		.context("failed to add image to encoder")
-		.map_err(ProcessorError::AvifEncode)?;
+		})?;
 
 		Ok(())
 	}
 }
 
 impl Encoder for AvifEncoder {
-	fn info(&self) -> EncoderInfo {
-		self.info
+	fn info(&self) -> &EncoderInfo {
+		&self.info
 	}
 
-	fn add_frame(&mut self, frame: &Frame) -> Result<()> {
-		let _abort_guard = scuffle_utils::task::AbortGuard::new();
-
+	#[tracing::instrument(skip(self), fields(name = "AvifEncoder::add_frame"))]
+	fn add_frame(&mut self, frame: FrameRef) -> Result<(), EncoderError> {
 		if self.rgb.is_none() {
 			self.image.as_mut().width = frame.image.width() as u32;
 			self.image.as_mut().height = frame.image.height() as u32;
@@ -104,7 +119,7 @@ impl Encoder for AvifEncoder {
 			self.first_duration = Some(frame.duration_ts);
 		} else if let Some(first_duration) = self.first_duration.take() {
 			if self.static_image {
-				return Err(ProcessorError::AvifEncode(anyhow::anyhow!("static image already added")));
+				return Err(EncoderError::MultipleFrames);
 			}
 
 			// Flush the first frame to the encoder.
@@ -117,9 +132,7 @@ impl Encoder for AvifEncoder {
 		rgb.pixels = frame.image.buf().as_ptr() as _;
 
 		// Safety: The image and rgb are valid.
-		AvifError::from_code(unsafe { libavif_sys::avifImageRGBToYUV(self.image.as_mut(), rgb) })
-			.context("failed to convert rgb to yuv")
-			.map_err(ProcessorError::AvifEncode)?;
+		AvifError::from_code(unsafe { libavif_sys::avifImageRGBToYUV(self.image.as_mut(), rgb) })?;
 
 		// On the first frame we dont want to flush the image to the encoder yet, this
 		// is because we don't know if there will be more frames.
@@ -135,11 +148,10 @@ impl Encoder for AvifEncoder {
 		Ok(())
 	}
 
-	fn finish(mut self) -> Result<Vec<u8>> {
-		let _abort_guard = scuffle_utils::task::AbortGuard::new();
-
+	#[tracing::instrument(skip(self), fields(name = "AvifEncoder::finish"))]
+	fn finish(mut self) -> Result<Vec<u8>, EncoderError> {
 		if self.rgb.is_none() {
-			return Err(ProcessorError::AvifEncode(anyhow::anyhow!("no frames added")));
+			return Err(EncoderError::NoFrames);
 		}
 
 		if let Some(first_duration) = self.first_duration.take() {
@@ -150,16 +162,11 @@ impl Encoder for AvifEncoder {
 			libavif_sys::avifRWDataFree(ptr)
 		});
 
-		AvifError::from_code(unsafe { libavif_sys::avifEncoderFinish(self.encoder.as_mut(), &mut *output) })
-			.context("failed to finish encoding")
-			.map_err(ProcessorError::AvifEncode)?;
+		AvifError::from_code(unsafe { libavif_sys::avifEncoderFinish(self.encoder.as_mut(), &mut *output) })?;
 
 		let output = output.free();
 
-		let mut data = NonNull::new(output.data)
-			.ok_or(AvifError::OutOfMemory)
-			.context("failed to get output data")
-			.map_err(ProcessorError::AvifEncode)?;
+		let mut data = NonNull::new(output.data).ok_or(AvifError::OutOfMemory)?;
 
 		// Safety: The output is valid, and we own the data.
 		let vec = unsafe { std::vec::Vec::from_raw_parts(data.as_mut(), output.size, output.size) };

@@ -108,7 +108,7 @@ fn make_tcp_listener(addr: SocketAddr) -> std::io::Result<tokio::net::TcpListene
 	socket.bind(&socket2::SockAddr::from(addr))?;
 	socket.listen(1024)?;
 
-	Ok(tokio::net::TcpListener::from_std(socket.into())?)
+	tokio::net::TcpListener::from_std(socket.into())
 }
 
 #[cfg(feature = "http3")]

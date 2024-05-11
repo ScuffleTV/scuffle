@@ -113,28 +113,20 @@ message InputMetadata {
     uint32 height = 4;
 }
 
-// Confine the aspect ratio of the image to a specific range.
-// For example if you want to allow all images that are 3:1 to 1:3 you would set min_ratio to 1/3 and max_ratio to 3.
-// Setting the min and max to the same value will restrict the aspect ratio to that value.
-// Setting both values to 0 will use the input image's aspect ratio.
-// Setting one of the values to 0 will allow any aspect ratio that is less than or greater than the other value.
-message AspectRatio {
-    // The minimum ratio of the image.
-    // Set to 0 to have no minimum ratio.
-    // An aspect ratio is the ratio of the width to the height of the image.
-    double min_ratio = 1;
-    // The maximum ratio of the image.
-    // Set to 0 to have no maximum ratio.
-    // An aspect ratio is the ratio of the width to the height of the image.
-    double max_ratio = 2;
-}
-
 // InputUpload is used to upload an image to a drive configured in the image processor config.
 message InputUpload {
     // The input image as a binary blob.
     bytes binary = 1;
     // A prefix to use for the folder the image will be stored in.
     DrivePath path = 2;
+    // Content Type of the image.
+    optional string content_type = 3;
+    // Cache control header for the image.
+    optional string cache_control = 4;
+    // Acl for the image.
+    optional string acl = 5;
+    // Content disposition for the image.
+    optional string content_disposition = 6;
 }
 
 // Input is used to determine the input image to process.
@@ -151,17 +143,6 @@ message Input {
 
     // Extra information about the input image.
     optional InputMetadata metadata = 3;
-}
-
-// How to handle scales that are larger than the input image.
-enum Upscale {
-    // Do not upscale the image.
-    UpscaleNo = 0;
-    // Upscale the image to the desired dimensions.
-    UpscaleYes = 1;
-    // Do not upscale the image, however if not all variants are generated due to the image being too small
-    // generate a single last variant that has the input image dimensions.
-    UpscaleNoPreserveSource = 2;
 }
 
 // Scaling is used to specify a linear scaling factor for the various dimensions of the image.
@@ -183,7 +164,7 @@ message Scaling {
 
     // The various scales.
     // For example to generate a 1x, 2x, and 3x image you would set scales to [1, 2, 3].
-    IntegerList scales = 4;
+    repeated uint32 scales = 4;
 }
 
 // A list of integers.
@@ -242,11 +223,13 @@ message OutputFormatOptions {
     OutputFormat format = 1;
     // The quality of the output image.
     OutputQuality quality = 2;
+    // An optional format name, this will allow you to specify an overwrite for the path variable `{format}`
+    optional string name = 3;
 }
 
-message OutputVariants {
-    // A suffix that will be appended to the output.drive_path.path to create the output path.
-    // This suffix is special as it allows for template arguments.
+message Output {
+    // The drive path to store the output image.
+    // This is a prefix and the processor will append the suffix to this path to determine the final path.
     // Possible template argument values are:
     // - {id}           - The id of the task.
     // - {format}       - The format of the output image. (e.g 'webp_anim', 'avif_static', 'png_static', etc.)
@@ -258,13 +241,13 @@ message OutputVariants {
     //                    If its scaling its the index of the scale in the list.
     // - {static}       - '_static' if the input image is static, otherwise empty.
     // - {ext}          - The extension of the output image. (e.g. 'webp', 'avif', etc.)
-    string suffix = 1;
+    DrivePath drive_path = 1;
 
     // The desired format to encode the output image.
     repeated OutputFormatOptions formats = 2;
 
     // Allow upscaling if the determined dimensions are larger than the input image.
-    Upscale upscale = 3;
+    bool upscale = 3;
 
     // Sometimes we might specify that we want 'WebpAnim' but the input image is a static image.
     // In this case we would typically fatally error because we can't generate an animated image from a static image.
@@ -275,40 +258,53 @@ message OutputVariants {
     // For example if the resize results in a width or height of less than 1.
     // If this is set to true the processor will ignore these errors and skip the resize operation.
     bool skip_impossible_resizes = 5;
-    
+
+    // Disables resize chaining.
+    // Resize chaining is when the processor will resize from the source down to the largest size requested.
+    // Then it will form every other size by taking reducing the previous resized image.
+    // Disabling this will resize each image from the source image. Which can be slower but more accurate.
+    bool disable_resize_chaining = 6;
+
+    // Disables 2 pass decoding.
+    // 2 pass decoding allows for the processor to further optimize the image by deduplicating frames.
+    bool disable_two_pass_decoding = 7;
+
+    // The resize method used to resize the image.
+    ResizeMethod resize_method = 8;
+
+    // The resize algorithm used to resize the image.
+    ResizeAlgorithm resize_algorithm = 9;
+
+    // The animation configuration for the output image.
+    optional AnimationConfig animation_config = 10;
+
+    // A crop is applied to the image before resizing and before an aspect ratio change.
+    optional Crop crop = 11;
+
+    // Confine the aspect ratio of the image to a specific range.
+    // For example if you want to allow all images that are 3:1 to 1:3 you would set min_ratio to 1/3 and max_ratio to 3.
+    // Setting the min and max to the same value will restrict the aspect ratio to that value.
+    // Setting both values to 0 will use the input image's aspect ratio.
+    // Setting one of the values to 0 will allow any aspect ratio that is less than or greater than the other value.
+
+
+    // The minimum ratio of the image.
+    // An aspect ratio is the ratio of the width to the height of the image.
+    optional double min_aspect_ratio = 12;
+
+    // The maximum ratio of the image.
+    // An aspect ratio is the ratio of the width to the height of the image.
+    optional double max_aspect_ratio = 13;
+
     // There must be at least one element in the list.
     oneof resize {
         // Resize to a specific width, the height will be determined by the aspect ratio.
-        IntegerList width = 6;
+        IntegerList width = 14;
         // Resize to a specific height, the width will be determined by the aspect ratio.
-        IntegerList height = 7;
+        IntegerList height = 15;
         // A scaling config to determine how each dimension should be scaled.
-        Scaling scaling = 8;
+        Scaling scaling = 16;
     }
-}
-
-message Output {
-    // The drive path to store the output image.
-    // This is a prefix and the processor will append the suffix to this path to determine the final path.
-    // The suffix is defined in the OutputVariantsConfig.
-    DrivePath drive_path = 1;
-
-    // The desired formats to encode the output image.
-    OutputVariants variants = 2;
-    // The resize method used to resize the image.
-    ResizeMethod resize_method = 3;
-    // The resize algorithm used to resize the image.
-    ResizeAlgorithm resize_algorithm = 4;
-
-    // The animation configuration for the output image.
-    optional AnimationConfig animation_config = 5;
-
-    // A crop is applied to the image before resizing and before an aspect ratio change.s
-    optional Crop crop = 6;
-
-    // Choose one of the following options to determine the aspect ratio of the image.
-    // An aspect ratio is the ratio of the width to the height of the image.
-    AspectRatio aspect_ratio = 7;
 }
 
 // Events must be in the format
@@ -361,9 +357,21 @@ message Error {
 // ErrorCode is used to determine the type of error that occurred.
 enum ErrorCode {
     // Internal error occurred, please file a bug report.
-    InternalError = 0;
+    ErrorCodeInternal = 0;
     // Invalid input error. Please refer to the error message for more information, and resubmit the task with valid input.
-    InvalidInput = 1;
+    ErrorCodeInvalidInput = 1;
+    // The feature is not implemented.
+    ErrorCodeNotImplemented = 2;
+    // Resize error.
+    ErrorCodeResize = 3;
+    // Encode error.
+    ErrorCodeEncode = 4;
+    // Decode error.
+    ErrorCodeDecode = 5;
+    // Input download error.
+    ErrorCodeInputDownload = 6;
+    // Output upload error.
+    ErrorCodeOutputUpload = 7;
 }
 
 message EventPayload {

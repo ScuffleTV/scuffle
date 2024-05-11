@@ -1,14 +1,13 @@
 use std::ptr::NonNull;
 
-use anyhow::Context;
 use libwebp_sys::WebPMuxAnimParams;
+use scuffle_image_processor_proto::OutputQuality;
 
-use super::{Encoder, EncoderFrontend, EncoderInfo, EncoderSettings};
-use crate::processor::error::{ProcessorError, Result};
-use crate::processor::job::decoder::LoopCount;
-use crate::processor::job::frame::Frame;
-use crate::processor::job::libwebp::{zero_memory_default, WebPError};
-use crate::processor::job::smart_object::{SmartObject, SmartPtr};
+use super::{Encoder, EncoderBackend, EncoderError, EncoderInfo, EncoderSettings};
+use crate::worker::process::decoder::LoopCount;
+use crate::worker::process::frame::FrameRef;
+use crate::worker::process::libwebp::{zero_memory_default, WebPError};
+use crate::worker::process::smart_object::{SmartObject, SmartPtr};
 
 pub struct WebpEncoder {
 	config: libwebp_sys::WebPConfig,
@@ -20,26 +19,39 @@ pub struct WebpEncoder {
 	static_image: bool,
 }
 
-fn wrap_error(status: i32, err: &'static str, message: &'static str) -> Result<()> {
+fn wrap_error(status: i32, err: &'static str) -> Result<(), WebPError> {
 	if status == 0 {
 		Err(WebPError::UnknownError(err))
-			.context(message)
-			.map_err(ProcessorError::WebPEncode)
 	} else {
 		Ok(())
 	}
 }
 
 impl WebpEncoder {
-	pub fn new(settings: EncoderSettings) -> Result<Self> {
+	#[tracing::instrument(skip(settings), fields(name = "WebpEncoder::new"))]
+	pub fn new(settings: EncoderSettings) -> Result<Self, EncoderError> {
 		let mut config = zero_memory_default::<libwebp_sys::WebPConfig>();
 
+		config.lossless = if settings.quality == OutputQuality::Lossless { 1 } else { 0 };
+		config.quality = match settings.quality {
+			OutputQuality::Auto => 90.0,
+			OutputQuality::High => 100.0,
+			OutputQuality::Lossless => 60.0, // 0-6
+			OutputQuality::Medium => 75.0,
+			OutputQuality::Low => 50.0,
+		};
+		config.method = match settings.quality {
+			OutputQuality::Auto => 4,
+			OutputQuality::High => 4,
+			OutputQuality::Lossless => 6,
+			OutputQuality::Medium => 3,
+			OutputQuality::Low => 2,
+		};
 		config.thread_level = 1;
 
 		wrap_error(
 			unsafe { libwebp_sys::WebPConfigInit(&mut config) },
 			"failed to initialize webp config",
-			"libwebp_sys::WebPConfigInit",
 		)?;
 
 		let mut picture = SmartObject::new(zero_memory_default::<libwebp_sys::WebPPicture>(), |ptr| unsafe {
@@ -49,27 +61,28 @@ impl WebpEncoder {
 		wrap_error(
 			unsafe { libwebp_sys::WebPPictureInit(&mut *picture) },
 			"failed to initialize webp picture",
-			"libwebp_sys::WebPPictureInit",
 		)?;
 
 		picture.use_argb = 1;
 
 		Ok(Self {
 			config,
-			settings,
-			picture,
-			encoder: None,
-			first_duration: None,
-			static_image: settings.static_image,
 			info: EncoderInfo {
+				name: settings.name.clone(),
 				duration: 0,
 				frame_count: 0,
-				frontend: EncoderFrontend::LibWebp,
+				format: settings.format,
+				frontend: EncoderBackend::LibWebp,
 				height: 0,
 				loop_count: settings.loop_count,
 				timescale: settings.timescale,
 				width: 0,
 			},
+			static_image: settings.static_image,
+			settings,
+			picture,
+			encoder: None,
+			first_duration: None,
 		})
 	}
 
@@ -77,9 +90,7 @@ impl WebpEncoder {
 		self.info.duration * 1000 / self.settings.timescale
 	}
 
-	fn flush_frame(&mut self, duration: u64) -> Result<()> {
-		let _abort_guard = scuffle_utils::task::AbortGuard::new();
-
+	fn flush_frame(&mut self, duration: u64) -> Result<(), EncoderError> {
 		// Safety: The picture is valid.
 		wrap_error(
 			unsafe {
@@ -91,7 +102,6 @@ impl WebpEncoder {
 				)
 			},
 			"failed to add webp frame",
-			"libwebp_sys::WebPAnimEncoderAdd",
 		)?;
 
 		self.info.duration += duration;
@@ -101,20 +111,19 @@ impl WebpEncoder {
 }
 
 impl Encoder for WebpEncoder {
-	fn info(&self) -> EncoderInfo {
-		self.info
+	fn info(&self) -> &EncoderInfo {
+		&self.info
 	}
 
-	fn add_frame(&mut self, frame: &Frame) -> Result<()> {
-		let _abort_guard = scuffle_utils::task::AbortGuard::new();
-
+	#[tracing::instrument(skip(self), fields(name = "WebpEncoder::add_frame"))]
+	fn add_frame(&mut self, frame: FrameRef) -> Result<(), EncoderError> {
 		if self.first_duration.is_none() && self.encoder.is_none() {
 			self.picture.width = frame.image.width() as _;
 			self.picture.height = frame.image.height() as _;
 			self.first_duration = Some(frame.duration_ts);
 		} else if let Some(first_duration) = self.first_duration.take() {
 			if self.static_image {
-				return Err(ProcessorError::WebPEncode(anyhow::anyhow!("static image already added")));
+				return Err(EncoderError::MultipleFrames);
 			}
 
 			let encoder = SmartPtr::new(
@@ -127,8 +136,8 @@ impl Encoder for WebpEncoder {
 							anim_params: WebPMuxAnimParams {
 								bgcolor: 0,
 								loop_count: match self.settings.loop_count {
-									LoopCount::Infinite => 0,
 									LoopCount::Finite(count) => count as _,
+									LoopCount::Infinite => 0,
 								},
 							},
 							kmax: 0,
@@ -139,9 +148,7 @@ impl Encoder for WebpEncoder {
 						},
 					)
 				})
-				.ok_or(WebPError::OutOfMemory)
-				.context("failed to create webp encoder")
-				.map_err(ProcessorError::WebPEncode)?,
+				.ok_or(WebPError::OutOfMemory)?,
 				|encoder| {
 					// Safety: The encoder is valid.
 					unsafe {
@@ -163,7 +170,6 @@ impl Encoder for WebpEncoder {
 				)
 			},
 			"failed to import webp frame",
-			"libwebp_sys::WebPPictureImportRGBA",
 		)?;
 
 		if self.encoder.is_some() {
@@ -177,20 +183,18 @@ impl Encoder for WebpEncoder {
 		Ok(())
 	}
 
-	fn finish(mut self) -> Result<Vec<u8>> {
-		let _abort_guard = scuffle_utils::task::AbortGuard::new();
-
+	#[tracing::instrument(skip(self), fields(name = "WebpEncoder::finish"))]
+	fn finish(mut self) -> Result<Vec<u8>, EncoderError> {
 		let timestamp = self.timestamp();
 
 		if self.encoder.is_none() && self.first_duration.is_none() {
-			Err(ProcessorError::WebPEncode(anyhow::anyhow!("no frames added")))
+			Err(EncoderError::NoFrames)
 		} else if let Some(mut encoder) = self.encoder {
 			wrap_error(
 				unsafe {
 					libwebp_sys::WebPAnimEncoderAdd(encoder.as_mut(), std::ptr::null_mut(), timestamp as _, std::ptr::null())
 				},
 				"failed to add null webp frame",
-				"libwebp_sys::WebPAnimEncoderAdd",
 			)?;
 
 			let mut webp_data = SmartObject::new(zero_memory_default::<libwebp_sys::WebPData>(), |ptr| unsafe {
@@ -203,15 +207,11 @@ impl Encoder for WebpEncoder {
 			wrap_error(
 				unsafe { libwebp_sys::WebPAnimEncoderAssemble(encoder.as_mut(), &mut *webp_data) },
 				"failed to assemble webp",
-				"libwebp_sys::WebPAnimEncoderAssemble",
 			)?;
 
 			let webp_data = webp_data.free();
 
-			let mut data = NonNull::new(webp_data.bytes as _)
-				.ok_or(WebPError::OutOfMemory)
-				.context("failed to get output data")
-				.map_err(ProcessorError::WebPEncode)?;
+			let mut data = NonNull::new(webp_data.bytes as _).ok_or(WebPError::OutOfMemory)?;
 
 			// Safety: The data is valid and we are taking ownership of it.
 			let vec = unsafe { std::vec::Vec::from_raw_parts(data.as_mut(), webp_data.size, webp_data.size) };
@@ -236,15 +236,11 @@ impl Encoder for WebpEncoder {
 			wrap_error(
 				unsafe { libwebp_sys::WebPEncode(&self.config, &mut *self.picture) },
 				"failed to encode webp",
-				"libwebp_sys::WebPEncode",
 			)?;
 
 			let memory_writer = memory_writer.free();
 
-			let mut data = NonNull::new(memory_writer.mem)
-				.ok_or(WebPError::OutOfMemory)
-				.context("failed to get output data")
-				.map_err(ProcessorError::WebPEncode)?;
+			let mut data = NonNull::new(memory_writer.mem).ok_or(WebPError::OutOfMemory)?;
 
 			// Safety: The data is valid and we are taking ownership of it.
 			let vec = unsafe { std::vec::Vec::from_raw_parts(data.as_mut(), memory_writer.size, memory_writer.max_size) };

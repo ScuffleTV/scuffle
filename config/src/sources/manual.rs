@@ -92,7 +92,7 @@ impl<C: Config> ManualSource<C> {
 impl<C: Config> Source<C> for ManualSource<C> {
 	fn get_key(&self, path: &crate::KeyPath) -> crate::Result<Option<Value>> {
 		match &self.value {
-			Some(value) => scuffle_utilsget_key::<C>(value, path).map_err(|e| e.with_source(ErrorSource::Manual)),
+			Some(value) => utils::get_key::<C>(value, path).map_err(|e| e.with_source(ErrorSource::Manual)),
 			None => Ok(None),
 		}
 	}

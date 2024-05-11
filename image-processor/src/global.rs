@@ -7,14 +7,13 @@ use scuffle_foundations::BootstrapResult;
 
 use crate::config::ImageProcessorConfig;
 use crate::database::Job;
-use crate::disk::public_http::PUBLIC_HTTP_DRIVE_NAME;
-use crate::disk::{build_drive, AnyDrive, Drive};
+use crate::drive::public_http::PUBLIC_HTTP_DRIVE_NAME;
+use crate::drive::{build_drive, AnyDrive, Drive};
 use crate::event_queue::{build_event_queue, AnyEventQueue, EventQueue};
 
 pub struct Global {
 	worker_id: ObjectId,
 	config: ImageProcessorConfig,
-	client: mongodb::Client,
 	database: mongodb::Database,
 	disks: HashMap<String, AnyDrive>,
 	event_queues: HashMap<String, AnyEventQueue>,
@@ -81,7 +80,6 @@ impl Global {
 		Ok(Self {
 			worker_id: ObjectId::new(),
 			config,
-			client,
 			database,
 			disks,
 			event_queues,

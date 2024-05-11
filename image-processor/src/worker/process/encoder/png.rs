@@ -1,9 +1,7 @@
-use anyhow::Context;
 use rgb::ComponentBytes;
 
-use super::{Encoder, EncoderFrontend, EncoderInfo, EncoderSettings};
-use crate::processor::error::{ProcessorError, Result};
-use crate::processor::job::frame::Frame;
+use super::{Encoder, EncoderBackend, EncoderError, EncoderInfo, EncoderSettings};
+use crate::worker::process::frame::FrameRef;
 
 pub struct PngEncoder {
 	result: Option<Vec<u8>>,
@@ -11,13 +9,16 @@ pub struct PngEncoder {
 }
 
 impl PngEncoder {
-	pub fn new(settings: EncoderSettings) -> Result<Self> {
+	#[tracing::instrument(skip(settings), fields(name = "PngEncoder::new"))]
+	pub fn new(settings: EncoderSettings) -> Result<Self, EncoderError> {
 		Ok(Self {
 			result: None,
 			info: EncoderInfo {
+				name: settings.name,
 				duration: 0,
 				frame_count: 0,
-				frontend: EncoderFrontend::Png,
+				format: settings.format,
+				frontend: EncoderBackend::Png,
 				height: 0,
 				loop_count: settings.loop_count,
 				timescale: settings.timescale,
@@ -28,15 +29,14 @@ impl PngEncoder {
 }
 
 impl Encoder for PngEncoder {
-	fn info(&self) -> EncoderInfo {
-		self.info
+	fn info(&self) -> &EncoderInfo {
+		&self.info
 	}
 
-	fn add_frame(&mut self, frame: &Frame) -> Result<()> {
-		let _abort_guard = scuffle_utils::task::AbortGuard::new();
-
+	#[tracing::instrument(skip(self), fields(name = "PngEncoder::add_frame"))]
+	fn add_frame(&mut self, frame: FrameRef) -> Result<(), EncoderError> {
 		if self.result.is_some() {
-			return Err(ProcessorError::PngEncode(anyhow::anyhow!("encoder already finished")));
+			return Err(EncoderError::MultipleFrames);
 		}
 
 		self.info.height = frame.image.height();
@@ -54,21 +54,15 @@ impl Encoder for PngEncoder {
 
 		encoder.set_color(png::ColorType::Rgba);
 		encoder.set_depth(png::BitDepth::Eight);
-		encoder
-			.write_header()
-			.context("failed to write png header")
-			.map_err(ProcessorError::PngEncode)?
-			.write_image_data(frame.image.buf().as_bytes())
-			.context("failed to write png data")
-			.map_err(ProcessorError::PngEncode)?;
+		encoder.write_header()?.write_image_data(frame.image.buf().as_bytes())?;
 
 		self.result = Some(result);
 
 		Ok(())
 	}
 
-	fn finish(self) -> Result<Vec<u8>> {
-		self.result
-			.ok_or_else(|| ProcessorError::PngEncode(anyhow::anyhow!("encoder not finished")))
+	#[tracing::instrument(skip(self), fields(name = "PngEncoder::finish"))]
+	fn finish(self) -> Result<Vec<u8>, EncoderError> {
+		self.result.ok_or(EncoderError::NoFrames)
 	}
 }

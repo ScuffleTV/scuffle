@@ -44,7 +44,6 @@ pub struct MemoryDrive {
 	name: String,
 	mode: DriveMode,
 	files: RwLock<FileHolder>,
-	global: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -66,7 +65,6 @@ impl MemoryDrive {
 		Ok(Self {
 			name: config.name.clone(),
 			mode: config.mode,
-			global: config.global,
 			files: RwLock::new(FileHolder {
 				remaining_capacity: config.capacity.unwrap_or(usize::MAX),
 				files: HashMap::new(),
@@ -88,13 +86,12 @@ impl Drive for MemoryDrive {
 			return Err(DriveError::ReadOnly);
 		}
 
-		Ok(self
-			.files
+		self.files
 			.read()
 			.await
 			.get(path)
 			.map(|file| file.data.clone())
-			.ok_or(DriveError::NotFound)?)
+			.ok_or(DriveError::NotFound)
 	}
 
 	#[tracing::instrument(skip(self, data), name = "MemoryDisk::write", err, fields(size = data.len()))]
@@ -128,24 +125,5 @@ impl Drive for MemoryDrive {
 
 		self.files.write().await.remove(path).ok_or(DriveError::NotFound)?;
 		Ok(())
-	}
-
-	fn scoped(&self) -> Option<Self>
-	where
-		Self: Sized,
-	{
-		if self.global {
-			return None;
-		}
-
-		Some(Self {
-			name: self.name.clone(),
-			mode: self.mode,
-			global: false,
-			files: RwLock::new(FileHolder {
-				remaining_capacity: 0,
-				files: HashMap::new(),
-			}),
-		})
 	}
 }

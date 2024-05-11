@@ -145,6 +145,6 @@ impl<C: Config> FileSource<C> {
 
 impl<C: Config> Source<C> for FileSource<C> {
 	fn get_key(&self, path: &KeyPath) -> Result<Option<Value>> {
-		scuffle_utilsget_key::<C>(&self.content, path).map_err(|e| e.with_source(ErrorSource::File(self.location.clone())))
+		utils::get_key::<C>(&self.content, path).map_err(|e| e.with_source(ErrorSource::File(self.location.clone())))
 	}
 }

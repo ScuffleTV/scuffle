@@ -53,11 +53,11 @@ trait Args: Default {
 		Self: Sized,
 	{
 		attrs
-			.into_iter()
+			.iter()
 			.filter(|a| a.path().is_ident("settings"))
 			.try_fold(Self::default(), |mut state, attr| {
 				let Meta::List(meta) = &attr.meta else {
-					return Err(syn::Error::new_spanned(&attr, "expected #[settings(...)]"));
+					return Err(syn::Error::new_spanned(attr, "expected #[settings(...)]"));
 				};
 
 				let parsed = meta.parse_args_with(Punctuated::<Meta, syn::Token![,]>::parse_terminated)?;
@@ -111,7 +111,7 @@ impl Args for GlobalArgs {
 				}) = &meta.value
 				{
 					self.crate_path =
-						syn::parse_str(&lit.value()).map_err(|_| syn::Error::new_spanned(&lit, "expected valid path"))?;
+						syn::parse_str(&lit.value()).map_err(|_| syn::Error::new_spanned(lit, "expected valid path"))?;
 					Ok(true)
 				} else {
 					Err(syn::Error::new_spanned(&meta.value, "expected string"))

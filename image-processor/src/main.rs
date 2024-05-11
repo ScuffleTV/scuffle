@@ -4,7 +4,6 @@ use anyhow::Context;
 use scuffle_foundations::bootstrap::{bootstrap, Bootstrap};
 use scuffle_foundations::runtime;
 use scuffle_foundations::settings::cli::Matches;
-use scuffle_image_processor_proto::{event_callback, EventCallback};
 use tokio::signal::unix::SignalKind;
 
 use self::config::ImageProcessorConfig;
@@ -23,8 +22,9 @@ impl Bootstrap for ImageProcessorConfig {
 
 mod config;
 mod database;
-mod disk;
+mod drive;
 mod event_queue;
+pub mod events;
 mod global;
 mod management;
 mod worker;

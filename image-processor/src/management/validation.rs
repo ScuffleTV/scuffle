@@ -1,7 +1,9 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use scuffle_image_processor_proto::{
-	input, DrivePath, Error, ErrorCode, EventQueue, Events, Input, InputMetadata, Limits, Output, OutputVariants, Task,
+	animation_config, input, output, AnimationConfig, Crop, DrivePath, Error, ErrorCode, EventQueue, Events, Input,
+	InputMetadata, InputUpload, Limits, Output, OutputFormat, OutputFormatOptions, Task,
 };
 use url::Url;
 
@@ -23,12 +25,8 @@ impl FragmentBuf {
 		Self { path: Vec::new() }
 	}
 
-	pub fn push<'a>(&'a mut self, path: impl Into<FragmentItem>) -> Fragment<'a> {
+	pub fn push(&mut self, path: impl Into<FragmentItem>) -> Fragment<'_> {
 		self.path.push(path.into());
-		Fragment::new(&mut self.path)
-	}
-
-	pub fn as_fagment(&mut self) -> Fragment {
 		Fragment::new(&mut self.path)
 	}
 }
@@ -60,9 +58,9 @@ impl From<usize> for FragmentItem {
 // &&'static str -> &'static str -> FragmentItem
 // &usize -> usize -> FragmentItem
 impl<T> From<&T> for FragmentItem
-	where
-		T: Copy,
-		FragmentItem: From<T>,
+where
+	T: Copy,
+	FragmentItem: From<T>,
 {
 	fn from(value: &T) -> Self {
 		Self::from(*value)
@@ -93,7 +91,7 @@ impl std::fmt::Display for Fragment<'_> {
 }
 
 impl Fragment<'_> {
-	pub fn push<'a>(&'a mut self, path: impl Into<FragmentItem>) -> Fragment<'a> {
+	pub fn push(&mut self, path: impl Into<FragmentItem>) -> Fragment<'_> {
 		self.path.push(path.into());
 		Fragment::new(self.path)
 	}
@@ -103,6 +101,28 @@ impl Drop for Fragment<'_> {
 	fn drop(&mut self) {
 		self.path.pop();
 	}
+}
+
+pub fn validate_input_upload(
+	global: &Arc<Global>,
+	mut fragment: Fragment,
+	input_upload: Option<&InputUpload>,
+) -> Result<(), Error> {
+	let input_upload = input_upload.ok_or_else(|| Error {
+		code: ErrorCode::InvalidInput as i32,
+		message: format!("{fragment}: is required"),
+	})?;
+
+	validate_drive_path(global, fragment.push("path"), input_upload.path.as_ref(), &["id"])?;
+
+	if input_upload.binary.is_empty() {
+		return Err(Error {
+			code: ErrorCode::InvalidInput as i32,
+			message: format!("{fragment}: binary is required"),
+		});
+	}
+
+	Ok(())
 }
 
 pub fn validate_task(global: &Arc<Global>, mut fragment: Fragment, task: Option<&Task>) -> Result<(), Error> {
@@ -204,21 +224,10 @@ pub fn validate_output(global: &Arc<Global>, mut fragment: Fragment, output: Opt
 		message: format!("{fragment}: is required"),
 	})?;
 
-	validate_drive_path(global, fragment.push("path"), output.drive_path.as_ref())?;
-
-	validate_output_variants(fragment.push("variants"), output.variants.as_ref())?;
-
-	Ok(())
-}
-
-pub fn validate_output_variants(mut fragment: Fragment, variants: Option<&OutputVariants>) -> Result<(), Error> {
-	let variants = variants.ok_or_else(|| Error {
-		code: ErrorCode::InvalidInput as i32,
-		message: format!("{fragment}: is required"),
-	})?;
-
-	validate_template_string(
-		fragment.push("suffix"),
+	validate_drive_path(
+		global,
+		fragment.push("path"),
+		output.drive_path.as_ref(),
 		&[
 			"id",
 			"format",
@@ -230,17 +239,206 @@ pub fn validate_output_variants(mut fragment: Fragment, variants: Option<&Output
 			"static",
 			"ext",
 		],
-		&variants.suffix,
 	)?;
 
-	if variants.formats.is_empty() {
+	if output.formats.is_empty() {
 		return Err(Error {
 			code: ErrorCode::InvalidInput as i32,
 			message: format!("{}: is required", fragment.push("formats")),
 		});
 	}
 
-	for (idx, format) in variants.formats.iter().enumerate() {}
+	let mut formats = HashSet::new();
+	for (idx, format) in output.formats.iter().enumerate() {
+		validate_output_format_options(fragment.push(idx), Some(format), &mut formats)?;
+	}
+
+	validate_output_variants_resize(fragment.push("resize"), output.resize.as_ref())?;
+
+	if let Some(animation_config) = output.animation_config.as_ref() {
+		validate_output_animation_config(fragment.push("animation_config"), Some(animation_config))?;
+	}
+
+	if let Some(crop) = output.crop.as_ref() {
+		validate_crop(fragment.push("crop"), Some(crop))?;
+	}
+
+	match (output.min_aspect_ratio, output.max_aspect_ratio) {
+		(Some(min_ratio), _) if min_ratio <= 0.0 => {
+			return Err(Error {
+				code: ErrorCode::InvalidInput as i32,
+				message: format!("{}: must be greater than or equal to 0", fragment.push("min_ratio")),
+			});
+		}
+		(_, Some(max_ratio)) if max_ratio <= 0.0 => {
+			return Err(Error {
+				code: ErrorCode::InvalidInput as i32,
+				message: format!("{}: must be greater than or equal to 0", fragment.push("max_ratio")),
+			});
+		}
+		(Some(min_ratio), Some(max_ratio)) if min_ratio > max_ratio => {
+			return Err(Error {
+				code: ErrorCode::InvalidInput as i32,
+				message: format!("{}: min_ratio must be less than or equal to max_ratio", fragment),
+			});
+		}
+		_ => {}
+	}
+
+	Ok(())
+}
+
+pub fn validate_crop(mut fragment: Fragment, crop: Option<&Crop>) -> Result<(), Error> {
+	let crop = crop.ok_or_else(|| Error {
+		code: ErrorCode::InvalidInput as i32,
+		message: format!("{fragment}: is required"),
+	})?;
+
+	if crop.width == 0 {
+		return Err(Error {
+			code: ErrorCode::InvalidInput as i32,
+			message: format!("{}: width must be non 0", fragment.push("width")),
+		});
+	}
+
+	if crop.height == 0 {
+		return Err(Error {
+			code: ErrorCode::InvalidInput as i32,
+			message: format!("{}: height must be non 0", fragment.push("height")),
+		});
+	}
+
+	Ok(())
+}
+
+pub fn validate_output_animation_config(
+	mut fragment: Fragment,
+	animation_config: Option<&AnimationConfig>,
+) -> Result<(), Error> {
+	let animation_config = animation_config.ok_or_else(|| Error {
+		code: ErrorCode::InvalidInput as i32,
+		message: format!("{fragment}: is required"),
+	})?;
+
+	if let Some(loop_count) = animation_config.loop_count {
+		if loop_count < -1 {
+			return Err(Error {
+				code: ErrorCode::InvalidInput as i32,
+				message: format!(
+					"{}: loop_count must be greater than or equal to -1",
+					fragment.push("loop_count")
+				),
+			});
+		}
+	}
+
+	if let Some(frame_rate) = &animation_config.frame_rate {
+		let mut fragment = fragment.push("frame_rate");
+
+		match frame_rate {
+			animation_config::FrameRate::DurationMs(duration_ms) => {
+				if *duration_ms == 0 {
+					return Err(Error {
+						code: ErrorCode::InvalidInput as i32,
+						message: format!("{}: duration_ms must be non 0", fragment),
+					});
+				}
+			}
+			animation_config::FrameRate::DurationsMs(durations_ms) => {
+				let mut fragment = fragment.push("durations_ms.values");
+
+				if durations_ms.values.is_empty() {
+					return Err(Error {
+						code: ErrorCode::InvalidInput as i32,
+						message: format!("{fragment}: durations_ms must not be empty"),
+					});
+				}
+
+				for (idx, duration_ms) in durations_ms.values.iter().enumerate() {
+					if *duration_ms == 0 {
+						return Err(Error {
+							code: ErrorCode::InvalidInput as i32,
+							message: format!("{}: duration_ms must be non 0", fragment.push(idx)),
+						});
+					}
+				}
+			}
+			animation_config::FrameRate::Factor(factor) => {
+				if *factor > 0.0 {
+					return Err(Error {
+						code: ErrorCode::InvalidInput as i32,
+						message: format!("{}: factor must be greater than 0", fragment.push("factor")),
+					});
+				}
+			}
+		}
+	} else {
+		return Err(Error {
+			code: ErrorCode::InvalidInput as i32,
+			message: format!("{}: frame_rate is required", fragment.push("frame_rate")),
+		});
+	}
+
+	Ok(())
+}
+
+pub fn validate_output_variants_resize(mut fragment: Fragment, resize: Option<&output::Resize>) -> Result<(), Error> {
+	let resize = resize.ok_or_else(|| Error {
+		code: ErrorCode::InvalidInput as i32,
+		message: format!("{fragment}: is required"),
+	})?;
+
+	let validate_items = |mut fragment: Fragment, items: &[u32]| {
+		if items.is_empty() {
+			return Err(Error {
+				code: ErrorCode::InvalidInput as i32,
+				message: format!("{fragment}: is required"),
+			});
+		}
+
+		for (idx, item) in items.iter().enumerate() {
+			if *item == 0 {
+				return Err(Error {
+					code: ErrorCode::InvalidInput as i32,
+					message: format!("{}: must be non 0", fragment.push(idx)),
+				});
+			}
+		}
+
+		Ok(())
+	};
+
+	match resize {
+		output::Resize::Height(height) => {
+			validate_items(fragment.push("height.values"), &height.values)?;
+		}
+		output::Resize::Width(width) => {
+			validate_items(fragment.push("width.values"), &width.values)?;
+		}
+		output::Resize::Scaling(scaling) => {
+			validate_items(fragment.push("scaling.scales"), &scaling.scales)?;
+		}
+	}
+
+	Ok(())
+}
+
+pub fn validate_output_format_options(
+	mut fragment: Fragment,
+	format: Option<&OutputFormatOptions>,
+	formats: &mut HashSet<OutputFormat>,
+) -> Result<(), Error> {
+	let format = format.ok_or_else(|| Error {
+		code: ErrorCode::InvalidInput as i32,
+		message: format!("{fragment}: is required"),
+	})?;
+
+	if !formats.insert(format.format()) {
+		return Err(Error {
+			code: ErrorCode::InvalidInput as i32,
+			message: format!("{}: format already exists", fragment.push("format")),
+		});
+	}
 
 	Ok(())
 }
@@ -324,7 +522,7 @@ pub fn validate_input_path(
 
 	match input_path {
 		input::Path::DrivePath(drive_path) => {
-			validate_drive_path(global, fragment.push("drive_path"), Some(drive_path))?;
+			validate_drive_path(global, fragment.push("drive_path"), Some(drive_path), &["id"])?;
 		}
 		input::Path::PublicUrl(url) => {
 			validate_public_url(global, fragment.push("public_url"), url)?;
@@ -338,6 +536,7 @@ pub fn validate_drive_path(
 	global: &Arc<Global>,
 	mut fragment: Fragment,
 	drive_path: Option<&DrivePath>,
+	allowed_vars: &[&str],
 ) -> Result<(), Error> {
 	let drive_path = drive_path.ok_or_else(|| Error {
 		code: ErrorCode::InvalidInput as i32,
@@ -351,7 +550,7 @@ pub fn validate_drive_path(
 		});
 	}
 
-	validate_template_string(fragment.push("path"), &["id"], &drive_path.path)?;
+	validate_template_string(fragment.push("path"), allowed_vars, &drive_path.path)?;
 
 	Ok(())
 }

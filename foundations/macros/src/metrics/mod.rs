@@ -8,6 +8,7 @@ use syn::Token;
 
 #[derive(Debug, FromMeta)]
 #[darling(default)]
+#[derive(Default)]
 struct Options {
 	crate_path: Option<syn::Path>,
 	optional: bool,
@@ -48,16 +49,6 @@ impl Options {
 			optional,
 			builder,
 		})
-	}
-}
-
-impl Default for Options {
-	fn default() -> Self {
-		Options {
-			crate_path: None,
-			optional: false,
-			builder: None,
-		}
 	}
 }
 
@@ -361,15 +352,13 @@ fn metric_function(
 					#constructor()
 				}
 			}
+		} else if has_args {
+			quote::quote! {
+				#crate_path::telemetry::metrics::serde::Family::default()
+			}
 		} else {
-			if has_args {
-				quote::quote! {
-					#crate_path::telemetry::metrics::serde::Family::default()
-				}
-			} else {
-				quote::quote! {
-					Default::default()
-				}
+			quote::quote! {
+				Default::default()
 			}
 		};
 

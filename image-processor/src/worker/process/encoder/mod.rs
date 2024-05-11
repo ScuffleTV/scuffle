@@ -1,6 +1,9 @@
+use scuffle_image_processor_proto::{OutputFormat, OutputQuality};
+
 use super::decoder::LoopCount;
-use super::frame::Frame;
-use crate::processor::error::Result;
+use super::frame::FrameRef;
+use super::libavif::AvifError;
+use super::libwebp::WebPError;
 
 mod gifski;
 mod libavif;
@@ -8,24 +11,28 @@ mod libwebp;
 mod png;
 
 #[derive(Debug, Clone, Copy)]
-pub enum EncoderFrontend {
+pub enum EncoderBackend {
 	Gifski,
 	Png,
 	LibWebp,
 	LibAvif,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct EncoderSettings {
-	pub fast: bool,
+	pub name: Option<String>,
+	pub format: OutputFormat,
+	pub quality: OutputQuality,
 	pub loop_count: LoopCount,
 	pub timescale: u64,
 	pub static_image: bool,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct EncoderInfo {
-	pub frontend: EncoderFrontend,
+	pub name: Option<String>,
+	pub format: OutputFormat,
+	pub frontend: EncoderBackend,
 	pub width: usize,
 	pub height: usize,
 	pub loop_count: LoopCount,
@@ -34,8 +41,26 @@ pub struct EncoderInfo {
 	pub frame_count: usize,
 }
 
-impl EncoderFrontend {
-	pub fn build(&self, settings: EncoderSettings) -> Result<AnyEncoder> {
+#[derive(Debug, thiserror::Error)]
+pub enum EncoderError {
+	#[error("gifski: {0}")]
+	Gifski(#[from] ::gifski::Error),
+	#[error("thread panicked")]
+	Thread,
+	#[error("avif: {0}")]
+	Avif(#[from] AvifError),
+	#[error("no frames added")]
+	NoFrames,
+	#[error("static image has multiple frames")]
+	MultipleFrames,
+	#[error("webp: {0}")]
+	Webp(#[from] WebPError),
+	#[error("png: {0}")]
+	Png(#[from] ::png::EncodingError),
+}
+
+impl EncoderBackend {
+	pub fn build(&self, settings: EncoderSettings) -> Result<AnyEncoder, EncoderError> {
 		match self {
 			Self::Png => Ok(AnyEncoder::Png(png::PngEncoder::new(settings)?)),
 			Self::Gifski => Ok(AnyEncoder::Gifski(gifski::GifskiEncoder::new(settings)?)),
@@ -53,13 +78,13 @@ pub enum AnyEncoder {
 }
 
 pub trait Encoder {
-	fn info(&self) -> EncoderInfo;
-	fn add_frame(&mut self, frame: &Frame) -> Result<()>;
-	fn finish(self) -> Result<Vec<u8>>;
+	fn info(&self) -> &EncoderInfo;
+	fn add_frame(&mut self, frame: FrameRef) -> Result<(), EncoderError>;
+	fn finish(self) -> Result<Vec<u8>, EncoderError>;
 }
 
 impl Encoder for AnyEncoder {
-	fn info(&self) -> EncoderInfo {
+	fn info(&self) -> &EncoderInfo {
 		match self {
 			Self::Gifski(encoder) => encoder.info(),
 			Self::Png(encoder) => encoder.info(),
@@ -68,7 +93,7 @@ impl Encoder for AnyEncoder {
 		}
 	}
 
-	fn add_frame(&mut self, frame: &Frame) -> Result<()> {
+	fn add_frame(&mut self, frame: FrameRef) -> Result<(), EncoderError> {
 		match self {
 			Self::Gifski(encoder) => encoder.add_frame(frame),
 			Self::Png(encoder) => encoder.add_frame(frame),
@@ -77,7 +102,7 @@ impl Encoder for AnyEncoder {
 		}
 	}
 
-	fn finish(self) -> Result<Vec<u8>> {
+	fn finish(self) -> Result<Vec<u8>, EncoderError> {
 		match self {
 			Self::Gifski(encoder) => encoder.finish(),
 			Self::Png(encoder) => encoder.finish(),

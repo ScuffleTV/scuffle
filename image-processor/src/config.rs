@@ -65,7 +65,31 @@ pub struct WorkerConfig {
 	/// Default is 0, which means the number of workers is equal to the number
 	/// of CPU cores
 	#[settings(default = 0)]
-	pub workers: usize,
+	pub concurrency: usize,
+	/// The maximum number of errors before shutting down
+	#[settings(default = 10)]
+	pub error_threshold: usize,
+	/// The delay before retrying after an error
+	#[settings(default = std::time::Duration::from_secs(5))]
+	#[serde(with = "humantime_serde")]
+	pub error_delay: std::time::Duration,
+	/// Polling interval for fetching jobs
+	#[settings(default = std::time::Duration::from_secs(1))]
+	#[serde(with = "humantime_serde")]
+	pub polling_interval: std::time::Duration,
+	/// Worker hold time, the time a worker holds a job. The job will be
+	/// refreshed if the worker does not finish the job within this time. If the
+	/// worker crashes or is killed, the job will be released after this time,
+	/// at which point another worker can pick it up.
+	#[settings(default = std::time::Duration::from_secs(60))]
+	#[serde(with = "humantime_serde")]
+	pub hold_time: std::time::Duration,
+	/// Refresh interval for refreshing the job hold time
+	/// Default is 1/3 of the hold time
+	/// The refresh interval should be less than the hold time
+	#[settings(default = std::time::Duration::from_secs(20))]
+	#[serde(with = "humantime_serde")]
+	pub refresh_interval: std::time::Duration,
 }
 
 #[auto_settings]
@@ -142,17 +166,9 @@ pub struct MemoryDriveConfig {
 	/// The maximum capacity of the memory drive
 	#[serde(default)]
 	pub capacity: Option<usize>,
-	/// Global, shared memory drive for all tasks otherwise each task gets its
-	/// own memory drive
-	#[serde(default = "default_true")]
-	pub global: bool,
 	/// The drive mode
 	#[serde(default)]
 	pub mode: DriveMode,
-}
-
-fn default_true() -> bool {
-	true
 }
 
 #[auto_settings(impl_default = false)]
@@ -163,6 +179,7 @@ pub struct HttpDriveConfig {
 	pub url: Url,
 	/// The timeout for the HTTP drive
 	#[serde(default = "default_timeout")]
+	#[serde(with = "humantime_serde")]
 	pub timeout: Option<std::time::Duration>,
 	/// Allow insecure TLS
 	#[serde(default)]
@@ -203,6 +220,7 @@ pub enum DriveMode {
 pub struct PublicHttpDriveConfig {
 	/// The timeout for the HTTP drive
 	#[serde(default = "default_timeout")]
+	#[serde(with = "humantime_serde")]
 	pub timeout: Option<std::time::Duration>,
 	/// Allow insecure TLS
 	#[serde(default)]
@@ -252,6 +270,7 @@ pub struct HttpEventQueueConfig {
 	/// The timeout for the HTTP event queue
 	/// Default is 30 seconds
 	#[serde(default = "default_timeout")]
+	#[serde(with = "humantime_serde")]
 	pub timeout: Option<std::time::Duration>,
 	/// Allow insecure TLS (if the url is https, do not verify the certificate)
 	#[serde(default)]

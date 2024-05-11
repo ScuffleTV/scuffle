@@ -4,6 +4,8 @@ pub enum WebPError {
 	UnknownError(&'static str),
 	#[error("out of memory")]
 	OutOfMemory,
+	#[error("invalid data")]
+	InvalidData,
 }
 
 pub fn zero_memory_default<T>() -> T {

@@ -59,14 +59,6 @@ pub trait Drive {
 	/// Delete data from a drive
 	fn delete(&self, path: &str) -> impl std::future::Future<Output = Result<(), DriveError>> + Send;
 
-	/// Can be scoped to a specific request
-	fn scoped(&self) -> Option<Self>
-	where
-		Self: Sized,
-	{
-		None
-	}
-
 	fn healthy(&self) -> impl std::future::Future<Output = bool> + Send {
 		async { true }
 	}

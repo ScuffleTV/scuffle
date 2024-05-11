@@ -13,6 +13,8 @@ pub struct FfmpegDecoder<'data> {
 	scaler: scuffle_ffmpeg::scalar::Scalar,
 	info: DecoderInfo,
 	input_stream_index: i32,
+	average_frame_duration: u64,
+	previous_timestamp: Option<u64>,
 	send_packet: bool,
 	eof: bool,
 	done: bool,
@@ -104,9 +106,11 @@ impl<'data> FfmpegDecoder<'data> {
 			timescale: input_stream_time_base.den as u64,
 		};
 
+		let average_frame_duration = (input_stream_duration / input_stream_frames) as u64;
+
 		let frame = Frame {
 			image: Img::new(vec![RGBA8::default(); info.width * info.height], info.width, info.height),
-			duration_ts: (input_stream_duration / input_stream_frames) as u64,
+			duration_ts: average_frame_duration,
 		};
 
 		Ok(Self {
@@ -119,6 +123,8 @@ impl<'data> FfmpegDecoder<'data> {
 			eof: false,
 			send_packet: true,
 			frame,
+			average_frame_duration,
+			previous_timestamp: Some(0),
 		})
 	}
 }
@@ -195,6 +201,14 @@ impl Decoder for FfmpegDecoder<'_> {
 						row.copy_from_slice(cast_bytes_to_rgba(row_data));
 					}
 				}
+
+				let timestamp = frame
+					.best_effort_timestamp()
+					.and_then(|ts| if ts > 0 { Some(ts as u64) } else { None });
+				self.frame.duration_ts = timestamp
+					.map(|ts| ts - self.previous_timestamp.unwrap_or_default())
+					.unwrap_or(self.average_frame_duration);
+				self.previous_timestamp = timestamp;
 
 				return Ok(Some(self.frame.as_ref()));
 			} else if self.eof {

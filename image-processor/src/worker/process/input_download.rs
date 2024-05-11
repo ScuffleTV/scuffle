@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bson::oid::ObjectId;
 use bytes::Bytes;
 use scuffle_image_processor_proto::{input, Input};
 
@@ -16,6 +17,8 @@ pub enum InputDownloadError {
 	MissingInput,
 	#[error("drive error: {0}")]
 	DriveError(#[from] crate::drive::DriveError),
+	#[error("strfmt error: {0}")]
+	StrFmtError(#[from] strfmt::FmtError),
 }
 
 fn get_path(input: Option<&Input>) -> Option<&str> {
@@ -33,18 +36,22 @@ fn get_drive(input: Option<&Input>) -> Option<&str> {
 }
 
 #[tracing::instrument(skip(global, input), fields(input_path = get_path(input), input_drive = get_drive(input)))]
-pub async fn download_input(global: &Arc<Global>, input: Option<&Input>) -> Result<Bytes, InputDownloadError> {
+pub async fn download_input(global: &Arc<Global>, id: ObjectId, input: Option<&Input>) -> Result<Bytes, InputDownloadError> {
 	match input
 		.ok_or(InputDownloadError::MissingInput)?
 		.path
 		.as_ref()
 		.ok_or(InputDownloadError::MissingInput)?
 	{
-		input::Path::DrivePath(drive) => Ok(global
-			.drive(&drive.drive)
-			.ok_or(InputDownloadError::MissingDrive)?
-			.read(&drive.path)
-			.await?),
+		input::Path::DrivePath(drive) => {
+			let path = strfmt::strfmt(&drive.path, &([("id".to_owned(), id.to_string())].into_iter().collect()))?;
+
+			Ok(global
+				.drive(&drive.drive)
+				.ok_or(InputDownloadError::MissingDrive)?
+				.read(&path)
+				.await?)
+		}
 		input::Path::PublicUrl(url) => Ok(global
 			.public_http_drive()
 			.ok_or(InputDownloadError::MissingPublicHttpDrive)?

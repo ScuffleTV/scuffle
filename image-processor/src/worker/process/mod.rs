@@ -3,8 +3,9 @@ use std::sync::Arc;
 
 use bson::oid::ObjectId;
 use scuffle_foundations::context::Context;
-use scuffle_image_processor_proto::{ErrorCode, OutputFormat};
+use scuffle_image_processor_proto::{event_callback, ErrorCode, OutputFile, OutputFormat};
 
+pub use self::decoder::DecoderFrontend;
 use self::resize::ResizeError;
 use crate::database::Job;
 use crate::drive::{Drive, DriveWriteOptions};
@@ -107,8 +108,10 @@ impl ProcessJob {
 		}
 	}
 
-	#[tracing::instrument(skip(global), fields(job_id = %self.job.id), name = "ProcessJob::process")]
+	#[tracing::instrument(skip(global, self), fields(job_id = %self.job.id), name = "ProcessJob::process")]
 	pub async fn process(&self, global: Arc<Global>) {
+		tracing::info!("starting job");
+
 		crate::events::on_start(&global, &self.job).await;
 
 		let mut future = self.process_inner(&global);
@@ -124,73 +127,76 @@ impl ProcessJob {
 
 		let result = loop {
 			tokio::select! {
-					  _ = tokio::time::sleep(global.config().worker.refresh_interval) => {
-						  match self.job.refresh(&global).await {
-							  Ok(true) => {},
-							  Ok(false) => {
-								  tracing::warn!("lost job");
-								  return;
-							  }
-							  Err(err) => {
-								  tracing::error!("failed to refresh job: {err}");
-								  return;
-							  }
-						  }
-					  }
-					  Some(_) = async {
-						  if let Some(fut) = timeout_fut.as_mut() {
-							  fut.await;
-			Some(())
-						  } else {
-							  None
-						  }
-					  } => {
-						  tracing::warn!("timeout");
-						  break Err(JobError::Internal("timeout"));
-					  }
-					  result = &mut future => break result,
-				  }
+				_ = tokio::time::sleep(global.config().worker.refresh_interval) => {
+					match self.job.refresh(&global).await {
+						Ok(true) => {},
+						Ok(false) => {
+							tracing::warn!("lost job");
+							return;
+						}
+						Err(err) => {
+							tracing::error!("failed to refresh job: {err}");
+							return;
+						}
+					}
+				}
+				Some(_) = async {
+					if let Some(fut) = timeout_fut.as_mut() {
+						Some(fut.await)
+					} else {
+						None
+					}
+				} => {
+					tracing::warn!("timeout");
+					break Err(JobError::Internal("timeout"));
+				}
+				result = &mut future => break result,
+			}
 		};
 
-		let err = result
-			.inspect_err(|err| {
+		match result {
+			Ok(success) => {
+				tracing::info!("job completed");
+				crate::events::on_success(&global, &self.job, success.drive, success.files).await;
+			}
+			Err(err) => {
 				tracing::error!("failed to process job: {err}");
-			})
-			.err();
+				crate::events::on_failure(&global, &self.job, err).await;
+			}
+		}
 
-		if let Err(err) = self.job.complete(&global, err).await {
+		if let Err(err) = self.job.complete(&global).await {
 			tracing::error!("failed to complete job: {err}");
 		}
 	}
 
-	async fn process_inner(&self, global: &Arc<Global>) -> Result<(), JobError> {
-		let input = input_download::download_input(global, self.job.task.input.as_ref()).await?;
-		let output_drive_path = self
-			.job
-			.task
-			.output
-			.as_ref()
-			.ok_or(JobError::InvalidJob)?
-			.drive_path
-			.as_ref()
-			.ok_or(JobError::InvalidJob)?;
+	async fn process_inner(&self, global: &Arc<Global>) -> Result<event_callback::Success, JobError> {
+		let input = input_download::download_input(global, self.job.id, self.job.task.input.as_ref()).await?;
+		let output = self.job.task.output.as_ref().ok_or(JobError::InvalidJob)?;
+
+		let output_drive_path = output.drive_path.as_ref().ok_or(JobError::InvalidJob)?;
 
 		let output_drive = global.drive(&output_drive_path.drive).ok_or(JobError::InvalidJob)?;
 
 		let job = self.job.clone();
 
-		let outputs = blocking::spawn(job.task.clone(), input, self.permit.clone()).await?;
+		let output_results = blocking::spawn(job.task.clone(), input, self.permit.clone()).await?;
 
-		for output in outputs {
+		let is_animated = output_results.iter().any(|r| r.frame_count > 1);
+
+		let mut files = Vec::new();
+
+		for output_result in output_results {
 			let vars = setup_vars(
 				self.job.id,
-				output.format_name.clone(),
-				output.format,
-				output.scale,
-				output.width,
-				output.height,
-				output.format_idx,
-				output.resize_idx,
+				output_result.format_name.clone(),
+				output_result.format,
+				output_result.scale,
+				output_result.width,
+				output_result.height,
+				output_result.format_idx,
+				output_result.resize_idx,
+				is_animated,
 			);
 
 			let file_path = strfmt::strfmt(&output_drive_path.path, &vars).map_err(|err| {
@@ -198,19 +204,41 @@ impl ProcessJob {
 				JobError::Internal("failed to format path")
 			})?;
 
+			let size = output_result.data.len();
+
 			output_drive
 				.write(
 					&file_path,
-					output.data.into(),
+					output_result.data.into(),
 					Some(DriveWriteOptions {
-						content_type: Some(content_type(output.format).to_owned()),
+						content_type: Some(content_type(output_result.format).to_owned()),
+						acl: output.acl_override.clone(),
 						..Default::default()
 					}),
 				)
 				.await?;
+
+			files.push(OutputFile {
+				path: file_path,
+				size: size as u32,
+				format: output_result.format as i32,
+				frame_count: output_result.frame_count as u32,
+				height: output_result.height as u32,
+				width: output_result.width as u32,
+				duration_ms: output_result.duration_ms as u32,
+				content_type: content_type(output_result.format).to_owned(),
+				acl: output
+					.acl_override
+					.as_deref()
+					.or(output_drive.default_acl())
+					.map(|s| s.to_owned()),
+			});
 		}
 
-		Ok(())
+		Ok(event_callback::Success {
+			drive: output_drive_path.drive.clone(),
+			files,
+		})
 	}
 }
 
@@ -223,6 +251,7 @@ fn setup_vars(
 	height: usize,
 	format_idx: usize,
 	resize_idx: usize,
+	is_animated: bool,
 ) -> HashMap<String, String> {
 	let format_name = format_name.unwrap_or_else(|| match format {
 		OutputFormat::AvifAnim => "avif_anim".to_owned(),
@@ -236,7 +265,7 @@ fn setup_vars(
 	let scale = scale.map(|scale| scale.to_string()).unwrap_or_else(|| "".to_owned());
 
 	let static_ = match format {
-		OutputFormat::AvifStatic | OutputFormat::PngStatic | OutputFormat::WebpStatic => "_static",
+		OutputFormat::AvifStatic | OutputFormat::PngStatic | OutputFormat::WebpStatic if is_animated => "_static",
 		_ => "",
 	};
 

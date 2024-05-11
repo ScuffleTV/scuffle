@@ -13,6 +13,7 @@ pub struct HttpDrive {
 	mode: DriveMode,
 	semaphore: Option<tokio::sync::Semaphore>,
 	client: reqwest::Client,
+	acl: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -60,6 +61,7 @@ impl HttpDrive {
 
 				builder.build().map_err(HttpDriveError::Reqwest)?
 			},
+			acl: config.acl.clone(),
 		})
 	}
 }
@@ -130,7 +132,7 @@ impl Drive for HttpDrive {
 				);
 			}
 
-			if let Some(acl) = &options.acl {
+			if let Some(acl) = options.acl.as_ref().or(self.acl.as_ref()) {
 				request.headers_mut().insert(
 					reqwest::header::HeaderName::from_static("x-amz-acl"),
 					acl.parse().map_err(HttpDriveError::InvalidHeaderValue)?,
@@ -166,5 +168,9 @@ impl Drive for HttpDrive {
 		response.error_for_status().map_err(HttpDriveError::Reqwest)?;
 
 		Ok(())
+	}
+
+	fn default_acl(&self) -> Option<&str> {
+		self.acl.as_deref()
 	}
 }

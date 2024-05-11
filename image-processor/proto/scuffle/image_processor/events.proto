@@ -5,7 +5,10 @@ package scuffle.image_processor;
 import "scuffle/image_processor/types.proto";
 
 message EventCallback {
-    message Success {}
+    message Success {
+        string drive = 1;
+        repeated OutputFile files = 2;
+    }
 
     message Fail {
         Error error = 1;

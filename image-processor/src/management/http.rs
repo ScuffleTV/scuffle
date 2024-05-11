@@ -12,6 +12,7 @@ impl ManagementServer {
 		let router = Router::new()
 			.route("/process_image", post(process_image))
 			.route("/cancel_task", post(cancel_task))
+			.fallback(not_found)
 			.with_state(self.clone());
 
 		let addr = self.global.config().management.http.bind;
@@ -23,6 +24,10 @@ impl ManagementServer {
 	}
 }
 
+async fn not_found() -> (http::StatusCode, &'static str) {
+	(http::StatusCode::NOT_FOUND, "Not Found")
+}
+
 async fn process_image(
 	State(server): State<ManagementServer>,
 	Json(request): Json<ProcessImageRequest>,
@@ -31,6 +36,7 @@ async fn process_image(
 		Ok(resp) => resp,
 		Err(err) => ProcessImageResponse {
 			id: "".to_owned(),
+			upload_path: None,
 			error: Some(err),
 		},
 	};

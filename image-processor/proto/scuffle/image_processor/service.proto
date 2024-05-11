@@ -35,8 +35,12 @@ message ProcessImageRequest {
 message ProcessImageResponse {
   // A unique identifier for the task
   string id = 1;
+
+  // If the task had an input upload, this will be the path to the uploaded image.
+  optional DrivePath upload_path = 2;
+
   // Errors that occurred when creating the task.
-  optional Error error = 2;
+  optional Error error = 3;
 }
 
 // The Payload for a ImageProcessor.CancelTask request

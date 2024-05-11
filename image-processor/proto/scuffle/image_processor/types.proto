@@ -118,7 +118,7 @@ message InputUpload {
     // The input image as a binary blob.
     bytes binary = 1;
     // A prefix to use for the folder the image will be stored in.
-    DrivePath path = 2;
+    DrivePath drive_path = 2;
     // Content Type of the image.
     optional string content_type = 3;
     // Cache control header for the image.
@@ -151,7 +151,7 @@ message Input {
 message Scaling {
     oneof base {
         // This is the scale for the input image (after cropping or aspect ratio adjustments are made).
-        uint32 fixed = 1;
+        uint32 fixed_base = 1;
         // This is used to automatically determine the scale of the input image based on the width.
         // We know what aspect ratio to use based on the aspect ratio adjustments made to the input image.
         // We can then use that to determine the (input_width / base_width) scale.
@@ -184,18 +184,18 @@ message AnimationConfig {
         // Specify the frame duration for every frame in the output image.
         // This can be used to specify a constant frame rate for the output image.
         // frame_rate = 1000 / frame_duration_ms
-        uint32 duration_ms = 2;
+        uint32 frame_duration_ms = 2;
         // Frame durations for each frame in the output image.
         // Specify the frame duration for each frame in the output image.
         // If this number does not match the number of frames in the output image the processor will generate a fatal error.
-        IntegerList durations_ms = 3;
+        IntegerList frame_durations_ms = 3;
         // Factor to multiply the frame duration by.
         // This can be used to speed up or slow down the animation.
         // The frame duration will be multiplied by this value.
         // Each frame has a minimum duration of 1ms, if the factor creates some frames that are less than 1ms the processor will,
         // drop frames and adjust timings of others to ensure that the total duration of the animation is correctly multiplied.
         // This rule only applies for when the factor is greater than 1.
-        double factor = 4;
+        double frame_rate_factor = 4;
     }
 
     // Remove frames idx's from the input image.
@@ -227,6 +227,27 @@ message OutputFormatOptions {
     optional string name = 3;
 }
 
+message OutputFile {
+    // The path to the output file.
+    string path = 1;
+    // The content type of the output file.
+    string content_type = 2;
+    // The acl of the output file.
+    optional string acl = 3;
+    // Width of the output image.
+    uint32 width = 4;
+    // Height of the output image.
+    uint32 height = 5;
+    // The frame count of the output image.
+    uint32 frame_count = 6;
+    // The duration of the output image.
+    uint32 duration_ms = 7;
+    // The size of the output image in bytes.
+    uint32 size = 8;
+    // The format of the output image.
+    OutputFormat format = 9;
+}
+
 message Output {
     // The drive path to store the output image.
     // This is a prefix and the processor will append the suffix to this path to determine the final path.
@@ -243,43 +264,47 @@ message Output {
     // - {ext}          - The extension of the output image. (e.g. 'webp', 'avif', etc.)
     DrivePath drive_path = 1;
 
+    // Override the acl of the output images.
+    // By default this will use the ACL specified by the output drive config.
+    optional string acl_override = 2;
+
     // The desired format to encode the output image.
-    repeated OutputFormatOptions formats = 2;
+    repeated OutputFormatOptions formats = 3;
 
     // Allow upscaling if the determined dimensions are larger than the input image.
-    bool upscale = 3;
+    bool upscale = 4;
 
     // Sometimes we might specify that we want 'WebpAnim' but the input image is a static image.
     // In this case we would typically fatally error because we can't generate an animated image from a static image.
     // However if this is set to true the processor will ignore these errors and skip the format.
-    bool skip_impossible_formats = 4;
+    bool skip_impossible_formats = 5;
 
     // Skips resizing if the resize operation is impossible.
     // For example if the resize results in a width or height of less than 1.
     // If this is set to true the processor will ignore these errors and skip the resize operation.
-    bool skip_impossible_resizes = 5;
+    bool skip_impossible_resizes = 6;
 
     // Disables resize chaining.
     // Resize chaining is when the processor will resize from the source down to the largest size requested.
     // Then it will form every other size by taking reducing the previous resized image.
     // Disabling this will resize each image from the source image. Which can be slower but more accurate.
-    bool disable_resize_chaining = 6;
+    bool disable_resize_chaining = 7;
 
     // Disables 2 pass decoding.
     // 2 pass decoding allows for the processor to further optimize the image by deduplicating frames.
-    bool disable_two_pass_decoding = 7;
+    bool disable_two_pass_decoding = 8;
 
     // The resize method used to resize the image.
-    ResizeMethod resize_method = 8;
+    ResizeMethod resize_method = 9;
 
     // The resize algorithm used to resize the image.
-    ResizeAlgorithm resize_algorithm = 9;
+    ResizeAlgorithm resize_algorithm = 10;
 
     // The animation configuration for the output image.
-    optional AnimationConfig animation_config = 10;
+    optional AnimationConfig animation_config = 11;
 
     // A crop is applied to the image before resizing and before an aspect ratio change.
-    optional Crop crop = 11;
+    optional Crop crop = 12;
 
     // Confine the aspect ratio of the image to a specific range.
     // For example if you want to allow all images that are 3:1 to 1:3 you would set min_ratio to 1/3 and max_ratio to 3.
@@ -290,20 +315,20 @@ message Output {
 
     // The minimum ratio of the image.
     // An aspect ratio is the ratio of the width to the height of the image.
-    optional double min_aspect_ratio = 12;
+    optional double min_aspect_ratio = 13;
 
     // The maximum ratio of the image.
     // An aspect ratio is the ratio of the width to the height of the image.
-    optional double max_aspect_ratio = 13;
+    optional double max_aspect_ratio = 14;
 
     // There must be at least one element in the list.
     oneof resize {
         // Resize to a specific width, the height will be determined by the aspect ratio.
-        IntegerList width = 14;
+        IntegerList widths = 15;
         // Resize to a specific height, the width will be determined by the aspect ratio.
-        IntegerList height = 15;
+        IntegerList heights = 16;
         // A scaling config to determine how each dimension should be scaled.
-        Scaling scaling = 16;
+        Scaling scaling = 17;
     }
 }
 

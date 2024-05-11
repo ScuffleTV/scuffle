@@ -19,20 +19,21 @@ pub struct S3Drive {
 	bucket: String,
 	path_prefix: Option<String>,
 	semaphore: Option<tokio::sync::Semaphore>,
+	acl: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum S3DriveError {
 	#[error("s3: {0}")]
-	S3Error(#[from] aws_sdk_s3::Error),
+	S3(#[from] aws_sdk_s3::Error),
 	#[error("byte stream: {0}")]
-	ByteStreamError(#[from] aws_smithy_types::byte_stream::error::Error),
+	ByteStream(#[from] aws_smithy_types::byte_stream::error::Error),
 	#[error("read: {0}")]
-	ReadError(#[from] SdkError<GetObjectError, HttpResponse>),
+	Read(#[from] SdkError<GetObjectError, HttpResponse>),
 	#[error("write: {0}")]
-	WriteError(#[from] SdkError<PutObjectError, HttpResponse>),
+	Write(#[from] SdkError<PutObjectError, HttpResponse>),
 	#[error("delete: {0}")]
-	DeleteError(#[from] SdkError<DeleteObjectError, HttpResponse>),
+	Delete(#[from] SdkError<DeleteObjectError, HttpResponse>),
 }
 
 impl S3Drive {
@@ -40,7 +41,7 @@ impl S3Drive {
 	pub async fn new(config: &S3DriveConfig) -> Result<Self, DriveError> {
 		tracing::debug!("setting up s3 disk");
 		Ok(Self {
-			name: config.bucket.clone(),
+			name: config.name.clone(),
 			mode: config.mode,
 			client: aws_sdk_s3::Client::from_conf({
 				let mut builder = aws_sdk_s3::Config::builder();
@@ -66,6 +67,7 @@ impl S3Drive {
 			path_prefix: config.prefix_path.clone(),
 			bucket: config.bucket.clone(),
 			semaphore: config.max_connections.map(tokio::sync::Semaphore::new),
+			acl: config.acl.clone(),
 		})
 	}
 }
@@ -130,22 +132,24 @@ impl Drive for S3Drive {
 			.key(path.trim_start_matches('/'))
 			.body(data.into());
 
-		if let Some(options) = options {
-			if let Some(cache_control) = &options.cache_control {
-				req = req.cache_control(cache_control);
-			}
-			if let Some(content_type) = &options.content_type {
-				req = req.content_type(content_type);
-			}
-			if let Some(content_disposition) = &options.content_disposition {
-				req = req.content_disposition(content_disposition);
-			}
-			if let Some(acl) = &options.acl {
-				req = req.acl(acl.as_str().into());
-			}
+		let options = options.unwrap_or_default();
+
+		if let Some(cache_control) = &options.cache_control {
+			req = req.cache_control(cache_control);
+		}
+		if let Some(content_type) = &options.content_type {
+			req = req.content_type(content_type);
+		}
+		if let Some(content_disposition) = &options.content_disposition {
+			req = req.content_disposition(content_disposition);
+		}
+		if let Some(acl) = options.acl.as_ref().or(self.acl.as_ref()) {
+			req = req.acl(acl.as_str().into());
 		}
 
-		req.send().await.map_err(S3DriveError::from)?;
+		req.send().await.map_err(S3DriveError::from).inspect_err(|err| {
+			tracing::error!("failed to write to s3: {:?}", err);
+		})?;
 
 		Ok(())
 	}
@@ -176,5 +180,9 @@ impl Drive for S3Drive {
 			.map_err(S3DriveError::from)?;
 
 		Ok(())
+	}
+
+	fn default_acl(&self) -> Option<&str> {
+		self.acl.as_deref()
 	}
 }

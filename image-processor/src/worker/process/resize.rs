@@ -158,7 +158,7 @@ impl ImageResizer {
 		}
 
 		let mut output_targets: Vec<_> = match output.resize.as_ref().ok_or(ResizeError::MissingResize)? {
-			output::Resize::Width(widths) => widths
+			output::Resize::Widths(widths) => widths
 				.values
 				.iter()
 				.copied()
@@ -169,7 +169,7 @@ impl ImageResizer {
 					scale: None,
 				})
 				.collect(),
-			output::Resize::Height(heights) => heights
+			output::Resize::Heights(heights) => heights
 				.values
 				.iter()
 				.copied()
@@ -182,7 +182,7 @@ impl ImageResizer {
 				.collect(),
 			output::Resize::Scaling(scaling) => {
 				let (base_width, base_height) = match scaling.base.clone().ok_or(ResizeError::MissingResize)? {
-					scaling::Base::Fixed(scale) => {
+					scaling::Base::FixedBase(scale) => {
 						let input = cropped_dims.convert_aspect_ratio(target_aspect_ratio);
 
 						(input.width / scale as usize, input.height / scale as usize)

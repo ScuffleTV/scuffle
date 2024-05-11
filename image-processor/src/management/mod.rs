@@ -1,15 +1,18 @@
 use std::sync::Arc;
 
 use anyhow::Context;
+use bson::oid::ObjectId;
 use bytes::Bytes;
 use scuffle_image_processor_proto::{
-	CancelTaskRequest, CancelTaskResponse, Error, ErrorCode, ProcessImageRequest, ProcessImageResponse,
+	input, CancelTaskRequest, CancelTaskResponse, DrivePath, Error, ErrorCode, Input, ProcessImageRequest,
+	ProcessImageResponse,
 };
 
 use crate::database::Job;
 use crate::drive::{Drive, DriveWriteOptions};
 use crate::global::Global;
 use crate::management::validation::{validate_input_upload, validate_task, FragmentBuf};
+use crate::worker::process::DecoderFrontend;
 
 pub mod grpc;
 pub mod http;
@@ -22,23 +25,63 @@ struct ManagementServer {
 }
 
 impl ManagementServer {
-	async fn process_image(&self, request: ProcessImageRequest) -> Result<ProcessImageResponse, Error> {
+	async fn process_image(&self, mut request: ProcessImageRequest) -> Result<ProcessImageResponse, Error> {
 		let mut fragment = FragmentBuf::new();
 
-		validate_task(&self.global, fragment.push("task"), request.task.as_ref())?;
+		validate_task(
+			&self.global,
+			fragment.push("task"),
+			request.task.as_ref(),
+			request.input_upload.as_ref().and_then(|upload| upload.drive_path.as_ref()),
+		)?;
 
 		// We need to do validation here.
 		if let Some(input_upload) = request.input_upload.as_ref() {
 			validate_input_upload(&self.global, fragment.push("input_upload"), Some(input_upload))?;
 		}
 
-		if let Some(input_upload) = request.input_upload {
-			let drive_path = input_upload.path.unwrap();
+		let id = ObjectId::new();
+
+		let upload_path = if let Some(input_upload) = request.input_upload {
+			let drive_path = input_upload.drive_path.unwrap();
 			let drive = self.global.drive(&drive_path.drive).unwrap();
+
+			let file_format = file_format::FileFormat::from_bytes(&input_upload.binary);
+
+			DecoderFrontend::from_format(file_format).map_err(|err| Error {
+				code: ErrorCode::InvalidInput as i32,
+				message: format!("input_upload.binary: {err}"),
+			})?;
+
+			let vars = [
+				("id".to_owned(), id.to_string()),
+				("ext".to_owned(), file_format.extension().to_owned()),
+			]
+			.into_iter()
+			.collect();
+
+			let path = strfmt::strfmt(&drive_path.path, &vars).map_err(|err| Error {
+				code: ErrorCode::InvalidInput as i32,
+				message: format!("input_upload.drive_path.path: {err}"),
+			})?;
+
+			let drive_path = DrivePath {
+				drive: drive_path.drive,
+				path: path.clone(),
+			};
+
+			if let Some(input) = request.task.as_mut().unwrap().input.as_mut() {
+				input.path = Some(input::Path::DrivePath(drive_path.clone()));
+			} else {
+				request.task.as_mut().unwrap().input = Some(Input {
+					path: Some(input::Path::DrivePath(drive_path.clone())),
+					..Default::default()
+				});
+			}
 
 			drive
 				.write(
-					&drive_path.path,
+					&path,
 					Bytes::from(input_upload.binary),
 					Some(DriveWriteOptions {
 						acl: input_upload.acl,
@@ -55,9 +98,13 @@ impl ManagementServer {
 						message: format!("failed to write input upload: {err}"),
 					}
 				})?;
-		}
 
-		let job = Job::new(&self.global, request.task.unwrap(), request.priority, request.ttl)
+			Some(drive_path)
+		} else {
+			None
+		};
+
+		let job = Job::new(&self.global, id, request.task.unwrap(), request.priority, request.ttl)
 			.await
 			.map_err(|err| {
 				tracing::error!("failed to create job: {:#}", err);
@@ -69,6 +116,7 @@ impl ManagementServer {
 
 		Ok(ProcessImageResponse {
 			id: job.id.to_string(),
+			upload_path,
 			error: None,
 		})
 	}

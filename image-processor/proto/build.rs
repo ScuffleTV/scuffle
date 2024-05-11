@@ -6,6 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let descriptor_path = PathBuf::from(env::var("OUT_DIR").unwrap()).join("proto_descriptor.bin");
 
 	let config = tonic_build::configure()
+		.compile_well_known_types(true)
 		.build_server(cfg!(feature = "server"))
 		.build_client(cfg!(feature = "client"));
 

@@ -51,10 +51,12 @@ async fn main(cfg: Matches<ImageProcessorConfig>) {
 	let mut handles = Vec::new();
 
 	if global.config().management.grpc.enabled || global.config().management.http.enabled {
+		tracing::info!("starting management");
 		handles.push(runtime::spawn(management::start(global.clone())));
 	}
 
 	if global.config().worker.enabled {
+		tracing::info!("starting worker");
 		handles.push(runtime::spawn(worker::start(global.clone())));
 	}
 

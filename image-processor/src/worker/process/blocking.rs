@@ -21,6 +21,8 @@ pub struct JobOutput {
 	pub width: usize,
 	pub height: usize,
 	pub data: Vec<u8>,
+	pub frame_count: usize,
+	pub duration_ms: u64,
 }
 
 #[derive(Clone, Copy)]
@@ -191,7 +193,7 @@ impl<'a> BlockingTask<'a> {
 
 		if let Some(anim_config) = anim_config {
 			match anim_config.frame_rate.as_ref() {
-				Some(animation_config::FrameRate::DurationsMs(durations)) => {
+				Some(animation_config::FrameRate::FrameDurationsMs(durations)) => {
 					if durations.values.len() != decoder_info.frame_count {
 						return Err(JobError::MismatchedFrameCount {
 							frame_count: decoder_info.frame_count,
@@ -203,7 +205,7 @@ impl<'a> BlockingTask<'a> {
 						frame_configs[idx] = Some(FrameConfig::DurationMs(*duration))
 					}
 				}
-				Some(animation_config::FrameRate::DurationMs(duration)) => {
+				Some(animation_config::FrameRate::FrameDurationMs(duration)) => {
 					for config in frame_configs.iter_mut() {
 						*config = Some(FrameConfig::DurationMs(*duration))
 					}
@@ -279,7 +281,7 @@ impl<'a> BlockingTask<'a> {
 			frame_idx: 0,
 			duration_carried_ms: 0.0,
 			frame_rate_factor: anim_config.and_then(|config| match config.frame_rate.as_ref()? {
-				animation_config::FrameRate::Factor(factor) => Some(*factor),
+				animation_config::FrameRate::FrameRateFactor(factor) => Some(*factor),
 				_ => None,
 			}),
 		})
@@ -364,6 +366,8 @@ impl<'a> BlockingTask<'a> {
 						scale: output.scale.map(|s| s as usize),
 						width: info.width,
 						height: info.height,
+						frame_count: info.frame_count,
+						duration_ms: info.duration,
 						data: encoder.finish()?,
 					})
 				})

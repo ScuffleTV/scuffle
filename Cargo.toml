@@ -69,6 +69,6 @@ scuffle-ffmpeg = { path = "ffmpeg" }
 # TODO: Remove these once the PRs are merged
 [patch.crates-io]
 # https://github.com/remkop22/postgres-from-row/pull/9
-postgres-from-row = { git = "https://github.com/ScuffleTV/postgres-from-row.git", branch = "troy/from_fn" }
-# https://github.com/madonoharu/tsify/pull/32
-tsify = { git = "https://github.com/ScuffleTV/tsify.git", branch = "sisou/comments" }
+# postgres-from-row = { git = "https://github.com/ScuffleTV/postgres-from-row.git", branch = "troy/from_fn" }
+# # https://github.com/madonoharu/tsify/pull/32
+# tsify = { git = "https://github.com/ScuffleTV/tsify.git", branch = "sisou/comments" }

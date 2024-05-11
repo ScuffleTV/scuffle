@@ -62,6 +62,10 @@ pub trait Drive {
 	fn healthy(&self) -> impl std::future::Future<Output = bool> + Send {
 		async { true }
 	}
+
+	fn default_acl(&self) -> Option<&str> {
+		None
+	}
 }
 
 #[derive(Debug)]

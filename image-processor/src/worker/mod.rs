@@ -6,14 +6,20 @@ use scuffle_foundations::context::{self, ContextFutExt};
 use crate::database::Job;
 use crate::global::Global;
 
-mod process;
+pub mod process;
 
 pub use self::process::JobError;
 
 pub async fn start(global: Arc<Global>) -> anyhow::Result<()> {
 	let config = global.config();
 
-	let semaphore = Arc::new(tokio::sync::Semaphore::new(config.worker.concurrency));
+	let mut concurrency = config.worker.concurrency;
+
+	if concurrency == 0 {
+		concurrency = num_cpus::get();
+	}
+
+	let semaphore = Arc::new(tokio::sync::Semaphore::new(concurrency));
 
 	let mut error_count = 0;
 	let (_, handle) = context::Context::new();

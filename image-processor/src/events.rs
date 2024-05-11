@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use scuffle_image_processor_proto::{event_callback, EventCallback, EventQueue as EventTopic};
+use scuffle_image_processor_proto::{event_callback, EventCallback, EventQueue as EventTopic, OutputFile};
 
 use crate::database::Job;
 use crate::event_queue::EventQueue;
@@ -29,19 +29,19 @@ pub async fn on_event(global: &Arc<Global>, job: &Job, event_topic: &EventTopic,
 	}
 }
 
-fn start_event(job: &Job) -> event_callback::Event {
+fn start_event(_: &Job) -> event_callback::Event {
 	event_callback::Event::Start(event_callback::Start {})
 }
 
-fn success_event(job: &Job) -> event_callback::Event {
-	event_callback::Event::Success(event_callback::Success {})
+fn success_event(_: &Job, drive: String, files: Vec<OutputFile>) -> event_callback::Event {
+	event_callback::Event::Success(event_callback::Success { drive, files })
 }
 
-fn fail_event(job: &Job, err: JobError) -> event_callback::Event {
+fn fail_event(_: &Job, err: JobError) -> event_callback::Event {
 	event_callback::Event::Fail(event_callback::Fail { error: Some(err.into()) })
 }
 
-fn cancel_event(job: &Job) -> event_callback::Event {
+fn cancel_event(_: &Job) -> event_callback::Event {
 	event_callback::Event::Cancel(event_callback::Cancel {})
 }
 
@@ -51,9 +51,9 @@ pub async fn on_start(global: &Arc<Global>, job: &Job) {
 	}
 }
 
-pub async fn on_success(global: &Arc<Global>, job: &Job) {
+pub async fn on_success(global: &Arc<Global>, job: &Job, drive: String, files: Vec<OutputFile>) {
 	if let Some(on_success) = &job.task.events.as_ref().and_then(|events| events.on_success.as_ref()) {
-		on_event(global, job, on_success, success_event(job)).await;
+		on_event(global, job, on_success, success_event(job, drive, files)).await;
 	}
 }
 

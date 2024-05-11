@@ -11,25 +11,22 @@ tracing = "0.1"
 tokio = { version = "1.34", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-ulid = { version = "1.1", features = ["uuid"] }
-postgres-from-row = "0.5"
 prost = "0.12"
 aws-config = "1.1"
 aws-sdk-s3 = { version = "1.12", features = ["behavior-version-latest"] }
 async-trait = "0.1"
 anyhow = "1.0"
-async-nats = "0.34"
+async-nats = "0.35"
 tonic = "0.11"
 futures = "0.3"
 thiserror = "1.0"
-file-format = "0.24"
+file-format = "0.25"
 scopeguard = "1.2"
 rgb = "0.8"
 imgref = "1.10"
 libavif-sys = { version = "0.16" }
 libwebp-sys2 = { version = "0.1", features = ["1_2", "demux", "mux", "static"] }
 sha2 = "0.10"
-byteorder = "1.5"
 gifski = "1.13"
 png = "0.17"
 num_cpus = "1.16"
@@ -42,7 +39,7 @@ http = "1"
 urlencoding = "2"
 humantime-serde = "1"
 
-scuffle-foundations = { version = "*", path = "../foundations" }
+scuffle-foundations = { version = "*", path = "../foundations", features = [] }
 scuffle-ffmpeg = { version = "*", path = "../ffmpeg", features = ["tracing"] }
 
 scuffle-image-processor-proto = { version = "*", path = "./proto", features = ["server", "serde"]}
@@ -55,7 +52,8 @@ aws-smithy-runtime-api = "1"
 fred = "9.0.3"
 strfmt = "0.2"
 once_cell = "1.8"
-bitvec = "1"
+
+serde-aux = "4"
 
 [build-dependencies]
 tonic-build = "0.11"

@@ -44,6 +44,7 @@ pub struct MemoryDrive {
 	name: String,
 	mode: DriveMode,
 	files: RwLock<FileHolder>,
+	acl: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +66,7 @@ impl MemoryDrive {
 		Ok(Self {
 			name: config.name.clone(),
 			mode: config.mode,
+			acl: config.acl.clone(),
 			files: RwLock::new(FileHolder {
 				remaining_capacity: config.capacity.unwrap_or(usize::MAX),
 				files: HashMap::new(),
@@ -104,13 +106,11 @@ impl Drive for MemoryDrive {
 
 		let mut files = self.files.write().await;
 
-		files.insert(
-			path.to_owned(),
-			MemoryFile {
-				data,
-				_options: options.unwrap_or_default(),
-			},
-		)?;
+		let mut options = options.unwrap_or_default();
+
+		options.acl = options.acl.or_else(|| self.acl.clone());
+
+		files.insert(path.to_owned(), MemoryFile { data, _options: options })?;
 
 		Ok(())
 	}
@@ -125,5 +125,9 @@ impl Drive for MemoryDrive {
 
 		self.files.write().await.remove(path).ok_or(DriveError::NotFound)?;
 		Ok(())
+	}
+
+	fn default_acl(&self) -> Option<&str> {
+		self.acl.as_deref()
 	}
 }

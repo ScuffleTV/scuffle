@@ -6,20 +6,43 @@ use mongodb::bson::oid::ObjectId;
 use mongodb::options::IndexOptions;
 use mongodb::{Database, IndexModel};
 use scuffle_image_processor_proto::Task;
-use serde::{Deserialize, Serializer};
 
 use crate::global::Global;
-use crate::worker::JobError;
 
-fn serialize_protobuf<T: prost::Message, S: Serializer>(value: &T, serializer: S) -> Result<S::Ok, S::Error> {
-	serializer.serialize_bytes(&value.encode_to_vec())
+mod protobuf {
+	use serde::{Deserialize, Serializer};
+
+	pub fn serialize<T: prost::Message, S: Serializer>(value: &T, serializer: S) -> Result<S::Ok, S::Error> {
+		serializer.serialize_bytes(&value.encode_to_vec())
+	}
+
+	pub fn deserialize<'de, T: prost::Message + Default, D: serde::Deserializer<'de>>(
+		deserializer: D,
+	) -> Result<T, D::Error> {
+		let binary = bson::Binary::deserialize(deserializer)?;
+		T::decode(binary.bytes.as_slice()).map_err(serde::de::Error::custom)
+	}
 }
 
-fn deserialize_protobuf<'de, T: prost::Message + Default, D: serde::Deserializer<'de>>(
-	deserializer: D,
-) -> Result<T, D::Error> {
-	let bytes = Vec::<u8>::deserialize(deserializer)?;
-	T::decode(bytes.as_slice()).map_err(serde::de::Error::custom)
+mod datetime {
+	use serde::{Deserialize, Serialize, Serializer};
+
+	pub fn deserialize<'de, D: serde::Deserializer<'de>>(
+		deserializer: D,
+	) -> Result<Option<chrono::DateTime<chrono::Utc>>, D::Error> {
+		let bson_datetime = Option::<bson::DateTime>::deserialize(deserializer)?;
+		Ok(bson_datetime.map(|dt| dt.into()))
+	}
+
+	pub fn serialize<S: Serializer>(
+		value: &Option<chrono::DateTime<chrono::Utc>>,
+		serializer: S,
+	) -> Result<S::Ok, S::Error> {
+		match value {
+			Some(value) => bson::DateTime::from(value.clone()).serialize(serializer),
+			None => None::<bson::DateTime>.serialize(serializer),
+		}
+	}
 }
 
 #[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
@@ -30,11 +53,13 @@ pub struct Job {
 	/// The priority of the job, higher priority jobs are fetched first
 	pub priority: u32,
 	/// The lease time of the job on a worker.
+	#[serde(with = "datetime")]
 	pub hold_until: Option<chrono::DateTime<chrono::Utc>>,
-	#[serde(serialize_with = "serialize_protobuf", deserialize_with = "deserialize_protobuf")]
+	#[serde(with = "protobuf")]
 	/// The task to be performed
 	pub task: Task,
 	/// The ttl of the job, after which it will be deleted
+	#[serde(with = "datetime")]
 	pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
 	/// The id of the worker that claimed the job
 	pub claimed_by_id: Option<ObjectId>,
@@ -87,12 +112,13 @@ impl Job {
 	/// The job that was created
 	pub async fn new(
 		global: &Arc<Global>,
+		id: ObjectId,
 		task: Task,
 		priority: u32,
 		ttl: Option<u32>,
 	) -> Result<Self, mongodb::error::Error> {
 		let job = Job {
-			id: ObjectId::new(),
+			id,
 			priority,
 			hold_until: None,
 			task,
@@ -178,7 +204,7 @@ impl Job {
 	/// Whether the job was successfully completed or not, if the job was
 	/// reclaimed by a different worker, it will not be completed and this will
 	/// return false
-	pub async fn complete(&self, global: &Arc<Global>, error: Option<JobError>) -> Result<(), mongodb::error::Error> {
+	pub async fn complete(&self, global: &Arc<Global>) -> Result<bool, mongodb::error::Error> {
 		let success = Self::collection(global.database())
 			.delete_one(
 				bson::doc! {
@@ -189,15 +215,7 @@ impl Job {
 			)
 			.await?;
 
-		if success.deleted_count == 1 {
-			if let Some(error) = error {
-				crate::events::on_failure(global, self, error).await;
-			} else {
-				crate::events::on_success(global, self).await;
-			}
-		}
-
-		Ok(())
+		Ok(success.deleted_count == 1)
 	}
 
 	/// Cancels a job

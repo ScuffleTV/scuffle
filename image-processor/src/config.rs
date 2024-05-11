@@ -60,6 +60,7 @@ pub struct HttpConfig {
 #[serde(default)]
 pub struct WorkerConfig {
 	/// Enable the worker server
+	#[settings(default = true)]
 	pub enabled: bool,
 	/// The number of workers to start
 	/// Default is 0, which means the number of workers is equal to the number
@@ -153,6 +154,9 @@ pub struct S3DriveConfig {
 	/// The maximum number of concurrent connections
 	#[serde(default)]
 	pub max_connections: Option<usize>,
+	/// Default ACL for files
+	#[serde(default)]
+	pub acl: Option<String>,
 }
 
 fn default_region() -> String {
@@ -169,6 +173,9 @@ pub struct MemoryDriveConfig {
 	/// The drive mode
 	#[serde(default)]
 	pub mode: DriveMode,
+	/// Default ACL for files
+	#[serde(default)]
+	pub acl: Option<String>,
 }
 
 #[auto_settings(impl_default = false)]
@@ -193,6 +200,9 @@ pub struct HttpDriveConfig {
 	/// Additional headers for the HTTP drive
 	#[serde(default)]
 	pub headers: HashMap<String, String>,
+	/// Default ACL for files
+	#[serde(default)]
+	pub acl: Option<String>,
 }
 
 fn default_timeout() -> Option<std::time::Duration> {

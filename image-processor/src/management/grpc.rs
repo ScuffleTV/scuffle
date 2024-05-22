@@ -22,7 +22,7 @@ impl scuffle_image_processor_proto::image_processor_server::ImageProcessor for M
 			Ok(resp) => resp,
 			Err(err) => ProcessImageResponse {
 				id: "".to_owned(),
-				upload_path: None,
+				upload_info: None,
 				error: Some(err),
 			},
 		};

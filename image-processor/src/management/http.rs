@@ -36,7 +36,7 @@ async fn process_image(
 		Ok(resp) => resp,
 		Err(err) => ProcessImageResponse {
 			id: "".to_owned(),
-			upload_path: None,
+			upload_info: None,
 			error: Some(err),
 		},
 	};

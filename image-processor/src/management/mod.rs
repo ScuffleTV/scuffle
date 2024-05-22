@@ -5,7 +5,7 @@ use bson::oid::ObjectId;
 use bytes::Bytes;
 use scuffle_image_processor_proto::{
 	input, CancelTaskRequest, CancelTaskResponse, DrivePath, Error, ErrorCode, Input, ProcessImageRequest,
-	ProcessImageResponse,
+	ProcessImageResponse, ProcessImageResponseUploadInfo,
 };
 
 use crate::database::Job;
@@ -42,7 +42,7 @@ impl ManagementServer {
 
 		let id = ObjectId::new();
 
-		let upload_path = if let Some(input_upload) = request.input_upload {
+		let upload_info = if let Some(input_upload) = request.input_upload {
 			let drive_path = input_upload.drive_path.unwrap();
 			let drive = self.global.drive(&drive_path.drive).unwrap();
 
@@ -79,6 +79,8 @@ impl ManagementServer {
 				});
 			}
 
+			let upload_size = input_upload.binary.len() as u64;
+
 			drive
 				.write(
 					&path,
@@ -99,7 +101,11 @@ impl ManagementServer {
 					}
 				})?;
 
-			Some(drive_path)
+			Some(ProcessImageResponseUploadInfo {
+				path: Some(drive_path),
+				content_type: file_format.media_type().to_owned(),
+				size: upload_size,
+			})
 		} else {
 			None
 		};
@@ -116,7 +122,7 @@ impl ManagementServer {
 
 		Ok(ProcessImageResponse {
 			id: job.id.to_string(),
-			upload_path,
+			upload_info,
 			error: None,
 		})
 	}

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use scuffle_image_processor_proto::{event_callback, EventCallback, EventQueue as EventTopic, OutputFile};
+use scuffle_image_processor_proto::{event_callback, EventCallback, EventQueue as EventTopic};
 
 use crate::database::Job;
 use crate::event_queue::EventQueue;
@@ -29,42 +29,38 @@ pub async fn on_event(global: &Arc<Global>, job: &Job, event_topic: &EventTopic,
 	}
 }
 
-fn start_event(_: &Job) -> event_callback::Event {
-	event_callback::Event::Start(event_callback::Start {})
-}
-
-fn success_event(_: &Job, drive: String, files: Vec<OutputFile>) -> event_callback::Event {
-	event_callback::Event::Success(event_callback::Success { drive, files })
-}
-
-fn fail_event(_: &Job, err: JobError) -> event_callback::Event {
-	event_callback::Event::Fail(event_callback::Fail { error: Some(err.into()) })
-}
-
-fn cancel_event(_: &Job) -> event_callback::Event {
-	event_callback::Event::Cancel(event_callback::Cancel {})
-}
-
 pub async fn on_start(global: &Arc<Global>, job: &Job) {
 	if let Some(on_start) = &job.task.events.as_ref().and_then(|events| events.on_start.as_ref()) {
-		on_event(global, job, on_start, start_event(job)).await;
+		on_event(global, job, on_start, event_callback::Event::Start(event_callback::Start {})).await;
 	}
 }
 
-pub async fn on_success(global: &Arc<Global>, job: &Job, drive: String, files: Vec<OutputFile>) {
+pub async fn on_success(global: &Arc<Global>, job: &Job, success: event_callback::Success) {
 	if let Some(on_success) = &job.task.events.as_ref().and_then(|events| events.on_success.as_ref()) {
-		on_event(global, job, on_success, success_event(job, drive, files)).await;
+		on_event(global, job, on_success, event_callback::Event::Success(success)).await;
 	}
 }
 
 pub async fn on_failure(global: &Arc<Global>, job: &Job, err: JobError) {
 	if let Some(on_failure) = &job.task.events.as_ref().and_then(|events| events.on_failure.as_ref()) {
-		on_event(global, job, on_failure, fail_event(job, err)).await;
+		on_event(
+			global,
+			job,
+			on_failure,
+			event_callback::Event::Fail(event_callback::Fail { error: Some(err.into()) }),
+		)
+		.await;
 	}
 }
 
 pub async fn on_cancel(global: &Arc<Global>, job: &Job) {
 	if let Some(on_cancel) = &job.task.events.as_ref().and_then(|events| events.on_cancel.as_ref()) {
-		on_event(global, job, on_cancel, cancel_event(job)).await;
+		on_event(
+			global,
+			job,
+			on_cancel,
+			event_callback::Event::Cancel(event_callback::Cancel {}),
+		)
+		.await;
 	}
 }

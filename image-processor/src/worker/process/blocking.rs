@@ -4,15 +4,20 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use file_format::FileFormat;
-use scuffle_image_processor_proto::{animation_config, Output, OutputFormat, OutputFormatOptions, Task};
+use scuffle_image_processor_proto::{animation_config, InputFileMetadata, Output, OutputFormat, OutputFormatOptions, Task};
 use tokio::sync::OwnedSemaphorePermit;
 
 use super::decoder::{AnyDecoder, Decoder, DecoderFrontend, DecoderInfo, LoopCount};
-use super::encoder::{AnyEncoder, Encoder, EncoderBackend, EncoderSettings};
+use super::encoder::{AnyEncoder, Encoder, EncoderBackend, EncoderError, EncoderSettings};
 use super::resize::{ImageResizer, ResizeOutputTarget};
 use super::JobError;
 
 pub struct JobOutput {
+	pub input: InputFileMetadata,
+	pub output: Vec<OutputImage>,
+}
+
+pub struct OutputImage {
 	pub format: OutputFormat,
 	pub format_name: Option<String>,
 	pub format_idx: usize,
@@ -54,7 +59,7 @@ impl Drop for CancelToken {
 	}
 }
 
-pub async fn spawn(task: Task, input: Bytes, permit: Arc<OwnedSemaphorePermit>) -> Result<Vec<JobOutput>, JobError> {
+pub async fn spawn(task: Task, input: Bytes, permit: Arc<OwnedSemaphorePermit>) -> Result<JobOutput, JobError> {
 	let cancel_token = CancelToken::new();
 	let _cancel_guard = cancel_token.clone();
 
@@ -351,14 +356,15 @@ impl<'a> BlockingTask<'a> {
 		Ok(true)
 	}
 
-	pub fn finish(self) -> Result<Vec<JobOutput>, JobError> {
-		self.static_encoders
+	pub fn finish(self) -> Result<JobOutput, JobError> {
+		let output = self
+			.static_encoders
 			.into_iter()
 			.chain(self.anim_encoders)
 			.flat_map(|(f_idx, encoders)| {
 				encoders.into_iter().map(move |(output, encoder)| {
 					let info = encoder.info();
-					Ok(JobOutput {
+					Ok(OutputImage {
 						format: info.format,
 						format_name: info.name.clone(),
 						format_idx: f_idx,
@@ -372,6 +378,15 @@ impl<'a> BlockingTask<'a> {
 					})
 				})
 			})
-			.collect()
+			.collect::<Result<_, EncoderError>>()?;
+
+		Ok(JobOutput {
+			input: InputFileMetadata {
+				width: self.decoder_info.width as u32,
+				height: self.decoder_info.height as u32,
+				frame_count: self.decoder_info.frame_count as u32,
+			},
+			output,
+		})
 	}
 }

@@ -8,6 +8,7 @@ message EventCallback {
     message Success {
         string drive = 1;
         repeated OutputFile files = 2;
+        InputFileMetadata input_metadata = 3;
     }
 
     message Fail {

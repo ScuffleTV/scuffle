@@ -248,6 +248,16 @@ message OutputFile {
     OutputFormat format = 9;
 }
 
+// Returned after the image is processed.
+message InputFileMetadata {
+    // The width of the input image.
+    uint32 width = 1;
+    // The height of the input image.
+    uint32 height = 2;
+    // The frame count of the input image.
+    uint32 frame_count = 3;
+}
+
 message Output {
     // The drive path to store the output image.
     // This is a prefix and the processor will append the suffix to this path to determine the final path.

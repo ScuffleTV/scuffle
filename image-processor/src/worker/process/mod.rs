@@ -5,6 +5,7 @@ use bson::oid::ObjectId;
 use scuffle_foundations::context::Context;
 use scuffle_image_processor_proto::{event_callback, ErrorCode, OutputFile, OutputFormat};
 
+use self::blocking::JobOutput;
 pub use self::decoder::DecoderFrontend;
 use self::resize::ResizeError;
 use crate::database::Job;
@@ -157,7 +158,7 @@ impl ProcessJob {
 		match result {
 			Ok(success) => {
 				tracing::info!("job completed");
-				crate::events::on_success(&global, &self.job, success.drive, success.files).await;
+				crate::events::on_success(&global, &self.job, success).await;
 			}
 			Err(err) => {
 				tracing::error!("failed to process job: {err}");
@@ -180,7 +181,10 @@ impl ProcessJob {
 
 		let job = self.job.clone();
 
-		let output_results = blocking::spawn(job.task.clone(), input, self.permit.clone()).await?;
+		let JobOutput {
+			output: output_results,
+			input: input_metadata,
+		} = blocking::spawn(job.task.clone(), input, self.permit.clone()).await?;
 
 		let is_animated = output_results.iter().any(|r| r.frame_count > 1);
 
@@ -237,6 +241,7 @@ impl ProcessJob {
 
 		Ok(event_callback::Success {
 			drive: output_drive_path.drive.clone(),
+			input_metadata: Some(input_metadata),
 			files,
 		})
 	}

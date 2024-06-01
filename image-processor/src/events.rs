@@ -20,6 +20,7 @@ pub async fn on_event(global: &Arc<Global>, job: &Job, event_topic: &EventTopic,
 			EventCallback {
 				id: job.id.to_string(),
 				timestamp: chrono::Utc::now().timestamp() as u64,
+				metadata: job.task.events.as_ref().map(|e| e.metadata.clone()).unwrap_or_default(),
 				event: Some(event),
 			},
 		)

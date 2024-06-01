@@ -21,11 +21,12 @@ message EventCallback {
 
     string id = 1;
     uint64 timestamp = 2;
+    map<string, string> metadata = 3;
 
     oneof event {
-        Success success = 3;
-        Fail fail = 4;
-        Cancel cancel = 5;
-        Start start = 6;
+        Success success = 4;
+        Fail fail = 5;
+        Cancel cancel = 6;
+        Start start = 7;
     }
 }

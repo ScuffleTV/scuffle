@@ -68,8 +68,6 @@ socket2 = { version = "0.5", optional = true }
 
 [features]
 
-disable-jemalloc-config = []
-
 context = [
     "pin-project",
     "tokio-util",

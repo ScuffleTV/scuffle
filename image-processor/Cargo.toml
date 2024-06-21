@@ -39,7 +39,7 @@ http = "1"
 urlencoding = "2"
 humantime-serde = "1"
 
-scuffle-foundations = { version = "*", path = "../foundations", features = ["disable-jemalloc-config"] }
+scuffle-foundations = { version = "*", path = "../foundations", features = [] }
 scuffle-ffmpeg = { version = "*", path = "../ffmpeg", features = ["tracing"] }
 
 scuffle-image-processor-proto = { version = "*", path = "./proto", features = ["server", "serde"]}

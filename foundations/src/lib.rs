@@ -1,9 +1,6 @@
 #[cfg(feature = "runtime")]
 pub mod runtime;
 
-#[cfg(feature = "heap")]
-pub mod heap;
-
 #[cfg(feature = "macros")]
 pub use scuffle_foundations_macros::wrapped;
 

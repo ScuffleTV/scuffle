@@ -71,7 +71,7 @@ impl<S: Settings + serde::de::DeserializeOwned + serde::Serialize> Cli<S> {
 		self
 	}
 
-	fn load_file(file: &str, optional: bool) -> anyhow::Result<Option<serde_yaml::Value>> {
+	fn load_file(file: &str, optional: bool) -> anyhow::Result<Option<toml::Value>> {
 		let contents = match std::fs::read_to_string(file) {
 			Ok(contents) => contents,
 			Err(err) => {
@@ -84,7 +84,7 @@ impl<S: Settings + serde::de::DeserializeOwned + serde::Serialize> Cli<S> {
 		};
 
 		let incoming =
-			serde_yaml::from_str(&contents).with_context(|| format!("Error parsing configuration file: {file}"))?;
+			toml::from_str(&contents).with_context(|| format!("Error parsing configuration file: {file}"))?;
 
 		Ok(Some(incoming))
 	}
@@ -97,7 +97,7 @@ impl<S: Settings + serde::de::DeserializeOwned + serde::Serialize> Cli<S> {
 				.settings
 				.parse()
 				.context("failed to construct settings")?
-				.to_yaml_string()
+				.to_docs_string()
 				.context("failed to serialize settings")?;
 			std::fs::write(file, settings).with_context(|| format!("Error writing configuration file: {file}"))?;
 			println!("Generated configuration file: {file}");
@@ -116,7 +116,7 @@ impl<S: Settings + serde::de::DeserializeOwned + serde::Serialize> Cli<S> {
 
 		for (file, optional) in files {
 			if let Some(value) = Self::load_file(&file, optional)? {
-				self.settings.merge(value).context("failed to merge configuration file")?;
+				self.settings.merge(value);
 			}
 		}
 

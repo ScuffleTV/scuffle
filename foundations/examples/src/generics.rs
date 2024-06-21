@@ -16,5 +16,5 @@ pub struct ExtraSettings {
 }
 
 fn main() {
-	println!("{}", BaseSettings::<ExtraSettings>::default().to_yaml_string().unwrap());
+	println!("{}", BaseSettings::<ExtraSettings>::default().to_docs_string().unwrap());
 }

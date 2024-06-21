@@ -31,46 +31,46 @@ message DrivePath {
 // The resize method determines how the image processor should resize the image.
 enum ResizeMethod {
     // Fit will resize the image to fit within the desired dimensions without changing the aspect ratio.
-    Fit = 0;
+    ResizeMethodFit = 0;
     // Stretch will stretch the image to fit the desired dimensions. (This will change the aspect ratio of the image.)
-    Stretch = 1;
+    ResizeMethodStretch = 1;
     // Pad will resize the image to fit the desired dimentions and pad the bottom left of the image with the background color if necessary.
-    PadBottomLeft = 2;
+    ResizeMethodPadBottomLeft = 2;
     // Pad will resize the image to fit the desired dimentions and pad the bottom right of the image with the background color if necessary.
-    PadBottomRight = 3;
+    ResizeMethodPadBottomRight = 3;
     // Pad will resize the image to fit the desired dimentions and pad the top left of the image with the background color if necessary.
-    PadTopLeft = 4;
+    ResizeMethodPadTopLeft = 4;
     // Pad will resize the image to fit the desired dimentions and pad the top right of the image with the background color if necessary.
-    PadTopRight = 5;
+    ResizeMethodPadTopRight = 5;
     // Pad will resize the image to fit the desired dimentions and pad the center of the image with the background color if necessary.
-    PadCenter = 6;
+    ResizeMethodPadCenter = 6;
     // Pad will resize the image to fit the desired dimentions and pad the center of the image with the background color if necessary.
-    PadCenterRight = 7;
+    ResizeMethodPadCenterRight = 7;
     // Pad will resize the image to fit the desired dimentions and pad the center of the image with the background color if necessary.
-    PadCenterLeft = 8;
+    ResizeMethodPadCenterLeft = 8;
     // Pad will resize the image to fit the desired dimentions and pad the top center of the image with the background color if necessary.
-    PadTopCenter = 9;
+    ResizeMethodPadTopCenter = 9;
     // Pad will resize the image to fit the desired dimentions and pad the bottom center of the image with the background color if necessary.
-    PadBottomCenter = 10;
+    ResizeMethodPadBottomCenter = 10;
     // Pad will resize the image to fit the desired dimentions and pad the top of the image with the background color if necessary, the left and right will be unchanged.
-    PadTop = 11;
+    ResizeMethodPadTop = 11;
     // Pad will resize the image to fit the desired dimentions and pad the bottom of the image with the background color if necessary, the left and right will be unchanged.
-    PadBottom = 12;
+    ResizeMethodPadBottom = 12;
     // Pad will resize the image to fit the desired dimentions and pad the left of the image with the background color if necessary, the top and bottom will be unchanged.
-    PadLeft = 13;
+    ResizeMethodPadLeft = 13;
     // Pad will resize the image to fit the desired dimentions and pad the right of the image with the background color if necessary, the top and bottom will be unchanged.
-    PadRight = 14;
+    ResizeMethodPadRight = 14;
 }
 
 // The resize algorithm determines the algorithm used to resize the image.
 enum ResizeAlgorithm {
-    Nearest = 0;
-    Box = 1;
-    Bilinear = 2;
-    Hamming = 3;
-    CatmullRom = 4;
-    Mitchell = 5;
-    Lanczos3 = 6;
+    ResizeAlgorithmNearest = 0;
+    ResizeAlgorithmBox = 1;
+    ResizeAlgorithmBilinear = 2;
+    ResizeAlgorithmHamming = 3;
+    ResizeAlgorithmCatmullRom = 4;
+    ResizeAlgorithmMitchell = 5;
+    ResizeAlgorithmLanczos3 = 6;
 }
 
 // Limits are used to determine how much processing time and resources the image processor should use.
@@ -207,15 +207,15 @@ message AnimationConfig {
 
 enum OutputQuality {
     // Auto quality output. (default)
-    Auto = 0;
+    OutputQualityAuto = 0;
     // High quality output. (large file size)
-    High = 1;
+    OutputQualityHigh = 1;
     // Medium quality output. (medium file size)
-    Medium = 2;
+    OutputQualityMedium = 2;
     // Low quality output. (smaller file size)
-    Low = 3;
+    OutputQualityLow = 3;
     // Lossless output. (very large file size)
-    Lossless = 4;
+    OutputQualityLossless = 4;
 }
 
 message OutputFormatOptions {

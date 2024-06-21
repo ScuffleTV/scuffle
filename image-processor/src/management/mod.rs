@@ -49,7 +49,7 @@ impl ManagementServer {
 			let file_format = file_format::FileFormat::from_bytes(&input_upload.binary);
 
 			DecoderFrontend::from_format(file_format).map_err(|err| Error {
-				code: ErrorCode::InvalidInput as i32,
+				code: ErrorCode::Decode as i32,
 				message: format!("input_upload.binary: {err}"),
 			})?;
 

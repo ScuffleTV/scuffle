@@ -1,7 +1,5 @@
-use std::num::NonZeroU32;
+use fast_image_resize::{self as fr, images::{CroppedImage, CroppedImageMut}, ResizeOptions};
 
-use fast_image_resize as fr;
-use fr::CropBox;
 use rgb::ComponentBytes;
 use scuffle_image_processor_proto::{output, scaling, Output, ResizeAlgorithm, ResizeMethod};
 
@@ -33,12 +31,12 @@ impl Dimensions {
 }
 
 enum ImageRef<'a> {
-	Ref((&'a fr::Image<'a>, Option<fr::CropBox>)),
-	Owned((fr::Image<'a>, Option<fr::CropBox>)),
+	Ref((&'a fr::images::Image<'a>, CropBox)),
+	Owned((fr::images::Image<'a>, CropBox)),
 }
 
 impl ImageRef<'_> {
-	fn crop(&self) -> Option<fr::CropBox> {
+	fn crop(&self) -> CropBox {
 		match self {
 			ImageRef::Owned((_, c)) => *c,
 			ImageRef::Ref((_, c)) => *c,
@@ -47,7 +45,7 @@ impl ImageRef<'_> {
 }
 
 impl<'a> std::ops::Deref for ImageRef<'a> {
-	type Target = fr::Image<'a>;
+	type Target = fr::images::Image<'a>;
 
 	fn deref(&self) -> &Self::Target {
 		match self {
@@ -68,6 +66,7 @@ pub struct ImageResizer {
 	resize_method: ResizeMethod,
 	output_frames: Vec<Frame>,
 	disable_resize_chaining: bool,
+	method: fr::ResizeAlg,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -77,12 +76,26 @@ pub struct ResizeOutputTarget {
 	pub scale: Option<u32>,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct CropBox {
+	left: u32,
+	top: u32,
+	width: u32,
+	height: u32,
+}
+
+impl CropBox {
+	pub fn new(left: u32, top: u32, width: u32, height: u32) -> Self {
+		Self { left, top, width, height }
+	}
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum ResizeError {
 	#[error("crop: {0}")]
 	Crop(#[from] fr::CropBoxError),
-	#[error("different pixels: {0}")]
-	DifferentPixels(#[from] fr::DifferentTypesOfPixelsError),
+	#[error("resize: {0}")]
+	Resize(#[from] fr::ResizeError),
 	#[error("buffer: {0}")]
 	Buffer(#[from] fr::ImageBufferError),
 	#[error("crop dimensions are larger than the input dimensions")]
@@ -252,7 +265,10 @@ impl ImageResizer {
 		}
 
 		Ok(Self {
-			resizer: fr::Resizer::new(match output.resize_algorithm() {
+			resizer: fr::Resizer::new(),
+			input_dims,
+			cropped_dims,
+			method: match output.resize_algorithm() {
 				ResizeAlgorithm::Nearest => fr::ResizeAlg::Nearest,
 				ResizeAlgorithm::Box => fr::ResizeAlg::Convolution(fr::FilterType::Box),
 				ResizeAlgorithm::Bilinear => fr::ResizeAlg::Convolution(fr::FilterType::Bilinear),
@@ -260,14 +276,12 @@ impl ImageResizer {
 				ResizeAlgorithm::CatmullRom => fr::ResizeAlg::Convolution(fr::FilterType::CatmullRom),
 				ResizeAlgorithm::Mitchell => fr::ResizeAlg::Convolution(fr::FilterType::Mitchell),
 				ResizeAlgorithm::Lanczos3 => fr::ResizeAlg::Convolution(fr::FilterType::Lanczos3),
-			}),
-			input_dims,
-			cropped_dims,
+			},
 			crop: output.crop.as_ref().map(|crop| CropBox {
-				left: crop.x as f64,
-				top: crop.y as f64,
-				width: crop.width as f64,
-				height: crop.height as f64,
+				left: crop.x,
+				top: crop.y,
+				width: crop.width,
+				height: crop.height,
 			}),
 			resize_method: output.resize_method(),
 			resize_dims: resize_targets,
@@ -289,9 +303,9 @@ impl ImageResizer {
 			return Err(ResizeError::MismatchedDimensions);
 		}
 
-		let input_image = fr::Image::from_slice_u8(
-			NonZeroU32::new(frame.image.width() as u32).unwrap(),
-			NonZeroU32::new(frame.image.height() as u32).unwrap(),
+		let input_image = fr::images::Image::from_slice_u8(
+			frame.image.width() as u32,
+			frame.image.height() as u32,
 			// Safety: The input_image type is non_mut which disallows mutable actions on the underlying buffer.
 			unsafe {
 				let buf = frame.image.buf().as_bytes();
@@ -304,44 +318,48 @@ impl ImageResizer {
 		let output_dims = self.outputs.iter().rev().map(|output| output.dimensions);
 		let output_frames = self.output_frames.iter_mut().rev();
 
-		let mut previous_image = ImageRef::Ref((&input_image, self.crop));
+		let source_crop = self.crop.unwrap_or(CropBox {
+			left: 0,
+			top: 0,
+			width: input_image.width(),
+			height: input_image.height(),
+		});
+
+		let resize_options = ResizeOptions::new().resize_alg(self.method);
+
+		let mut previous_image = ImageRef::Ref((&input_image, source_crop));
 
 		for ((resize_dims, output_dims), output_frame) in resize_dims.zip(output_dims).zip(output_frames) {
 			output_frame.duration_ts = frame.duration_ts;
 
-			let mut target_image = fr::Image::from_slice_u8(
-				NonZeroU32::new(output_dims.width as u32).unwrap(),
-				NonZeroU32::new(output_dims.height as u32).unwrap(),
+			let mut target_image = fr::images::Image::from_slice_u8(
+				output_dims.width as u32,
+				output_dims.height as u32,
 				output_frame.image.buf_mut().as_mut_slice().as_bytes_mut(),
 				fr::PixelType::U8x4,
 			)?;
 
-			let mut view = previous_image.view();
-			if let Some(crop) = previous_image.crop() {
-				view.set_crop_box(crop)?;
-			}
+			let source_crop = previous_image.crop();
+			let source_view = CroppedImage::new(&*previous_image, source_crop.left, source_crop.top, source_crop.width, source_crop.height)?;
 
-			let (mut target_view, target_crop) = if resize_dims != output_dims {
-				let (left, top, width, height) = resize_method_to_crop_dims(self.resize_method, output_dims, resize_dims)?;
-				(
-					target_image.view_mut().crop(left, top, width, height)?,
-					Some(CropBox {
-						left: left as f64,
-						top: top as f64,
-						width: width.get() as f64,
-						height: height.get() as f64,
-					}),
-				)
+			let target_crop = if resize_dims != output_dims {
+				resize_method_to_crop_dims(self.resize_method, output_dims, resize_dims)?
 			} else {
-				(target_image.view_mut(), None)
+				CropBox {
+					left: 0,
+					top: 0,
+					width: resize_dims.width as u32,
+					height: resize_dims.height as u32,
+				}
 			};
+			let mut target_view = CroppedImageMut::new(&mut target_image, target_crop.left, target_crop.top, target_crop.width, target_crop.height)?;
 
-			self.resizer.resize(&view, &mut target_view)?;
+			self.resizer.resize(&source_view, &mut target_view, Some(&resize_options))?;
 
 			// If we are upscaling then we dont want to downscale from an upscaled image.
 			// Or if the user has explicitly disabled the resize chain.
 			if self.disable_resize_chaining || self.cropped_dims < resize_dims {
-				previous_image = ImageRef::Ref((&input_image, self.crop));
+				previous_image = ImageRef::Ref((&input_image, source_crop));
 			} else {
 				previous_image = ImageRef::Owned((target_image, target_crop));
 			}
@@ -355,7 +373,7 @@ fn resize_method_to_crop_dims(
 	resize_method: ResizeMethod,
 	padded_dims: Dimensions,
 	target_dims: Dimensions,
-) -> Result<(u32, u32, NonZeroU32, NonZeroU32), ResizeError> {
+) -> Result<CropBox, ResizeError> {
 	let check = |cmp: bool, msg: &'static str| if cmp { Ok(()) } else { Err(ResizeError::Internal(msg)) };
 
 	check(padded_dims.width >= target_dims.width, "padded width less then target width")?;
@@ -364,16 +382,31 @@ fn resize_method_to_crop_dims(
 		"padded height less then target height",
 	)?;
 
-	let center_x = (padded_dims.width - target_dims.width) as u32 / 2;
-	let center_y = (padded_dims.height - target_dims.height) as u32 / 2;
-	let left = (padded_dims.width - target_dims.width) as u32;
-	let top = (padded_dims.height - target_dims.height) as u32;
-	let bottom = 0;
-	let right = 0;
-	let zero = 0;
+	let delta_x = (padded_dims.width - target_dims.width) as u32;
+	let delta_y = (padded_dims.height - target_dims.height) as u32;
+	let center_x = delta_x / 2;
+	let center_y = delta_y / 2;
 
-	let width = NonZeroU32::new(target_dims.width as u32).ok_or(ResizeError::Internal("target width 0"))?;
-	let height = NonZeroU32::new(target_dims.height as u32).ok_or(ResizeError::Internal("target height 0"))?;
+	let width = target_dims.width as u32;
+	let height = target_dims.height as u32;
+
+	if width == 0 || height == 0 {
+		return Err(ResizeError::Internal("width or height is zero"));
+	}
+
+	let left = match resize_method {
+		ResizeMethod::PadLeft | ResizeMethod::PadTopLeft | ResizeMethod::PadBottomLeft => 0,
+		ResizeMethod::PadRight | ResizeMethod::PadTopRight | ResizeMethod::PadBottomRight => delta_x,
+		ResizeMethod::PadCenter | ResizeMethod::PadCenterLeft | ResizeMethod::PadCenterRight => center_x,
+		_ => 0,
+	};
+
+	let top = match resize_method {
+		ResizeMethod::PadTop | ResizeMethod::PadTopLeft | ResizeMethod::PadTopRight => 0,
+		ResizeMethod::PadBottom | ResizeMethod::PadBottomLeft | ResizeMethod::PadBottomRight => delta_y,
+		ResizeMethod::PadCenter | ResizeMethod::PadTopCenter | ResizeMethod::PadBottomCenter => center_y,
+		_ => 0,
+	};
 
 	match resize_method {
 		ResizeMethod::Fit => Err(ResizeError::Internal("fit should never be called here")),
@@ -382,38 +415,28 @@ fn resize_method_to_crop_dims(
 			check(
 				target_dims.width != padded_dims.width,
 				"pad left should only be called for width padding",
-			)?;
-			Ok((left, zero, width, height))
+			)
 		}
 		ResizeMethod::PadRight => {
 			check(
 				target_dims.height != padded_dims.height,
 				"pad right should only be called for height padding",
-			)?;
-			Ok((right, zero, width, height))
+			)
 		}
 		ResizeMethod::PadBottom => {
 			check(
 				target_dims.width != padded_dims.width,
 				"pad bottom should only be called for height padding",
-			)?;
-			Ok((zero, bottom, width, height))
+			)
 		}
 		ResizeMethod::PadTop => {
 			check(
 				target_dims.width != padded_dims.width,
 				"pad top should only be called for height padding",
-			)?;
-			Ok((zero, top, width, height))
+			)
 		}
-		ResizeMethod::PadBottomCenter => Ok((center_x, bottom, width, height)),
-		ResizeMethod::PadTopCenter => Ok((center_x, top, width, height)),
-		ResizeMethod::PadBottomLeft => Ok((left, bottom, width, height)),
-		ResizeMethod::PadBottomRight => Ok((right, bottom, width, height)),
-		ResizeMethod::PadTopLeft => Ok((left, top, width, height)),
-		ResizeMethod::PadTopRight => Ok((right, top, width, height)),
-		ResizeMethod::PadCenter => Ok((center_x, center_y, width, height)),
-		ResizeMethod::PadCenterLeft => Ok((left, center_y, width, height)),
-		ResizeMethod::PadCenterRight => Ok((right, center_y, width, height)),
-	}
+		_ => Ok(()),
+	}?;
+
+	Ok(CropBox::new(left, top, width, height))
 }

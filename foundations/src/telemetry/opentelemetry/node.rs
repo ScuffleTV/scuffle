@@ -281,7 +281,7 @@ impl SpanNode {
 		span.parent_span_id = self.mapped_parent_id.unwrap_or(SpanId::INVALID);
 		span.span_context = SpanContext::new(self.trace_id, self.mapped_id, TraceFlags::SAMPLED, false, TraceState::NONE);
 		span.events.events = self.events.into_iter().map(|e| e.into_data()).collect();
-		span.links.links = self.links.into_iter().map(|link| Link::new(link, Vec::new())).collect();
+		span.links.links = self.links.into_iter().map(|link| Link::new(link, Vec::new(), 0)).collect();
 
 		span
 	}

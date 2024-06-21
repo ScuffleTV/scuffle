@@ -82,6 +82,8 @@ impl Backend for QuicBackend {
 				break;
 			};
 
+			let connection = connection.accept()?;
+
 			let span = tracing::trace_span!("connection", remote_addr = %connection.remote_address());
 			let _guard = span.enter();
 			tracing::trace!("connection accepted");

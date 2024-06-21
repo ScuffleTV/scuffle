@@ -113,6 +113,8 @@ impl ProcessJob {
 	pub async fn process(&self, global: Arc<Global>) {
 		tracing::info!("starting job");
 
+		let start = tokio::time::Instant::now();
+
 		crate::events::on_start(&global, &self.job).await;
 
 		let mut future = self.process_inner(&global);
@@ -157,7 +159,7 @@ impl ProcessJob {
 
 		match result {
 			Ok(success) => {
-				tracing::info!("job completed");
+				tracing::info!("job completed in {:?}", start.elapsed());
 				crate::events::on_success(&global, &self.job, success).await;
 			}
 			Err(err) => {

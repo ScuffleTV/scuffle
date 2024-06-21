@@ -32,14 +32,14 @@ png = "0.17"
 num_cpus = "1.16"
 bytes = "1.0"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
-fast_image_resize = "3.0.4"
+fast_image_resize = "4"
 chrono = { version = "0.4", features = ["serde"] }
 url = { version = "2", features = ["serde"] }
 http = "1"
 urlencoding = "2"
 humantime-serde = "1"
 
-scuffle-foundations = { version = "*", path = "../foundations", features = [] }
+scuffle-foundations = { version = "*", path = "../foundations", features = ["disable-jemalloc-config"] }
 scuffle-ffmpeg = { version = "*", path = "../ffmpeg", features = ["tracing"] }
 
 scuffle-image-processor-proto = { version = "*", path = "./proto", features = ["server", "serde"]}

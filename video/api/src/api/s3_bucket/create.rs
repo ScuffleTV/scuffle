@@ -32,7 +32,7 @@ pub fn build_query<'a>(
 	req: &'a S3BucketCreateRequest,
 	access_token: &AccessToken,
 ) -> tonic::Result<utils::database::QueryBuilder<'a>> {
-	let mut qb = utils::database::QueryBuilder::default();
+	let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<S3BucketCreateRequest as TonicRequest>::Table::NAME)

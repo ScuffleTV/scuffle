@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use hyper::body::Incoming;
-use utils::http::router::builder::RouterBuilder;
-use utils::http::router::Router;
-use utils::http::RouteError;
+use scuffle_utils::http::router::builder::RouterBuilder;
+use scuffle_utils::http::router::Router;
+use scuffle_utils::http::RouteError;
 
 use super::error::ApiError;
 use super::Body;

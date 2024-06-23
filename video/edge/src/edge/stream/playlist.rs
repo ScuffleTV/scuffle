@@ -4,9 +4,9 @@ use hyper::StatusCode;
 use pb::ext::UlidExt;
 use pb::scuffle::video::internal::LiveRenditionManifest;
 use pb::scuffle::video::v1::types::{AudioConfig, VideoConfig};
+use scuffle_utils::database::non_null_vec;
+use scuffle_utils::http::ext::*;
 use ulid::Ulid;
-use utils::database::non_null_vec;
-use utils::http::ext::*;
 use video_common::database::{Recording, RecordingThumbnail, Rendition, Visibility};
 use video_player_types::{
 	RenditionPlaylist, RenditionPlaylistRendition, RenditionPlaylistSegment, RenditionPlaylistSegmentPart,
@@ -192,7 +192,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 	};
 
 	let recording_data = if let Some((recording_id, skip, active_idx)) = recording_data {
-		utils::database::query(
+		scuffle_utils::database::query(
 			r#"
             SELECT
                 s.public_url,
@@ -239,7 +239,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 		);
 
 		if !*skip {
-			let recording_rendition: RecordingRenditionExt = utils::database::query(
+			let recording_rendition: RecordingRenditionExt = scuffle_utils::database::query(
 				r#"
                 WITH filtered_renditions AS (
                     SELECT recording_id, rendition
@@ -271,7 +271,7 @@ pub async fn rendition_playlist<G: EdgeGlobal>(
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to query database"))?
 			.ok_or((StatusCode::NOT_FOUND, "recording no longer exists"))?;
 
-			let recording_thumbnails: Vec<RecordingThumbnail> = utils::database::query(
+			let recording_thumbnails: Vec<RecordingThumbnail> = scuffle_utils::database::query(
 				r#"
                 SELECT
                     *

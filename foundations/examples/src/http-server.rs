@@ -4,12 +4,12 @@ use axum::body::Body;
 use axum::extract::Request;
 use axum::response::{IntoResponse, Response};
 use hyper::{StatusCode, Uri};
-use rustls::{Certificate, PrivateKey};
+use quinn::crypto::rustls::QuicServerConfig;
 use scuffle_foundations::bootstrap::{bootstrap, Bootstrap, RuntimeSettings};
 use scuffle_foundations::http::server::stream::{IncomingConnection, MakeService, ServiceHandler, SocketKind};
 use scuffle_foundations::http::server::Server;
 use scuffle_foundations::settings::auto_settings;
-use scuffle_foundations::settings::cli::{Matches, clap};
+use scuffle_foundations::settings::cli::{clap, Matches};
 use scuffle_foundations::telemetry::settings::TelemetrySettings;
 use tokio::signal::unix::SignalKind;
 
@@ -37,20 +37,22 @@ impl Bootstrap for HttpServerSettings {
 
 	fn additional_args() -> Vec<clap::Arg> {
 		vec![
-			clap::Arg::new("tls-cert")
-				.long("tls-cert")
-				.value_name("FILE"),
-			clap::Arg::new("tls-key")
-				.long("tls-key")
-				.value_name("FILE"),
+			clap::Arg::new("tls-cert").long("tls-cert").value_name("FILE"),
+			clap::Arg::new("tls-key").long("tls-key").value_name("FILE"),
 		]
 	}
 }
 
 #[bootstrap]
 async fn main(settings: Matches<HttpServerSettings>) {
-	let tls_cert = settings.args.get_one::<String>("tls-cert").or(settings.settings.tls_cert.as_ref());
-	let tls_key = settings.args.get_one::<String>("tls-key").or(settings.settings.tls_key.as_ref());
+	let tls_cert = settings
+		.args
+		.get_one::<String>("tls-cert")
+		.or(settings.settings.tls_cert.as_ref());
+	let tls_key = settings
+		.args
+		.get_one::<String>("tls-key")
+		.or(settings.settings.tls_key.as_ref());
 
 	let Some((tls_cert, tls_key)) = tls_cert.zip(tls_key) else {
 		panic!("TLS certificate and key are required");
@@ -61,28 +63,23 @@ async fn main(settings: Matches<HttpServerSettings>) {
 
 	// Test TLS
 	let certs = rustls_pemfile::certs(&mut std::io::BufReader::new(cert))
-		.unwrap()
-		.into_iter()
-		.map(Certificate)
-		.collect::<Vec<_>>();
+		.collect::<Result<Vec<_>, _>>()
+		.unwrap();
 
 	let key = rustls_pemfile::pkcs8_private_keys(&mut std::io::BufReader::new(key))
+		.next()
 		.unwrap()
-		.remove(0);
+		.unwrap();
 
-	let mut tls_config = rustls::ServerConfig::builder()
-		.with_safe_default_cipher_suites()
-		.with_safe_default_kx_groups()
-		.with_protocol_versions(&[&rustls::version::TLS13])
-		.unwrap()
+	let mut tls_config = rustls::ServerConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
 		.with_no_client_auth()
-		.with_single_cert(certs, PrivateKey(key))
+		.with_single_cert(certs, key.into())
 		.unwrap();
 
 	tls_config.max_early_data_size = u32::MAX;
 	tls_config.alpn_protocols = vec![b"h3".to_vec()];
 
-	let server_config = quinn::ServerConfig::with_crypto(Arc::new(tls_config.clone()));
+	let server_config = quinn::ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config.clone()).unwrap()));
 
 	#[derive(Debug, Clone)]
 	struct ServiceFactory;

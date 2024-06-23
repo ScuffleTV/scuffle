@@ -1,4 +1,4 @@
-use utils::http::RouteError;
+use scuffle_utils::http::RouteError;
 
 use crate::subscription::SubscriptionError;
 
@@ -13,9 +13,9 @@ pub enum EdgeError {
 	#[error("internal server error: {0}")]
 	InternalServer(&'static str),
 	#[error("database error: {0}")]
-	Database(#[from] utils::database::tokio_postgres::Error),
+	Database(#[from] scuffle_utils::database::tokio_postgres::Error),
 	#[error("database pool error: {0}")]
-	DatabasePool(#[from] utils::database::deadpool_postgres::PoolError),
+	DatabasePool(#[from] scuffle_utils::database::deadpool_postgres::PoolError),
 	#[error("json error: {0}")]
 	ParseJson(#[from] serde_json::Error),
 	#[error("prost error: {0}")]

@@ -8,9 +8,9 @@ use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{FailedResource, Resource};
 use pb::scuffle::video::v1::{RecordingDeleteRequest, RecordingDeleteResponse};
 use prost::Message;
+use scuffle_utils::database::ClientLike;
 use tonic::Status;
 use ulid::Ulid;
-use utils::database::ClientLike;
 use video_common::database::{AccessToken, DatabaseTable, Rendition};
 
 use crate::api::utils::{impl_request_scopes, ApiRequest, TonicRequest};
@@ -161,7 +161,7 @@ async fn handle_query<B>(
 	client: impl ClientLike,
 	deleted_recordings: &HashMap<Ulid, Ulid>,
 	batch: &mut RecordingDeleteBatchTask,
-	qb: &mut utils::database::QueryBuilder<'_>,
+	qb: &mut scuffle_utils::database::QueryBuilder<'_>,
 ) -> Option<()>
 where
 	B: UpdateBatch + postgres_from_row::FromRow + Send + Unpin,
@@ -227,7 +227,7 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 
 		// We dont actually want to delete the recordings from the database, we just
 		// want to mark them as deleted
-		let deleted_recordings: Vec<RecordingResp> = utils::database::query("UPDATE ")
+		let deleted_recordings: Vec<RecordingResp> = scuffle_utils::database::query("UPDATE ")
 			.push(<RecordingDeleteRequest as TonicRequest>::Table::NAME)
 			.push(" SET deleted_at = NOW(), room_id = NULL, recording_config_id = NULL")
 			.push(" WHERE id = ANY(")
@@ -258,7 +258,7 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 			ids_to_delete.remove(id);
 		});
 
-		utils::database::query("DELETE FROM ")
+		scuffle_utils::database::query("DELETE FROM ")
 			.push(<video_common::database::PlaybackSession as DatabaseTable>::NAME)
 			.push(" WHERE recording_id = ANY(")
 			.push_bind(&deleted_ids)
@@ -269,7 +269,7 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 			tonic::Status::internal(format!("failed to delete {}s, the recording have not been deleted", <video_common::database::PlaybackSession as DatabaseTable>::FRIENDLY_NAME))
 		})?;
 
-		utils::database::query("DELETE FROM ")
+		scuffle_utils::database::query("DELETE FROM ")
 			.push(<video_common::database::RecordingRendition as DatabaseTable>::NAME)
 			.push(" WHERE recording_id = ANY(")
 			.push_bind(&deleted_ids)
@@ -302,7 +302,7 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 				&client,
 				&deleted_recordings,
 				&mut batch,
-				utils::database::query("SELECT id, recording_id, idx FROM ")
+				scuffle_utils::database::query("SELECT id, recording_id, idx FROM ")
 					.push(<video_common::database::RecordingThumbnail as DatabaseTable>::NAME)
 					.push(" WHERE recording_id = ANY(")
 					.push_bind(&deleted_ids)
@@ -319,7 +319,7 @@ impl ApiRequest<RecordingDeleteResponse> for tonic::Request<RecordingDeleteReque
 				&client,
 				&deleted_recordings,
 				&mut batch,
-				utils::database::query("SELECT id, recording_id, rendition, idx FROM ")
+				scuffle_utils::database::query("SELECT id, recording_id, rendition, idx FROM ")
 					.push(<video_common::database::RecordingRenditionSegment as DatabaseTable>::NAME)
 					.push(" WHERE recording_id = ANY(")
 					.push_bind(&deleted_ids)

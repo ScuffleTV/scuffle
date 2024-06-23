@@ -7,7 +7,6 @@ use std::net::SocketAddr;
 use opentelemetry_otlp::WithExportConfig;
 #[cfg(feature = "opentelemetry")]
 use opentelemetry_sdk::Resource;
-
 #[cfg(feature = "logging")]
 use tracing_subscriber::fmt::time::{ChronoLocal, ChronoUtc};
 

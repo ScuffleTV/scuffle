@@ -10,12 +10,12 @@ use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::StatusCode;
 use hyper_util::rt::TokioIo;
+use scuffle_utils::context::ContextExt;
+use scuffle_utils::http::router::middleware::{CorsMiddleware, CorsOptions};
+use scuffle_utils::http::router::Router;
+use scuffle_utils::http::RouteError;
+use scuffle_utils::prelude::FutureTimeout;
 use tokio::net::TcpSocket;
-use utils::context::ContextExt;
-use utils::http::router::middleware::{CorsMiddleware, CorsOptions};
-use utils::http::router::Router;
-use utils::http::RouteError;
-use utils::prelude::FutureTimeout;
 
 use crate::config::EdgeConfig;
 use crate::global::EdgeGlobal;

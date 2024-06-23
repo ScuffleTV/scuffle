@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, LinkedList, VecDeque};
 use std::hash::Hash;
 
-use super::to_yaml_string;
+use super::to_docs_string;
 
 pub trait Settings {
 	#[doc(hidden)]
@@ -24,11 +24,11 @@ pub trait Settings {
 		docs
 	}
 
-	fn to_yaml_string(&self) -> Result<String, serde_yaml::Error>
+	fn to_docs_string(&self) -> Result<String, toml::ser::Error>
 	where
 		Self: serde::Serialize + Sized,
 	{
-		to_yaml_string(self)
+		to_docs_string(self)
 	}
 }
 

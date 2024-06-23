@@ -41,7 +41,7 @@ impl<G: ApiGlobal> ChatMutation<G> {
 
 		// TODO: Check if the user is allowed to send messages in this chat
 		let message_id = Ulid::new();
-		let chat_message: database::ChatMessage = utils::database::query(
+		let chat_message: database::ChatMessage = scuffle_utils::database::query(
 			r#"
 			INSERT INTO chat_messages (
 				id,

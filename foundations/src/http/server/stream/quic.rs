@@ -82,6 +82,8 @@ impl Backend for QuicBackend {
 				break;
 			};
 
+			let connection = connection.accept()?;
+
 			let span = tracing::trace_span!("connection", remote_addr = %connection.remote_address());
 			let _guard = span.enter();
 			tracing::trace!("connection accepted");
@@ -219,7 +221,7 @@ impl<S: ServiceHandler> Connection<S> {
 			tokio::spawn(
 				async move {
 					if let Err(err) = serve_request(&service, request, stream).await {
-						service.on_error(err.into()).await;
+						service.on_error(err).await;
 					}
 
 					drop(ctx);
@@ -254,7 +256,6 @@ async fn serve_request(service: &impl ServiceHandler, request: Request, mut stre
 	tracing::trace!(?parts, "sending response");
 	send.send_response(Response::from_parts(parts, ())).await?;
 
-
 	let mut body = std::pin::pin!(body);
 
 	tracing::trace!("sending response body");
@@ -274,10 +275,10 @@ async fn serve_request(service: &impl ServiceHandler, request: Request, mut stre
 			}
 			None => {
 				send.finish().await?;
-			},
+			}
 		}
 	}
-	
+
 	tracing::trace!("response body finished");
 
 	Ok(())

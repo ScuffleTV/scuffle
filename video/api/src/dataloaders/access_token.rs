@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use scuffle_utilsdataloader::{DataLoader, Loader, LoaderOutput};
 use ulid::Ulid;
-use utils::dataloader::{DataLoader, Loader, LoaderOutput};
 
 pub struct AccessTokenLoader {
 	db: Arc<utils::database::Pool>,
@@ -20,7 +20,7 @@ impl Loader for AccessTokenLoader {
 
 	async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
 		let results: Vec<Self::Value> =
-			utils::database::query("SELECT * FROM access_tokens WHERE (organization_id, id) IN ")
+			scuffle_utils::database::query("SELECT * FROM access_tokens WHERE (organization_id, id) IN ")
 				.push_tuples(keys, |mut qb, (organization_id, access_token_id)| {
 					qb.push_bind(organization_id).push_bind(access_token_id);
 				})

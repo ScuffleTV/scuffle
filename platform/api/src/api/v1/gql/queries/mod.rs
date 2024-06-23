@@ -49,7 +49,7 @@ impl<G: ApiGlobal> Query<G> {
 	) -> Result<SearchAllResults<G>> {
 		let global = ctx.get_global::<G>();
 
-		let query_results: Vec<SearchResultQueryResponse> = utils::database::query(
+		let query_results: Vec<SearchResultQueryResponse> = scuffle_utils::database::query(
 			r#"
 			WITH CombinedResults AS (
 				SELECT

@@ -1,7 +1,7 @@
 use async_graphql::SimpleObject;
 use chrono::{DateTime, Utc};
+use scuffle_utils::database::json;
 use ulid::Ulid;
-use utils::database::json;
 
 #[derive(Debug, Clone, Default, postgres_from_row::FromRow)]
 pub struct Channel {

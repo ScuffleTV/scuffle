@@ -5,7 +5,7 @@ pub mod dataloader;
 pub mod global;
 pub mod grpc;
 pub mod igdb_cron;
-pub mod image_processor_callback;
+pub mod image_upload_callback;
 pub mod subscription;
 pub mod turnstile;
 pub mod video_api;

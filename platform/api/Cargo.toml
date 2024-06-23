@@ -11,13 +11,13 @@ tracing = "0.1"
 tokio = { version = "1.36", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 hyper = { version = "1.1", features = ["full"] }
-utils = { workspace = true, features = ["all"] }
-rustls = "0.22"
+scuffle-utils = { workspace = true, features = ["all"] }
+rustls = "0.23"
 rustls-pemfile = "2.0"
-tokio-rustls = "0.25"
+tokio-rustls = "0.26"
 path-tree = "0.7"
 serde_json = "1.0"
-reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false}
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false}
 chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
 async-graphql = { version = "7.0.1", features = ["apollo_tracing", "apollo_persisted_queries", "tracing", "string_number"] }
 hyper-tungstenite = "0"
@@ -36,7 +36,7 @@ argon2 = "0.5"
 ulid = { version = "1.1", features = ["uuid"] }
 rand = "0.8"
 tokio-stream = { version = "0.1", features = ["sync"] }
-async-nats = "0.33"
+async-nats = "0.34"
 async-trait = "0.1"
 bytes = "1.5"
 totp-rs = { version = "5.4", features = ["qr"] }
@@ -49,7 +49,7 @@ http-body = "1.0"
 http-body-util = "0.1"
 hyper-util = "0.1"
 pin-project = "1.1"
-base64 = "0.21"
+base64 = "0.22"
 postgres-from-row = "0.5"
 postgres-types = "0.2"
 fred = { version = "8.0", features = ["enable-rustls", "sentinel-client", "dns"] }

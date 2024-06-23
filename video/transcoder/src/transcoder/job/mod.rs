@@ -19,12 +19,12 @@ use pb::scuffle::video::internal::{
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::event;
 use prost::Message as _;
+use scuffle_utils::prelude::FutureTimeout;
+use scuffle_utils::task::AsyncTask;
 use tokio::sync::mpsc;
 use tokio::{select, try_join};
 use tokio_util::sync::CancellationToken;
 use ulid::Ulid;
-use utils::prelude::FutureTimeout;
-use utils::task::AsyncTask;
 use video_common::database::Rendition;
 
 use self::recording::Recording;
@@ -215,7 +215,7 @@ impl Job {
 
 		let tls = global.ingest_tls();
 
-		let channel = utils::grpc::make_channel(vec![message.grpc_endpoint], Duration::from_secs(30), tls)?;
+		let channel = scuffle_utilsgrpc::make_channel(vec![message.grpc_endpoint], Duration::from_secs(30), tls)?;
 
 		let mut client = IngestClient::new(channel);
 

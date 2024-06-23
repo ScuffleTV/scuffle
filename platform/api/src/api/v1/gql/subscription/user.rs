@@ -231,7 +231,7 @@ impl<G: ApiGlobal> UserSubscription<G> {
 
 		Ok(async_stream::stream!({
 			if let Some(channel_id) = channel_id {
-				let is_following = utils::database::query(
+				let is_following = scuffle_utils::database::query(
 					r#"
 					SELECT
 						following

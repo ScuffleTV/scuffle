@@ -151,7 +151,8 @@ impl<S: ServiceHandler> Connection<S> {
 					let resp = service.on_request(req.map(Body::new)).await.into_response();
 					drop(ctx);
 					Ok::<_, Infallible>(resp)
-				}.instrument(span.clone())
+				}
+				.instrument(span.clone())
 			})
 		};
 
@@ -165,11 +166,10 @@ impl<S: ServiceHandler> Connection<S> {
 			}
 		};
 
-		
 		if let Err(err) = r {
 			self.service.on_error(err.into()).await;
 		}
-		
+
 		self.service.on_close().await;
 		tracing::trace!("connection closed");
 	}

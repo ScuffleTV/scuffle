@@ -6,11 +6,11 @@ use bytes::Bytes;
 use hyper::{Response, StatusCode};
 use pb::scuffle::platform::internal::image_processor;
 use pb::scuffle::platform::internal::types::{uploaded_file_metadata, ImageFormat, UploadedFileMetadata};
+use scuffle_utils::http::ext::ResultExt;
+use scuffle_utils::http::RouteError;
+use scuffle_utilsmake_response;
 use serde_json::json;
 use ulid::Ulid;
-use utils::http::ext::ResultExt;
-use utils::http::RouteError;
-use utils::make_response;
 
 use super::UploadType;
 use crate::api::auth::AuthData;
@@ -23,8 +23,11 @@ use crate::global::ApiGlobal;
 fn create_task(file_id: Ulid, input_path: &str, config: &ImageUploaderConfig, owner_id: Ulid) -> image_processor::Task {
 	image_processor::Task {
 		input_path: input_path.to_string(),
-		base_height: 128, // 128, 256, 384, 512
-		base_width: 128,  // 128, 256, 384, 512
+		aspect_ratio: Some(image_processor::task::Ratio {
+			numerator: 1,
+			denominator: 1,
+		}),
+		clamp_aspect_ratio: true,
 		formats: vec![
 			ImageFormat::PngStatic as i32,
 			ImageFormat::AvifStatic as i32,
@@ -42,8 +45,9 @@ fn create_task(file_id: Ulid, input_path: &str, config: &ImageUploaderConfig, ow
 			max_processing_time_ms: 60 * 1000, // 60 seconds
 		}),
 		resize_algorithm: image_processor::task::ResizeAlgorithm::Lanczos3 as i32,
-		upscale: true, // For profile pictures we want to have a consistent size
-		scales: vec![1, 2, 3, 4],
+		upscale: image_processor::task::Upscale::NoPreserveSource as i32,
+		input_image_scaling: true,
+		scales: vec![64, 128, 256, 384],
 		resize_method: image_processor::task::ResizeMethod::PadCenter as i32,
 		output_prefix: format!("{owner_id}/{file_id}"),
 	}
@@ -183,7 +187,7 @@ impl UploadType for ProfilePicture {
 			.await
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to start transaction"))?;
 
-		utils::database::query("INSERT INTO image_jobs (id, priority, task) VALUES ($1, $2, $3)")
+		scuffle_utils::database::query("INSERT INTO image_jobs (id, priority, task) VALUES ($1, $2, $3)")
 			.bind(file_id)
 			.bind(config.profile_picture_task_priority)
 			.bind(utils::database::Protobuf(create_task(
@@ -197,7 +201,7 @@ impl UploadType for ProfilePicture {
 			.await
 			.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to insert image job"))?;
 
-		utils::database::query("INSERT INTO uploaded_files(id, owner_id, uploader_id, name, type, metadata, total_size, path, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)")
+		scuffle_utils::database::query("INSERT INTO uploaded_files(id, owner_id, uploader_id, name, type, metadata, total_size, path, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)")
             .bind(file_id) // id
             .bind(auth.session.user_id) // owner_id
             .bind(auth.session.user_id) // uploader_id
@@ -217,7 +221,7 @@ impl UploadType for ProfilePicture {
             .map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to insert uploaded file"))?;
 
 		if self.set_active {
-			utils::database::query("UPDATE users SET pending_profile_picture_id = $1 WHERE id = $2")
+			scuffle_utils::database::query("UPDATE users SET pending_profile_picture_id = $1 WHERE id = $2")
 				.bind(file_id)
 				.bind(auth.session.user_id)
 				.build()

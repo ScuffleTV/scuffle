@@ -5,7 +5,6 @@ mod builder;
 pub mod stream;
 
 pub use axum;
-
 use hyper_util::rt::TokioExecutor;
 #[cfg(not(feature = "runtime"))]
 use tokio::spawn;
@@ -109,7 +108,7 @@ fn make_tcp_listener(addr: SocketAddr) -> std::io::Result<tokio::net::TcpListene
 	socket.bind(&socket2::SockAddr::from(addr))?;
 	socket.listen(1024)?;
 
-	Ok(tokio::net::TcpListener::from_std(socket.into())?)
+	tokio::net::TcpListener::from_std(socket.into())
 }
 
 #[cfg(feature = "http3")]
@@ -145,7 +144,8 @@ impl<M: MakeService> Server<M> {
 				let make_service = self.make_service.clone();
 				let backend = TlsBackend::new(tcp_listener, acceptor.clone(), self.http1_2.clone(), &ctx);
 				let span = tracing::info_span!("tls", addr = %self.bind, worker = i);
-				self.backends.push(AbortOnDrop::new(spawn(backend.serve(make_service).instrument(span))));
+				self.backends
+					.push(AbortOnDrop::new(spawn(backend.serve(make_service).instrument(span))));
 			}
 		} else if self.insecure_bind.is_none() {
 			self.insecure_bind = Some(self.bind);
@@ -162,7 +162,8 @@ impl<M: MakeService> Server<M> {
 				let make_service = self.make_service.clone();
 				let backend = TcpBackend::new(tcp_listener, self.http1_2.clone(), &ctx);
 				let span = tracing::info_span!("tcp", addr = %addr, worker = i);
-				self.backends.push(AbortOnDrop::new(spawn(backend.serve(make_service).instrument(span))));
+				self.backends
+					.push(AbortOnDrop::new(spawn(backend.serve(make_service).instrument(span))));
 			}
 		}
 
@@ -179,7 +180,8 @@ impl<M: MakeService> Server<M> {
 				let make_service = self.make_service.clone();
 				let backend = QuicBackend::new(endpoint, quic.h3.clone(), &ctx);
 				let span = tracing::info_span!("quic", addr = %self.bind, worker = i);
-				self.backends.push(AbortOnDrop::new(spawn(backend.serve(make_service).instrument(span))));
+				self.backends
+					.push(AbortOnDrop::new(spawn(backend.serve(make_service).instrument(span))));
 			}
 		}
 
@@ -202,7 +204,11 @@ impl<M: MakeService> Server<M> {
 			binds.push(format!("https+quic://{}", self.bind));
 		}
 
-		tracing::info!(worker_count = self.worker_count, "listening on {binds}", binds = binds.join(", "));
+		tracing::info!(
+			worker_count = self.worker_count,
+			"listening on {binds}",
+			binds = binds.join(", ")
+		);
 
 		Ok(())
 	}

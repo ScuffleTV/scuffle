@@ -4,11 +4,11 @@ use async_nats::jetstream::stream::{self, RetentionPolicy};
 use binary_helper::logging;
 use fred::interfaces::ClientLike;
 use postgres_from_row::tokio_postgres::NoTls;
-use utils::context::{Context, Handler};
-use utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
-use utils::database::Pool;
-use utils::dataloader::DataLoader;
-use utils::prelude::FutureTimeout;
+use scuffle_utils::context::{Context, Handler};
+use scuffle_utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
+use scuffle_utils::database::Pool;
+use scuffle_utils::prelude::FutureTimeout;
+use scuffle_utilsdataloader::DataLoader;
 
 use crate::config::ApiConfig;
 use crate::dataloaders;
@@ -127,7 +127,7 @@ pub async fn mock_global_state(config: ApiConfig) -> (Arc<GlobalState>, Handler)
 		.expect("failed to connect to redis")
 		.expect("failed to connect to redis");
 
-	utils::ratelimiter::load_rate_limiter_script(&*redis)
+	scuffle_utilsratelimiter::load_rate_limiter_script(&*redis)
 		.await
 		.expect("failed to load rate limiter script");
 

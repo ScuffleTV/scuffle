@@ -147,9 +147,9 @@ fn map_response(result: Result<Response<Body>, Infallible>) -> Result<Response<B
 			span.record("response.status", ok.status().as_u16());
 			span.set_status(Status::Ok);
 
-			span.trace_id().map(|trace_id| {
+			if let Some(trace_id) = span.trace_id() {
 				ok.headers_mut().insert("X-Ray-Id", trace_id.to_string().parse().unwrap());
-			});
+			}
 
 			ok
 		})

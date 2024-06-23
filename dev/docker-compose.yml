@@ -3,15 +3,13 @@ version: "3.1"
 name: "db-scuffle-dev"
 
 services:
-  cockroach:
-    image: ghcr.io/scuffletv/ci/cockroach:latest
+  mongo:
+    image: mongo:latest
     pull_policy: "always"
-    command: start-single-node --insecure --advertise-addr=0.0.0.0
-    volumes:
-      - cockroach:/cockroach/cockroach-data
     ports:
-      - "127.0.0.1:5432:26257"
-      - "127.0.0.1:8080:8080"
+      - "27111:27017"
+    volumes:
+      - mongo:/data/db
 
   nats:
     image: ghcr.io/scuffletv/ci/nats:latest
@@ -33,8 +31,8 @@ services:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
     environment:
-      - "MINIO_ACCESS_KEY=root"
-      - "MINIO_SECRET_KEY=scuffle123"
+      - "MINIO_ACCESS_KEY=minioadmin"
+      - "MINIO_SECRET_KEY=minioadmin"
     volumes:
       - minio:/data
     command: server /data --console-address ":9001"
@@ -47,26 +45,13 @@ services:
     entrypoint: >
       /bin/sh -c "
       set -eux;
-      /usr/bin/mc config host add myminio http://minio:9000 root scuffle123;
-      /usr/bin/mc rb --force myminio/scuffle-video || true;
-      /usr/bin/mc rb --force myminio/scuffle-image-processor || true;
-      /usr/bin/mc rb --force myminio/scuffle-image-processor-public || true;
-      /usr/bin/mc mb myminio/scuffle-video;
-      /usr/bin/mc mb myminio/scuffle-image-processor;
-      /usr/bin/mc mb myminio/scuffle-image-processor-public;
-      /usr/bin/mc anonymous set download myminio/scuffle-video;
-      /usr/bin/mc anonymous set download myminio/scuffle-image-processor-public;
+      /usr/bin/mc config host add myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/image-processor;
+      /usr/bin/mc anonymous set download myminio/image-processor;
       exit 0;
       "
 
-  redis:
-    image: ghcr.io/scuffletv/ci/redis:latest
-    pull_policy: "always"
-    ports:
-      - "127.0.0.1:6379:6379"
-
 volumes:
-  cockroach:
   nats:
   minio:
-  redis:
+  mongo:

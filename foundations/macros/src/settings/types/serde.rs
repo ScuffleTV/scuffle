@@ -37,7 +37,7 @@ impl FromStr for RenameAll {
 impl RenameAll {
 	/// #[serde(rename_all = "name")] or #[serde(rename_all(serialize = "name", deserialize = "name"))]
 	pub fn parse(attr: &[syn::Attribute]) -> syn::Result<Option<RenameAll>> {
-		Ok(parse_serde_attrs(attr, None, |state, meta| match &meta {
+		parse_serde_attrs(attr, None, |state, meta| match &meta {
 			Meta::NameValue(meta) if meta.path.is_ident("rename_all") => {
 				if let syn::Expr::Lit(syn::ExprLit {
 					lit: syn::Lit::Str(lit), ..
@@ -52,7 +52,7 @@ impl RenameAll {
 			}
 			_ => {}
 		})?
-		.transpose()?)
+		.transpose()
 	}
 
 	pub fn apply(&self, name: &str) -> String {

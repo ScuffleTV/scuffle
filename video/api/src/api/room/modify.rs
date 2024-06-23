@@ -5,8 +5,8 @@ use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::access_token_scope::Permission;
 use pb::scuffle::video::v1::types::{event, Resource};
 use pb::scuffle::video::v1::{RoomModifyRequest, RoomModifyResponse};
+use scuffle_utils::database::ClientLike;
 use tonic::Status;
-use utils::database::ClientLike;
 use video_common::database::{AccessToken, DatabaseTable, Visibility};
 
 use crate::api::errors::MODIFY_NO_FIELDS;
@@ -31,7 +31,7 @@ pub async fn build_query<'a>(
 	client: impl ClientLike,
 	access_token: &AccessToken,
 ) -> tonic::Result<utils::database::QueryBuilder<'a>> {
-	let mut qb = utils::database::QueryBuilder::default();
+	let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 	qb.push("UPDATE ")
 		.push(<RoomModifyRequest as TonicRequest>::Table::NAME)
@@ -44,7 +44,7 @@ pub async fn build_query<'a>(
 		if transcoding_config_id.is_nil() {
 			seperated.push("transcoding_config_id = NULL");
 		} else {
-			utils::database::query("SELECT 1 FROM transcoding_configs WHERE id = $1 AND organization_id = $2")
+			scuffle_utils::database::query("SELECT 1 FROM transcoding_configs WHERE id = $1 AND organization_id = $2")
 				.bind(transcoding_config_id)
 				.bind(access_token.organization_id)
 				.build()
@@ -67,7 +67,7 @@ pub async fn build_query<'a>(
 		if recording_config_id.is_nil() {
 			seperated.push("recording_config_id = NULL");
 		} else {
-			utils::database::query("SELECT 1 FROM recording_configs WHERE id = $1 AND organization_id = $2")
+			scuffle_utils::database::query("SELECT 1 FROM recording_configs WHERE id = $1 AND organization_id = $2")
 				.bind(recording_config_id)
 				.bind(access_token.organization_id)
 				.build()

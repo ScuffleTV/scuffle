@@ -111,7 +111,7 @@ impl<S: Settings + serde::de::DeserializeOwned + serde::Serialize> Cli<S> {
 		};
 
 		if files.is_empty() {
-			files.push(("config.yaml".to_string(), true));
+			files.push(("config.toml".to_string(), true));
 		}
 
 		for (file, optional) in files {

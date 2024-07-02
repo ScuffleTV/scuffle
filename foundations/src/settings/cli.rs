@@ -31,7 +31,7 @@ fn default_cmd() -> clap::Command {
 				.value_name("FILE")
 				.action(ArgAction::Set)
 				.num_args(0..=1)
-				.default_missing_value("./config.yaml"),
+				.default_missing_value("./config.toml"),
 		)
 }
 

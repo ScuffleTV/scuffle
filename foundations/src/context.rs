@@ -1,4 +1,4 @@
-use std::future::Future;
+use std::future::{Future, IntoFuture};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::Arc;
@@ -227,29 +227,32 @@ impl<'a> From<&'a Context> for ContextRef<'a> {
 	}
 }
 
-pub trait ContextFutExt {
-	fn with_context<'a>(self, ctx: impl Into<ContextRef<'a>>) -> FutureWithContext<'a, Self>
+pub trait ContextFutExt<Fut> {
+	fn with_context<'a>(self, ctx: impl Into<ContextRef<'a>>) -> FutureWithContext<'a, Fut>
 	where
 		Self: Sized;
 }
 
-impl<F: Future> ContextFutExt for F {
-	fn with_context<'a>(self, ctx: impl Into<ContextRef<'a>>) -> FutureWithContext<'a, Self> {
+impl<F: IntoFuture> ContextFutExt<F::IntoFuture> for F {
+	fn with_context<'a>(self, ctx: impl Into<ContextRef<'a>>) -> FutureWithContext<'a, F::IntoFuture>
+	where
+		F: IntoFuture,
+	{
 		FutureWithContext {
-			future: self,
+			future: self.into_future(),
 			ctx: ctx.into(),
 		}
 	}
 }
 
-pub trait ContextStreamExt {
-	fn with_context<'a>(self, ctx: impl Into<ContextRef<'a>>) -> StreamWithContext<'a, Self>
+pub trait ContextStreamExt<Stream> {
+	fn with_context<'a>(self, ctx: impl Into<ContextRef<'a>>) -> StreamWithContext<'a, Stream>
 	where
 		Self: Sized;
 }
 
-impl<F: Stream> ContextStreamExt for F {
-	fn with_context<'a>(self, ctx: impl Into<ContextRef<'a>>) -> StreamWithContext<'a, Self> {
+impl<F: Stream> ContextStreamExt<F> for F {
+	fn with_context<'a>(self, ctx: impl Into<ContextRef<'a>>) -> StreamWithContext<'a, F> {
 		StreamWithContext {
 			stream: self,
 			ctx: ctx.into(),

@@ -195,7 +195,7 @@ where
 	}
 }
 
-pub trait BatchOperation: Send + Sync {
+pub trait BatchOperation {
 	type Item: Send + Sync;
 	type Response: Clone + Send + Sync;
 	type Error: Clone + std::fmt::Debug + Send + Sync;
@@ -206,7 +206,7 @@ pub trait BatchOperation: Send + Sync {
 	fn process(
 		&self,
 		documents: <Self::Mode as BatchMode<Self>>::Input,
-	) -> impl std::future::Future<Output = Result<<Self::Mode as BatchMode<Self>>::OperationOutput, Self::Error>> + Send;
+	) -> impl std::future::Future<Output = Result<<Self::Mode as BatchMode<Self>>::OperationOutput, Self::Error>> + Send + '_ where Self: Send + Sync;
 }
 
 pub struct Batcher<T: BatchOperation> {
@@ -284,7 +284,7 @@ impl<E: std::error::Error> From<E> for BatcherError<E> {
 	}
 }
 
-impl<T: BatchOperation + 'static> Batch<T> {
+impl<T: BatchOperation + 'static + Send + Sync> Batch<T> {
 	#[tracing::instrument(skip_all, fields(name = %inner.name))]
 	async fn run(self, inner: Arc<BatcherInner<T>>) {
 		self.results

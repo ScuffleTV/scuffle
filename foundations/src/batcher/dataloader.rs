@@ -41,11 +41,11 @@ pub trait Loader<S: BuildHasher + Default = RandomState> {
 	fn load(&self, keys: Vec<Self::Key>) -> impl std::future::Future<Output = LoaderOutput<Self, S>> + Send;
 }
 
-pub struct DataLoader<L: Loader<S> + Send + Sync, S: BuildHasher + Default + Send + Sync = RandomState> {
+pub struct DataLoader<L: Loader<S>, S: BuildHasher + Default + Send + Sync = RandomState> {
 	batcher: Batcher<Wrapper<L, S>>,
 }
 
-impl<L: Loader<S> + Send + Sync + 'static, S: BuildHasher + Default + Send + Sync + 'static> DataLoader<L, S> {
+impl<L: Loader<S> + 'static + Send + Sync, S: BuildHasher + Default + Send + Sync + 'static> DataLoader<L, S> {
 	pub fn new(loader: L) -> Self {
 		Self {
 			batcher: Batcher::new(Wrapper(loader, PhantomData)),
@@ -68,7 +68,7 @@ impl<L: Loader<S> + Send + Sync + 'static, S: BuildHasher + Default + Send + Syn
 
 struct Wrapper<L: Loader<S>, S: BuildHasher + Default = RandomState>(L, PhantomData<S>);
 
-impl<L: Loader<S> + Send + Sync, S: BuildHasher + Default + Send + Sync> BatchOperation for Wrapper<L, S> {
+impl<L: Loader<S>, S: BuildHasher + Default + Send + Sync> BatchOperation for Wrapper<L, S> {
 	type Error = L::Error;
 	type Item = L::Key;
 	type Mode = BatcherDataloader<S>;
@@ -81,7 +81,7 @@ impl<L: Loader<S> + Send + Sync, S: BuildHasher + Default + Send + Sync> BatchOp
 	fn process(
 		&self,
 		documents: <Self::Mode as super::BatchMode<Self>>::Input,
-	) -> impl std::future::Future<Output = Result<<Self::Mode as super::BatchMode<Self>>::OperationOutput, Self::Error>> + Send
+	) -> impl std::future::Future<Output = Result<<Self::Mode as super::BatchMode<Self>>::OperationOutput, Self::Error>> + Send + '_ where Self: Send + Sync
 	{
 		async move { self.0.load(documents.into_iter().collect()).await }
 	}

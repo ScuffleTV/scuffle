@@ -122,7 +122,7 @@ impl Global {
 impl HealthCheck for Global {
 	fn check(&self) -> std::pin::Pin<Box<dyn futures::prelude::Future<Output = bool> + Send + '_>> {
 		Box::pin(async {
-			if let Err(err) = self.database().run_command(bson::doc! { "ping": 1 }, None).await {
+			if let Err(err) = self.database().run_command(bson::doc! { "ping": 1 }).await {
 				tracing::error!("database ping failed: {err}");
 				return false;
 			}

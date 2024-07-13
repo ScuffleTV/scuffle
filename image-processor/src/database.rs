@@ -81,7 +81,6 @@ impl Job {
 						"priority": -1,
 					})
 					.build(),
-				None,
 			)
 			.await?;
 
@@ -95,7 +94,6 @@ impl Job {
 						IndexOptions::builder().expire_after(Some(Duration::from_secs(0))).build(),
 					))
 					.build(),
-				None,
 			)
 			.await?;
 
@@ -126,7 +124,7 @@ impl Job {
 			expires_at: ttl.map(|ttl| chrono::Utc::now() + chrono::Duration::seconds(ttl as i64)),
 		};
 
-		Self::collection(global.database()).insert_one(&job, None).await?;
+		Self::collection(global.database()).insert_one(&job).await?;
 
 		Ok(job)
 	}
@@ -161,14 +159,12 @@ impl Job {
 						"hold_until": chrono::Utc::now() + global.config().worker.hold_time,
 					},
 				},
-				Some(
-					mongodb::options::FindOneAndUpdateOptions::builder()
+			)
+			.with_options(mongodb::options::FindOneAndUpdateOptions::builder()
 						.sort(bson::doc! {
 							"priority": -1,
 						})
-						.build(),
-				),
-			)
+						.build())
 			.await
 	}
 
@@ -190,7 +186,6 @@ impl Job {
 						"hold_until": chrono::Utc::now() + global.config().worker.hold_time,
 					},
 				},
-				None,
 			)
 			.await?;
 
@@ -211,7 +206,6 @@ impl Job {
 					"_id": self.id,
 					"claimed_by_id": global.worker_id(),
 				},
-				None,
 			)
 			.await?;
 
@@ -230,7 +224,6 @@ impl Job {
 				bson::doc! {
 					"_id": id,
 				},
-				None,
 			)
 			.await?
 		else {

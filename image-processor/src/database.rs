@@ -160,11 +160,13 @@ impl Job {
 					},
 				},
 			)
-			.with_options(mongodb::options::FindOneAndUpdateOptions::builder()
-						.sort(bson::doc! {
-							"priority": -1,
-						})
-						.build())
+			.with_options(
+				mongodb::options::FindOneAndUpdateOptions::builder()
+					.sort(bson::doc! {
+						"priority": -1,
+					})
+					.build(),
+			)
 			.await
 	}
 
@@ -201,12 +203,10 @@ impl Job {
 	/// return false
 	pub async fn complete(&self, global: &Arc<Global>) -> Result<bool, mongodb::error::Error> {
 		let success = Self::collection(global.database())
-			.delete_one(
-				bson::doc! {
-					"_id": self.id,
-					"claimed_by_id": global.worker_id(),
-				},
-			)
+			.delete_one(bson::doc! {
+				"_id": self.id,
+				"claimed_by_id": global.worker_id(),
+			})
 			.await?;
 
 		Ok(success.deleted_count == 1)
@@ -220,11 +220,9 @@ impl Job {
 	/// The job that was cancelled or None if no job was found
 	pub async fn cancel(global: &Arc<Global>, id: ObjectId) -> Result<Option<Job>, mongodb::error::Error> {
 		let Some(job) = Self::collection(global.database())
-			.find_one_and_delete(
-				bson::doc! {
-					"_id": id,
-				},
-			)
+			.find_one_and_delete(bson::doc! {
+				"_id": id,
+			})
 			.await?
 		else {
 			return Ok(None);

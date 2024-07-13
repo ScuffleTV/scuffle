@@ -206,7 +206,9 @@ pub trait BatchOperation {
 	fn process(
 		&self,
 		documents: <Self::Mode as BatchMode<Self>>::Input,
-	) -> impl std::future::Future<Output = Result<<Self::Mode as BatchMode<Self>>::OperationOutput, Self::Error>> + Send + '_ where Self: Send + Sync;
+	) -> impl std::future::Future<Output = Result<<Self::Mode as BatchMode<Self>>::OperationOutput, Self::Error>> + Send + '_
+	where
+		Self: Send + Sync;
 }
 
 pub struct Batcher<T: BatchOperation> {

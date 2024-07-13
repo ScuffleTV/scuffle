@@ -28,10 +28,10 @@ itertools = { version = "0.13", optional = true }
 scuffle-foundations-macros = { path = "./macros", optional = true, version = "0.0.0" }
 
 pprof = { version = "0.13", optional = true, features = ["prost-codec"] }
-prost = { version = "0.12", optional = true }
+prost = { version = "0.13.1", optional = true }
 flate2 = { version = "1", optional = true }
 
-matchers = { version = "0.1", optional = true }
+matchers = { version = "0.2.0", optional = true }
 regex = { version = "1", optional = true }
 once_cell = { version = "1", optional = true }
 scc = { version = "2", optional = true }
@@ -55,8 +55,8 @@ tower = { version = "0.4", optional = true }
 hyper = { version = "1", optional = true }
 hyper-util = { version = "0.1", optional = true }
 http = { version = "1", optional = true }
-h3 = { version = "0.0.5", optional = true }
-h3-quinn = { version = "0.0.6", optional = true }
+h3 = { version = "0.0.6", optional = true }
+h3-quinn = { version = "0.0.7", optional = true }
 h3-webtransport = { version = "0.1.0", optional = true }
 quinn = { version = "0.11", default-features = false, features = ["runtime-tokio", "rustls", "ring" ], optional = true }
 rustls = { version = "0.23", optional = true }
@@ -171,7 +171,7 @@ cli = [
     "settings",
 ]
 
-dataloader = [
+batcher = [
     "tokio/sync",
     "tokio/time",
     "runtime",
@@ -246,7 +246,7 @@ default = [
     "telemetry-server",
     "context",
     "signal",
-    "dataloader",
+    "batcher",
     "health-check",
     "http",
     "http-tls",

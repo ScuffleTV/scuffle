@@ -101,6 +101,7 @@ pub trait Decoder {
 
 #[derive(Debug, Clone, Copy)]
 pub struct DecoderInfo {
+	pub decoder: DecoderFrontend,
 	pub width: usize,
 	pub height: usize,
 	pub loop_count: LoopCount,

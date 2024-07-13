@@ -183,10 +183,13 @@ impl ProcessJob {
 
 		let job = self.job.clone();
 
-		let JobOutput {
-			output: output_results,
-			input: input_metadata,
-		} = blocking::spawn(job.task.clone(), input, self.permit.clone()).await?;
+		let (
+			decoder_info,
+			JobOutput {
+				output: output_results,
+				input: input_metadata,
+			},
+		) = blocking::spawn(job.task.clone(), input, self.permit.clone()).await?;
 
 		let is_animated = output_results.iter().any(|r| r.frame_count > 1);
 

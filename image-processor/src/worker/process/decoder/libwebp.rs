@@ -66,6 +66,7 @@ impl<'data> WebpDecoder<'data> {
 
 		Ok(Self {
 			info: DecoderInfo {
+				decoder: DecoderFrontend::LibWebp,
 				width: info.canvas_width as _,
 				height: info.canvas_height as _,
 				loop_count: match info.loop_count {

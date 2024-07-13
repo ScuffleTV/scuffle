@@ -59,7 +59,11 @@ impl Drop for CancelToken {
 	}
 }
 
-pub async fn spawn(task: Task, input: Bytes, permit: Arc<OwnedSemaphorePermit>) -> Result<JobOutput, JobError> {
+pub async fn spawn(
+	task: Task,
+	input: Bytes,
+	permit: Arc<OwnedSemaphorePermit>,
+) -> Result<(DecoderInfo, JobOutput), JobError> {
 	let cancel_token = CancelToken::new();
 	let _cancel_guard = cancel_token.clone();
 
@@ -82,7 +86,9 @@ pub async fn spawn(task: Task, input: Bytes, permit: Arc<OwnedSemaphorePermit>) 
 			}
 		}
 
-		task.finish()
+		let info = task.decoder_info.clone();
+
+		task.finish().map(|out| (info, out))
 	})
 	.await?
 }

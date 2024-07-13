@@ -83,8 +83,7 @@ impl<S: Settings + serde::de::DeserializeOwned + serde::Serialize> Cli<S> {
 			}
 		};
 
-		let incoming =
-			toml::from_str(&contents).with_context(|| format!("Error parsing configuration file: {file}"))?;
+		let incoming = toml::from_str(&contents).with_context(|| format!("Error parsing configuration file: {file}"))?;
 
 		Ok(Some(incoming))
 	}

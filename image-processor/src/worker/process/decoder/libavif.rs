@@ -55,6 +55,7 @@ impl<'data> AvifDecoder<'data> {
 		let image = AvifRgbImage::new(decoder.as_ref());
 
 		let info = DecoderInfo {
+			decoder: DecoderFrontend::LibAvif,
 			width: image.width as usize,
 			height: image.height as usize,
 			loop_count: if decoder.as_ref().repetitionCount <= 0 {

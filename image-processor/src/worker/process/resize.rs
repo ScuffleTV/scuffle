@@ -1,5 +1,5 @@
-use fast_image_resize::{self as fr, images::{CroppedImage, CroppedImageMut}, ResizeOptions};
-
+use fast_image_resize::images::{CroppedImage, CroppedImageMut};
+use fast_image_resize::{self as fr, ResizeOptions};
 use rgb::ComponentBytes;
 use scuffle_image_processor_proto::{output, scaling, Output, ResizeAlgorithm, ResizeMethod};
 
@@ -86,7 +86,12 @@ struct CropBox {
 
 impl CropBox {
 	pub fn new(left: u32, top: u32, width: u32, height: u32) -> Self {
-		Self { left, top, width, height }
+		Self {
+			left,
+			top,
+			width,
+			height,
+		}
 	}
 }
 
@@ -340,7 +345,13 @@ impl ImageResizer {
 			)?;
 
 			let source_crop = previous_image.crop();
-			let source_view = CroppedImage::new(&*previous_image, source_crop.left, source_crop.top, source_crop.width, source_crop.height)?;
+			let source_view = CroppedImage::new(
+				&*previous_image,
+				source_crop.left,
+				source_crop.top,
+				source_crop.width,
+				source_crop.height,
+			)?;
 
 			let target_crop = if resize_dims != output_dims {
 				resize_method_to_crop_dims(self.resize_method, output_dims, resize_dims)?
@@ -352,7 +363,13 @@ impl ImageResizer {
 					height: resize_dims.height as u32,
 				}
 			};
-			let mut target_view = CroppedImageMut::new(&mut target_image, target_crop.left, target_crop.top, target_crop.width, target_crop.height)?;
+			let mut target_view = CroppedImageMut::new(
+				&mut target_image,
+				target_crop.left,
+				target_crop.top,
+				target_crop.width,
+				target_crop.height,
+			)?;
 
 			self.resizer.resize(&source_view, &mut target_view, Some(&resize_options))?;
 
@@ -411,30 +428,22 @@ fn resize_method_to_crop_dims(
 	match resize_method {
 		ResizeMethod::Fit => Err(ResizeError::Internal("fit should never be called here")),
 		ResizeMethod::Stretch => Err(ResizeError::Internal("stretch should never be called here")),
-		ResizeMethod::PadLeft => {
-			check(
-				target_dims.width != padded_dims.width,
-				"pad left should only be called for width padding",
-			)
-		}
-		ResizeMethod::PadRight => {
-			check(
-				target_dims.height != padded_dims.height,
-				"pad right should only be called for height padding",
-			)
-		}
-		ResizeMethod::PadBottom => {
-			check(
-				target_dims.width != padded_dims.width,
-				"pad bottom should only be called for height padding",
-			)
-		}
-		ResizeMethod::PadTop => {
-			check(
-				target_dims.width != padded_dims.width,
-				"pad top should only be called for height padding",
-			)
-		}
+		ResizeMethod::PadLeft => check(
+			target_dims.width != padded_dims.width,
+			"pad left should only be called for width padding",
+		),
+		ResizeMethod::PadRight => check(
+			target_dims.height != padded_dims.height,
+			"pad right should only be called for height padding",
+		),
+		ResizeMethod::PadBottom => check(
+			target_dims.width != padded_dims.width,
+			"pad bottom should only be called for height padding",
+		),
+		ResizeMethod::PadTop => check(
+			target_dims.width != padded_dims.width,
+			"pad top should only be called for height padding",
+		),
 		_ => Ok(()),
 	}?;
 

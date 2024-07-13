@@ -99,7 +99,7 @@ impl Drive for AnyDrive {
 	}
 
 	async fn write(&self, path: &str, data: Bytes, options: Option<DriveWriteOptions>) -> Result<(), DriveError> {
-		tracing::info!("writing to drive: {}", path);		
+		tracing::info!("writing to drive: {}", path);
 		match self {
 			AnyDrive::Local(drive) => drive.write(path, data, options).await,
 			AnyDrive::S3(drive) => drive.write(path, data, options).await,

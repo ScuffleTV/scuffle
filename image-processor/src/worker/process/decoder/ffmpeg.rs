@@ -98,6 +98,7 @@ impl<'data> FfmpegDecoder<'data> {
 		)?;
 
 		let info = DecoderInfo {
+			decoder: DecoderFrontend::Ffmpeg,
 			width: decoder.width() as usize,
 			height: decoder.height() as usize,
 			frame_count: input_stream_frames as usize,

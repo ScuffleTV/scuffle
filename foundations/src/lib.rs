@@ -36,8 +36,8 @@ pub mod signal;
 #[cfg(feature = "context")]
 pub mod context;
 
-#[cfg(feature = "dataloader")]
-pub mod dataloader;
+#[cfg(feature = "batcher")]
+pub mod batcher;
 
 #[cfg(feature = "http")]
 pub mod http;

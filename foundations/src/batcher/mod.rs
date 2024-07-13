@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::hash::BuildHasher;
+use std::hash::{BuildHasher, RandomState};
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, AtomicUsize};
 use std::sync::Arc;
@@ -116,7 +116,7 @@ impl<T: BatchOperation> BatchMode<T> for BatcherNormalMode {
 	}
 }
 
-pub struct BatcherDataloader<S: BuildHasher + Default>(PhantomData<S>);
+pub struct BatcherDataloader<S: BuildHasher + Default + Send + Sync = RandomState>(PhantomData<S>);
 
 impl<T: BatchOperation, S: BuildHasher + Default + Send + Sync> BatchMode<T> for BatcherDataloader<S>
 where

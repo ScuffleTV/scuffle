@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicU64, AtomicUsize};
 use std::sync::Arc;
 
 use tokio::sync::OnceCell;
+use tracing::Instrument;
 
 pub mod dataloader;
 
@@ -228,6 +229,7 @@ struct BatcherInner<T: BatchOperation> {
 	batch_id: AtomicU64,
 	max_batch_size: AtomicUsize,
 	operation: T,
+	name: String,
 	active_batch: tokio::sync::RwLock<Option<Batch<T>>>,
 }
 
@@ -283,10 +285,16 @@ impl<E: std::error::Error> From<E> for BatcherError<E> {
 }
 
 impl<T: BatchOperation + 'static> Batch<T> {
+	#[tracing::instrument(skip_all, fields(name = %inner.name))]
 	async fn run(self, inner: Arc<BatcherInner<T>>) {
 		self.results
 			.get_or_init(|| async move {
-				let _ticket = inner.semaphore.acquire().await.map_err(|_| BatcherError::AcquireSemaphore)?;
+				let _ticket = inner
+					.semaphore
+					.acquire()
+					.instrument(tracing::debug_span!("Semaphore"))
+					.await
+					.map_err(|_| BatcherError::AcquireSemaphore)?;
 				Ok(inner.operation.process(self.ops).await.map_err(BatcherError::Batch)?)
 			})
 			.await;
@@ -295,6 +303,7 @@ impl<T: BatchOperation + 'static> Batch<T> {
 
 #[derive(Clone)]
 pub struct BatcherConfig {
+	pub name: String,
 	pub concurrency: usize,
 	pub max_batch_size: usize,
 	pub sleep_duration: std::time::Duration,
@@ -371,6 +380,7 @@ impl<T: BatchOperation + 'static + Send + Sync> Batcher<T> {
 			sleep_duration: AtomicU64::new(config.sleep_duration.as_nanos() as u64),
 			max_batch_size: AtomicUsize::new(config.max_batch_size),
 			operation,
+			name: config.name,
 		});
 
 		Self {
@@ -405,7 +415,7 @@ impl<T: BatchOperation + 'static + Send + Sync> Batcher<T> {
 		T::Mode::output_item_to_result(iter.into_iter().next().ok_or(BatcherError::MissingResult)?)
 	}
 
-	#[tracing::instrument(skip_all)]
+	#[tracing::instrument(skip_all, fields(name = %self.inner.name))]
 	pub async fn execute_many(
 		&self,
 		documents: impl IntoIterator<Item = T::Item>,

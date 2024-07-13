@@ -7,6 +7,23 @@ use super::{BatchOperation, Batcher, BatcherConfig, BatcherDataloader, BatcherEr
 #[allow(type_alias_bounds)]
 pub type LoaderOutput<L: Loader<S>, S: BuildHasher = RandomState> = Result<HashMap<L::Key, L::Value, S>, L::Error>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
+pub struct UnitError;
+
+impl std::error::Error for UnitError {}
+
+impl std::fmt::Display for UnitError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "unknown")
+	}
+}
+
+impl From<()> for UnitError {
+	fn from(_: ()) -> Self {
+		Self
+	}
+}
+
 pub trait Loader<S: BuildHasher + Default = RandomState> {
 	type Key: Clone + Eq + std::hash::Hash + Send + Sync;
 	type Value: Clone + Send + Sync;
@@ -14,6 +31,7 @@ pub trait Loader<S: BuildHasher + Default = RandomState> {
 
 	fn config(&self) -> BatcherConfig {
 		BatcherConfig {
+            name: std::any::type_name::<Self>().to_string(),
 			concurrency: 10,
 			max_batch_size: 1000,
 			sleep_duration: std::time::Duration::from_millis(5),
@@ -23,13 +41,15 @@ pub trait Loader<S: BuildHasher + Default = RandomState> {
 	fn load(&self, keys: Vec<Self::Key>) -> impl std::future::Future<Output = LoaderOutput<Self, S>> + Send;
 }
 
-pub struct DataLoader<L: Loader<S> + Send + Sync, S: BuildHasher + Default + Send + Sync = RandomState>(
-	Batcher<Wrapper<L, S>>,
-);
+pub struct DataLoader<L: Loader<S> + Send + Sync, S: BuildHasher + Default + Send + Sync = RandomState> {
+	batcher: Batcher<Wrapper<L, S>>,
+}
 
 impl<L: Loader<S> + Send + Sync + 'static, S: BuildHasher + Default + Send + Sync + 'static> DataLoader<L, S> {
 	pub fn new(loader: L) -> Self {
-		Self(Batcher::new(Wrapper(loader, PhantomData)))
+		Self {
+			batcher: Batcher::new(Wrapper(loader, PhantomData)),
+		}
 	}
 
 	pub async fn load(&self, key: L::Key) -> Result<Option<L::Value>, BatcherError<L::Error>> {
@@ -42,7 +62,7 @@ impl<L: Loader<S> + Send + Sync + 'static, S: BuildHasher + Default + Send + Syn
 		&self,
 		keys: impl IntoIterator<Item = L::Key>,
 	) -> Result<HashMap<L::Key, L::Value, S>, BatcherError<L::Error>> {
-		self.0.execute_many(keys).await
+		self.batcher.execute_many(keys).await
 	}
 }
 
@@ -119,6 +139,7 @@ mod tests {
 				results
 			}),
 			config: BatcherConfig {
+                name: "test".to_string(),
 				concurrency: 10,
 				max_batch_size: 1000,
 				sleep_duration: std::time::Duration::from_millis(5),
@@ -158,6 +179,7 @@ mod tests {
 				results
 			}),
 			config: BatcherConfig {
+                name: "test".to_string(),
 				concurrency: 10,
 				max_batch_size: 1000,
 				sleep_duration: std::time::Duration::from_millis(5),
@@ -192,6 +214,7 @@ mod tests {
 				results
 			}),
 			config: BatcherConfig {
+                name: "test".to_string(),
 				concurrency: 10,
 				max_batch_size: 3000,
 				sleep_duration: std::time::Duration::from_millis(5),
@@ -226,6 +249,7 @@ mod tests {
 				results
 			}),
 			config: BatcherConfig {
+                name: "test".to_string(),
 				concurrency: 10,
 				max_batch_size: 1000,
 				sleep_duration: std::time::Duration::from_millis(100),
@@ -261,6 +285,7 @@ mod tests {
 				}
 			}),
 			config: BatcherConfig {
+                name: "test".to_string(),
 				concurrency: 10,
 				max_batch_size: 1000,
 				sleep_duration: std::time::Duration::from_millis(5),

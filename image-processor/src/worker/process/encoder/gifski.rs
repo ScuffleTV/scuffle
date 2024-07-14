@@ -1,6 +1,6 @@
 use scuffle_image_processor_proto::OutputQuality;
 
-use super::{Encoder, EncoderBackend, EncoderError, EncoderInfo, EncoderSettings};
+use super::{Encoder, EncoderError, EncoderInfo, EncoderSettings};
 use crate::worker::process::decoder::LoopCount;
 use crate::worker::process::frame::FrameRef;
 
@@ -47,9 +47,7 @@ impl GifskiEncoder {
 				duration: 0,
 				frame_count: 0,
 				format: settings.format,
-				frontend: EncoderBackend::Gifski,
 				height: 0,
-				loop_count: settings.loop_count,
 				timescale: settings.timescale,
 				width: 0,
 			},

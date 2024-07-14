@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use file_format::FileFormat;
-use scuffle_image_processor_proto::{animation_config, InputFileMetadata, Output, OutputFormat, OutputFormatOptions, Task};
+use scuffle_image_processor_proto::{animation_config, Output, OutputFormat, OutputFormatOptions, Task};
 use tokio::sync::OwnedSemaphorePermit;
 
 use super::decoder::{AnyDecoder, Decoder, DecoderFrontend, DecoderInfo, LoopCount};
@@ -13,7 +13,7 @@ use super::resize::{ImageResizer, ResizeOutputTarget};
 use super::JobError;
 
 pub struct JobOutput {
-	pub input: InputFileMetadata,
+	pub input: InputImage,
 	pub output: Vec<OutputImage>,
 }
 
@@ -28,6 +28,16 @@ pub struct OutputImage {
 	pub data: Vec<u8>,
 	pub frame_count: usize,
 	pub duration_ms: u64,
+	pub loop_count: LoopCount,
+}
+
+pub struct InputImage {
+	pub format: FileFormat,
+	pub width: usize,
+	pub height: usize,
+	pub loop_count: LoopCount,
+	pub duration_ms: u64,
+	pub frame_count: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -59,11 +69,7 @@ impl Drop for CancelToken {
 	}
 }
 
-pub async fn spawn(
-	task: Task,
-	input: Bytes,
-	permit: Arc<OwnedSemaphorePermit>,
-) -> Result<(DecoderInfo, JobOutput), JobError> {
+pub async fn spawn(task: Task, input: Bytes, permit: Arc<OwnedSemaphorePermit>) -> Result<JobOutput, JobError> {
 	let cancel_token = CancelToken::new();
 	let _cancel_guard = cancel_token.clone();
 
@@ -86,9 +92,7 @@ pub async fn spawn(
 			}
 		}
 
-		let info = task.decoder_info.clone();
-
-		task.finish().map(|out| (info, out))
+		task.finish()
 	})
 	.await?
 }
@@ -96,6 +100,7 @@ pub async fn spawn(
 struct BlockingTask<'a> {
 	decoder: AnyDecoder<'a>,
 	decoder_info: DecoderInfo,
+	input: InputImage,
 	frame_configs: Vec<Option<FrameConfig>>,
 	resizer: ImageResizer,
 	static_encoders: Vec<(usize, Vec<(ResizeOutputTarget, AnyEncoder)>)>,
@@ -104,6 +109,7 @@ struct BlockingTask<'a> {
 	frame_idx: usize,
 	duration_carried_ms: f64,
 	frame_rate_factor: Option<f64>,
+	loop_count: LoopCount,
 }
 
 fn split_formats(output: &Output) -> (Vec<(usize, &OutputFormatOptions)>, Vec<(usize, &OutputFormatOptions)>) {
@@ -166,8 +172,8 @@ impl<'a> BlockingTask<'a> {
 			return Err(JobError::InvalidJob);
 		}
 
-		let file_format = DecoderFrontend::from_format(FileFormat::from_bytes(input))?;
-		let decoder = file_format.build(task, Cow::Borrowed(input))?;
+		let file_format = FileFormat::from_bytes(input);
+		let decoder = DecoderFrontend::from_format(file_format.clone())?.build(task, Cow::Borrowed(input))?;
 
 		let decoder_info = decoder.info();
 
@@ -291,6 +297,15 @@ impl<'a> BlockingTask<'a> {
 			static_frame_idx,
 			frame_idx: 0,
 			duration_carried_ms: 0.0,
+			input: InputImage {
+				format: file_format,
+				width: decoder_info.width,
+				height: decoder_info.height,
+				loop_count: decoder_info.loop_count,
+				duration_ms: 0,
+				frame_count: decoder_info.frame_count,
+			},
+			loop_count,
 			frame_rate_factor: anim_config.and_then(|config| match config.frame_rate.as_ref()? {
 				animation_config::FrameRate::FrameRateFactor(factor) => Some(*factor),
 				_ => None,
@@ -362,7 +377,7 @@ impl<'a> BlockingTask<'a> {
 		Ok(true)
 	}
 
-	pub fn finish(self) -> Result<JobOutput, JobError> {
+	pub fn finish(mut self) -> Result<JobOutput, JobError> {
 		let output = self
 			.static_encoders
 			.into_iter()
@@ -381,17 +396,17 @@ impl<'a> BlockingTask<'a> {
 						frame_count: info.frame_count,
 						duration_ms: info.duration,
 						data: encoder.finish()?,
+						loop_count: self.loop_count,
 					})
 				})
 			})
 			.collect::<Result<_, EncoderError>>()?;
 
+		// Update the duration of the input.
+		self.input.duration_ms = u64::try_from(self.decoder.duration_ms()).unwrap_or(0);
+
 		Ok(JobOutput {
-			input: InputFileMetadata {
-				width: self.decoder_info.width as u32,
-				height: self.decoder_info.height as u32,
-				frame_count: self.decoder_info.frame_count as u32,
-			},
+			input: self.input,
 			output,
 		})
 	}

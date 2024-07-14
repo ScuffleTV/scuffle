@@ -55,7 +55,6 @@ impl<'data> AvifDecoder<'data> {
 		let image = AvifRgbImage::new(decoder.as_ref());
 
 		let info = DecoderInfo {
-			decoder: DecoderFrontend::LibAvif,
 			width: image.width as usize,
 			height: image.height as usize,
 			loop_count: if decoder.as_ref().repetitionCount <= 0 {
@@ -132,5 +131,9 @@ impl Decoder for AvifDecoder<'_> {
 			self.img.height as usize,
 			duration_ts,
 		)))
+	}
+
+	fn duration_ms(&self) -> i64 {
+		self.total_duration as i64 * 1000 / self.info.timescale as i64
 	}
 }

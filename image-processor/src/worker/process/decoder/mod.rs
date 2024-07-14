@@ -96,12 +96,12 @@ pub enum AnyDecoder<'a> {
 pub trait Decoder {
 	fn backend(&self) -> DecoderFrontend;
 	fn info(&self) -> DecoderInfo;
+	fn duration_ms(&self) -> i64;
 	fn decode(&mut self) -> Result<Option<FrameRef>, DecoderError>;
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct DecoderInfo {
-	pub decoder: DecoderFrontend,
 	pub width: usize,
 	pub height: usize,
 	pub loop_count: LoopCount,
@@ -113,6 +113,15 @@ pub struct DecoderInfo {
 pub enum LoopCount {
 	Infinite,
 	Finite(usize),
+}
+
+impl LoopCount {
+	pub fn as_i32(self) -> i32 {
+		match self {
+			LoopCount::Infinite => -1,
+			LoopCount::Finite(count) => count as i32,
+		}
+	}
 }
 
 impl Decoder for AnyDecoder<'_> {
@@ -137,6 +146,14 @@ impl Decoder for AnyDecoder<'_> {
 			Self::Ffmpeg(decoder) => decoder.decode(),
 			Self::LibAvif(decoder) => decoder.decode(),
 			Self::LibWebp(decoder) => decoder.decode(),
+		}
+	}
+
+	fn duration_ms(&self) -> i64 {
+		match self {
+			Self::Ffmpeg(decoder) => decoder.duration_ms(),
+			Self::LibAvif(decoder) => decoder.duration_ms(),
+			Self::LibWebp(decoder) => decoder.duration_ms(),
 		}
 	}
 }

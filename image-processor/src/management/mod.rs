@@ -67,6 +67,7 @@ impl ManagementServer {
 
 			let drive_path = DrivePath {
 				drive: drive_path.drive,
+				acl: drive_path.acl,
 				path: path.clone(),
 			};
 
@@ -86,7 +87,7 @@ impl ManagementServer {
 					&path,
 					Bytes::from(input_upload.binary),
 					Some(DriveWriteOptions {
-						acl: input_upload.acl,
+						acl: drive_path.acl.clone(),
 						cache_control: input_upload.cache_control,
 						content_disposition: input_upload.content_disposition,
 						content_type: input_upload.content_type,

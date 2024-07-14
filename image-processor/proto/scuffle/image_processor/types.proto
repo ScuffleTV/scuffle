@@ -26,6 +26,8 @@ message DrivePath {
     // Possible template argument values are:
     // - {id}   - The id of the task.
     string path = 2;
+    // The acl to use for the drive. (used when uploading)
+    optional string acl = 3;
 }
 
 // The resize method determines how the image processor should resize the image.
@@ -111,6 +113,8 @@ message InputMetadata {
     uint32 width = 3;
     // If this is different from the actual height the image processor will generate a fatal error.
     uint32 height = 4;
+    // The loop count of the input image.
+    int32 loop_count = 5;
 }
 
 // InputUpload is used to upload an image to a drive configured in the image processor config.
@@ -229,33 +233,43 @@ message OutputFormatOptions {
 
 message OutputFile {
     // The path to the output file.
-    string path = 1;
+    DrivePath path = 1;
     // The content type of the output file.
     string content_type = 2;
-    // The acl of the output file.
-    optional string acl = 3;
     // Width of the output image.
-    uint32 width = 4;
+    uint32 width = 3;
     // Height of the output image.
-    uint32 height = 5;
+    uint32 height = 4;
     // The frame count of the output image.
-    uint32 frame_count = 6;
+    uint32 frame_count = 5;
     // The duration of the output image.
-    uint32 duration_ms = 7;
+    uint32 duration_ms = 6;
     // The size of the output image in bytes.
-    uint32 size = 8;
+    uint32 size = 7;
     // The format of the output image.
-    OutputFormat format = 9;
+    OutputFormat format = 8;
+    // Loop count of the output image.
+    int32 loop_count = 9;
 }
 
 // Returned after the image is processed.
 message InputFileMetadata {
+    // The final path of the input image.
+    DrivePath path = 1;
+    // The content type of the input image.
+    string content_type = 2;
     // The width of the input image.
-    uint32 width = 1;
+    uint32 width = 3;
     // The height of the input image.
-    uint32 height = 2;
+    uint32 height = 4;
     // The frame count of the input image.
-    uint32 frame_count = 3;
+    uint32 frame_count = 5;
+    // The duration of the input image.
+    uint32 duration_ms = 6;
+    // The size of the input image in bytes.
+    uint32 size = 7;
+    // The loop count of the input image.
+    int32 loop_count = 8;
 }
 
 message Output {
@@ -274,9 +288,8 @@ message Output {
     // - {ext}          - The extension of the output image. (e.g. 'webp', 'avif', etc.)
     DrivePath drive_path = 1;
 
-    // Override the acl of the output images.
-    // By default this will use the ACL specified by the output drive config.
-    optional string acl_override = 2;
+    // The path to the input image to re-upload.
+    optional DrivePath input_reupload_path = 2;
 
     // The desired format to encode the output image.
     repeated OutputFormatOptions formats = 3;

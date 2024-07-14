@@ -3,7 +3,7 @@ use std::ptr::NonNull;
 use libavif_sys::{AVIF_QUALITY_LOSSLESS, AVIF_QUANTIZER_BEST_QUALITY, AVIF_SPEED_FASTEST, AVIF_SPEED_SLOWEST};
 use scuffle_image_processor_proto::OutputQuality;
 
-use super::{Encoder, EncoderBackend, EncoderError, EncoderInfo, EncoderSettings};
+use super::{Encoder, EncoderError, EncoderInfo, EncoderSettings};
 use crate::worker::process::frame::FrameRef;
 use crate::worker::process::libavif::AvifError;
 use crate::worker::process::smart_object::{SmartObject, SmartPtr};
@@ -76,9 +76,7 @@ impl AvifEncoder {
 				duration: 0,
 				frame_count: 0,
 				format: settings.format,
-				frontend: EncoderBackend::LibAvif,
 				height: 0,
-				loop_count: settings.loop_count,
 				timescale: settings.timescale,
 				width: 0,
 			},

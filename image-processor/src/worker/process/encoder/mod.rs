@@ -32,10 +32,8 @@ pub struct EncoderSettings {
 pub struct EncoderInfo {
 	pub name: Option<String>,
 	pub format: OutputFormat,
-	pub frontend: EncoderBackend,
 	pub width: usize,
 	pub height: usize,
-	pub loop_count: LoopCount,
 	pub timescale: u64,
 	pub duration: u64,
 	pub frame_count: usize,

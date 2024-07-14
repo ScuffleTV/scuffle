@@ -1,6 +1,6 @@
 use rgb::ComponentBytes;
 
-use super::{Encoder, EncoderBackend, EncoderError, EncoderInfo, EncoderSettings};
+use super::{Encoder, EncoderError, EncoderInfo, EncoderSettings};
 use crate::worker::process::frame::FrameRef;
 
 pub struct PngEncoder {
@@ -18,9 +18,7 @@ impl PngEncoder {
 				duration: 0,
 				frame_count: 0,
 				format: settings.format,
-				frontend: EncoderBackend::Png,
 				height: 0,
-				loop_count: settings.loop_count,
 				timescale: settings.timescale,
 				width: 0,
 			},

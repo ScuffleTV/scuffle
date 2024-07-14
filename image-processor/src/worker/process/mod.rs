@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use blocking::{InputImage, OutputImage};
 use bson::oid::ObjectId;
 use scuffle_foundations::context::Context;
-use scuffle_image_processor_proto::{event_callback, ErrorCode, OutputFile, OutputFormat};
+use scuffle_image_processor_proto::{event_callback, DrivePath, ErrorCode, InputFileMetadata, OutputFile, OutputFormat};
 
 use self::blocking::JobOutput;
 pub use self::decoder::DecoderFrontend;
@@ -183,30 +184,17 @@ impl ProcessJob {
 
 		let job = self.job.clone();
 
-		let (
-			decoder_info,
-			JobOutput {
-				output: output_results,
-				input: input_metadata,
-			},
-		) = blocking::spawn(job.task.clone(), input, self.permit.clone()).await?;
+		let JobOutput {
+			output: output_results,
+			input: input_result,
+		} = blocking::spawn(job.task.clone(), input.clone(), self.permit.clone()).await?;
 
-		let is_animated = output_results.iter().any(|r| r.frame_count > 1);
+		let has_animated = output_results.iter().any(|r| r.frame_count > 1);
 
 		let mut files = Vec::new();
 
 		for output_result in output_results {
-			let vars = setup_vars(
-				self.job.id,
-				output_result.format_name.clone(),
-				output_result.format,
-				output_result.scale,
-				output_result.width,
-				output_result.height,
-				output_result.format_idx,
-				output_result.resize_idx,
-				is_animated,
-			);
+			let vars = setup_output_vars(self.job.id, &output_result, has_animated);
 
 			let file_path = strfmt::strfmt(&output_drive_path.path, &vars).map_err(|err| {
 				tracing::error!("failed to format path: {err}");
@@ -221,14 +209,21 @@ impl ProcessJob {
 					output_result.data.into(),
 					Some(DriveWriteOptions {
 						content_type: Some(content_type(output_result.format).to_owned()),
-						acl: output.acl_override.clone(),
+						acl: output_drive_path.acl.clone(),
 						..Default::default()
 					}),
 				)
 				.await?;
 
 			files.push(OutputFile {
-				path: file_path,
+				path: Some(DrivePath {
+					drive: output_drive_path.drive.clone(),
+					path: file_path,
+					acl: output_drive_path
+						.acl
+						.clone()
+						.or_else(|| output_drive.default_acl().map(|s| s.to_owned())),
+				}),
 				size: size as u32,
 				format: output_result.format as i32,
 				frame_count: output_result.frame_count as u32,
@@ -236,34 +231,67 @@ impl ProcessJob {
 				width: output_result.width as u32,
 				duration_ms: output_result.duration_ms as u32,
 				content_type: content_type(output_result.format).to_owned(),
-				acl: output
-					.acl_override
-					.as_deref()
-					.or(output_drive.default_acl())
-					.map(|s| s.to_owned()),
+				loop_count: output_result.loop_count.as_i32(),
 			});
 		}
 
+		let input_path = if let Some(input_reupload_path) = job.task.output.as_ref().unwrap().input_reupload_path.clone() {
+			let vars = setup_input_vars(self.job.id, &input_result);
+
+			let file_path = strfmt::strfmt(&input_reupload_path.path, &vars).map_err(|err| {
+				tracing::error!("failed to format path: {err}");
+				JobError::Internal("failed to format path")
+			})?;
+
+			let drive = global.drive(&input_reupload_path.drive).ok_or(JobError::InvalidJob)?;
+
+			drive
+				.write(
+					&file_path,
+					input.clone(),
+					Some(DriveWriteOptions {
+						content_type: Some(input_result.format.media_type().to_string()),
+						acl: input_reupload_path.acl.clone(),
+						..Default::default()
+					}),
+				)
+				.await
+				.map_err(|err| {
+					tracing::error!("failed to write input upload: {err}");
+					JobError::Internal("failed to write input upload")
+				})?;
+
+			Some(DrivePath {
+				drive: input_reupload_path.drive,
+				path: file_path,
+				acl: input_reupload_path.acl.or_else(|| drive.default_acl().map(|s| s.to_owned())),
+			})
+		} else {
+			match self.job.task.input.as_ref().unwrap().path.clone().unwrap() {
+				scuffle_image_processor_proto::input::Path::DrivePath(drive_path) => Some(drive_path),
+				_ => None,
+			}
+		};
+
 		Ok(event_callback::Success {
 			drive: output_drive_path.drive.clone(),
-			input_metadata: Some(input_metadata),
+			input_metadata: Some(InputFileMetadata {
+				content_type: input_result.format.media_type().to_string(),
+				width: input_result.width as u32,
+				height: input_result.height as u32,
+				frame_count: input_result.frame_count as u32,
+				duration_ms: input_result.duration_ms as u32,
+				size: input.len() as u32,
+				loop_count: input_result.loop_count.as_i32(),
+				path: input_path,
+			}),
 			files,
 		})
 	}
 }
 
-fn setup_vars(
-	id: ObjectId,
-	format_name: Option<String>,
-	format: OutputFormat,
-	scale: Option<usize>,
-	width: usize,
-	height: usize,
-	format_idx: usize,
-	resize_idx: usize,
-	is_animated: bool,
-) -> HashMap<String, String> {
-	let format_name = format_name.unwrap_or_else(|| match format {
+fn setup_output_vars(id: ObjectId, output: &OutputImage, has_animated: bool) -> HashMap<String, String> {
+	let format_name = output.format_name.clone().unwrap_or_else(|| match output.format {
 		OutputFormat::AvifAnim => "avif_anim".to_owned(),
 		OutputFormat::AvifStatic => "avif_static".to_owned(),
 		OutputFormat::WebpAnim => "webp_anim".to_owned(),
@@ -272,14 +300,14 @@ fn setup_vars(
 		OutputFormat::GifAnim => "gif_anim".to_owned(),
 	});
 
-	let scale = scale.map(|scale| scale.to_string()).unwrap_or_else(|| "".to_owned());
+	let scale = output.scale.map(|scale| scale.to_string()).unwrap_or_else(|| "".to_owned());
 
-	let static_ = match format {
-		OutputFormat::AvifStatic | OutputFormat::PngStatic | OutputFormat::WebpStatic if is_animated => "_static",
+	let static_ = match output.format {
+		OutputFormat::AvifStatic | OutputFormat::PngStatic | OutputFormat::WebpStatic if has_animated => "_static",
 		_ => "",
 	};
 
-	let ext = match format {
+	let ext = match output.format {
 		OutputFormat::AvifAnim | OutputFormat::AvifStatic => "avif",
 		OutputFormat::PngStatic => "png",
 		OutputFormat::WebpAnim | OutputFormat::WebpStatic => "webp",
@@ -290,10 +318,10 @@ fn setup_vars(
 		("id".to_owned(), id.to_string()),
 		("format".to_owned(), format_name),
 		("scale".to_owned(), scale),
-		("width".to_owned(), width.to_string()),
-		("height".to_owned(), height.to_string()),
-		("format_idx".to_owned(), format_idx.to_string()),
-		("resize_idx".to_owned(), resize_idx.to_string()),
+		("width".to_owned(), output.width.to_string()),
+		("height".to_owned(), output.height.to_string()),
+		("format_idx".to_owned(), output.format_idx.to_string()),
+		("resize_idx".to_owned(), output.resize_idx.to_string()),
 		("static".to_owned(), static_.to_owned()),
 		("ext".to_owned(), ext.to_owned()),
 	]
@@ -308,4 +336,15 @@ fn content_type(format: OutputFormat) -> &'static str {
 		OutputFormat::PngStatic => "image/png",
 		OutputFormat::GifAnim => "image/gif",
 	}
+}
+
+fn setup_input_vars(id: ObjectId, input: &InputImage) -> HashMap<String, String> {
+	[
+		("id".to_owned(), id.to_string()),
+		("width".to_owned(), input.width.to_string()),
+		("height".to_owned(), input.height.to_string()),
+		("ext".to_owned(), input.format.extension().to_owned()),
+	]
+	.into_iter()
+	.collect::<HashMap<_, _>>()
 }

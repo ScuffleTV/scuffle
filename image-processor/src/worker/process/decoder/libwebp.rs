@@ -66,14 +66,13 @@ impl<'data> WebpDecoder<'data> {
 
 		Ok(Self {
 			info: DecoderInfo {
-				decoder: DecoderFrontend::LibWebp,
-				width: info.canvas_width as _,
-				height: info.canvas_height as _,
+				width: info.canvas_width as usize,
+				height: info.canvas_height as usize,
 				loop_count: match info.loop_count {
 					0 => LoopCount::Infinite,
-					_ => LoopCount::Finite(info.loop_count as _),
+					_ => LoopCount::Finite(info.loop_count as usize),
 				},
-				frame_count: info.frame_count as _,
+				frame_count: info.frame_count as usize,
 				timescale: 1000,
 			},
 			max_input_duration: task
@@ -129,5 +128,9 @@ impl Decoder for WebpDecoder<'_> {
 		let duration_ts = (self.timestamp - previous_timestamp).max(0) as u64;
 
 		Ok(Some(FrameRef::new(buf, self.info.width, self.info.height, duration_ts)))
+	}
+
+	fn duration_ms(&self) -> i64 {
+		self.total_duration as i64
 	}
 }

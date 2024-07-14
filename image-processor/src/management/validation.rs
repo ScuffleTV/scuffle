@@ -262,6 +262,15 @@ pub fn validate_output(global: &Arc<Global>, mut fragment: Fragment, output: Opt
 		],
 	)?;
 
+	if let Some(input_reupload_path) = output.input_reupload_path.as_ref() {
+		validate_drive_path(
+			global,
+			fragment.push("path"),
+			Some(input_reupload_path),
+			&["id", "width", "height", "ext"],
+		)?;
+	}
+
 	if output.formats.is_empty() {
 		return Err(Error {
 			code: ErrorCode::InvalidInput as i32,

@@ -14,6 +14,7 @@ pub struct FfmpegDecoder<'data> {
 	info: DecoderInfo,
 	input_stream_index: i32,
 	average_frame_duration: u64,
+	duration_ms: i64,
 	previous_timestamp: Option<u64>,
 	send_packet: bool,
 	eof: bool,
@@ -76,15 +77,20 @@ impl<'data> FfmpegDecoder<'data> {
 			}
 		}
 
+		let duration_ms =
+			(input_stream_duration * input_stream_time_base.num as i64 * 1000) / input_stream_time_base.den as i64;
+
+		if duration_ms < 0 {
+			return Err(DecoderError::InvalidTimeBase);
+		}
+
 		if let Some(max_input_duration_ms) = task.limits.as_ref().and_then(|l| l.max_input_duration_ms) {
 			// actual duration
 			// = duration * (time_base.num / time_base.den) * 1000
 			// = (duration * time_base.num * 1000) / time_base.den
-			let duration =
-				(input_stream_duration * input_stream_time_base.num as i64 * 1000) / input_stream_time_base.den as i64;
 
-			if duration > max_input_duration_ms as i64 {
-				return Err(DecoderError::TooLong(duration));
+			if duration_ms > max_input_duration_ms as i64 {
+				return Err(DecoderError::TooLong(duration_ms));
 			}
 		}
 
@@ -98,7 +104,6 @@ impl<'data> FfmpegDecoder<'data> {
 		)?;
 
 		let info = DecoderInfo {
-			decoder: DecoderFrontend::Ffmpeg,
 			width: decoder.width() as usize,
 			height: decoder.height() as usize,
 			frame_count: input_stream_frames as usize,
@@ -125,6 +130,7 @@ impl<'data> FfmpegDecoder<'data> {
 			send_packet: true,
 			frame,
 			average_frame_duration,
+			duration_ms,
 			previous_timestamp: Some(0),
 		})
 	}
@@ -219,6 +225,10 @@ impl Decoder for FfmpegDecoder<'_> {
 				self.send_packet = true;
 			}
 		}
+	}
+
+	fn duration_ms(&self) -> i64 {
+		self.duration_ms
 	}
 
 	fn info(&self) -> DecoderInfo {

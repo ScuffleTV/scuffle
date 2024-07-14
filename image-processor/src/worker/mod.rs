@@ -21,6 +21,8 @@ pub async fn start(global: Arc<Global>) -> anyhow::Result<()> {
 
 	let semaphore = Arc::new(tokio::sync::Semaphore::new(concurrency));
 
+	tracing::info!("worker started with {} threads", concurrency);
+
 	let mut error_count = 0;
 	let (_, handle) = context::Context::new();
 
@@ -38,8 +40,12 @@ pub async fn start(global: Arc<Global>) -> anyhow::Result<()> {
 		};
 
 		let job = match Job::fetch(&global).await {
-			Ok(Some(job)) => job,
+			Ok(Some(job)) => {
+				tracing::debug!("fetched job");
+				job
+			}
 			Ok(None) => {
+				tracing::debug!("no jobs found");
 				tokio::time::sleep(config.worker.polling_interval).await;
 				continue;
 			}

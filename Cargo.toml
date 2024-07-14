@@ -31,6 +31,8 @@ debug = true
 
 [profile.release-fat]
 inherits = "release"
+debug = false
+strip = true
 lto = "fat"
 
 [profile.wasm]

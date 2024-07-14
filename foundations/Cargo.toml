@@ -251,5 +251,4 @@ default = [
     "http",
     "http-tls",
     "http2",
-    # "http3",
 ]

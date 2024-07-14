@@ -8,14 +8,16 @@ use scuffle_image_processor_proto::{
 use super::ManagementServer;
 
 impl ManagementServer {
-	pub async fn run_http(&self) -> Result<(), scuffle_foundations::http::server::Error> {
+	#[tracing::instrument(skip_all)]
+	pub async fn run_http(&self, addr: std::net::SocketAddr) -> Result<(), scuffle_foundations::http::server::Error> {
 		let router = Router::new()
 			.route("/process_image", post(process_image))
 			.route("/cancel_task", post(cancel_task))
 			.fallback(not_found)
 			.with_state(self.clone());
 
-		let addr = self.global.config().management.http.bind;
+		tracing::info!("HTTP management server listening on {}", addr);
+
 		scuffle_foundations::http::server::Server::builder()
 			.bind(addr)
 			.build(router)?
@@ -24,10 +26,12 @@ impl ManagementServer {
 	}
 }
 
+#[tracing::instrument(skip_all)]
 async fn not_found() -> (http::StatusCode, &'static str) {
 	(http::StatusCode::NOT_FOUND, "Not Found")
 }
 
+#[tracing::instrument(skip_all)]
 async fn process_image(
 	State(server): State<ManagementServer>,
 	Json(request): Json<ProcessImageRequest>,
@@ -48,6 +52,7 @@ async fn process_image(
 	(status, Json(resp))
 }
 
+#[tracing::instrument(skip_all)]
 async fn cancel_task(
 	State(server): State<ManagementServer>,
 	Json(request): Json<CancelTaskRequest>,

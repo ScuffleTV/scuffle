@@ -29,7 +29,7 @@ impl PublicHttpDrive {
 	pub async fn new(config: &PublicHttpDriveConfig) -> Result<Self, DriveError> {
 		tracing::debug!("setting up public http disk");
 		if !config.blacklist.is_empty() || !config.whitelist.is_empty() {
-			tracing::error!("blacklist and whitelist are not supported for public http disk");
+			tracing::error!("blacklist and whitelist are not currently implemented for public http disk");
 			return Err(PublicHttpDriveError::Unsupported("blacklist and whitelist").into());
 		}
 

@@ -17,6 +17,7 @@ use crate::worker::process::DecoderFrontend;
 pub mod grpc;
 pub mod http;
 
+mod utils;
 mod validation;
 
 #[derive(Clone)]
@@ -25,8 +26,11 @@ struct ManagementServer {
 }
 
 impl ManagementServer {
+	#[tracing::instrument(skip_all)]
 	async fn process_image(&self, mut request: ProcessImageRequest) -> Result<ProcessImageResponse, Error> {
 		let mut fragment = FragmentBuf::new();
+
+		tracing::info!("new process image request");
 
 		validate_task(
 			&self.global,
@@ -128,7 +132,10 @@ impl ManagementServer {
 		})
 	}
 
+	#[tracing::instrument(skip_all)]
 	async fn cancel_task(&self, request: CancelTaskRequest) -> Result<CancelTaskResponse, Error> {
+		tracing::info!("new cancel task request");
+
 		match Job::cancel(
 			&self.global,
 			request.id.parse().map_err(|err| Error {
@@ -154,19 +161,22 @@ impl ManagementServer {
 	}
 }
 
+#[tracing::instrument(skip_all)]
 pub async fn start(global: Arc<Global>) -> anyhow::Result<()> {
 	let server = ManagementServer { global };
 
 	let http = async {
 		if server.global.config().management.http.enabled {
-			server.run_http().await.context("http")
+			let addr = utils::true_bind(server.global.config().management.http.bind).await?;
+			server.run_http(addr).await.context("http")
 		} else {
 			Ok(())
 		}
 	};
 	let grpc = async {
 		if server.global.config().management.grpc.enabled {
-			server.run_grpc().await.context("grpc")
+			let addr = utils::true_bind(server.global.config().management.grpc.bind).await?;
+			server.run_grpc(addr).await.context("grpc")
 		} else {
 			Ok(())
 		}

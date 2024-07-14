@@ -1,6 +1,11 @@
 .vscode/
 node_modules/
 .env*
-Dockerfile
+**/Dockerfile
+**/.dockerignore
+**/.gitignore
+.git/
+**/*.dockerfile
 dev/
 .dockerignore
+target/

@@ -3,7 +3,6 @@ use std::sync::Arc;
 use ::opentelemetry::trace::TraceError;
 use itertools::Itertools;
 use opentelemetry_otlp::SpanExporter;
-use opentelemetry_sdk::Resource;
 use thread_local::ThreadLocal;
 use tokio::sync::{Mutex, OwnedSemaphorePermit};
 #[cfg(not(feature = "runtime"))]
@@ -34,7 +33,6 @@ mod opentelemetry {
 
 pub struct BatchExporter {
 	pub interval: tokio::time::Duration,
-	pub resource: Resource,
 	pub batch_size: usize,
 	pub max_concurrent_exports: usize,
 	pub max_pending_exports: usize,
@@ -75,11 +73,6 @@ impl BatchExporter {
 		self
 	}
 
-	pub fn with_resource(&mut self, resource: Resource) -> &mut Self {
-		self.resource = resource;
-		self
-	}
-
 	pub fn with_batch_size(&mut self, batch_size: usize) -> &mut Self {
 		self.batch_size = batch_size;
 		self
@@ -95,15 +88,6 @@ impl BatchExporter {
 		self
 	}
 
-	pub fn with_service_info(&mut self, info: crate::ServiceInfo) -> &mut Self {
-		self.resource.merge(&Resource::new(vec![
-			::opentelemetry::KeyValue::new("service.name", info.metric_name),
-			::opentelemetry::KeyValue::new("service.version", info.version),
-		]));
-
-		self
-	}
-
 	pub fn build(&mut self) -> Self {
 		std::mem::take(self)
 	}
@@ -113,7 +97,6 @@ impl std::fmt::Debug for BatchExporter {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("ExporterConfig")
 			.field("interval", &self.interval)
-			.field("resource", &self.resource)
 			.field("batch_size", &self.batch_size)
 			.field("max_concurrent_exports", &self.max_concurrent_exports)
 			.field("max_pending_exports", &self.max_pending_exports)
@@ -125,7 +108,6 @@ impl Default for BatchExporter {
 	fn default() -> Self {
 		Self {
 			interval: tokio::time::Duration::from_secs(2),
-			resource: Resource::empty(),
 			batch_size: 10_000,
 			max_concurrent_exports: 10,
 			max_pending_exports: 15,
@@ -164,10 +146,7 @@ fn export_batch(internal: Arc<ExportInternal>, batch: Vec<SpanNode>, pending_per
 		let _permit = internal.concurrent_semaphore.acquire().await.unwrap();
 		drop(pending_permit);
 
-		let batch = batch
-			.into_iter()
-			.map(|data| data.into_data(internal.config.resource.clone()))
-			.collect_vec();
+		let batch = batch.into_iter().map(|data| data.into_data()).collect_vec();
 
 		let size = batch.len();
 

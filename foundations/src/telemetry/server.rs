@@ -7,8 +7,6 @@ pub struct ServerSettings {
 	pub builder: crate::http::server::ServerBuilder,
 	#[cfg(feature = "pprof-cpu")]
 	pub pprof_cpu_path: Option<String>,
-	#[cfg(feature = "pprof-heap")]
-	pub pprof_heap_path: Option<String>,
 	#[cfg(feature = "metrics")]
 	pub metrics_path: Option<String>,
 	#[cfg(feature = "health-check")]
@@ -25,8 +23,6 @@ impl Default for ServerSettings {
 			builder: SocketAddr::from(([127, 0, 0, 1], 9000)).into(),
 			#[cfg(feature = "pprof-cpu")]
 			pprof_cpu_path: Some("/debug/pprof/profile".into()),
-			#[cfg(feature = "pprof-heap")]
-			pprof_heap_path: Some("/debug/pprof/heap".into()),
 			#[cfg(feature = "metrics")]
 			metrics_path: Some("/metrics".into()),
 			#[cfg(feature = "health-check")]
@@ -92,32 +88,6 @@ async fn pprof_cpu(
 			axum::response::Response::builder()
 				.status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
 				.body("failed to capture pprof cpu profile".into())
-				.unwrap()
-		}
-		Err(err) => {
-			tracing::error!(%err, "failed to spawn blocking task");
-			axum::response::Response::builder()
-				.status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
-				.body("failed to spawn blocking task".into())
-				.unwrap()
-		}
-	}
-}
-
-#[cfg(feature = "pprof-heap")]
-async fn pprof_heap() -> axum::response::Response<axum::body::Body> {
-	match tokio::task::spawn_blocking(|| crate::telemetry::pprof::Heap::new().capture()).await {
-		Ok(Ok(contents)) => axum::response::Response::builder()
-			.status(axum::http::StatusCode::OK)
-			.header("content-type", "application/octet-stream")
-			.header("content-disposition", "attachment; filename=\"heap.pb.gz\"")
-			.body(contents.into())
-			.unwrap(),
-		Ok(Err(err)) => {
-			tracing::error!(%err, "failed to capture pprof heap profile");
-			axum::response::Response::builder()
-				.status(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
-				.body("failed to capture pprof heap profile".into())
 				.unwrap()
 		}
 		Err(err) => {
@@ -296,11 +266,6 @@ pub async fn init(settings: ServerSettings) -> anyhow::Result<()> {
 	#[cfg(feature = "pprof-cpu")]
 	if let Some(path) = &settings.pprof_cpu_path {
 		router = router.route(path, axum::routing::get(pprof_cpu));
-	}
-
-	#[cfg(feature = "pprof-heap")]
-	if let Some(path) = &settings.pprof_heap_path {
-		router = router.route(path, axum::routing::get(pprof_heap));
 	}
 
 	#[cfg(feature = "metrics")]

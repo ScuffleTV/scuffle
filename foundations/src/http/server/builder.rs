@@ -104,10 +104,15 @@ impl ServerBuilder {
 			insecure_bind: self.insecure_bind,
 			#[cfg(feature = "http-tls")]
 			tls: self.tls.map(|mut tls| {
-				tls.alpn_protocols.clear();
-				tls.alpn_protocols = vec![b"http/1.1".to_vec()];
-				if cfg!(feature = "http2") {
-					tls.alpn_protocols.push(b"h2".to_vec());
+				if tls.alpn_protocols.is_empty() {
+					tls.alpn_protocols = vec![b"http/1.1".to_vec()];
+					if cfg!(feature = "http2") {
+						tls.alpn_protocols.push(b"h2".to_vec());
+					}
+					#[cfg(feature = "http3")]
+					if self.quic.is_some() {
+						tls.alpn_protocols.push(b"h3".to_vec());
+					}
 				}
 
 				Arc::new(tls)

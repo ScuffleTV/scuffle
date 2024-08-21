@@ -4,7 +4,6 @@ pub use opentelemetry::trace::{Link, SpanContext, SpanId, SpanKind, Status, Trac
 pub use opentelemetry::KeyValue;
 pub use opentelemetry_sdk::export::trace::SpanData;
 pub use opentelemetry_sdk::trace::SpanEvents;
-pub use opentelemetry_sdk::Resource;
 use rand::Rng;
 use spin::Lazy;
 use tracing::{span, Metadata};
@@ -231,7 +230,7 @@ impl SpanNode {
 		std::iter::once(self).chain(children)
 	}
 
-	pub fn into_data(mut self, resource: Resource) -> SpanData {
+	pub fn into_data(mut self) -> SpanData {
 		static DEFAULT_SPAN: Lazy<SpanData> = Lazy::new(|| SpanData {
 			start_time: std::time::SystemTime::UNIX_EPOCH,
 			end_time: std::time::SystemTime::UNIX_EPOCH,
@@ -242,7 +241,6 @@ impl SpanNode {
 			events: SpanEvents::default(),
 			links: Default::default(),
 			span_kind: SpanKind::Internal,
-			resource: Cow::Owned(Resource::empty()),
 			attributes: Vec::new(),
 			parent_span_id: SpanId::INVALID,
 			span_context: SpanContext::new(
@@ -277,7 +275,6 @@ impl SpanNode {
 		span.dropped_attributes_count = 0;
 		span.name = self.metadata.name().into();
 		span.attributes = self.attributes;
-		span.resource = Cow::Owned(resource.clone());
 		span.parent_span_id = self.mapped_parent_id.unwrap_or(SpanId::INVALID);
 		span.span_context = SpanContext::new(self.trace_id, self.mapped_id, TraceFlags::SAMPLED, false, TraceState::NONE);
 		span.events.events = self.events.into_iter().map(|e| e.into_data()).collect();

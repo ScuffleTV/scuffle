@@ -239,10 +239,7 @@ pub enum LoggingSettingsFormat {
 	Compact,
 }
 
-#[cfg(all(
-	any(feature = "pprof-cpu", feature = "pprof-heap", feature = "metrics",),
-	feature = "telemetry-server"
-))]
+#[cfg(all(any(feature = "pprof-cpu", feature = "metrics"), feature = "telemetry-server"))]
 #[crate::settings::auto_settings(crate_path = "crate")]
 #[serde(default)]
 pub struct ServerSettings {
@@ -252,11 +249,6 @@ pub struct ServerSettings {
 	/// The address to bind the server to.
 	#[settings(default = SocketAddr::from(([127, 0, 0, 1], 9000)))]
 	pub bind: SocketAddr,
-	/// The path to the pprof heap endpoint. If `None`, the endpoint is
-	/// disabled.
-	#[cfg(feature = "pprof-heap")]
-	#[settings(default = Some("/debug/pprof/heap".into()))]
-	pub pprof_heap_path: Option<String>,
 	/// The path to the pprof CPU endpoint. If `None`, the endpoint is disabled.
 	#[cfg(feature = "pprof-cpu")]
 	#[settings(default = Some("/debug/pprof/profile".into()))]
@@ -310,27 +302,6 @@ pub async fn init(info: crate::ServiceInfo, settings: TelemetrySettings) {
 						interval: settings.opentelemetry.interval,
 						#[cfg(feature = "metrics")]
 						metrics: settings.opentelemetry.metrics,
-						resource: {
-							let mut kv = vec![];
-
-							if !settings.opentelemetry.labels.contains_key("service.name") {
-								kv.push(opentelemetry::KeyValue::new("service.name", info.metric_name));
-							}
-
-							if !settings.opentelemetry.labels.contains_key("service.version") {
-								kv.push(opentelemetry::KeyValue::new("service.version", info.version));
-							}
-
-							kv.extend(
-								settings
-									.opentelemetry
-									.labels
-									.iter()
-									.map(|(k, v)| opentelemetry::KeyValue::new(k.clone(), v.clone())),
-							);
-
-							Resource::new(kv)
-						},
 						drop_handler: {
 							const DROPPED_SPANS_ERROR: &str = "opentelemetry exporter dropped spans due to backpressure";
 
@@ -399,7 +370,7 @@ pub async fn init(info: crate::ServiceInfo, settings: TelemetrySettings) {
 						},
 					},
 					{
-						match settings.opentelemetry.otlp_method {
+						let mut exporter = match settings.opentelemetry.otlp_method {
 							OpentelemetrySettingsExportMethod::Grpc => opentelemetry_otlp::new_exporter()
 								.tonic()
 								.with_endpoint(settings.opentelemetry.otlp_endpoint.clone())
@@ -411,7 +382,33 @@ pub async fn init(info: crate::ServiceInfo, settings: TelemetrySettings) {
 								.with_timeout(settings.opentelemetry.otlp_timeout)
 								.build_span_exporter(),
 						}
-						.expect("failed to build otlp exporter")
+						.expect("failed to build otlp exporter");
+
+						use opentelemetry_sdk::export::trace::SpanExporter;
+
+						exporter.set_resource(&{
+							let mut kv = vec![];
+
+							if !settings.opentelemetry.labels.contains_key("service.name") {
+								kv.push(opentelemetry::KeyValue::new("service.name", info.metric_name));
+							}
+
+							if !settings.opentelemetry.labels.contains_key("service.version") {
+								kv.push(opentelemetry::KeyValue::new("service.version", info.version));
+							}
+
+							kv.extend(
+								settings
+									.opentelemetry
+									.labels
+									.iter()
+									.map(|(k, v)| opentelemetry::KeyValue::new(k.clone(), v.clone())),
+							);
+
+							Resource::new(kv)
+						});
+
+						exporter
 					},
 				)
 				.with_filter(super::LevelFilter::new(&settings.opentelemetry.level).filter()),
@@ -454,10 +451,7 @@ pub async fn init(info: crate::ServiceInfo, settings: TelemetrySettings) {
 		registry.init();
 	}
 
-	#[cfg(all(
-		any(feature = "pprof-cpu", feature = "pprof-heap", feature = "metrics",),
-		feature = "telemetry-server"
-	))]
+	#[cfg(all(any(feature = "pprof-cpu", feature = "metrics"), feature = "telemetry-server"))]
 	if settings.server.enabled {
 		#[cfg(not(feature = "runtime"))]
 		use tokio::spawn;
@@ -472,8 +466,6 @@ pub async fn init(info: crate::ServiceInfo, settings: TelemetrySettings) {
 				metrics_path: settings.server.metrics_path,
 				#[cfg(feature = "pprof-cpu")]
 				pprof_cpu_path: settings.server.pprof_cpu_path,
-				#[cfg(feature = "pprof-heap")]
-				pprof_heap_path: settings.server.pprof_heap_path,
 				#[cfg(feature = "health-check")]
 				health_path: settings.server.health_path,
 				#[cfg(feature = "health-check")]

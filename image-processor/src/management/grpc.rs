@@ -11,7 +11,7 @@ impl ManagementServer {
 			.serve_with_shutdown(addr, scuffle_foundations::context::Context::global().into_done());
 
 		tracing::info!("gRPC management server listening on {}", addr);
-		
+
 		server.await
 	}
 }

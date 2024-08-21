@@ -214,6 +214,8 @@ impl<S: ServiceHandler> Connection<S> {
 				stream: stream.clone(),
 			});
 
+			request.extensions_mut().insert(SocketKind::Quic);
+
 			request.extensions_mut().insert(ctx.clone());
 
 			let connection_context = connection_handle.context();

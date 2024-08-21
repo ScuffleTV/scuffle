@@ -148,6 +148,7 @@ impl<S: ServiceHandler> Connection<S> {
 				async move {
 					let ctx = make_ctx();
 					req.extensions_mut().insert(ctx.clone());
+					req.extensions_mut().insert(SocketKind::Tcp);
 					let resp = service.on_request(req.map(Body::new)).await.into_response();
 					drop(ctx);
 					Ok::<_, Infallible>(resp)

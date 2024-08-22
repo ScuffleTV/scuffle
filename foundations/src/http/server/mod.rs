@@ -99,26 +99,38 @@ impl Drop for AbortOnDrop {
 	}
 }
 
+fn ip_mode(addr: SocketAddr) -> std::io::Result<socket2::Domain> {
+	if addr.ip().is_ipv4() {
+		Ok(socket2::Domain::IPV4)
+	} else if addr.ip().is_ipv6() {
+		Ok(socket2::Domain::IPV6)
+	} else {
+		Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid ip address"))
+	}
+}
+
 fn make_tcp_listener(addr: SocketAddr) -> std::io::Result<tokio::net::TcpListener> {
-	let socket = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, Some(socket2::Protocol::TCP))?;
+	let socket = socket2::Socket::new(ip_mode(addr)?, socket2::Type::STREAM, Some(socket2::Protocol::TCP))?;
 
 	socket.set_nonblocking(true)?;
 	socket.set_reuse_address(true)?;
 	socket.set_reuse_port(true)?;
 	socket.bind(&socket2::SockAddr::from(addr))?;
 	socket.listen(1024)?;
+	socket.set_only_v6(false)?;
 
 	tokio::net::TcpListener::from_std(socket.into())
 }
 
 #[cfg(feature = "http3")]
 fn make_udp_socket(addr: SocketAddr) -> std::io::Result<std::net::UdpSocket> {
-	let socket = socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::DGRAM, Some(socket2::Protocol::UDP))?;
+	let socket = socket2::Socket::new(ip_mode(addr)?, socket2::Type::DGRAM, Some(socket2::Protocol::UDP))?;
 
 	socket.set_nonblocking(true)?;
 	socket.set_reuse_address(true)?;
 	socket.set_reuse_port(true)?;
 	socket.bind(&socket2::SockAddr::from(addr))?;
+	socket.set_only_v6(false)?;
 
 	Ok(socket.into())
 }

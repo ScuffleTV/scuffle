@@ -29,7 +29,7 @@ const fn cast_bytes_to_rgba(bytes: &[u8]) -> &[rgb::RGBA8] {
 static FFMPEG_LOGGING_INITIALIZED: std::sync::Once = std::sync::Once::new();
 
 impl<'data> FfmpegDecoder<'data> {
-	#[tracing::instrument(skip(task, data), fields(name = "FfmpegDecoder::new"))]
+	#[tracing::instrument(skip_all, fields(name = "FfmpegDecoder::new"))]
 	pub fn new(task: &Task, data: Cow<'data, [u8]>) -> Result<Self, DecoderError> {
 		FFMPEG_LOGGING_INITIALIZED.call_once(|| {
 			scuffle_ffmpeg::log::log_callback_tracing();

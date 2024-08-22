@@ -607,6 +607,8 @@ pub fn validate_input_path(
 			code: ErrorCode::InvalidInput as i32,
 			message: format!("{fragment}: cannot have both path and image_upload"),
 		});
+	} else if input_path.is_none() && has_image_upload.is_some() {
+		return Ok(());
 	}
 
 	let input_path = input_path.ok_or_else(|| Error {

@@ -31,7 +31,7 @@ impl Encoder for PngEncoder {
 		&self.info
 	}
 
-	#[tracing::instrument(skip(self), fields(name = "PngEncoder::add_frame"))]
+	#[tracing::instrument(skip_all, fields(name = "PngEncoder::add_frame"))]
 	fn add_frame(&mut self, frame: FrameRef) -> Result<(), EncoderError> {
 		if self.result.is_some() {
 			return Err(EncoderError::MultipleFrames);

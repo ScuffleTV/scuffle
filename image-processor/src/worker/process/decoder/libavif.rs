@@ -19,7 +19,7 @@ pub struct AvifDecoder<'data> {
 }
 
 impl<'data> AvifDecoder<'data> {
-	#[tracing::instrument(skip(task, data), fields(name = "AvifDecoder::new"))]
+	#[tracing::instrument(skip_all, fields(name = "AvifDecoder::new"))]
 	pub fn new(task: &Task, data: Cow<'data, [u8]>) -> Result<Self, DecoderError> {
 		let mut decoder = SmartPtr::new(
 			NonNull::new(unsafe { libavif_sys::avifDecoderCreate() }).ok_or(AvifError::OutOfMemory)?,

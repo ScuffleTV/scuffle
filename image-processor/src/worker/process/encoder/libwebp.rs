@@ -1,6 +1,5 @@
 use std::ptr::NonNull;
 
-use libwebp_sys::WebPMuxAnimParams;
 use scuffle_image_processor_proto::OutputQuality;
 
 use super::{Encoder, EncoderError, EncoderInfo, EncoderSettings};
@@ -32,11 +31,13 @@ impl WebpEncoder {
 	pub fn new(settings: EncoderSettings) -> Result<Self, EncoderError> {
 		let mut config = zero_memory_default::<libwebp_sys::WebPConfig>();
 
+		wrap_error(unsafe { libwebp_sys::WebPConfigInit(&mut config) }, "failed to initialize webp config")?;
+
 		config.lossless = if settings.quality == OutputQuality::Lossless { 1 } else { 0 };
 		config.quality = match settings.quality {
 			OutputQuality::Auto => 90.0,
-			OutputQuality::High => 100.0,
-			OutputQuality::Lossless => 60.0, // 0-6
+			OutputQuality::High => 95.0,
+			OutputQuality::Lossless => 100.0,
 			OutputQuality::Medium => 75.0,
 			OutputQuality::Low => 50.0,
 		};
@@ -113,7 +114,7 @@ impl Encoder for WebpEncoder {
 		&self.info
 	}
 
-	#[tracing::instrument(skip(self), fields(name = "WebpEncoder::add_frame"))]
+	#[tracing::instrument(skip_all, fields(name = "WebpEncoder::add_frame"))]
 	fn add_frame(&mut self, frame: FrameRef) -> Result<(), EncoderError> {
 		if self.first_duration.is_none() && self.encoder.is_none() {
 			self.picture.width = frame.image.width() as _;
@@ -129,20 +130,20 @@ impl Encoder for WebpEncoder {
 					libwebp_sys::WebPAnimEncoderNew(
 						self.picture.width,
 						self.picture.height,
-						&libwebp_sys::WebPAnimEncoderOptions {
-							allow_mixed: 1,
-							anim_params: WebPMuxAnimParams {
-								bgcolor: 0,
-								loop_count: match self.settings.loop_count {
-									LoopCount::Finite(count) => count as _,
-									LoopCount::Infinite => 0,
-								},
-							},
-							kmax: 0,
-							kmin: 0,
-							verbose: 0,
-							minimize_size: 0,
-							padding: [0; 4],
+						&{
+							let mut config = zero_memory_default::<libwebp_sys::WebPAnimEncoderOptions>();
+							wrap_error(libwebp_sys::WebPAnimEncoderOptionsInit(&mut config), "failed to initialize webp anim encoder options")?;
+
+							config.allow_mixed = 1;
+							// TOOD(troy): open a libwebp issue to report that images are being encoded incorrectly unless this is set to 1. However this forces every frame to be a keyframe and thus the size of the file is much larger.
+							config.kmax = 1;
+
+							config.anim_params.loop_count = match self.settings.loop_count {
+								LoopCount::Finite(count) => count as _,
+								LoopCount::Infinite => 0,
+							};
+
+							config
 						},
 					)
 				})
@@ -190,7 +191,7 @@ impl Encoder for WebpEncoder {
 		} else if let Some(mut encoder) = self.encoder {
 			wrap_error(
 				unsafe {
-					libwebp_sys::WebPAnimEncoderAdd(encoder.as_mut(), std::ptr::null_mut(), timestamp as _, std::ptr::null())
+					libwebp_sys::WebPAnimEncoderAdd(encoder.as_mut(), std::ptr::null_mut(), timestamp as _, &self.config)
 				},
 				"failed to add null webp frame",
 			)?;

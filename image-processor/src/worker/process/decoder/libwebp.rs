@@ -18,7 +18,7 @@ pub struct WebpDecoder<'data> {
 }
 
 impl<'data> WebpDecoder<'data> {
-	#[tracing::instrument(skip(task, data), fields(name = "WebpDecoder::new"))]
+	#[tracing::instrument(skip_all, fields(name = "WebpDecoder::new"))]
 	pub fn new(task: &Task, data: Cow<'data, [u8]>) -> Result<Self, DecoderError> {
 		let decoder = SmartPtr::new(
 			NonNull::new(unsafe {

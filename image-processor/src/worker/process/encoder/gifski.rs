@@ -65,7 +65,7 @@ impl Encoder for GifskiEncoder {
 		&self.info
 	}
 
-	#[tracing::instrument(skip(self), fields(name = "GifskiEncoder::add_frame"))]
+	#[tracing::instrument(skip_all, fields(name = "GifskiEncoder::add_frame"))]
 	fn add_frame(&mut self, frame: FrameRef) -> Result<(), EncoderError> {
 		let frame = frame.to_owned();
 		self.info.height = frame.image.height();

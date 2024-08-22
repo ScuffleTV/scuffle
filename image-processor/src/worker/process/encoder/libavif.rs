@@ -98,7 +98,7 @@ impl Encoder for AvifEncoder {
 		&self.info
 	}
 
-	#[tracing::instrument(skip(self), fields(name = "AvifEncoder::add_frame"))]
+	#[tracing::instrument(skip_all, fields(name = "AvifEncoder::add_frame"))]
 	fn add_frame(&mut self, frame: FrameRef) -> Result<(), EncoderError> {
 		if self.rgb.is_none() {
 			self.image.as_mut().width = frame.image.width() as u32;
@@ -111,7 +111,7 @@ impl Encoder for AvifEncoder {
 				libavif_sys::avifRGBImageSetDefaults(&mut rgb, self.image.as_ref());
 			}
 
-			rgb.rowBytes = frame.image.width() as u32 * 4;
+			rgb.rowBytes = frame.image.stride() as u32 * 4;
 
 			self.rgb = Some(rgb);
 			self.first_duration = Some(frame.duration_ts);

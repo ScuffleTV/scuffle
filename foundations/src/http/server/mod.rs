@@ -117,7 +117,6 @@ fn make_tcp_listener(addr: SocketAddr) -> std::io::Result<tokio::net::TcpListene
 	socket.set_reuse_port(true)?;
 	socket.bind(&socket2::SockAddr::from(addr))?;
 	socket.listen(1024)?;
-	socket.set_only_v6(false)?;
 
 	tokio::net::TcpListener::from_std(socket.into())
 }
@@ -130,7 +129,6 @@ fn make_udp_socket(addr: SocketAddr) -> std::io::Result<std::net::UdpSocket> {
 	socket.set_reuse_address(true)?;
 	socket.set_reuse_port(true)?;
 	socket.bind(&socket2::SockAddr::from(addr))?;
-	socket.set_only_v6(false)?;
 
 	Ok(socket.into())
 }

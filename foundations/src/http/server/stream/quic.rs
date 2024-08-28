@@ -342,6 +342,7 @@ async fn serve_request(service: &impl ServiceHandler, request: Request, mut stre
 			}
 			None => {
 				send.finish().await?;
+				break;
 			}
 		}
 	}

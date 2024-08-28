@@ -8,6 +8,7 @@ use axum::response::IntoResponse;
 use bytes::{Buf, Bytes};
 use futures::future::poll_fn;
 use futures::Future;
+use h3::error::{Code, ErrorLevel};
 use h3::ext::Protocol;
 use h3::server::{Builder, RequestStream};
 use h3_quinn::{BidiStream, RecvStream, SendStream};
@@ -89,6 +90,14 @@ impl Backend for QuicBackend {
 			let Some(Some(connection)) = self.endpoint.accept().with_context(&ctx).await else {
 				break;
 			};
+
+			if !connection.remote_address_validated() {
+				if let Err(err) = connection.retry() {
+					tracing::debug!(error = %err, "failed to retry quic connection");
+				}
+
+				continue;
+			}
 
 			let connection = match connection.accept() {
 				Ok(connection) => connection,
@@ -207,10 +216,23 @@ impl<S: ServiceHandler> Connection<S> {
 						},
 						// An error occurred.
 						Err(err) => {
-							tracing::debug!(err = %err, "error accepting request");
-							self.service.on_error(err.into()).await;
-							connection_handle.cancel();
-							break;
+							match err.get_error_level() {
+								ErrorLevel::ConnectionError => {
+									tracing::debug!(err = %err, "error accepting request");
+									self.service.on_error(err.into()).await;
+									connection_handle.cancel();
+									break;
+								}
+								ErrorLevel::StreamError => {
+									if let Some(Code::H3_NO_ERROR) = err.try_get_code() {
+										tracing::trace!("stream closed");
+									} else {
+										tracing::debug!(err = %err, "stream error");
+										self.service.on_error(err.into()).await;
+									}
+									continue;
+								}
+							}
 						}
 					}
 				},

@@ -5,10 +5,12 @@ pub mod tcp;
 pub mod tls;
 
 use std::convert::Infallible;
+use std::sync::Arc;
 
 pub use axum::body::Body;
 pub use axum::extract::Request;
 pub use axum::response::{IntoResponse, Response};
+use rand::Rng;
 
 use super::Error;
 
@@ -151,4 +153,25 @@ pub enum SocketKind {
 	Tcp,
 	TlsTcp,
 	Quic,
+}
+
+fn jitter(duration: std::time::Duration) -> std::time::Duration {
+	let mut rng = rand::thread_rng();
+	let jitter = rng.gen_range(0..duration.as_millis() / 10);
+	duration + std::time::Duration::from_millis(jitter as u64)
+}
+
+struct ActiveRequestsGuard(Arc<std::sync::atomic::AtomicUsize>);
+
+impl Drop for ActiveRequestsGuard {
+	fn drop(&mut self) {
+		self.0.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+	}
+}
+
+impl ActiveRequestsGuard {
+	fn new(active_requests: Arc<std::sync::atomic::AtomicUsize>) -> Self {
+		active_requests.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+		Self(active_requests)
+	}
 }

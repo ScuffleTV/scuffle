@@ -15,6 +15,7 @@ use tracing::Instrument;
 
 use super::{Backend, IncomingConnection, MakeService, ServiceHandler, SocketKind};
 use crate::context::ContextFutExt;
+use crate::http::server::stream::{jitter, ActiveRequestsGuard};
 #[cfg(feature = "runtime")]
 use crate::runtime::spawn;
 #[cfg(feature = "opentelemetry")]
@@ -24,6 +25,7 @@ pub struct TcpBackend {
 	listener: TcpListener,
 	builder: Arc<Builder<TokioExecutor>>,
 	handler: crate::context::Handler,
+	keep_alive_timeout: Option<std::time::Duration>,
 }
 
 impl TcpBackend {
@@ -32,7 +34,13 @@ impl TcpBackend {
 			listener,
 			builder,
 			handler: ctx.new_child().1,
+			keep_alive_timeout: None,
 		}
+	}
+
+	pub fn with_keep_alive_timeout(mut self, timeout: impl Into<Option<std::time::Duration>>) -> Self {
+		self.keep_alive_timeout = timeout.into();
+		self
 	}
 }
 
@@ -103,6 +111,7 @@ impl Backend for TcpBackend {
 					builder: self.builder.clone(),
 					service,
 					parent_ctx: ctx,
+					keep_alive_timeout: self.keep_alive_timeout,
 				}
 				.serve()
 				.in_current_span(),
@@ -122,6 +131,7 @@ struct Connection<S: ServiceHandler> {
 	builder: Arc<Builder<TokioExecutor>>,
 	service: S,
 	parent_ctx: crate::context::Context,
+	keep_alive_timeout: Option<std::time::Duration>,
 }
 
 impl<S: ServiceHandler> Connection<S> {
@@ -138,19 +148,24 @@ impl<S: ServiceHandler> Connection<S> {
 			Arc::new(move || handle.context())
 		};
 
+		let active_requests = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+
 		let service_fn = {
 			let service = self.service.clone();
 			let span = tracing::Span::current();
+			let active_requests = active_requests.clone();
 
 			service_fn(move |mut req: Request<Incoming>| {
 				let service = service.clone();
 				let make_ctx = make_ctx.clone();
+				let guard = ActiveRequestsGuard::new(active_requests.clone());
 				async move {
 					let ctx = make_ctx();
 					req.extensions_mut().insert(ctx.clone());
 					req.extensions_mut().insert(SocketKind::Tcp);
 					let resp = service.on_request(req.map(Body::new)).await.into_response();
 					drop(ctx);
+					drop(guard);
 					Ok::<_, Infallible>(resp)
 				}
 				.instrument(span.clone())
@@ -159,6 +174,23 @@ impl<S: ServiceHandler> Connection<S> {
 
 		let r = tokio::select! {
 			r = self.builder.serve_connection_with_upgrades(TokioIo::new(self.connection), service_fn) => r,
+			Some(_) = async {
+				if let Some(keep_alive_timeout) = self.keep_alive_timeout {
+					loop {
+						tokio::time::sleep(jitter(keep_alive_timeout)).await;
+						if active_requests.load(std::sync::atomic::Ordering::Relaxed) != 0 {
+							continue;
+						}
+
+						break Some(());
+					}
+				} else {
+					None
+				}
+			} => {
+				tracing::debug!("keep alive timeout");
+				Ok(())
+			}
 			_ = async {
 				self.parent_ctx.done().await;
 				handle.shutdown().await;

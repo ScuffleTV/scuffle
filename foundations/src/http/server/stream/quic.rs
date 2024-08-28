@@ -20,6 +20,7 @@ use tracing::Instrument;
 
 use super::{Backend, IncomingConnection, MakeService, ServiceHandler, SocketKind};
 use crate::context::ContextFutExt;
+use crate::http::server::stream::{jitter, ActiveRequestsGuard};
 use crate::http::server::Error;
 #[cfg(feature = "runtime")]
 use crate::runtime::spawn;
@@ -30,6 +31,7 @@ pub struct QuicBackend {
 	endpoint: quinn::Endpoint,
 	builder: Arc<Builder>,
 	handler: crate::context::Handler,
+	keep_alive_timeout: Option<std::time::Duration>,
 }
 
 impl QuicBackend {
@@ -38,7 +40,13 @@ impl QuicBackend {
 			endpoint,
 			builder,
 			handler: ctx.new_child().1,
+			keep_alive_timeout: None,
 		}
+	}
+
+	pub fn with_keep_alive_timeout(mut self, timeout: impl Into<Option<std::time::Duration>>) -> Self {
+		self.keep_alive_timeout = timeout.into();
+		self
 	}
 }
 
@@ -82,7 +90,13 @@ impl Backend for QuicBackend {
 				break;
 			};
 
-			let connection = connection.accept()?;
+			let connection = match connection.accept() {
+				Ok(connection) => connection,
+				Err(e) => {
+					tracing::debug!(error = %e, "failed to accept quic connection");
+					continue;
+				}
+			};
 
 			let span = tracing::trace_span!("connection", remote_addr = %connection.remote_address());
 			let _guard = span.enter();
@@ -106,6 +120,7 @@ impl Backend for QuicBackend {
 					connection,
 					builder: self.builder.clone(),
 					service,
+					keep_alive_timeout: self.keep_alive_timeout,
 					parent_ctx: ctx,
 				}
 				.serve()
@@ -125,6 +140,7 @@ struct Connection<S: ServiceHandler> {
 	connection: Connecting,
 	builder: Arc<Builder>,
 	service: S,
+	keep_alive_timeout: Option<std::time::Duration>,
 	parent_ctx: crate::context::Context,
 }
 
@@ -138,7 +154,10 @@ impl<S: ServiceHandler> Connection<S> {
 				self.service.on_close().await;
 				return;
 			}
-			None => return,
+			None => {
+				self.service.on_close().await;
+				return;
+			}
 		};
 
 		let mut connection = match self
@@ -153,7 +172,10 @@ impl<S: ServiceHandler> Connection<S> {
 				self.service.on_close().await;
 				return;
 			}
-			None => return,
+			None => {
+				self.service.on_close().await;
+				return;
+			}
 		};
 
 		let (hijack_conn_tx, mut hijack_conn_rx) = tokio::sync::mpsc::channel::<SendQuicConnection>(1);
@@ -169,6 +191,8 @@ impl<S: ServiceHandler> Connection<S> {
 		// is cancelled, all futures for this connection are immediately cancelled.
 		// When the above is cancelled, the connection is allowed to finish.
 		let connection_handle = crate::context::Handler::new();
+
+		let active_requests = Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
 		loop {
 			let (request, stream) = tokio::select! {
@@ -189,6 +213,23 @@ impl<S: ServiceHandler> Connection<S> {
 							break;
 						}
 					}
+				},
+				Some(_) = async {
+					if let Some(keep_alive_timeout) = self.keep_alive_timeout {
+						loop {
+							tokio::time::sleep(jitter(keep_alive_timeout)).await;
+							if active_requests.load(std::sync::atomic::Ordering::Relaxed) != 0 {
+								continue;
+							}
+
+							break Some(());
+						}
+					} else {
+						None
+					}
+				} => {
+					tracing::debug!("keep alive timeout");
+					break;
 				}
 				// This happens when the connection has been upgraded to a WebTransport connection.
 				Some(send_hijack_conn) = hijack_conn_rx.recv() => {
@@ -201,6 +242,7 @@ impl<S: ServiceHandler> Connection<S> {
 			};
 
 			tracing::trace!("new request");
+			let active_requests = ActiveRequestsGuard::new(active_requests.clone());
 
 			let service = self.service.clone();
 			let stream = QuinnStream::new(stream);
@@ -226,6 +268,7 @@ impl<S: ServiceHandler> Connection<S> {
 						service.on_error(err).await;
 					}
 
+					drop(active_requests);
 					drop(ctx);
 				}
 				.with_context(connection_context)

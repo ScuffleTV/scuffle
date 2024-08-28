@@ -48,6 +48,7 @@ pub struct Server<M> {
 	backends: Vec<AbortOnDrop>,
 	handler: Option<crate::context::Handler>,
 	worker_count: usize,
+	keep_alive_timeout: Option<std::time::Duration>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -152,7 +153,8 @@ impl<M: MakeService> Server<M> {
 			for i in 0..self.worker_count {
 				let tcp_listener = make_tcp_listener(self.bind)?;
 				let make_service = self.make_service.clone();
-				let backend = TlsBackend::new(tcp_listener, acceptor.clone(), self.http1_2.clone(), &ctx);
+				let backend = TlsBackend::new(tcp_listener, acceptor.clone(), self.http1_2.clone(), &ctx)
+					.with_keep_alive_timeout(self.keep_alive_timeout);
 				let span = tracing::info_span!("tls", addr = %self.bind, worker = i);
 				self.backends
 					.push(AbortOnDrop::new(spawn(backend.serve(make_service).instrument(span))));
@@ -170,7 +172,8 @@ impl<M: MakeService> Server<M> {
 			for i in 0..self.worker_count {
 				let tcp_listener = make_tcp_listener(addr)?;
 				let make_service = self.make_service.clone();
-				let backend = TcpBackend::new(tcp_listener, self.http1_2.clone(), &ctx);
+				let backend = TcpBackend::new(tcp_listener, self.http1_2.clone(), &ctx)
+					.with_keep_alive_timeout(self.keep_alive_timeout);
 				let span = tracing::info_span!("tcp", addr = %addr, worker = i);
 				self.backends
 					.push(AbortOnDrop::new(spawn(backend.serve(make_service).instrument(span))));
@@ -188,7 +191,8 @@ impl<M: MakeService> Server<M> {
 					quinn::default_runtime().unwrap(),
 				)?;
 				let make_service = self.make_service.clone();
-				let backend = QuicBackend::new(endpoint, quic.h3.clone(), &ctx);
+				let backend =
+					QuicBackend::new(endpoint, quic.h3.clone(), &ctx).with_keep_alive_timeout(self.keep_alive_timeout);
 				let span = tracing::info_span!("quic", addr = %self.bind, worker = i);
 				self.backends
 					.push(AbortOnDrop::new(spawn(backend.serve(make_service).instrument(span))));

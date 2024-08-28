@@ -31,7 +31,10 @@ impl WebpEncoder {
 	pub fn new(settings: EncoderSettings) -> Result<Self, EncoderError> {
 		let mut config = zero_memory_default::<libwebp_sys::WebPConfig>();
 
-		wrap_error(unsafe { libwebp_sys::WebPConfigInit(&mut config) }, "failed to initialize webp config")?;
+		wrap_error(
+			unsafe { libwebp_sys::WebPConfigInit(&mut config) },
+			"failed to initialize webp config",
+		)?;
 
 		config.lossless = if settings.quality == OutputQuality::Lossless { 1 } else { 0 };
 		config.quality = match settings.quality {
@@ -127,25 +130,26 @@ impl Encoder for WebpEncoder {
 
 			let encoder = SmartPtr::new(
 				NonNull::new(unsafe {
-					libwebp_sys::WebPAnimEncoderNew(
-						self.picture.width,
-						self.picture.height,
-						&{
-							let mut config = zero_memory_default::<libwebp_sys::WebPAnimEncoderOptions>();
-							wrap_error(libwebp_sys::WebPAnimEncoderOptionsInit(&mut config), "failed to initialize webp anim encoder options")?;
+					libwebp_sys::WebPAnimEncoderNew(self.picture.width, self.picture.height, &{
+						let mut config = zero_memory_default::<libwebp_sys::WebPAnimEncoderOptions>();
+						wrap_error(
+							libwebp_sys::WebPAnimEncoderOptionsInit(&mut config),
+							"failed to initialize webp anim encoder options",
+						)?;
 
-							config.allow_mixed = 1;
-							// TOOD(troy): open a libwebp issue to report that images are being encoded incorrectly unless this is set to 1. However this forces every frame to be a keyframe and thus the size of the file is much larger.
-							config.kmax = 1;
+						config.allow_mixed = 1;
+						// TOOD(troy): open a libwebp issue to report that images are being encoded
+						// incorrectly unless this is set to 1. However this forces every frame to be a
+						// keyframe and thus the size of the file is much larger.
+						config.kmax = 1;
 
-							config.anim_params.loop_count = match self.settings.loop_count {
-								LoopCount::Finite(count) => count as _,
-								LoopCount::Infinite => 0,
-							};
+						config.anim_params.loop_count = match self.settings.loop_count {
+							LoopCount::Finite(count) => count as _,
+							LoopCount::Infinite => 0,
+						};
 
-							config
-						},
-					)
+						config
+					})
 				})
 				.ok_or(WebPError::OutOfMemory)?,
 				|encoder| {

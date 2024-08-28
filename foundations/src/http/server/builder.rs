@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use hyper_util::rt::TokioExecutor;
 
@@ -25,6 +26,7 @@ pub struct ServerBuilder {
 	http1_2: hyper_util::server::conn::auto::Builder<TokioExecutor>,
 	#[cfg(feature = "http3")]
 	quic: Option<super::Quic>,
+	keep_alive_timeout: Option<std::time::Duration>,
 	worker_count: usize,
 }
 
@@ -39,6 +41,7 @@ impl Default for ServerBuilder {
 			http1_2: hyper_util::server::conn::auto::Builder::new(TokioExecutor::new()),
 			#[cfg(feature = "http3")]
 			quic: None,
+			keep_alive_timeout: Some(Duration::from_secs(30)),
 			worker_count: 1,
 		}
 	}
@@ -91,6 +94,13 @@ impl ServerBuilder {
 		self
 	}
 
+	/// Set the keep alive timeout for the server.
+	/// Defaults to 5 seconds.
+	pub fn with_keep_alive_timeout(mut self, timeout: impl Into<Option<std::time::Duration>>) -> Self {
+		self.keep_alive_timeout = timeout.into();
+		self
+	}
+
 	/// Build the server.
 	pub fn build<M>(self, make_service: M) -> Result<Server<M>, Error>
 	where
@@ -124,6 +134,7 @@ impl ServerBuilder {
 			backends: Vec::new(),
 			handler: None,
 			worker_count: self.worker_count,
+			keep_alive_timeout: self.keep_alive_timeout,
 		})
 	}
 }

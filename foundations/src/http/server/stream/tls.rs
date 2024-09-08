@@ -121,6 +121,7 @@ impl Backend for TlsBackend {
 					acceptor: self.acceptor.clone(),
 					service,
 					parent_ctx: ctx,
+					peer_addr: addr,
 					keep_alive_timeout: self.keep_alive_timeout,
 				}
 				.serve()
@@ -141,6 +142,7 @@ struct Connection<S: ServiceHandler> {
 	builder: Arc<Builder<TokioExecutor>>,
 	acceptor: Arc<TlsAcceptor>,
 	service: S,
+	peer_addr: std::net::SocketAddr,
 	keep_alive_timeout: Option<std::time::Duration>,
 	parent_ctx: crate::context::Context,
 }
@@ -174,6 +176,8 @@ impl<S: ServiceHandler> Connection<S> {
 			Arc::new(move || handle.context())
 		};
 
+		let ip_addr = self.peer_addr.ip();
+
 		let active_requests = Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
 		let service_fn = {
@@ -190,6 +194,7 @@ impl<S: ServiceHandler> Connection<S> {
 					let ctx = make_ctx();
 					req.extensions_mut().insert(ctx.clone());
 					req.extensions_mut().insert(SocketKind::TlsTcp);
+					req.extensions_mut().insert(ip_addr);
 					let resp = service.on_request(req.map(Body::new)).await.into_response();
 					drop(ctx);
 					drop(guard);

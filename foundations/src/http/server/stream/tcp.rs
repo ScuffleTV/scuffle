@@ -111,6 +111,7 @@ impl Backend for TcpBackend {
 					builder: self.builder.clone(),
 					service,
 					parent_ctx: ctx,
+					peer_addr: addr,
 					keep_alive_timeout: self.keep_alive_timeout,
 				}
 				.serve()
@@ -130,6 +131,7 @@ struct Connection<S: ServiceHandler> {
 	connection: TcpStream,
 	builder: Arc<Builder<TokioExecutor>>,
 	service: S,
+	peer_addr: std::net::SocketAddr,
 	parent_ctx: crate::context::Context,
 	keep_alive_timeout: Option<std::time::Duration>,
 }
@@ -150,6 +152,8 @@ impl<S: ServiceHandler> Connection<S> {
 
 		let active_requests = Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
+		let ip_addr = self.peer_addr.ip();
+
 		let service_fn = {
 			let service = self.service.clone();
 			let span = tracing::Span::current();
@@ -163,6 +167,7 @@ impl<S: ServiceHandler> Connection<S> {
 					let ctx = make_ctx();
 					req.extensions_mut().insert(ctx.clone());
 					req.extensions_mut().insert(SocketKind::Tcp);
+					req.extensions_mut().insert(ip_addr);
 					let resp = service.on_request(req.map(Body::new)).await.into_response();
 					drop(ctx);
 					drop(guard);

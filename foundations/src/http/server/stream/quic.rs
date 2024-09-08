@@ -169,6 +169,8 @@ impl<S: ServiceHandler> Connection<S> {
 			}
 		};
 
+		let ip_addr = connection.remote_address().ip();
+
 		let mut connection = match self
 			.builder
 			.build(h3_quinn::Connection::new(connection))
@@ -277,10 +279,9 @@ impl<S: ServiceHandler> Connection<S> {
 				hijack_conn_tx: hijack_conn_tx.clone(),
 				stream: stream.clone(),
 			});
-
 			request.extensions_mut().insert(SocketKind::Quic);
-
 			request.extensions_mut().insert(ctx.clone());
+			request.extensions_mut().insert(ip_addr);
 
 			let connection_context = connection_handle.context();
 

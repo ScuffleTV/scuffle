@@ -76,6 +76,8 @@ pub enum EmptyService {}
 impl ServiceHandler for EmptyService {
 	async fn on_request(&self, _: axum::extract::Request) -> impl IntoResponse {
 		unreachable!("EmptyService::on_request should never be called");
+		#[allow(unreachable_code)]
+		Response::new(Body::empty())
 	}
 }
 

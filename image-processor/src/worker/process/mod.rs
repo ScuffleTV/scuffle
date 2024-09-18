@@ -232,6 +232,7 @@ impl ProcessJob {
 				duration_ms: output_result.duration_ms as u32,
 				content_type: content_type(output_result.format).to_owned(),
 				loop_count: output_result.loop_count.as_i32(),
+				scale: output_result.scale.map(|s| s as u32),
 			});
 		}
 

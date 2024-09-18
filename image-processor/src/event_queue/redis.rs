@@ -53,7 +53,7 @@ impl EventQueue for RedisEventQueue {
 		};
 
 		self.client
-			.publish(topic, payload)
+			.publish::<(), _, _>(topic, payload)
 			.await
 			.map_err(RedisEventQueueError::Redis)?;
 

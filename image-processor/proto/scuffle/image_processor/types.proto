@@ -250,6 +250,8 @@ message OutputFile {
     OutputFormat format = 8;
     // Loop count of the output image.
     int32 loop_count = 9;
+    // Scale if scaling was used
+    optional uint32 scale = 10;
 }
 
 // Returned after the image is processed.

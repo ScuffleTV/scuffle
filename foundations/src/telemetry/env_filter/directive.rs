@@ -333,10 +333,13 @@ impl FromStr for StaticDirective {
 					return Err(ParseError::msg("expected fields list to end with '}]'"));
 				}
 
-				let fields = maybe_fields
-					.trim_end_matches("}]")
-					.split(',')
-					.filter_map(|s| if s.is_empty() { None } else { Some(String::from(s)) });
+				let fields = maybe_fields.trim_end_matches("}]").split(',').filter_map(|s| {
+					if s.is_empty() {
+						None
+					} else {
+						Some(String::from(s))
+					}
+				});
 				field_names.extend(fields);
 			};
 			let level = part1.parse()?;

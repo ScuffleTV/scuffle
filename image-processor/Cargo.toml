@@ -16,7 +16,7 @@ aws-config = "1.1"
 aws-sdk-s3 = { version = "1.12", features = ["behavior-version-latest"] }
 async-trait = "0.1"
 anyhow = "1.0"
-async-nats = "0.35"
+async-nats = "0.37.0"
 tonic = "0.12"
 futures = "0.3"
 thiserror = "1.0"
@@ -32,7 +32,7 @@ png = "0.17"
 num_cpus = "1.16"
 bytes = "1.0"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
-fast_image_resize = "4"
+fast_image_resize = "5.0.0"
 chrono = { version = "0.4", features = ["serde"] }
 url = { version = "2", features = ["serde"] }
 http = "1"

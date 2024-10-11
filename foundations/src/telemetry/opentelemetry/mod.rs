@@ -6,6 +6,7 @@ mod span_ext;
 pub use exporter::BatchExporter;
 pub use layer::{RatelimitSampler, SampleFunction, SampleResult, Sampler, ShouldSample, SpanObserver, SpanObserverLayer};
 pub use node::SpanNode;
+pub use opentelemetry::trace::Status;
 use opentelemetry_otlp::SpanExporter;
 pub use span_ext::OpenTelemetrySpanExt;
 

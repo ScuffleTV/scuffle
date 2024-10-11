@@ -214,7 +214,11 @@ impl PartialOrd for Match {
 // === impl ValueMatch ===
 
 fn value_match_f64(v: f64) -> ValueMatch {
-	if v.is_nan() { ValueMatch::NaN } else { ValueMatch::F64(v) }
+	if v.is_nan() {
+		ValueMatch::NaN
+	} else {
+		ValueMatch::F64(v)
+	}
 }
 
 impl ValueMatch {
@@ -473,7 +477,11 @@ impl SpanMatch {
 
 	#[inline]
 	pub(crate) fn filter(&self) -> Option<LevelFilter> {
-		if self.is_matched() { Some(self.level) } else { None }
+		if self.is_matched() {
+			Some(self.level)
+		} else {
+			None
+		}
 	}
 }
 

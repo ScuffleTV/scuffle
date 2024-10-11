@@ -74,7 +74,11 @@ impl FilterGraph {
 		// Safety: avfilter_graph_config is safe to call
 		let ret = unsafe { avfilter_graph_config(self.as_mut_ptr(), std::ptr::null_mut()) };
 
-		if ret < 0 { Err(FfmpegError::Code(ret.into())) } else { Ok(()) }
+		if ret < 0 {
+			Err(FfmpegError::Code(ret.into()))
+		} else {
+			Ok(())
+		}
 	}
 
 	pub fn dump(&mut self) -> Option<String> {
@@ -190,7 +194,11 @@ impl Filter {
 		// valid
 		let filter = unsafe { avfilter_get_by_name(name.as_ptr()) };
 
-		if filter.is_null() { None } else { Some(Self(filter)) }
+		if filter.is_null() {
+			None
+		} else {
+			Some(Self(filter))
+		}
 	}
 
 	pub fn as_ptr(&self) -> *const AVFilter {

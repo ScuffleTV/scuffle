@@ -2516,6 +2516,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
+name = "minijinja"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1028b628753a7e1a88fc59c9ba4b02ecc3bc0bd3c7af23df667bc28df9b3310e"
+dependencies = [
+ "aho-corasick",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3755,6 +3766,7 @@ dependencies = [
  "hyper-util",
  "itertools 0.13.0",
  "matchers",
+ "minijinja",
  "num_cpus",
  "once_cell",
  "opentelemetry",

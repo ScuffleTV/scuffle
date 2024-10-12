@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	#[cfg(feature = "serde")]
 	let config = config.file_descriptor_set_path(&descriptor_path);
 
-	config.compile(
+	config.compile_protos(
 		&[
 			"scuffle/image_processor/service.proto",
 			"scuffle/image_processor/types.proto",

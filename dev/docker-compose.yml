@@ -11,18 +11,18 @@ services:
     volumes:
       - mongo:/data/db
 
-  nats:
-    image: ghcr.io/scuffletv/ci/nats:latest
-    pull_policy: "always"
-    ports:
-      - "127.0.0.1:4222:4222"
-      - "127.0.0.1:8222:8222"
-      - "127.0.0.1:6222:6222"
-    volumes:
-      - nats:/data
-    command:
-      - --jetstream
-      - --store_dir=/data
+  # nats:
+  #   image: ghcr.io/scuffletv/ci/nats:latest
+  #   pull_policy: "always"
+  #   ports:
+  #     - "127.0.0.1:4222:4222"
+  #     - "127.0.0.1:8222:8222"
+  #     - "127.0.0.1:6222:6222"
+  #   volumes:
+  #     - nats:/data
+  #   command:
+  #     - --jetstream
+  #     - --store_dir=/data
 
   minio:
     image: ghcr.io/scuffletv/ci/minio:latest
@@ -52,6 +52,6 @@ services:
       "
 
 volumes:
-  nats:
+  # nats:
   minio:
   mongo:

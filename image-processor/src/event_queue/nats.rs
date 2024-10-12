@@ -1,3 +1,4 @@
+use async_nats::ConnectOptions;
 use prost::Message;
 use scuffle_image_processor_proto::EventCallback;
 
@@ -24,8 +25,17 @@ pub enum NatsEventQueueError {
 impl NatsEventQueue {
 	#[tracing::instrument(skip(config), name = "NatsEventQueue::new", fields(name = %config.name), err)]
 	pub async fn new(config: &NatsEventQueueConfig) -> Result<Self, EventQueueError> {
-		tracing::debug!("setting up nats event queue");
-		let nats = async_nats::connect(&config.url).await.map_err(NatsEventQueueError::from)?;
+		let nats = async_nats::connect_with_options(&config.servers, {
+			let options = ConnectOptions::default();
+
+			if let Some(username) = &config.username {
+				options.user_and_password(username.clone(), config.password.clone().unwrap_or_default())
+			} else {
+				options
+			}
+		})
+		.await
+		.map_err(NatsEventQueueError::from)?;
 
 		Ok(Self {
 			name: config.name.clone(),

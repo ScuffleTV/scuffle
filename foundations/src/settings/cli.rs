@@ -1,10 +1,12 @@
 use anyhow::Context;
 use clap::ArgAction;
+use minijinja::syntax::SyntaxConfig;
 
 use super::{Settings, SettingsParser};
 
 const GENERATE_ARG_ID: &str = "generate";
 const CONFIG_ARG_ID: &str = "config";
+const ALLOW_TEMPLATE: &str = "jinja";
 
 pub use clap;
 
@@ -32,6 +34,14 @@ fn default_cmd() -> clap::Command {
 				.action(ArgAction::Set)
 				.num_args(0..=1)
 				.default_missing_value("./config.toml"),
+		)
+		.arg(
+			clap::Arg::new(ALLOW_TEMPLATE)
+				.long("jinja")
+				.help("Allows for the expansion of templates in the configuration file using Jinja syntax")
+				.action(ArgAction::Set)
+				.num_args(0..=1)
+				.default_missing_value("true"),
 		)
 }
 
@@ -71,23 +81,6 @@ impl<S: Settings + serde::de::DeserializeOwned + serde::Serialize> Cli<S> {
 		self
 	}
 
-	fn load_file(file: &str, optional: bool) -> anyhow::Result<Option<toml::Value>> {
-		let contents = match std::fs::read_to_string(file) {
-			Ok(contents) => contents,
-			Err(err) => {
-				if optional {
-					return Ok(None);
-				}
-
-				return Err(err).with_context(|| format!("Error reading configuration file: {file}"));
-			}
-		};
-
-		let incoming = toml::from_str(&contents).with_context(|| format!("Error parsing configuration file: {file}"))?;
-
-		Ok(Some(incoming))
-	}
-
 	pub fn parse(mut self) -> anyhow::Result<Matches<S>> {
 		let args = self.app.get_matches();
 
@@ -103,6 +96,22 @@ impl<S: Settings + serde::de::DeserializeOwned + serde::Serialize> Cli<S> {
 			std::process::exit(0);
 		}
 
+		let mut allow_template = args.get_one::<bool>(ALLOW_TEMPLATE).copied().unwrap_or(true).then(|| {
+			let mut env = minijinja::Environment::new();
+
+			env.add_global("env", std::env::vars().collect::<std::collections::HashMap<_, _>>());
+			env.set_syntax(
+				SyntaxConfig::builder()
+					.block_delimiters("{%", "%}")
+					.variable_delimiters("${{", "}}")
+					.comment_delimiters("{#", "#}")
+					.build()
+					.unwrap(),
+			);
+
+			env
+		});
+
 		let mut files = if let Some(files) = args.get_many::<String>(CONFIG_ARG_ID) {
 			files.cloned().map(|file| (file, false)).collect::<Vec<_>>()
 		} else {
@@ -114,9 +123,28 @@ impl<S: Settings + serde::de::DeserializeOwned + serde::Serialize> Cli<S> {
 		}
 
 		for (file, optional) in files {
-			if let Some(value) = Self::load_file(&file, optional)? {
-				self.settings.merge(value);
-			}
+			let content = match std::fs::read_to_string(file) {
+				Ok(content) => content,
+				Err(err) => {
+					if optional && err.kind() == std::io::ErrorKind::NotFound {
+						continue;
+					}
+
+					return Err(err).context("read");
+				}
+			};
+
+			let content = if let Some(env) = &mut allow_template {
+				env.template_from_str(&content)
+					.context("template")?
+					.render(())
+					.context("render")?
+			} else {
+				content
+			};
+
+			let incoming = toml::from_str(&content).context("parse")?;
+			self.settings.merge(incoming);
 		}
 
 		Ok(Matches {

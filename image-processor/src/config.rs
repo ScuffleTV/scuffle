@@ -264,8 +264,12 @@ pub struct NatsEventQueueConfig {
 	/// The name of the event queue
 	pub name: String,
 	/// The Nats URL
-	/// For example: nats://localhost:4222
-	pub url: String,
+	/// For example: localhost:4222
+	pub servers: Vec<String>,
+	#[serde(default)]
+	pub username: Option<String>,
+	#[serde(default)]
+	pub password: Option<String>,
 	/// The message encoding for the event queue
 	#[serde(default)]
 	pub message_encoding: MessageEncoding,

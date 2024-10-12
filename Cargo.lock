@@ -2522,6 +2522,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1028b628753a7e1a88fc59c9ba4b02ecc3bc0bd3c7af23df667bc28df9b3310e"
 dependencies = [
  "aho-corasick",
+ "percent-encoding",
  "serde",
  "serde_json",
 ]

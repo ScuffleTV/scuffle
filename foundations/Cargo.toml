@@ -38,7 +38,7 @@ scc = { version = "2", optional = true }
 
 serde = { version = "1", optional = true, features = ["derive", "rc"] }
 toml = { version = "0.8", optional = true }
-minijinja = { version = "2.3.1", optional = true, features = ["json", "custom_syntax"] }
+minijinja = { version = "2.3.1", optional = true, features = ["json", "custom_syntax", "urlencode"] }
 
 clap = { version = "4", optional = true }
 const-str = { version = "0.5", optional = true }

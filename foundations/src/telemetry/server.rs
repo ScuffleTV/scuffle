@@ -216,7 +216,7 @@ mod health_check {
 		let mut o_entry = HEALTH_CHECK.health_checks.first_entry_async().await;
 
 		while let Some(entry) = o_entry {
-			if (entry.get()).check().await {
+			if !(entry.get()).check().await {
 				return false;
 			}
 
@@ -275,9 +275,10 @@ pub async fn init(settings: ServerSettings) -> anyhow::Result<()> {
 
 	#[cfg(feature = "health-check")]
 	if let Some(path) = &settings.health_path {
-		router = router
-			.layer(axum::Extension(settings.health_timeout))
-			.route(path, axum::routing::get(health));
+		router = router.route(
+			path,
+			axum::routing::get(health).layer(axum::Extension(settings.health_timeout)),
+		);
 	}
 
 	router = router.fallback(axum::routing::any(not_found));

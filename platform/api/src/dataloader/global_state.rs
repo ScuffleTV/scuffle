@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use utils::dataloader::{DataLoader, Loader, LoaderOutput};
+use scuffle_utilsdataloader::{DataLoader, Loader, LoaderOutput};
 
 use crate::database::GlobalState;
 
@@ -21,7 +21,7 @@ impl Loader for GlobalStateLoader {
 	type Value = GlobalState;
 
 	async fn load(&self, _: &[Self::Key]) -> LoaderOutput<Self> {
-		let state = utils::database::query("SELECT * FROM global_state")
+		let state = scuffle_utils::database::query("SELECT * FROM global_state")
 			.build_query_as()
 			.fetch_one(&self.db)
 			.await

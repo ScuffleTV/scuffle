@@ -5,9 +5,9 @@ use anyhow::Context as _;
 use async_nats::jetstream::stream::StorageType;
 use binary_helper::global::{setup_database, setup_nats, GlobalCtx, GlobalDb, GlobalNats};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
+use scuffle_utils::context::Context;
+use scuffle_utilsgrpc::TlsSettings;
 use tokio::select;
-use utils::context::Context;
-use utils::grpc::TlsSettings;
 use video_transcoder::config::TranscoderConfig;
 
 #[derive(Debug, Clone, Default, serde::Deserialize, config::Config)]

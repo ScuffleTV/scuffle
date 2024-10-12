@@ -14,11 +14,11 @@ use hyper_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use hyper_tungstenite::tungstenite::protocol::CloseFrame;
 use hyper_tungstenite::tungstenite::Message;
 use hyper_tungstenite::HyperWebsocket;
+use scuffle_utils::context::ContextExt;
+use scuffle_utils::http::ext::*;
+use scuffle_utils::http::router::compat::BodyExt as _;
+use scuffle_utils::http::router::ext::RequestExt;
 use serde_json::json;
-use utils::context::ContextExt;
-use utils::http::ext::*;
-use utils::http::router::compat::BodyExt as _;
-use utils::http::router::ext::RequestExt;
 
 use super::error::GqlError;
 use super::ext::RequestExt as _;

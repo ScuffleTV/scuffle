@@ -17,7 +17,7 @@ use crate::tests::utils;
 
 #[tokio::test]
 async fn test_s3_bucket_get_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![
 		(
@@ -50,12 +50,12 @@ async fn test_s3_bucket_get_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_s3_bucket_create_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![(
 		S3BucketCreateRequest {
@@ -78,12 +78,12 @@ async fn test_s3_bucket_create_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_s3_bucket_modify_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![
 		(
@@ -119,12 +119,12 @@ async fn test_s3_bucket_modify_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_s3_bucket_tag_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![(
 		S3BucketTagRequest {
@@ -146,12 +146,12 @@ async fn test_s3_bucket_tag_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_s3_bucket_untag_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![(
 		S3BucketUntagRequest {
@@ -169,12 +169,12 @@ async fn test_s3_bucket_untag_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_s3_bucket_tag() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(
 		&global,
@@ -200,12 +200,12 @@ async fn test_s3_bucket_tag() {
 	assert_eq!(tags.tags.get("key").unwrap(), &"value");
 	assert_eq!(tags.tags.get("key2").unwrap(), &"value2");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_s3_bucket_untag() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(
 		&global,
@@ -230,12 +230,12 @@ async fn test_s3_bucket_untag() {
 	assert_eq!(tags.tags.len(), 1, "Only 1 tag should be left");
 	assert_eq!(tags.tags.get("key2").unwrap(), &"value2");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_s3_bucket_create() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let response: S3BucketCreateResponse = process_request(
 		&global,
@@ -281,12 +281,12 @@ async fn test_s3_bucket_create() {
 	assert_eq!(created.endpoint, None);
 	assert_eq!(created.public_url, None);
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_s3_bucket_modify() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 
@@ -342,12 +342,12 @@ async fn test_s3_bucket_modify() {
 	assert_eq!(created.endpoint, Some("https://endpoint.com".to_string()));
 	assert_eq!(created.public_url, Some("https://public_url.com".to_string()));
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_s3_bucket_get() {
-	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
+	let (global, handler, main_access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let created = vec![
 		create_s3_bucket(
@@ -443,12 +443,12 @@ async fn test_s3_bucket_get() {
 	// Assertions for limit and reverse options
 	assert_eq!(fetched.len(), 1, "Should fetch only one s3 bucket due to limit");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_s3_bucket_delete() {
-	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
+	let (global, handler, main_access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, main_access_token.organization_id, HashMap::new()).await;
 
@@ -472,15 +472,15 @@ async fn test_s3_bucket_delete() {
 	);
 	assert!(failed_deletions.is_empty(), "No deletions should fail in this scenario");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_s3_bucket_boilerplate() {
-	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
+	let (global, handler, main_access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let no_scopes_token =
-		utils::create_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
+		scuffle_utilscreate_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
 
 	let server = S3BucketServer::<GlobalState>::new();
 
@@ -700,5 +700,5 @@ async fn test_s3_bucket_boilerplate() {
 	assert_eq!(response.code(), tonic::Code::PermissionDenied);
 	assert_eq!(response.message(), "missing required scope: s3_bucket:delete");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }

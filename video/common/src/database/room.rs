@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use pb::scuffle::video::v1::types::{AudioConfig, RecordingConfig, TranscodingConfig, VideoConfig};
 use postgres_from_row::FromRow;
+use scuffle_utils::database::{json, protobuf_opt, protobuf_vec_opt};
 use ulid::Ulid;
-use utils::database::{json, protobuf_opt, protobuf_vec_opt};
 
 use super::{DatabaseTable, RoomStatus, Visibility};
 

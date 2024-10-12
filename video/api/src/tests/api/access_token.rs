@@ -17,7 +17,7 @@ use crate::tests::utils;
 
 #[tokio::test]
 async fn test_access_token_get_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![
 		(
@@ -48,12 +48,12 @@ async fn test_access_token_get_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_access_token_create_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![(
 		AccessTokenCreateRequest {
@@ -78,12 +78,12 @@ async fn test_access_token_create_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_access_token_tag_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![(
 		AccessTokenTagRequest {
@@ -105,12 +105,12 @@ async fn test_access_token_tag_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_access_token_untag_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![(
 		AccessTokenUntagRequest {
@@ -128,12 +128,12 @@ async fn test_access_token_untag_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_access_token_tag() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let tag_request = AccessTokenTagRequest {
 		id: Some(access_token.id.into()),
@@ -148,12 +148,12 @@ async fn test_access_token_tag() {
 	let tags = response.tags.unwrap();
 	assert_eq!(tags.tags.get("key").unwrap(), &"value");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_access_token_untag() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	// Tag the token first
 	let tag_request = AccessTokenTagRequest {
@@ -179,12 +179,12 @@ async fn test_access_token_untag() {
 	let tags = response.tags.unwrap();
 	assert!(tags.tags.is_empty(), "Tags should be empty after untagging");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_access_token_create() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	// Test case: Create a basic access token
 	let req = AccessTokenCreateRequest {
@@ -231,16 +231,16 @@ async fn test_access_token_create() {
 		"tag_value"
 	);
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_access_token_get() {
-	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
+	let (global, handler, main_access_token) = scuffle_utilssetup(Default::default()).await;
 
 	// Create multiple access tokens with different tags for testing
 	let created_tokens = vec![
-		utils::create_access_token(
+		scuffle_utilscreate_access_token(
 			&global,
 			&main_access_token.organization_id,
 			vec![],
@@ -252,7 +252,7 @@ async fn test_access_token_get() {
 			.collect(),
 		)
 		.await,
-		utils::create_access_token(
+		scuffle_utilscreate_access_token(
 			&global,
 			&main_access_token.organization_id,
 			vec![],
@@ -335,16 +335,16 @@ async fn test_access_token_get() {
 	// Assertions for limit and reverse options
 	assert_eq!(limited_tokens.len(), 1, "Should fetch only one token due to limit");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_access_token_delete() {
-	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
+	let (global, handler, main_access_token) = scuffle_utilssetup(Default::default()).await;
 
 	// Create access tokens to be deleted
 	let token_to_delete =
-		utils::create_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
+		scuffle_utilscreate_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
 
 	// Delete request with a token the caller should have permission to delete
 	let delete_request = AccessTokenDeleteRequest {
@@ -390,15 +390,15 @@ async fn test_access_token_delete() {
 		"Failed deletion reason should be correct"
 	);
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_access_token_boiler_plate() {
-	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
+	let (global, handler, main_access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let no_scopes_token =
-		utils::create_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
+		scuffle_utilscreate_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
 
 	let server = AccessTokenServer::<GlobalState>::new();
 
@@ -579,5 +579,5 @@ async fn test_access_token_boiler_plate() {
 	assert_eq!(response.code(), tonic::Code::PermissionDenied);
 	assert_eq!(response.message(), "missing required scope: access_token:delete");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }

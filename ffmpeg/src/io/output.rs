@@ -149,9 +149,6 @@ impl<T: Send + Sync> Output<T> {
 	}
 
 	pub fn add_stream(&mut self, codec: Option<*const AVCodec>) -> Option<Stream<'_>> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = utils::task::AbortGuard::new();
-
 		// Safety: `avformat_new_stream` is safe to call.
 		let stream = unsafe { avformat_new_stream(self.as_mut_ptr(), codec.unwrap_or_else(std::ptr::null)) };
 		if stream.is_null() {
@@ -167,9 +164,6 @@ impl<T: Send + Sync> Output<T> {
 	}
 
 	pub fn copy_stream<'a>(&'a mut self, stream: &Stream<'_>) -> Option<Stream<'a>> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = utils::task::AbortGuard::new();
-
 		let codec_param = stream.codec_parameters()?;
 
 		// Safety: `avformat_new_stream` is safe to call.
@@ -195,9 +189,6 @@ impl<T: Send + Sync> Output<T> {
 	}
 
 	pub fn write_header(&mut self) -> Result<(), FfmpegError> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = utils::task::AbortGuard::new();
-
 		if self.witten_header {
 			return Err(FfmpegError::Arguments("header already written"));
 		}
@@ -216,9 +207,6 @@ impl<T: Send + Sync> Output<T> {
 	}
 
 	pub fn write_header_with_options(&mut self, options: &mut Dictionary) -> Result<(), FfmpegError> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = utils::task::AbortGuard::new();
-
 		if self.witten_header {
 			return Err(FfmpegError::Arguments("header already written"));
 		}
@@ -237,9 +225,6 @@ impl<T: Send + Sync> Output<T> {
 	}
 
 	pub fn write_trailer(&mut self) -> Result<(), FfmpegError> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = utils::task::AbortGuard::new();
-
 		if !self.witten_header {
 			return Err(FfmpegError::Arguments("header not written"));
 		}
@@ -254,9 +239,6 @@ impl<T: Send + Sync> Output<T> {
 	}
 
 	pub fn write_interleaved_packet(&mut self, mut packet: Packet) -> Result<(), FfmpegError> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = utils::task::AbortGuard::new();
-
 		if !self.witten_header {
 			return Err(FfmpegError::Arguments("header not written"));
 		}
@@ -272,9 +254,6 @@ impl<T: Send + Sync> Output<T> {
 	}
 
 	pub fn write_packet(&mut self, packet: &Packet) -> Result<(), FfmpegError> {
-		#[cfg(feature = "task-abort")]
-		let _abort_guard = utils::task::AbortGuard::new();
-
 		if !self.witten_header {
 			return Err(FfmpegError::Arguments("header not written"));
 		}

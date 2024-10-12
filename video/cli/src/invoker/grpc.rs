@@ -2,10 +2,10 @@ use anyhow::Context as _;
 use base64::Engine;
 use futures_util::stream::BoxStream;
 pub use pb::scuffle::video::v1::*;
+use scuffle_utils::context::Context;
 use tonic::service::interceptor;
 use tonic::transport::Channel;
 use ulid::Ulid;
-use utils::context::Context;
 
 use crate::cli::display::{DeleteResponse, TagResponse};
 pub use crate::invoker::request::*;

@@ -19,6 +19,7 @@ use pb::scuffle::video::internal::{
 use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::{event, AudioConfig, Event, Rendition, VideoConfig};
 use prost::Message;
+use scuffle_utils::prelude::FutureTimeout;
 use tokio::process::Command;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -26,7 +27,6 @@ use tokio_stream::StreamExt;
 use tonic::Response;
 use transmuxer::{TransmuxResult, Transmuxer};
 use ulid::Ulid;
-use utils::prelude::FutureTimeout;
 use video_common::database::{Room, RoomStatus};
 use video_common::ext::AsyncReadExt as _;
 
@@ -114,7 +114,7 @@ async fn test_transcode() {
 	let room_id = Ulid::new();
 	let connection_id = Ulid::new();
 
-	utils::database::query(
+	scuffle_utils::database::query(
 		r#"
     INSERT INTO organizations (
         id,
@@ -131,7 +131,7 @@ async fn test_transcode() {
 	.await
 	.unwrap();
 
-	utils::database::query(
+	scuffle_utils::database::query(
 		r#"
     INSERT INTO rooms (
         id,
@@ -545,7 +545,7 @@ async fn test_transcode() {
 	assert_eq!(json["streams"][0]["duration_ts"], 48128);
 	assert_eq!(json["streams"][0]["time_base"], "1/48000");
 
-	let room: Room = utils::database::query(
+	let room: Room = scuffle_utils::database::query(
 		"SELECT * FROM rooms WHERE organization_id = $1 AND id = $2 AND active_ingest_connection_id = $3",
 	)
 	.bind(org_id)
@@ -651,7 +651,7 @@ async fn test_transcode_reconnect() {
 	let room_id = Ulid::new();
 	let connection_id = Ulid::new();
 
-	utils::database::query(
+	scuffle_utils::database::query(
 		r#"
     INSERT INTO organizations (
         id,
@@ -668,7 +668,7 @@ async fn test_transcode_reconnect() {
 	.await
 	.unwrap();
 
-	utils::database::query(
+	scuffle_utils::database::query(
 		r#"
     INSERT INTO rooms (
         organization_id,

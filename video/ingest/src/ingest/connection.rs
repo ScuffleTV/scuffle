@@ -16,14 +16,14 @@ use pb::scuffle::video::v1::events_fetch_request::Target;
 use pb::scuffle::video::v1::types::{event, Rendition};
 use prost::Message as _;
 use rtmp::{ChannelData, PublishRequest, Session, SessionError};
+use scuffle_utils::context::ContextExt;
+use scuffle_utils::prelude::FutureTimeout;
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 use tonic::{Status, Streaming};
 use transmuxer::{AudioSettings, MediaSegment, TransmuxResult, Transmuxer, VideoSettings};
 use ulid::Ulid;
-use utils::context::ContextExt;
-use utils::prelude::FutureTimeout;
 use video_common::database::RoomStatus;
 use video_common::{events, keys};
 
@@ -176,7 +176,7 @@ impl Connection {
 
 		let id = Ulid::new();
 
-		let result: Option<Response> = utils::database::query(
+		let result: Option<Response> = scuffle_utils::database::query(
 			r#"
             UPDATE rooms as new
             SET 
@@ -492,7 +492,7 @@ impl Connection {
 					WhichTranscoder::Current => {
 						self.current_transcoder = None;
 						self.current_transcoder_id = Ulid::nil();
-						match utils::database::query(
+						match scuffle_utils::database::query(
 							r#"
                             UPDATE rooms
                             SET 
@@ -707,7 +707,7 @@ impl Connection {
 		}
 		.encode_to_vec();
 
-		match utils::database::query(
+		match scuffle_utils::database::query(
 			r#"
 			UPDATE rooms
 			SET 
@@ -1087,7 +1087,7 @@ impl Connection {
 		)
 		.await;
 
-		utils::database::query(
+		scuffle_utils::database::query(
 			r#"
 			UPDATE rooms
 			SET

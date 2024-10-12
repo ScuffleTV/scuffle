@@ -10,17 +10,17 @@ use itertools::Itertools;
 use pb::scuffle::video::internal::{LiveManifest, LiveRenditionManifest};
 use pb::scuffle::video::v1::types::{AudioConfig, VideoConfig};
 use prost::Message;
+use scuffle_utils::database::non_null_vec;
+use scuffle_utils::http::ext::*;
+use scuffle_utils::http::router::builder::RouterBuilder;
+use scuffle_utils::http::router::ext::RequestExt;
+use scuffle_utils::http::router::Router;
+use scuffle_utils::http::RouteError;
+use scuffle_utils::prelude::FutureTimeout;
+use scuffle_utilsmake_response;
 use tokio::io::AsyncReadExt;
 use tokio::time::Instant;
 use ulid::Ulid;
-use utils::database::non_null_vec;
-use utils::http::ext::*;
-use utils::http::router::builder::RouterBuilder;
-use utils::http::router::ext::RequestExt;
-use utils::http::router::Router;
-use utils::http::RouteError;
-use utils::make_response;
-use utils::prelude::FutureTimeout;
 use video_common::database::{Rendition, Room, RoomStatus, Visibility};
 use video_common::keys;
 use video_player_types::SessionRefresh;
@@ -84,7 +84,7 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 		None
 	};
 
-	let room: Option<Room> = utils::database::query(
+	let room: Option<Room> = scuffle_utils::database::query(
 		r#"
 		SELECT
 			*
@@ -145,7 +145,7 @@ async fn room_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Response
 	}
 	.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to get ip address"))?;
 
-	utils::database::query(
+	scuffle_utils::database::query(
 		r#"
 		INSERT INTO playback_sessions (
 			id,
@@ -259,7 +259,7 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Res
 		None
 	};
 
-	let recording: Option<RecordingExt> = utils::database::query(
+	let recording: Option<RecordingExt> = scuffle_utils::database::query(
 		r#"
         WITH filtered_recordings AS (
             SELECT
@@ -346,7 +346,7 @@ async fn recording_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Res
 	}
 	.ok_or((StatusCode::INTERNAL_SERVER_ERROR, "failed to get ip address"))?;
 
-	utils::database::query(
+	scuffle_utils::database::query(
 		r#"
 		INSERT INTO playback_sessions (
 			id,
@@ -448,7 +448,7 @@ async fn session_playlist<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respo
 		.await
 		.map_err_route((StatusCode::INTERNAL_SERVER_ERROR, "failed to get database"))?;
 
-	let resp = utils::database::query(
+	let resp = scuffle_utils::database::query(
 		r#"
 		UPDATE playback_sessions SET
 			expires_at = NOW() + INTERVAL '10 minutes'
@@ -555,7 +555,7 @@ async fn session_refresh<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respon
 
 	let session = SessionClaims::verify(&global, organization_id, session)?;
 
-	let resp = utils::database::query(
+	let resp = scuffle_utils::database::query(
 		r#"
 		UPDATE playback_sessions SET
 			expires_at = NOW() + INTERVAL '10 minutes'
@@ -729,7 +729,7 @@ async fn room_screenshot<G: EdgeGlobal>(req: Request<Incoming>) -> Result<Respon
 		None
 	};
 
-	let room: Option<Room> = utils::database::query(
+	let room: Option<Room> = scuffle_utils::database::query(
 		r#"
 		SELECT
 			*

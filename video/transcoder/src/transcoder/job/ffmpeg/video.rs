@@ -1,13 +1,13 @@
 use anyhow::Context;
-use ffmpeg::codec::EncoderCodec;
-use ffmpeg::dict::Dictionary;
-use ffmpeg::encoder::{MuxerEncoder, MuxerSettings, VideoEncoderSettings};
-use ffmpeg::error::FfmpegError;
-use ffmpeg::ffi::{AVCodecID, AVPictureType, AVRational};
-use ffmpeg::io::channel::ChannelCompatSend;
-use ffmpeg::io::OutputOptions;
 use mp4::codec::VideoCodec;
 use pb::scuffle::video::v1::types::VideoConfig;
+use scuffle_ffmpeg::codec::EncoderCodec;
+use scuffle_ffmpeg::dict::Dictionary;
+use scuffle_ffmpeg::encoder::{MuxerEncoder, MuxerSettings, VideoEncoderSettings};
+use scuffle_ffmpeg::error::FfmpegError;
+use scuffle_ffmpeg::ffi::{AVCodecID, AVPictureType, AVRational};
+use scuffle_ffmpeg::io::channel::ChannelCompatSend;
+use scuffle_ffmpeg::io::OutputOptions;
 use tokio::sync::mpsc;
 
 use super::{muxer_options, Limiter, Scalar, Transcoder};
@@ -59,8 +59,8 @@ pub fn codec_options(config: &TranscoderConfig, codec: VideoCodec) -> anyhow::Re
 				config
 					.h264_encoder
 					.as_ref()
-					.map(|name| ffmpeg::codec::EncoderCodec::by_name(name))
-					.unwrap_or_else(|| ffmpeg::codec::EncoderCodec::new(AVCodecID::AV_CODEC_ID_H264))
+					.map(|name| scuffle_ffmpeg::codec::EncoderCodec::by_name(name))
+					.unwrap_or_else(|| scuffle_ffmpeg::codec::EncoderCodec::new(AVCodecID::AV_CODEC_ID_H264))
 					.ok_or(FfmpegError::NoEncoder)
 					.context("failed to find h264 encoder")?,
 				options,
@@ -83,7 +83,7 @@ impl Transcoder {
 		encoder_codec: EncoderCodec,
 		encoder_options: Dictionary,
 	) -> anyhow::Result<()> {
-		let output = ffmpeg::io::Output::new(
+		let output = scuffle_ffmpeg::io::Output::new(
 			sender.into_compat(),
 			OutputOptions {
 				format_name: Some("mp4"),
@@ -144,7 +144,7 @@ impl Transcoder {
 		Ok(())
 	}
 
-	pub fn handle_video_packet(&mut self, mut packet: ffmpeg::packet::Packet) -> anyhow::Result<()> {
+	pub fn handle_video_packet(&mut self, mut packet: scuffle_ffmpeg::packet::Packet) -> anyhow::Result<()> {
 		packet.set_pos(Some(-1));
 		for copy in self.video_copies.iter_mut() {
 			copy.write_interleaved_packet(packet.clone()).context("copy")?;

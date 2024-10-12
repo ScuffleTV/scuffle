@@ -1,5 +1,5 @@
+use scuffle_utils::database::protobuf;
 use ulid::Ulid;
-use utils::database::protobuf;
 
 use super::{FileType, UploadedFileStatus};
 

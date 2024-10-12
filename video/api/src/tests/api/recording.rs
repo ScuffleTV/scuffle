@@ -25,7 +25,7 @@ use crate::tests::utils;
 
 #[tokio::test]
 async fn test_recording_get() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let room = create_room(&global, access_token.organization_id).await;
@@ -89,12 +89,12 @@ async fn test_recording_get() {
 	.unwrap();
 	assert_eq!(resp.recordings.len(), 0, "expected 0 recording");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_recording_modify() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let room = create_room(&global, access_token.organization_id).await;
@@ -202,12 +202,12 @@ async fn test_recording_modify() {
 		"expected tag to match"
 	);
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_recording_tag() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let room = create_room(&global, access_token.organization_id).await;
@@ -267,12 +267,12 @@ async fn test_recording_tag() {
 		"expected 1 tags"
 	);
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_recording_untag() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let room = create_room(&global, access_token.organization_id).await;
@@ -323,14 +323,14 @@ async fn test_recording_untag() {
 
 	assert_eq!(resp.tags.as_ref().unwrap().tags.len(), 0, "expected 0 tags");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_recording_delete() {
 	let recording_delete_stream = Ulid::new().to_string();
 
-	let (global, handler, access_token) = utils::setup(ApiConfig {
+	let (global, handler, access_token) = scuffle_utilssetup(ApiConfig {
 		recording_delete_stream: recording_delete_stream.clone(),
 		..Default::default()
 	})
@@ -433,15 +433,15 @@ async fn test_recording_delete() {
 	assert!(thumbnails.is_empty(), "expected all thumbnails to be deleted");
 	assert!(segments.is_empty(), "expected all segments to be deleted");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_recording_boiler_plate() {
-	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
+	let (global, handler, main_access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let no_scopes_token =
-		utils::create_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
+		scuffle_utilscreate_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
 
 	let server = RecordingServer::<GlobalState>::new();
 
@@ -630,5 +630,5 @@ async fn test_recording_boiler_plate() {
 	assert_eq!(response.code(), tonic::Code::PermissionDenied);
 	assert_eq!(response.message(), "missing required scope: recording:delete");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }

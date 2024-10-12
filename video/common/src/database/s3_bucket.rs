@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use postgres_from_row::FromRow;
+use scuffle_utils::database::json;
 use ulid::Ulid;
-use utils::database::json;
 
 use super::DatabaseTable;
 

@@ -30,7 +30,7 @@ pub fn build_query(
 	req: &PlaybackKeyPairModifyRequest,
 	access_token: &AccessToken,
 ) -> tonic::Result<utils::database::QueryBuilder<'static>> {
-	let mut qb = utils::database::QueryBuilder::default();
+	let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 	qb.push("UPDATE ")
 		.push(<PlaybackKeyPairModifyRequest as TonicRequest>::Table::NAME)

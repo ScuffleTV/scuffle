@@ -9,10 +9,10 @@ use binary_helper::{impl_global_traits, logging};
 use futures_util::stream::BoxStream;
 use pb::scuffle::video::v1::types::{access_token_scope, AccessTokenScope};
 pub use pb::scuffle::video::v1::*;
+use scuffle_utils::context::Context;
+use scuffle_utils::prelude::FutureTimeout;
+use scuffle_utilsdataloader::DataLoader;
 use ulid::Ulid;
-use utils::context::Context;
-use utils::dataloader::DataLoader;
-use utils::prelude::FutureTimeout;
 use video_api::api::ApiRequest;
 use video_api::config::ApiConfig;
 use video_api::dataloaders;
@@ -34,7 +34,7 @@ impl DirectBackend {
 		logging::init(&global.config.logging.level, global.config.logging.mode).expect("failed to init logging");
 
 		let access_token = if let Some(organization_id) = organization_id {
-			utils::database::query("SELECT * FROM organizations WHERE id = $1")
+			scuffle_utils::database::query("SELECT * FROM organizations WHERE id = $1")
 				.bind(organization_id)
 				.build()
 				.fetch_optional(global.db())
@@ -76,7 +76,7 @@ impl DirectBackend {
 
 	async fn create_organization(&self, req: OrganizationCreateRequest) -> anyhow::Result<Organization> {
 		let org: video_common::database::Organization =
-			utils::database::query("INSERT INTO organizations (id, name, tags) VALUES ($1, $2, $3) RETURNING *")
+			scuffle_utils::database::query("INSERT INTO organizations (id, name, tags) VALUES ($1, $2, $3) RETURNING *")
 				.bind(Ulid::new())
 				.bind(req.name)
 				.bind(utils::database::Json(req.tags))
@@ -130,7 +130,7 @@ impl DirectBackend {
 	}
 
 	async fn get_organization(&self, req: OrganizationGetRequest) -> anyhow::Result<Vec<Organization>> {
-		let mut qb = utils::database::QueryBuilder::default();
+		let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 		qb.push("SELECT * FROM organizations");
 
@@ -183,7 +183,7 @@ impl DirectBackend {
 	}
 
 	async fn modify_organization(&self, req: OrganizationModifyRequest) -> anyhow::Result<Organization> {
-		let mut qb = utils::database::QueryBuilder::default();
+		let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 		qb.push("UPDATE organizations SET ");
 
@@ -223,7 +223,7 @@ impl DirectBackend {
 
 	async fn tag_organization(&self, req: OrganizationTagRequest) -> anyhow::Result<TagResponse> {
 		let org: video_common::database::Organization =
-			utils::database::query("UPDATE organizations SET tags = tags || $1 WHERE id = $2 RETURNING *")
+			scuffle_utils::database::query("UPDATE organizations SET tags = tags || $1 WHERE id = $2 RETURNING *")
 				.bind(utils::database::Json(req.tags))
 				.bind(req.id)
 				.build_query_as()
@@ -239,7 +239,7 @@ impl DirectBackend {
 
 	async fn untag_organization(&self, req: OrganizationUntagRequest) -> anyhow::Result<TagResponse> {
 		let org: video_common::database::Organization =
-			utils::database::query("UPDATE organizations SET tags = tags - $1::text[] WHERE id = $2 RETURNING *")
+			scuffle_utils::database::query("UPDATE organizations SET tags = tags - $1::text[] WHERE id = $2 RETURNING *")
 				.bind(req.tags)
 				.bind(req.id)
 				.build_query_as()
@@ -353,7 +353,7 @@ impl GlobalState {
 		let recording_state_loader = dataloaders::RecordingStateLoader::new(db.clone());
 		let room_loader = dataloaders::RoomLoader::new(db.clone());
 
-		utils::ratelimiter::load_rate_limiter_script(&*redis)
+		scuffle_utilsratelimiter::load_rate_limiter_script(&*redis)
 			.await
 			.context("failed to load rate limiter script")?;
 

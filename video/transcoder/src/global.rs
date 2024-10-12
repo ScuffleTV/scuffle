@@ -1,4 +1,4 @@
-use utils::grpc::TlsSettings;
+use scuffle_utilsgrpc::TlsSettings;
 
 use crate::config::TranscoderConfig;
 

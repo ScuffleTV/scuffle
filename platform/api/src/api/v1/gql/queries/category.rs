@@ -61,7 +61,7 @@ impl<G: ApiGlobal> CategoryQuery<G> {
 	) -> Result<CategorySearchResults> {
 		let global = ctx.get_global::<G>();
 
-		let categories: Vec<database::SearchResult<database::Category>> = utils::database::query("SELECT categories.*, similarity(name, $1), COUNT(*) OVER() AS total_count FROM categories WHERE name % $1 ORDER BY similarity DESC LIMIT $2 OFFSET $3")
+		let categories: Vec<database::SearchResult<database::Category>> = scuffle_utils::database::query("SELECT categories.*, similarity(name, $1), COUNT(*) OVER() AS total_count FROM categories WHERE name % $1 ORDER BY similarity DESC LIMIT $2 OFFSET $3")
 			.bind(query)
 			.bind(limit.unwrap_or(5))
 			.bind(offset.unwrap_or(0))

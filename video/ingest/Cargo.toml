@@ -11,9 +11,9 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0"
 tracing = "0.1"
-rustls = "0.22"
+rustls = "0.23"
 rustls-pemfile = "2.0"
-tokio-rustls = "0.25"
+tokio-rustls = "0.26"
 async-trait = "0.1"
 tokio = { version = "1.36", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -28,13 +28,13 @@ serde_json = "1.0"
 uuid = "1.6"
 ulid = { version = "1.1", features = ["uuid"] }
 async-stream = "0.3"
-async-nats = "0.33"
-base64 = "0.21"
+async-nats = "0.34"
+base64 = "0.22"
 tokio-stream = "0.1"
 default-net = "0.22"
 postgres-from-row = "0.5"
 
-utils = { workspace = true, features = ["all"] }
+scuffle-utils = { workspace = true, features = ["all"] }
 rtmp = { workspace = true }
 bytesio = { workspace = true }
 flv = { workspace = true }

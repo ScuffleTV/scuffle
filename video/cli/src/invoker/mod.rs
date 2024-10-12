@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use utils::context::Context;
+use scuffle_utils::context::Context;
 
 use self::direct::DirectBackend;
 use self::grpc::GrpcBackend;

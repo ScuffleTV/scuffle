@@ -1,9 +1,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use scuffle_utils::prelude::FutureTimeout;
 use tokio::sync::mpsc;
 use ulid::Ulid;
-use utils::prelude::FutureTimeout;
 
 use crate::global::IngestGlobal;
 
@@ -22,7 +22,7 @@ pub async fn update_db<G: IngestGlobal>(
 		let mut success = false;
 
 		for _ in 0..5 {
-			match utils::database::query(
+			match scuffle_utils::database::query(
 				r#"
                 UPDATE rooms
                 SET

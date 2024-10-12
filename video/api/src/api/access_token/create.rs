@@ -48,7 +48,7 @@ pub fn build_query(
 	access_token: &AccessToken,
 	permissions: RequiredScope,
 ) -> tonic::Result<utils::database::QueryBuilder<'static>> {
-	let mut qb = utils::database::QueryBuilder::default();
+	let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<AccessTokenCreateRequest as TonicRequest>::Table::NAME)

@@ -9,10 +9,10 @@ use fred::interfaces::ClientLike;
 use fred::types::ServerConfig;
 use hyper::StatusCode;
 use rustls::RootCertStore;
-use utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
-use utils::database::tokio_postgres::NoTls;
-use utils::database::Pool;
-use utils::http::RouteError;
+use scuffle_utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
+use scuffle_utils::database::tokio_postgres::NoTls;
+use scuffle_utils::database::Pool;
+use scuffle_utils::http::RouteError;
 
 use crate::config::{DatabaseConfig, NatsConfig, RedisConfig};
 
@@ -40,7 +40,7 @@ macro_rules! impl_global_traits {
 
 		impl binary_helper::global::GlobalDb for $struct {
 			#[inline(always)]
-			fn db(&self) -> &Arc<utils::database::Pool> {
+			fn db(&self) -> &Arc<scuffle_utils::database::Pool> {
 				&self.db
 			}
 		}
@@ -50,7 +50,7 @@ macro_rules! impl_global_traits {
 }
 
 pub trait GlobalCtx {
-	fn ctx(&self) -> &utils::context::Context;
+	fn ctx(&self) -> &scuffle_utils::context::Context;
 }
 
 pub trait GlobalConfig {
@@ -124,16 +124,16 @@ pub async fn setup_nats(
 	Ok((nats, jetstream))
 }
 
-pub async fn setup_database(config: &DatabaseConfig) -> anyhow::Result<Arc<utils::database::Pool>> {
+pub async fn setup_database(config: &DatabaseConfig) -> anyhow::Result<Arc<scuffle_utils::database::Pool>> {
 	let mut pg_config = config
 		.uri
-		.parse::<utils::database::tokio_postgres::Config>()
+		.parse::<scuffle_utils::database::tokio_postgres::Config>()
 		.context("invalid database uri")?;
 
 	pg_config.ssl_mode(if config.tls.is_some() {
-		utils::database::tokio_postgres::config::SslMode::Require
+		scuffle_utils::database::tokio_postgres::config::SslMode::Require
 	} else {
-		utils::database::tokio_postgres::config::SslMode::Disable
+		scuffle_utils::database::tokio_postgres::config::SslMode::Disable
 	});
 
 	let manager = if let Some(tls) = &config.tls {
@@ -164,7 +164,7 @@ pub async fn setup_database(config: &DatabaseConfig) -> anyhow::Result<Arc<utils
 			.with_client_auth_cert(certs, key)
 			.context("failed to create redis tls config")?;
 
-		utils::database::deadpool_postgres::Manager::from_config(
+		scuffle_utils::database::deadpool_postgres::Manager::from_config(
 			pg_config,
 			tokio_postgres_rustls::MakeRustlsConnect::new(tls),
 			ManagerConfig {
@@ -172,7 +172,7 @@ pub async fn setup_database(config: &DatabaseConfig) -> anyhow::Result<Arc<utils
 			},
 		)
 	} else {
-		utils::database::deadpool_postgres::Manager::from_config(
+		scuffle_utils::database::deadpool_postgres::Manager::from_config(
 			pg_config,
 			NoTls,
 			ManagerConfig {
@@ -230,7 +230,7 @@ pub async fn setup_redis(config: &RedisConfig) -> anyhow::Result<Arc<fred::clien
 
 		let certs = rustls_pemfile::certs(&mut io::BufReader::new(io::Cursor::new(cert))).collect::<Result<Vec<_>, _>>()?;
 
-		let mut cert_store = RootCertStore::empty();
+		let mut cert_store = tokio_rustls::rustls::RootCertStore::empty();
 		if let Some(ca_cert) = &tls.ca_cert {
 			let ca_cert = tokio::fs::read(ca_cert).await.context("failed to read redis ca cert")?;
 			let ca_certs =
@@ -240,11 +240,13 @@ pub async fn setup_redis(config: &RedisConfig) -> anyhow::Result<Arc<fred::clien
 			}
 		}
 
-		Some(fred::types::TlsConfig::from(fred::types::TlsConnector::from(
-			rustls::ClientConfig::builder()
-				.with_root_certificates(cert_store)
-				.with_client_auth_cert(certs, key)
-				.context("failed to create redis tls config")?,
+		Some(fred::types::TlsConfig::from(fred::types::TlsConnector::Rustls(
+			tokio_rustls::TlsConnector::from(Arc::new(
+				tokio_rustls::rustls::ClientConfig::builder()
+					.with_root_certificates(cert_store)
+					.with_client_auth_cert(certs, key)
+					.context("failed to create redis tls config")?,
+			)),
 		)))
 	} else {
 		None

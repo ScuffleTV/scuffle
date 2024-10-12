@@ -4,8 +4,8 @@ use anyhow::Context as _;
 use clap::Parser;
 use cli::Invokable;
 use invoker::Invoker;
-use utils::context::Context;
-use utils::prelude::FutureTimeout;
+use scuffle_utils::context::Context;
+use scuffle_utils::prelude::FutureTimeout;
 
 mod cli;
 mod invoker;

@@ -33,7 +33,7 @@ pub fn build_query(
 ) -> tonic::Result<utils::database::QueryBuilder<'static>> {
 	let (cert, fingerprint) = jwt;
 
-	let mut qb = utils::database::QueryBuilder::default();
+	let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<PlaybackKeyPairCreateRequest as TonicRequest>::Table::NAME)

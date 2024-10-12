@@ -26,7 +26,7 @@ pub fn build_query<'a>(
 	req: &'a PlaybackSessionCountRequest,
 	access_token: &AccessToken,
 ) -> tonic::Result<utils::database::QueryBuilder<'a>> {
-	let mut qb = utils::database::QueryBuilder::default();
+	let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 	let filter = req
 		.filter

@@ -4,15 +4,15 @@ use std::time::{Duration, Instant};
 
 use anyhow::Context;
 use bytes::Bytes;
-use ffmpeg::decoder::Decoder;
-use ffmpeg::dict::Dictionary;
-use ffmpeg::error::FfmpegError;
-use ffmpeg::ffi::{AVMediaType, AVPixelFormat};
-use ffmpeg::frame::Frame;
-use ffmpeg::io::channel::{ChannelCompatRecv as _, ChannelCompatSend as _};
-use ffmpeg::io::OutputOptions;
-use ffmpeg::log::LogLevel;
 use pb::scuffle::video::v1::types::{AudioConfig, VideoConfig};
+use scuffle_ffmpeg::decoder::Decoder;
+use scuffle_ffmpeg::dict::Dictionary;
+use scuffle_ffmpeg::error::FfmpegError;
+use scuffle_ffmpeg::ffi::{AVMediaType, AVPixelFormat};
+use scuffle_ffmpeg::frame::Frame;
+use scuffle_ffmpeg::io::channel::{ChannelCompatRecv as _, ChannelCompatSend as _};
+use scuffle_ffmpeg::io::OutputOptions;
+use scuffle_ffmpeg::log::LogLevel;
 use tokio::sync::mpsc;
 use video_common::database::Rendition;
 
@@ -23,16 +23,16 @@ mod video;
 
 const MP4_FLAGS: &str = "frag_keyframe+frag_every_frame+empty_moov+delay_moov+default_base_moof";
 
-type ChannelCompatRecv = ffmpeg::io::channel::ChannelCompat<mpsc::Receiver<Bytes>>;
-type ChannelCompatSend = ffmpeg::io::channel::ChannelCompat<mpsc::Sender<Vec<u8>>>;
+type ChannelCompatRecv = scuffle_ffmpeg::io::channel::ChannelCompat<mpsc::Receiver<Bytes>>;
+type ChannelCompatSend = scuffle_ffmpeg::io::channel::ChannelCompat<mpsc::Sender<Vec<u8>>>;
 
-type Input = ffmpeg::io::Input<ChannelCompatRecv>;
-type Output = ffmpeg::io::Output<ChannelCompatSend>;
-type VideoDecoder = ffmpeg::decoder::VideoDecoder;
-type AudioDecoder = ffmpeg::decoder::AudioDecoder;
-type Encoder = ffmpeg::encoder::MuxerEncoder<ChannelCompatSend>;
-type Scalar = ffmpeg::scalar::Scalar;
-type Limiter = ffmpeg::limiter::FrameRateLimiter;
+type Input = scuffle_ffmpeg::io::Input<ChannelCompatRecv>;
+type Output = scuffle_ffmpeg::io::Output<ChannelCompatSend>;
+type VideoDecoder = scuffle_ffmpeg::decoder::VideoDecoder;
+type AudioDecoder = scuffle_ffmpeg::decoder::AudioDecoder;
+type Encoder = scuffle_ffmpeg::encoder::MuxerEncoder<ChannelCompatSend>;
+type Scalar = scuffle_ffmpeg::scalar::Scalar;
+type Limiter = scuffle_ffmpeg::limiter::FrameRateLimiter;
 
 static SETUP_LOGGING: std::sync::Once = std::sync::Once::new();
 
@@ -90,11 +90,11 @@ impl Transcoder {
 		mut audio_outputs: Vec<AudioConfig>,
 	) -> anyhow::Result<Self> {
 		SETUP_LOGGING.call_once(|| {
-			ffmpeg::log::set_log_level(LogLevel::Trace);
-			ffmpeg::log::log_callback_tracing();
+			scuffle_ffmpeg::log::set_log_level(LogLevel::Trace);
+			scuffle_ffmpeg::log::log_callback_tracing();
 		});
 
-		let input = ffmpeg::io::Input::new(input.into_compat()).context("failed to create input")?;
+		let input = scuffle_ffmpeg::io::Input::new(input.into_compat()).context("failed to create input")?;
 
 		let video_stream = input
 			.streams()
@@ -108,14 +108,15 @@ impl Transcoder {
 			.ok_or(FfmpegError::NoStream)
 			.context("failed to find video stream")?;
 
-		let video_decoder = match ffmpeg::decoder::Decoder::new(&video_stream).context("failed to create h264 decoder")? {
-			Decoder::Video(decoder) => decoder,
-			_ => anyhow::bail!("expected video decoder"),
-		};
+		let video_decoder =
+			match scuffle_ffmpeg::decoder::Decoder::new(&video_stream).context("failed to create h264 decoder")? {
+				Decoder::Video(decoder) => decoder,
+				_ => anyhow::bail!("expected video decoder"),
+			};
 
 		let (screenshot_width, screenshot_height) = screenshot_size(video_decoder.width(), video_decoder.height());
 
-		let screenshot_scalar = ffmpeg::scalar::Scalar::new(
+		let screenshot_scalar = scuffle_ffmpeg::scalar::Scalar::new(
 			video_decoder.width(),
 			video_decoder.height(),
 			video_decoder.pixel_format(),
@@ -148,7 +149,7 @@ impl Transcoder {
 				.remove(&Rendition::AudioSource)
 				.ok_or_else(|| anyhow::anyhow!("missing audio source output"))?;
 
-			let mut output = ffmpeg::io::Output::new(
+			let mut output = scuffle_ffmpeg::io::Output::new(
 				sender.into_compat(),
 				OutputOptions {
 					format_name: Some("mp4"),
@@ -175,7 +176,7 @@ impl Transcoder {
 				.remove(&Rendition::VideoSource)
 				.ok_or_else(|| anyhow::anyhow!("missing video source output"))?;
 
-			let mut output = ffmpeg::io::Output::new(
+			let mut output = scuffle_ffmpeg::io::Output::new(
 				sender.into_compat(),
 				OutputOptions {
 					format_name: Some("mp4"),
@@ -227,7 +228,7 @@ impl Transcoder {
 				.context("failed to find video stream")?;
 
 			this.audio_decoder = Some(
-				match ffmpeg::decoder::Decoder::new(&audio_stream).context("failed to create aac decoder")? {
+				match scuffle_ffmpeg::decoder::Decoder::new(&audio_stream).context("failed to create aac decoder")? {
 					Decoder::Audio(decoder) => decoder,
 					_ => anyhow::bail!("expected audio decoder"),
 				},

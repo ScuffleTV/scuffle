@@ -1,10 +1,9 @@
-version = "Two"
 imports_granularity = "Module"
 newline_style = "Unix"
 normalize_comments = true
 group_imports = "StdExternalCrate"
 wrap_comments = true
-edition = "2021"
+style_edition = "2021"
 format_macro_matchers = true
 hard_tabs = true
 reorder_impl_items = true

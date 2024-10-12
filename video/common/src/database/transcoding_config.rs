@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use pb::scuffle::video::v1::types::Rendition as PbRendition;
 use postgres_from_row::FromRow;
+use scuffle_utils::database::json;
 use ulid::Ulid;
-use utils::database::json;
 
 use super::{DatabaseTable, Rendition};
 

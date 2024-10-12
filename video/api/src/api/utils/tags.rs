@@ -68,7 +68,7 @@ pub fn validate_tags_array(tags: &[String]) -> tonic::Result<()> {
 
 #[derive(postgres_from_row::FromRow)]
 pub struct TagExt {
-	pub tags: utils::database::Json<HashMap<String, String>>,
+	pub tags: scuffle_utils::database::Json<HashMap<String, String>>,
 	pub status: i64,
 }
 
@@ -97,8 +97,8 @@ pub fn add_tag_query<D: DatabaseTable>(
 	tags: &HashMap<String, String>,
 	id: Ulid,
 	organization_id: Option<Ulid>,
-) -> utils::database::QueryBuilder<'_> {
-	let mut qb = utils::database::QueryBuilder::default();
+) -> scuffle_utils::database::QueryBuilder<'_> {
+	let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 	qb.push("WITH mt AS (SELECT id, tags || ")
 		.push_bind(utils::database::Json(tags))
@@ -126,8 +126,8 @@ pub fn remove_tag_query<D: DatabaseTable>(
 	tags: &[String],
 	id: Ulid,
 	organization_id: Option<Ulid>,
-) -> utils::database::QueryBuilder<'_> {
-	let mut qb = utils::database::QueryBuilder::default();
+) -> scuffle_utils::database::QueryBuilder<'_> {
+	let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 	qb.push("WITH rt AS (SELECT id, tags - ")
 		.push_bind(tags)

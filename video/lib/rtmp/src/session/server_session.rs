@@ -6,8 +6,8 @@ use bytes::Bytes;
 use bytesio::bytes_writer::BytesWriter;
 use bytesio::bytesio::{AsyncReadWrite, BytesIO};
 use bytesio::bytesio_errors::BytesIOError;
+use scuffle_utils::prelude::FutureTimeout;
 use tokio::sync::oneshot;
-use utils::prelude::FutureTimeout;
 
 use super::define::RtmpCommand;
 use super::errors::SessionError;

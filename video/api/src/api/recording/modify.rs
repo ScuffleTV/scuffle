@@ -31,7 +31,7 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 
 		validate_tags(req.tags.as_ref())?;
 
-		let mut qb = utils::database::QueryBuilder::default();
+		let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 		qb.push("UPDATE ")
 			.push(<RecordingModifyRequest as TonicRequest>::Table::NAME)
@@ -45,7 +45,7 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 		})?;
 
 		if let Some(room_id) = &req.room_id {
-			utils::database::query("SELECT id FROM rooms WHERE id = $1 AND organization_id = $2")
+			scuffle_utils::database::query("SELECT id FROM rooms WHERE id = $1 AND organization_id = $2")
 				.bind(room_id.into_ulid())
 				.bind(access_token.organization_id)
 				.build()
@@ -61,7 +61,7 @@ impl ApiRequest<RecordingModifyResponse> for tonic::Request<RecordingModifyReque
 		}
 
 		if let Some(recording_config_id) = &req.recording_config_id {
-			utils::database::query("SELECT id FROM recording_configs WHERE id = $1 AND organization_id = $2")
+			scuffle_utils::database::query("SELECT id FROM recording_configs WHERE id = $1 AND organization_id = $2")
 				.bind(recording_config_id.into_ulid())
 				.bind(access_token.organization_id)
 				.build()

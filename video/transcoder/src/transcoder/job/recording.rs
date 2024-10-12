@@ -9,10 +9,10 @@ use pb::ext::UlidExt;
 use pb::scuffle::video::internal::live_rendition_manifest::recording_data::RecordingThumbnail;
 use pb::scuffle::video::v1::types::{AudioConfig, RecordingConfig, Rendition as PbRendition, VideoConfig};
 use prost::Message;
+use scuffle_utils::database::tokio_postgres::Transaction;
+use scuffle_utils::task::AsyncTask;
 use tokio::sync::mpsc;
 use ulid::Ulid;
-use utils::database::tokio_postgres::Transaction;
-use utils::task::AsyncTask;
 use video_common::database::{Rendition, S3Bucket, Visibility};
 
 use super::task::recording::{recording_task, recording_thumbnail_task, RecordingTask, RecordingThumbnailTask};
@@ -68,7 +68,7 @@ impl Recording {
 
 		let allow_dvr = recording_renditions.len() == video_outputs.len() + audio_outputs.len();
 
-		utils::database::query(
+		scuffle_utils::database::query(
 			r#"
 			INSERT INTO recordings (
                 id,
@@ -100,17 +100,19 @@ impl Recording {
 		.execute(tx)
 		.await?;
 
-		utils::database::query("INSERT INTO recording_renditions (organization_id, recording_id, rendition, config)")
-			.push_values(recording_renditions.iter(), |mut b, (rendition, config)| {
-				b.push_bind(organization_id);
-				b.push_bind(id);
-				b.push_bind(rendition);
-				b.push_bind(config);
-			})
-			.push("ON CONFLICT DO NOTHING")
-			.build()
-			.execute(tx)
-			.await?;
+		scuffle_utils::database::query(
+			"INSERT INTO recording_renditions (organization_id, recording_id, rendition, config)",
+		)
+		.push_values(recording_renditions.iter(), |mut b, (rendition, config)| {
+			b.push_bind(organization_id);
+			b.push_bind(id);
+			b.push_bind(rendition);
+			b.push_bind(config);
+		})
+		.push("ON CONFLICT DO NOTHING")
+		.build()
+		.execute(tx)
+		.await?;
 
 		let mut tasks = Vec::new();
 		let mut uploaders = HashMap::new();

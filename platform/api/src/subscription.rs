@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 
 use async_nats::Message;
+use scuffle_utils::context::Context;
 use tokio::select;
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 use tokio_stream::{StreamExt, StreamMap, StreamNotifyClose};
 use tracing::{debug, error, warn};
 use ulid::Ulid;
-use utils::context::Context;
 
 #[derive(thiserror::Error, Debug)]
 pub enum SubscriptionManagerError {

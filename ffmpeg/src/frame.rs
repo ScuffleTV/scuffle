@@ -130,45 +130,45 @@ impl std::fmt::Debug for Frame {
 
 impl VideoFrame {
 	pub fn width(&self) -> usize {
-		self.0.0.as_deref_except().width as usize
+		self.0 .0.as_deref_except().width as usize
 	}
 
 	pub fn height(&self) -> usize {
-		self.0.0.as_deref_except().height as usize
+		self.0 .0.as_deref_except().height as usize
 	}
 
 	pub fn sample_aspect_ratio(&self) -> AVRational {
-		self.0.0.as_deref_except().sample_aspect_ratio
+		self.0 .0.as_deref_except().sample_aspect_ratio
 	}
 
 	pub fn set_sample_aspect_ratio(&mut self, sample_aspect_ratio: AVRational) {
-		self.0.0.as_deref_mut_except().sample_aspect_ratio = sample_aspect_ratio;
+		self.0 .0.as_deref_mut_except().sample_aspect_ratio = sample_aspect_ratio;
 	}
 
 	pub fn set_width(&mut self, width: usize) {
-		self.0.0.as_deref_mut_except().width = width as i32;
+		self.0 .0.as_deref_mut_except().width = width as i32;
 	}
 
 	pub fn set_height(&mut self, height: usize) {
-		self.0.0.as_deref_mut_except().height = height as i32;
+		self.0 .0.as_deref_mut_except().height = height as i32;
 	}
 
 	pub fn is_keyframe(&self) -> bool {
-		self.0.0.as_deref_except().key_frame != 0
+		self.0 .0.as_deref_except().key_frame != 0
 	}
 
 	pub fn pict_type(&self) -> AVPictureType {
-		self.0.0.as_deref_except().pict_type
+		self.0 .0.as_deref_except().pict_type
 	}
 
 	pub fn set_pict_type(&mut self, pict_type: AVPictureType) {
-		self.0.0.as_deref_mut_except().pict_type = pict_type;
+		self.0 .0.as_deref_mut_except().pict_type = pict_type;
 	}
 
 	pub fn data(&self, index: usize) -> Option<&[u8]> {
 		unsafe {
 			self.0
-				.0
+				 .0
 				.as_deref_except()
 				.data
 				.get(index)
@@ -212,27 +212,27 @@ impl std::ops::DerefMut for VideoFrame {
 
 impl AudioFrame {
 	pub fn nb_samples(&self) -> i32 {
-		self.0.0.as_deref_except().nb_samples
+		self.0 .0.as_deref_except().nb_samples
 	}
 
 	pub fn set_nb_samples(&mut self, nb_samples: usize) {
-		self.0.0.as_deref_mut_except().nb_samples = nb_samples as i32;
+		self.0 .0.as_deref_mut_except().nb_samples = nb_samples as i32;
 	}
 
 	pub fn sample_rate(&self) -> i32 {
-		self.0.0.as_deref_except().sample_rate
+		self.0 .0.as_deref_except().sample_rate
 	}
 
 	pub fn set_sample_rate(&mut self, sample_rate: usize) {
-		self.0.0.as_deref_mut_except().sample_rate = sample_rate as i32;
+		self.0 .0.as_deref_mut_except().sample_rate = sample_rate as i32;
 	}
 
 	pub fn channel_layout(&self) -> u64 {
-		self.0.0.as_deref_except().channel_layout
+		self.0 .0.as_deref_except().channel_layout
 	}
 
 	pub fn set_channel_layout(&mut self, channel_layout: u64) {
-		self.0.0.as_deref_mut_except().channel_layout = channel_layout;
+		self.0 .0.as_deref_mut_except().channel_layout = channel_layout;
 	}
 }
 

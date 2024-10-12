@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use binary_helper::logging;
-use utils::context::{Context, Handler};
-use utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
-use utils::database::tokio_postgres::NoTls;
-use utils::database::Pool;
-use utils::grpc::TlsSettings;
+use scuffle_utils::context::{Context, Handler};
+use scuffle_utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
+use scuffle_utils::database::tokio_postgres::NoTls;
+use scuffle_utils::database::Pool;
+use scuffle_utilsgrpc::TlsSettings;
 
 use crate::config::TranscoderConfig;
 

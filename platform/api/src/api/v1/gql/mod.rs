@@ -3,9 +3,9 @@ use std::sync::Arc;
 use async_graphql::{extensions, Schema};
 use hyper::body::Incoming;
 use hyper::Response;
-use utils::http::router::builder::RouterBuilder;
-use utils::http::router::Router;
-use utils::http::RouteError;
+use scuffle_utils::http::router::builder::RouterBuilder;
+use scuffle_utils::http::router::Router;
+use scuffle_utils::http::RouteError;
 
 use crate::api::error::ApiError;
 use crate::api::Body;

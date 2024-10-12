@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use scuffle_utilsdataloader::{DataLoader, Loader, LoaderOutput};
 use ulid::Ulid;
-use utils::dataloader::{DataLoader, Loader, LoaderOutput};
 
 use crate::database::User;
 
@@ -21,7 +21,7 @@ impl Loader for UserByUsernameLoader {
 	type Value = User;
 
 	async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
-		let results: Vec<Self::Value> = utils::database::query("SELECT * FROM users WHERE username = ANY($1)")
+		let results: Vec<Self::Value> = scuffle_utils::database::query("SELECT * FROM users WHERE username = ANY($1)")
 			.bind(keys)
 			.build_query_as()
 			.fetch_all(self.db.as_ref())
@@ -50,7 +50,7 @@ impl Loader for UserByIdLoader {
 	type Value = User;
 
 	async fn load(&self, keys: &[Self::Key]) -> LoaderOutput<Self> {
-		let results: Vec<Self::Value> = utils::database::query("SELECT * FROM users WHERE id = ANY($1)")
+		let results: Vec<Self::Value> = scuffle_utils::database::query("SELECT * FROM users WHERE id = ANY($1)")
 			.bind(keys)
 			.build_query_as()
 			.fetch_all(self.db.as_ref())

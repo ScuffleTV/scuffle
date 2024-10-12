@@ -98,7 +98,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 	) -> Result<UserSearchResults<G>> {
 		let global = ctx.get_global::<G>();
 
-		let users: Vec<database::SearchResult<database::User>> = utils::database::query("SELECT users.*, similarity(username, $1), COUNT(*) OVER() AS total_count FROM users WHERE username % $1 ORDER BY similarity DESC LIMIT $2 OFFSET $3")
+		let users: Vec<database::SearchResult<database::User>> = scuffle_utils::database::query("SELECT users.*, similarity(username, $1), COUNT(*) OVER() AS total_count FROM users WHERE username % $1 ORDER BY similarity DESC LIMIT $2 OFFSET $3")
 			.bind(query)
 			.bind(limit.unwrap_or(5))
 			.bind(offset.unwrap_or(0))
@@ -120,7 +120,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 			.await?
 			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
-		let is_following = utils::database::query(
+		let is_following = scuffle_utils::database::query(
 			r#"
 			SELECT
 				following
@@ -161,7 +161,7 @@ impl<G: ApiGlobal> UserQuery<G> {
 		}
 
 		// This query is not very good, we should have some paging mechinsm with ids.
-		let channels: Vec<database::User> = utils::database::query(
+		let channels: Vec<database::User> = scuffle_utils::database::query(
 			r#"
 			SELECT
 				users.*

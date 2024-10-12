@@ -105,7 +105,11 @@ impl Dictionary {
 		// Safety: av_dict_set is safe to call
 		let ret = unsafe { av_dict_set(self.ptr.as_mut(), key.as_ptr(), value.as_ptr(), 0) };
 
-		if ret < 0 { Err(FfmpegError::Code(ret.into())) } else { Ok(()) }
+		if ret < 0 {
+			Err(FfmpegError::Code(ret.into()))
+		} else {
+			Ok(())
+		}
 	}
 
 	pub fn get(&self, key: &str) -> Option<String> {

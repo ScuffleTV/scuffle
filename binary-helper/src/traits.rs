@@ -1,4 +1,4 @@
-use utils::context::Context;
+use scuffle_utils::context::Context;
 
 pub trait Config {
 	fn parse() -> anyhow::Result<Self>

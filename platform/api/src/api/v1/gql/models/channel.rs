@@ -57,7 +57,7 @@ impl<G: ApiGlobal> Channel<G> {
 	async fn followers_count(&self, ctx: &Context<'_>) -> Result<i64> {
 		let global = ctx.get_global::<G>();
 
-		let followers = utils::database::query(
+		let followers = scuffle_utils::database::query(
 			r#"
 			SELECT 
 				COUNT(*)
@@ -125,7 +125,7 @@ impl<G: ApiGlobal> ChannelLive<G> {
 				.await
 				.map_err_gql("failed to fetch playback session count")?;
 
-		utils::database::query(
+		scuffle_utils::database::query(
 			"UPDATE users SET channel_live_viewer_count = $1, channel_live_viewer_count_updated_at = NOW() WHERE id = $2",
 		)
 		.bind(live_viewer_count)

@@ -14,7 +14,7 @@ use crate::tests::utils;
 
 #[tokio::test]
 async fn test_events() {
-	let (global, handler, access_token) = utils::setup(ApiConfig {
+	let (global, handler, access_token) = scuffle_utilssetup(ApiConfig {
 		events: EventsConfig {
 			stream_name: Ulid::new().to_string(),
 			fetch_request_min_delay: Duration::from_secs(0),
@@ -87,5 +87,5 @@ async fn test_events() {
 	.await
 	.expect("failed to process request");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }

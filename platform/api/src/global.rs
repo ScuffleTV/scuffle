@@ -1,4 +1,4 @@
-use utils::dataloader::DataLoader;
+use scuffle_utilsdataloader::DataLoader;
 
 use crate::config::{ApiConfig, IgDbConfig, ImageUploaderConfig, JwtConfig, TurnstileConfig, VideoApiConfig};
 use crate::dataloader::category::CategoryByIdLoader;

@@ -5,9 +5,9 @@ use async_nats::jetstream::stream::{self, RetentionPolicy};
 use binary_helper::config::RedisConfig;
 use binary_helper::global::{setup_database, setup_nats, setup_redis, GlobalCtx, GlobalDb, GlobalNats};
 use binary_helper::{bootstrap, grpc_health, grpc_server, impl_global_traits};
+use scuffle_utils::context::Context;
+use scuffle_utilsdataloader::DataLoader;
 use tokio::select;
-use utils::context::Context;
-use utils::dataloader::DataLoader;
 use video_api::config::ApiConfig;
 use video_api::dataloaders;
 
@@ -88,7 +88,7 @@ impl binary_helper::Global<AppConfig> for GlobalState {
 		let recording_state_loader = dataloaders::RecordingStateLoader::new(db.clone());
 		let room_loader = dataloaders::RoomLoader::new(db.clone());
 
-		utils::ratelimiter::load_rate_limiter_script(&*redis)
+		scuffle_utilsratelimiter::load_rate_limiter_script(&*redis)
 			.await
 			.context("failed to load rate limiter script")?;
 

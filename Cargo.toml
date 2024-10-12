@@ -1,30 +1,39 @@
 [workspace]
 
 members = [
-    "platform/api",
-    "platform/image_processor",
-    "video/edge",
-    "video/ingest",
-    "video/transcoder",
-    "video/lib/*",
-    "video/api",
-    "video/player",
-    "video/player_types",
-    "video/common",
-    "video/cli",
-    "binary-helper",
-    "utils",
-    "proto",
-    "config",
-    "config/derive",
+    # "platform/api",
+    "image-processor",
+    "image-processor/proto",
+    # "video/edge",
+    # "video/ingest",
+    # "video/transcoder",
+    # "video/lib/*",
+    # "video/api",
+    # "video/player",
+    # "video/player_types",
+    # "video/common",
+    # "video/cli",
+    # "binary-helper",
+    # "utils",
+    # "proto",
+    # "config",
+    # "config/derive",
     "ffmpeg",
+    "foundations",
+    "foundations/macros",
+    "foundations/examples",
 ]
 
 resolver = "2"
 
+[profile.release]
+debug = true
+
 [profile.release-fat]
 inherits = "release"
-lto = 'fat'
+debug = false
+strip = true
+lto = "fat"
 
 [profile.wasm]
 lto = 'fat'
@@ -46,7 +55,7 @@ h265 = { path = "video/lib/h265" }
 mp4 = { path = "video/lib/mp4" }
 rtmp = { path = "video/lib/rtmp" }
 transmuxer = { path = "video/lib/transmuxer" }
-utils = { path = "utils", default-features = false, package = "scuffle-utils" }
+scuffle-utils = { path = "utils", default-features = false }
 config = { path = "config", package = "scuffle-config" }
 pb = { path = "proto" }
 video-common = { path = "video/common" }
@@ -56,12 +65,12 @@ video-edge = { path = "video/edge" }
 video-ingest = { path = "video/ingest" }
 video-transcoder = { path = "video/transcoder" }
 binary-helper = { path = "binary-helper" }
-ffmpeg = { path = "ffmpeg" }
+scuffle-ffmpeg = { path = "ffmpeg" }
 
 # These patches are pending PRs to the upstream crates
 # TODO: Remove these once the PRs are merged
 [patch.crates-io]
 # https://github.com/remkop22/postgres-from-row/pull/9
-postgres-from-row = { git = "https://github.com/ScuffleTV/postgres-from-row.git", branch = "troy/from_fn" }
-# https://github.com/madonoharu/tsify/pull/32
-tsify = { git = "https://github.com/ScuffleTV/tsify.git", branch = "sisou/comments" }
+# postgres-from-row = { git = "https://github.com/ScuffleTV/postgres-from-row.git", branch = "troy/from_fn" }
+# # https://github.com/madonoharu/tsify/pull/32
+# tsify = { git = "https://github.com/ScuffleTV/tsify.git", branch = "sisou/comments" }

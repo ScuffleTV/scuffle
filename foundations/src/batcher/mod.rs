@@ -330,6 +330,7 @@ impl<T: BatchOperation + 'static + Send + Sync> BatcherInner<T> {
 		let mut waiters = vec![];
 		let mut batch = self.active_batch.write().await;
 		let max_documents = self.max_batch_size.load(std::sync::atomic::Ordering::Relaxed);
+		let mut batches = vec![];
 
 		for document in T::Mode::filter_item_iter(documents) {
 			if batch
@@ -338,7 +339,7 @@ impl<T: BatchOperation + 'static + Send + Sync> BatcherInner<T> {
 				.unwrap_or(true)
 			{
 				if let Some(b) = batch.take() {
-					self.queued_batches.send(b).await.ok();
+					batches.push(b);
 				}
 
 				*batch = Some(self.new_batch());
@@ -360,6 +361,10 @@ impl<T: BatchOperation + 'static + Send + Sync> BatcherInner<T> {
 
 			let tracker = &mut waiters.last_mut().unwrap().tracker;
 			T::Mode::input_add(&mut b.ops, tracker, document);
+		}
+
+		for batch in batches {
+			self.queued_batches.send(batch).await.ok();
 		}
 
 		waiters

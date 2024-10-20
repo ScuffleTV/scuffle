@@ -1,14 +1,14 @@
 use anyhow::Context;
-use ffmpeg::codec::EncoderCodec;
-use ffmpeg::dict::Dictionary;
-use ffmpeg::encoder::{AudioEncoderSettings, MuxerEncoder, MuxerSettings};
-use ffmpeg::error::FfmpegError;
-use ffmpeg::ffi::{AVCodecID, AVPictureType};
-use ffmpeg::io::channel::ChannelCompatSend;
-use ffmpeg::io::OutputOptions;
-use ffmpeg::packet::Packet;
 use mp4::codec::AudioCodec;
 use pb::scuffle::video::v1::types::AudioConfig;
+use scuffle_ffmpeg::codec::EncoderCodec;
+use scuffle_ffmpeg::dict::Dictionary;
+use scuffle_ffmpeg::encoder::{AudioEncoderSettings, MuxerEncoder, MuxerSettings};
+use scuffle_ffmpeg::error::FfmpegError;
+use scuffle_ffmpeg::ffi::{AVCodecID, AVPictureType};
+use scuffle_ffmpeg::io::channel::ChannelCompatSend;
+use scuffle_ffmpeg::io::OutputOptions;
+use scuffle_ffmpeg::packet::Packet;
 use tokio::sync::mpsc;
 
 use super::{muxer_options, Transcoder};
@@ -16,8 +16,8 @@ use super::{muxer_options, Transcoder};
 pub fn codec_options(codec: AudioCodec) -> anyhow::Result<(EncoderCodec, Dictionary)> {
 	Ok(match codec {
 		AudioCodec::Aac { object_type } => {
-			let codec = ffmpeg::codec::EncoderCodec::by_name("libfdk_aac")
-				.or_else(|| ffmpeg::codec::EncoderCodec::new(AVCodecID::AV_CODEC_ID_AAC))
+			let codec = scuffle_ffmpeg::codec::EncoderCodec::by_name("libfdk_aac")
+				.or_else(|| scuffle_ffmpeg::codec::EncoderCodec::new(AVCodecID::AV_CODEC_ID_AAC))
 				.ok_or(FfmpegError::NoEncoder)
 				.context("failed to find aac encoder")?;
 
@@ -38,8 +38,8 @@ pub fn codec_options(codec: AudioCodec) -> anyhow::Result<(EncoderCodec, Diction
 			)
 		}
 		AudioCodec::Opus => {
-			let codec = ffmpeg::codec::EncoderCodec::by_name("libopus")
-				.or_else(|| ffmpeg::codec::EncoderCodec::new(AVCodecID::AV_CODEC_ID_OPUS))
+			let codec = scuffle_ffmpeg::codec::EncoderCodec::by_name("libopus")
+				.or_else(|| scuffle_ffmpeg::codec::EncoderCodec::new(AVCodecID::AV_CODEC_ID_OPUS))
 				.ok_or(FfmpegError::NoEncoder)
 				.context("failed to find opus encoder")?;
 
@@ -56,7 +56,7 @@ impl Transcoder {
 		encoder_codec: EncoderCodec,
 		encoder_options: Dictionary,
 	) -> anyhow::Result<()> {
-		let output = ffmpeg::io::Output::new(
+		let output = scuffle_ffmpeg::io::Output::new(
 			sender.into_compat(),
 			OutputOptions {
 				format_name: Some("mp4"),

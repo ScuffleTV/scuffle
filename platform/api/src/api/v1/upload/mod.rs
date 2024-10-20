@@ -5,12 +5,12 @@ use bytes::Bytes;
 use hyper::body::Incoming;
 use hyper::{Request, Response, StatusCode};
 use multer::{Constraints, SizeLimit};
-use utils::http::ext::{OptionExt, ResultExt};
-use utils::http::router::builder::RouterBuilder;
-use utils::http::router::compat::BodyExt;
-use utils::http::router::ext::RequestExt;
-use utils::http::router::Router;
-use utils::http::RouteError;
+use scuffle_utils::http::ext::{OptionExt, ResultExt};
+use scuffle_utils::http::router::builder::RouterBuilder;
+use scuffle_utils::http::router::compat::BodyExt;
+use scuffle_utils::http::router::ext::RequestExt;
+use scuffle_utils::http::router::Router;
+use scuffle_utils::http::RouteError;
 
 use self::profile_picture::ProfilePicture;
 use crate::api::auth::AuthData;

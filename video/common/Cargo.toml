@@ -19,7 +19,7 @@ futures = "0.3"
 futures-util = "0.3"
 bytes = "1.5"
 async-trait = "0.1"
-async-nats = "0.33"
+async-nats = "0.34"
 
 pb = { workspace = true }
-utils = { workspace = true, features = ["all"] }
+scuffle-utils = { workspace = true, features = ["all"] }

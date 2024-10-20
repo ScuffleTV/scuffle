@@ -20,7 +20,7 @@ pub fn build_query<'a>(
 	req: &'a PlaybackSessionGetRequest,
 	access_token: &AccessToken,
 ) -> tonic::Result<utils::database::QueryBuilder<'a>> {
-	let mut qb = utils::database::QueryBuilder::default();
+	let mut qb = scuffle_utils::database::QueryBuilder::default();
 	qb.push("SELECT * FROM ")
 		.push(<PlaybackSessionGetRequest as TonicRequest>::Table::NAME)
 		.push(" WHERE ");

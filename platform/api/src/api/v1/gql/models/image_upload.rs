@@ -23,7 +23,6 @@ pub struct ImageUpload<G: ApiGlobal> {
 pub struct ImageUploadVariant {
 	pub width: u32,
 	pub height: u32,
-	pub scale: u32,
 	pub url: String,
 	pub format: ImageUploadFormat,
 	pub byte_size: u32,
@@ -76,7 +75,6 @@ impl From<pb::scuffle::platform::internal::types::ProcessedImageVariant> for Ima
 		Self {
 			width: value.width,
 			height: value.height,
-			scale: value.scale,
 			format: value.format().into(),
 			byte_size: value.byte_size,
 			url: value.path,

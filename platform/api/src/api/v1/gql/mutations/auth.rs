@@ -90,7 +90,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 
 		if user.totp_enabled {
 			let request_id = ulid::Ulid::new();
-			utils::database::query(
+			scuffle_utils::database::query(
 				r#"
 				INSERT INTO two_fa_requests (
 					id,
@@ -149,7 +149,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		let request_context = ctx.get_req_context();
 
 		// TODO: Make this a dataloader
-		let request: database::TwoFaRequest = utils::database::query(
+		let request: database::TwoFaRequest = scuffle_utils::database::query(
 			r#"
 			SELECT
 				*
@@ -180,7 +180,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 			.into());
 		}
 
-		utils::database::query(
+		scuffle_utils::database::query(
 			r#"
 			DELETE FROM
 				two_fa_requests
@@ -242,7 +242,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		})?;
 
 		// TODO: maybe look to batch this
-		let session: database::Session = utils::database::query(
+		let session: database::Session = scuffle_utils::database::query(
 			r#"
 				UPDATE
 					user_sessions
@@ -355,7 +355,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		let tx = client.transaction().await?;
 
 		// TODO: maybe look to batch this
-		let user: database::User = utils::database::query(
+		let user: database::User = scuffle_utils::database::query(
 			r#"
 			INSERT INTO users (
 				id,
@@ -394,7 +394,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		let expires_at = Utc::now() + Duration::seconds(login_duration as i64);
 
 		// TODO: maybe look to batch this
-		let session: database::Session = utils::database::query(
+		let session: database::Session = scuffle_utils::database::query(
 			r#"
 			INSERT INTO user_sessions (
 				id,
@@ -476,7 +476,7 @@ impl<G: ApiGlobal> AuthMutation<G> {
 		};
 
 		// TODO: maybe look to batch this
-		utils::database::query(
+		scuffle_utils::database::query(
 			r#"
 			DELETE FROM
 				user_sessions

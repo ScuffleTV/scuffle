@@ -22,7 +22,7 @@ use crate::tests::utils;
 
 #[tokio::test]
 async fn test_room_get_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![
 		(
@@ -116,12 +116,12 @@ async fn test_room_get_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_room_create_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording_config =
@@ -159,12 +159,12 @@ async fn test_room_create_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_room_modify_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording_config =
@@ -209,12 +209,12 @@ async fn test_room_modify_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_room_pair_tag_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![(
 		RoomTagRequest {
@@ -236,12 +236,12 @@ async fn test_room_pair_tag_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_room_pair_untag_qb() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let test_cases = vec![(
 		RoomUntagRequest {
@@ -259,12 +259,12 @@ async fn test_room_pair_untag_qb() {
 		assert_query_matches(result, expected);
 	}
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_room_create() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording_config =
@@ -341,12 +341,12 @@ async fn test_room_create() {
 		"tags should be empty"
 	);
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_room_get() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording_config =
@@ -518,12 +518,12 @@ async fn test_room_get() {
 
 	assert_eq!(resp.rooms.len(), 1, "should return 1 room");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_room_modify() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let s3_bucket = create_s3_bucket(&global, access_token.organization_id, HashMap::new()).await;
 	let recording_config =
@@ -619,12 +619,12 @@ async fn test_room_modify() {
 		"tags should be empty"
 	);
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_room_tag() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let room = create_room(&global, access_token.organization_id).await;
 
@@ -704,12 +704,12 @@ async fn test_room_tag() {
 		"tags should match"
 	);
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_room_untag() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let room = create_room(&global, access_token.organization_id).await;
 
@@ -748,12 +748,12 @@ async fn test_room_untag() {
 
 	assert_eq!(resp.tags.as_ref().unwrap().tags.len(), 0, "tags should match");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_room_delete() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let room = create_room(&global, access_token.organization_id).await;
 
@@ -785,12 +785,12 @@ async fn test_room_delete() {
 	assert_eq!(resp.failed_deletes[0].id, Some(room.id.into()), "failed delete should match");
 	assert_eq!(resp.failed_deletes[0].reason, "room not found", "failed delete should match");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_room_disconnect() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let room = create_room(&global, access_token.organization_id).await;
 
@@ -841,12 +841,12 @@ async fn test_room_disconnect() {
 	);
 	assert!(msg.payload.is_empty(), "payload should be empty");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_room_reset_keys() {
-	let (global, handler, access_token) = utils::setup(Default::default()).await;
+	let (global, handler, access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let room = create_room(&global, access_token.organization_id).await;
 
@@ -875,15 +875,15 @@ async fn test_room_reset_keys() {
 	assert_eq!(resp.rooms[0].id, Some(room.id.into()), "room should match");
 	assert_eq!(resp.rooms[0].key, key, "room should match");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }
 
 #[tokio::test]
 async fn test_room_boilerplate() {
-	let (global, handler, main_access_token) = utils::setup(Default::default()).await;
+	let (global, handler, main_access_token) = scuffle_utilssetup(Default::default()).await;
 
 	let no_scopes_token =
-		utils::create_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
+		scuffle_utilscreate_access_token(&global, &main_access_token.organization_id, vec![], HashMap::new()).await;
 
 	let room = create_room(&global, main_access_token.organization_id).await;
 
@@ -1189,5 +1189,5 @@ async fn test_room_boilerplate() {
 	assert_eq!(response.code(), tonic::Code::PermissionDenied);
 	assert_eq!(response.message(), "missing required scope: room:delete");
 
-	utils::teardown(global, handler).await;
+	scuffle_utilsteardown(global, handler).await;
 }

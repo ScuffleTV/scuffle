@@ -50,7 +50,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.await?
 			.map_err_gql(GqlError::Auth(AuthError::NotLoggedIn))?;
 
-		let user: database::User = utils::database::query(
+		let user: database::User = scuffle_utils::database::query(
 			r#"
 			UPDATE users
 			SET
@@ -102,7 +102,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.into());
 		}
 
-		let user: database::User = utils::database::query(
+		let user: database::User = scuffle_utils::database::query(
 			r#"
 			UPDATE users
 			SET
@@ -152,7 +152,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.await?
 			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
-		let user: database::User = utils::database::query(
+		let user: database::User = scuffle_utils::database::query(
 			r#"
 				UPDATE users
 				SET
@@ -196,7 +196,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.await?
 			.ok_or(GqlError::Auth(AuthError::NotLoggedIn))?;
 
-		let user: database::User = utils::database::query(
+		let user: database::User = scuffle_utils::database::query(
 			"UPDATE users SET profile_picture_id = NULL, pending_profile_picture_id = NULL WHERE id = $1 RETURNING *",
 		)
 		.bind(auth.session.user_id)
@@ -257,7 +257,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 
 		if user.totp_enabled {
 			let request_id = ulid::Ulid::new();
-			utils::database::query(
+			scuffle_utils::database::query(
 				r#"
 				INSERT INTO two_fa_requests (
 					id,
@@ -311,7 +311,7 @@ impl<G: ApiGlobal> UserMutation<G> {
 			.into());
 		}
 
-		utils::database::query(
+		scuffle_utils::database::query(
 			r#"
 			UPSERT INTO channel_user (
 				user_id,

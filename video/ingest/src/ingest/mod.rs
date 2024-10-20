@@ -3,9 +3,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
+use scuffle_utils::context::ContextExt;
+use scuffle_utils::prelude::FutureTimeout;
 use tokio::net::TcpSocket;
-use utils::context::ContextExt;
-use utils::prelude::FutureTimeout;
 
 use crate::config::IngestConfig;
 use crate::global::IngestGlobal;

@@ -5,9 +5,9 @@ use hmac::{Hmac, Mac};
 use hyper::StatusCode;
 use jwt_next::asymmetric::VerifyingKey;
 use jwt_next::{asymmetric, AlgorithmType, SignWithKey, Token, VerifyWithKey};
+use scuffle_utils::http::ext::*;
 use sha2::Sha256;
 use ulid::Ulid;
-use utils::http::ext::*;
 use video_common::database::{PlaybackKeyPair, Rendition};
 
 use crate::config::EdgeConfig;
@@ -131,7 +131,7 @@ impl TokenClaims {
 			return Err((StatusCode::BAD_REQUEST, "invalid token, iat is too far in the past").into());
 		}
 
-		let keypair: Option<PlaybackKeyPair> = utils::database::query(
+		let keypair: Option<PlaybackKeyPair> = scuffle_utils::database::query(
 			r#"
 			SELECT
 				*
@@ -162,7 +162,7 @@ impl TokenClaims {
 			.verify_with_key(&verifier)
 			.map_err(|_| (StatusCode::BAD_REQUEST, "invalid token, failed to verify"))?;
 
-		let mut qb = utils::database::QueryBuilder::default();
+		let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 		qb.push("SELECT 1 FROM playback_session_revocations WHERE organization_id = ")
 			.push_bind(organization_id)
@@ -201,7 +201,7 @@ impl TokenClaims {
 		}
 
 		if let Some(id) = token.claims().id.as_ref() {
-			if utils::database::query(
+			if scuffle_utils::database::query(
 				"INSERT INTO playback_session_revocations(organization_id, sso_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
 			)
 			.bind(organization_id)

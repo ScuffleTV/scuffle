@@ -3,10 +3,10 @@ use std::sync::Arc;
 use binary_helper::global::RequestGlobalExt;
 use hyper::body::Incoming;
 use hyper::http::header;
-use utils::http::ext::*;
-use utils::http::router::ext::RequestExt;
-use utils::http::router::middleware::{middleware_fn, Middleware};
-use utils::http::RouteError;
+use scuffle_utils::http::ext::*;
+use scuffle_utils::http::router::ext::RequestExt;
+use scuffle_utils::http::router::middleware::{middleware_fn, Middleware};
+use scuffle_utils::http::RouteError;
 
 use crate::api::auth::{AuthData, AuthError};
 use crate::api::error::ApiError;

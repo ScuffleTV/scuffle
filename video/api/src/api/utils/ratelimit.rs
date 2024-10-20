@@ -3,11 +3,11 @@ use std::time::Duration;
 
 use fred::interfaces::KeysInterface;
 use futures_util::Future;
+use scuffle_utils::prelude::FutureTimeout;
+use scuffle_utilsratelimiter::{RateLimitResponse, RateLimiterOptions};
 use tonic::metadata::AsciiMetadataValue;
 use tonic::{Response, Status};
 use ulid::Ulid;
-use utils::prelude::FutureTimeout;
-use utils::ratelimiter::{RateLimitResponse, RateLimiterOptions};
 
 use super::RequiredScope;
 use crate::config::ApiConfig;
@@ -109,10 +109,12 @@ pub async fn ratelimit_scoped<G: ApiGlobal, T, F: Future<Output = tonic::Result<
 async fn ratelimit<G: ApiGlobal>(global: &Arc<G>, options: &RateLimiterOptions) -> tonic::Result<RateLimitResponse> {
 	let redis = global.redis();
 
-	let resp = utils::ratelimiter::ratelimit(redis.as_ref(), options).await.map_err(|err| {
-		tracing::error!(err = %err, "failed to rate limit");
-		Status::internal("Unable to process request, failed to rate limit")
-	})?;
+	let resp = scuffle_utilsratelimiter::ratelimit(redis.as_ref(), options)
+		.await
+		.map_err(|err| {
+			tracing::error!(err = %err, "failed to rate limit");
+			Status::internal("Unable to process request, failed to rate limit")
+		})?;
 
 	if resp.banned || resp.remaining == -1 {
 		let mut status = Status::resource_exhausted("rate limit exceeded");

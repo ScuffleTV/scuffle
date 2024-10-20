@@ -1,4 +1,4 @@
-use utils::dataloader::DataLoader;
+use scuffle_utilsdataloader::DataLoader;
 
 use crate::config::ApiConfig;
 use crate::dataloaders;

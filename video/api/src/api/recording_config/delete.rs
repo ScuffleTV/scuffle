@@ -27,7 +27,7 @@ impl ApiRequest<RecordingConfigDeleteResponse> for tonic::Request<RecordingConfi
 		access_token: &AccessToken,
 	) -> tonic::Result<tonic::Response<RecordingConfigDeleteResponse>> {
 		// Check if any rooms are using the recording config
-		let mut qb = utils::database::QueryBuilder::default();
+		let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 		let req = self.get_ref();
 
@@ -78,7 +78,7 @@ impl ApiRequest<RecordingConfigDeleteResponse> for tonic::Request<RecordingConfi
 
 		let deleted_ids = if !ids_to_delete.is_empty() {
 			// Delete the recording config
-			let mut qb = utils::database::QueryBuilder::default();
+			let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 			qb.push("DELETE FROM ")
 				.push(<RecordingConfigDeleteRequest as TonicRequest>::Table::NAME)

@@ -3,11 +3,11 @@ use std::sync::Arc;
 
 use binary_helper::logging;
 use postgres_from_row::tokio_postgres::NoTls;
+use scuffle_utils::context::{Context, Handler};
+use scuffle_utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
+use scuffle_utils::database::Pool;
 use tokio::sync::{mpsc, Mutex};
 use ulid::Ulid;
-use utils::context::{Context, Handler};
-use utils::database::deadpool_postgres::{ManagerConfig, PoolConfig, RecyclingMethod, Runtime};
-use utils::database::Pool;
 
 use crate::config::IngestConfig;
 use crate::global::IncomingTranscoder;

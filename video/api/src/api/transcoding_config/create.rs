@@ -29,7 +29,7 @@ pub fn build_query(
 	req: &TranscodingConfigCreateRequest,
 	access_token: &AccessToken,
 ) -> tonic::Result<utils::database::QueryBuilder<'static>> {
-	let mut qb = utils::database::QueryBuilder::default();
+	let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 	qb.push("INSERT INTO ")
 		.push(<TranscodingConfigCreateRequest as TonicRequest>::Table::NAME)

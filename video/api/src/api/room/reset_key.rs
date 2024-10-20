@@ -52,7 +52,7 @@ impl ApiRequest<RoomResetKeyResponse> for tonic::Request<RoomResetKeyRequest> {
 
 		let data = ids_to_reset.iter().copied().map(|id| (id, create_stream_key()));
 
-		let mut qb = utils::database::QueryBuilder::default();
+		let mut qb = scuffle_utils::database::QueryBuilder::default();
 
 		qb.push("WITH updated_values AS (SELECT * FROM (")
 			.push_values(data.clone(), |mut b, data| {

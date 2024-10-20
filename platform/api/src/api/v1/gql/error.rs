@@ -74,7 +74,7 @@ pub enum GqlError {
 }
 
 impl From<utils::database::tokio_postgres::Error> for GqlError {
-	fn from(value: utils::database::tokio_postgres::Error) -> Self {
+	fn from(value: scuffle_utils::database::tokio_postgres::Error) -> Self {
 		Self::Database(Arc::new(value.into()))
 	}
 }

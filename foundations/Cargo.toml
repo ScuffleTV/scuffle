@@ -1,0 +1,256 @@
+[package]
+name = "scuffle-foundations"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", optional = true }
+tokio-util = { version = "0.7", optional = true }
+pin-project = { version = "1", optional = true }
+futures = { version = "0.3", optional = true }
+
+num_cpus = { version = "1", optional = true }
+rand = { version = "0.8", optional = true }
+
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", optional = true }
+
+opentelemetry = { version = "0.26.0", optional = true }
+opentelemetry_sdk = { version = "0.26.0", optional = true }
+opentelemetry-otlp = { version = "0.26.0", optional = true, features = ["http-proto"]}
+
+anyhow = { version = "1" }
+
+thread_local = { version = "1", optional = true }
+spin = { version = "0.9", optional = true }
+itertools = { version = "0.13", optional = true }
+
+scuffle-foundations-macros = { path = "./macros", optional = true, version = "0.0.0" }
+
+pprof = { version = "0.13", optional = true, features = ["prost-codec"] }
+prost = { version = "0.13.1", optional = true }
+flate2 = { version = "1", optional = true }
+
+matchers = { version = "0.2.0", optional = true }
+regex = { version = "1", optional = true }
+once_cell = { version = "1", optional = true }
+scc = { version = "2", optional = true }
+
+serde = { version = "1", optional = true, features = ["derive", "rc"] }
+toml = { version = "0.8", optional = true }
+minijinja = { version = "2.3.1", optional = true, features = ["json", "custom_syntax", "urlencode"] }
+
+clap = { version = "4", optional = true }
+const-str = { version = "0.5", optional = true }
+
+prometheus-client = { version = "0.22", optional = true }
+parking_lot = { version = "0.12", optional = true }
+
+humantime-serde = { version = "1", optional = true }
+
+axum = { version = "0.7", optional = true }
+humantime = { version = "2", optional = true }
+
+tower = { version = "0.5", optional = true }
+
+hyper = { version = "1", optional = true }
+hyper-util = { version = "0.1", optional = true }
+http = { version = "1", optional = true }
+h3 = { version = "0.0.6", optional = true }
+h3-quinn = { version = "0.0.7", optional = true }
+h3-webtransport = { version = "0.1.0", optional = true }
+quinn = { version = "0.11", default-features = false, features = ["runtime-tokio", "rustls", "ring" ], optional = true }
+rustls = { version = "0.23", optional = true }
+tokio-rustls = { version = "0.26", optional = true }
+bytes = { version = "1", optional = true }
+thiserror = { version = "1", optional = true }
+http-body = { version = "1", optional = true }
+socket2 = { version = "0.5", optional = true }
+
+[features]
+
+context = [
+    "pin-project",
+    "tokio-util",
+    "tokio/sync",
+    "once_cell",
+]
+
+_telemetry = [
+    "tracing",
+    "serde",
+]
+
+signal = [
+    "tokio/signal",
+    "futures",
+]
+
+telemetry-server = [
+    "_telemetry",
+    "axum",
+    "humantime",
+    "tokio",
+]
+
+macros = [
+    "scuffle-foundations-macros",
+]
+
+runtime = [
+    "num_cpus",
+    "rand",
+    "tokio",
+    "tokio/rt",
+    "tokio/rt-multi-thread",
+]
+
+pprof-cpu = [
+    "_telemetry",
+    "dep:pprof",
+    "prost",
+    "flate2",
+]
+
+opentelemetry = [
+    "_telemetry",
+    "itertools",
+    "dep:opentelemetry",
+    "opentelemetry_sdk",
+    "opentelemetry-otlp",
+    "thread_local",
+    "tokio/sync",
+    "rand",
+    "tracing",
+    "tracing-subscriber",
+    "spin",
+    "runtime",
+]
+
+env-filter = [
+    "_telemetry",
+    "once_cell",
+    "scc",
+    "matchers",
+    "regex",
+    "thread_local",
+    "tracing",
+    "tracing-subscriber",
+]
+
+logging = [
+    "_telemetry",
+    "tracing",
+    "env-filter",
+    "tracing-subscriber/json",
+    "tracing-subscriber/chrono",
+]
+
+metrics = [
+    "_telemetry",
+    "prometheus-client",
+    "parking_lot",
+    "once_cell",
+]
+
+health-check = [
+    "scc",
+    "telemetry-server",
+    "once_cell",
+]
+
+settings = [
+    "serde",
+    "toml",
+    "macros",
+    "humantime-serde",
+    "minijinja",
+]
+
+cli = [
+    "clap",
+    "const-str",
+    "settings",
+]
+
+batcher = [
+    "tokio/sync",
+    "tokio/time",
+    "runtime",
+    "futures",
+    "tracing",
+]
+
+bootstrap = [
+    "settings",
+    "cli",
+    "runtime",
+    "macros",
+]
+
+http = [
+    "axum",
+    "tokio",
+    "tokio/net",
+    "tower",
+    "dep:http",
+    "hyper",
+    "hyper-util",
+    "dep:http",
+    "bytes",
+    "thiserror",
+    "http-body",
+    "futures",
+    "context",
+    "socket2",
+    "tracing"
+]
+
+http-tls = [
+    "http",
+    "rustls",
+    "tokio-rustls",
+]
+
+http2 = [
+    "http",
+    "hyper-util/http2",
+]
+
+# Http3 isnt very stable yet, the current h3 crate is very early stage
+http3 = [
+    "http",
+    "h3",
+    "h3-quinn",
+    "quinn",
+    "bytes",
+    "spin",
+]
+
+# WebTransport does not work in the current h3-webtransport crate.
+# This feature does not work yet
+http3-webtransport = [
+    "http3",
+    "h3-webtransport",
+]
+
+default = [
+    "opentelemetry",
+    "runtime",
+    "pprof-cpu",
+    "macros",
+    "logging",
+    "env-filter",
+    "settings",
+    "bootstrap",
+    "cli",
+    "metrics",
+    "telemetry-server",
+    "context",
+    "signal",
+    "batcher",
+    "health-check",
+    "http",
+    "http-tls",
+    "http2",
+]

@@ -73,7 +73,7 @@ pub async fn recording_task(
 							.await
 							.context("upload segment")?;
 
-						if utils::database::query(
+						if scuffle_utils::database::query(
 							r#"
                         INSERT INTO recording_rendition_segments (
                             organization_id,
@@ -168,7 +168,7 @@ pub async fn recording_thumbnail_task(
 					.await
 					.context("upload thumbnail")?;
 
-				if utils::database::query(
+				if scuffle_utils::database::query(
 					r#"
                 INSERT INTO recording_thumbnails (
                     organization_id,

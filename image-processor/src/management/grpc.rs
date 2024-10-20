@@ -7,7 +7,11 @@ impl ManagementServer {
 	#[tracing::instrument(skip_all)]
 	pub async fn run_grpc(&self, addr: std::net::SocketAddr) -> Result<(), tonic::transport::Error> {
 		let server = tonic::transport::Server::builder()
-			.add_service(scuffle_image_processor_proto::image_processor_server::ImageProcessorServer::new(self.clone()))
+			.add_service(
+				scuffle_image_processor_proto::image_processor_server::ImageProcessorServer::new(self.clone())
+					.max_decoding_message_size(128 * 1024 * 1024)
+					.max_encoding_message_size(128 * 1024 * 1024)
+			)
 			.serve_with_shutdown(addr, scuffle_foundations::context::Context::global().into_done());
 
 		tracing::info!("gRPC management server listening on {}", addr);

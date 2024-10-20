@@ -5,7 +5,6 @@ use std::sync::atomic::{AtomicU64, AtomicUsize};
 use std::sync::Arc;
 
 use tokio::sync::OnceCell;
-use tracing::Instrument;
 
 pub mod dataloader;
 
@@ -225,7 +224,7 @@ impl Drop for CancelOnDrop {
 }
 
 struct BatcherInner<T: BatchOperation> {
-	semaphore: tokio::sync::Semaphore,
+	semaphore: Arc<tokio::sync::Semaphore>,
 	notify: tokio::sync::Notify,
 	sleep_duration: AtomicU64,
 	batch_id: AtomicU64,
@@ -233,6 +232,7 @@ struct BatcherInner<T: BatchOperation> {
 	operation: T,
 	name: String,
 	active_batch: tokio::sync::RwLock<Option<Batch<T>>>,
+	queued_batches: tokio::sync::mpsc::Sender<Batch<T>>,
 }
 
 struct Batch<T: BatchOperation> {
@@ -288,18 +288,14 @@ impl<E: std::error::Error> From<E> for BatcherError<E> {
 
 impl<T: BatchOperation + 'static + Send + Sync> Batch<T> {
 	#[tracing::instrument(skip_all, fields(name = %inner.name))]
-	async fn run(self, inner: Arc<BatcherInner<T>>) {
+	async fn run(self, inner: Arc<BatcherInner<T>>, ticket: tokio::sync::OwnedSemaphorePermit) {
 		self.results
 			.get_or_init(|| async move {
-				let _ticket = inner
-					.semaphore
-					.acquire()
-					.instrument(tracing::debug_span!("Semaphore"))
-					.await
-					.map_err(|_| BatcherError::AcquireSemaphore)?;
-				Ok(inner.operation.process(self.ops).await.map_err(BatcherError::Batch)?)
+				inner.operation.process(self.ops).await.map_err(BatcherError::Batch)
 			})
 			.await;
+	
+		drop(ticket);
 	}
 }
 
@@ -312,8 +308,8 @@ pub struct BatcherConfig {
 }
 
 impl<T: BatchOperation + 'static + Send + Sync> BatcherInner<T> {
-	fn spawn_batch(self: &Arc<Self>, batch: Batch<T>) {
-		tokio::spawn(batch.run(self.clone()));
+	fn spawn_batch(self: &Arc<Self>, batch: Batch<T>, ticket: tokio::sync::OwnedSemaphorePermit) {
+		tokio::spawn(batch.run(self.clone(), ticket));
 	}
 
 	fn new_batch(&self) -> Batch<T> {
@@ -342,7 +338,7 @@ impl<T: BatchOperation + 'static + Send + Sync> BatcherInner<T> {
 				.unwrap_or(true)
 			{
 				if let Some(b) = batch.take() {
-					self.spawn_batch(b);
+					self.queued_batches.send(b).await.ok();
 				}
 
 				*batch = Some(self.new_batch());
@@ -374,8 +370,11 @@ impl<T: BatchOperation + 'static + Send + Sync> Batcher<T> {
 	pub fn new(operation: T) -> Self {
 		let config = operation.config();
 
+		let (tx, mut rx) = tokio::sync::mpsc::channel(64);
+
 		let inner = Arc::new(BatcherInner {
-			semaphore: tokio::sync::Semaphore::new(config.concurrency),
+			semaphore: Arc::new(tokio::sync::Semaphore::new(config.concurrency)),
+			queued_batches: tx.clone(),
 			notify: tokio::sync::Notify::new(),
 			batch_id: AtomicU64::new(0),
 			active_batch: tokio::sync::RwLock::new(None),
@@ -390,6 +389,13 @@ impl<T: BatchOperation + 'static + Send + Sync> Batcher<T> {
 			_auto_loader_abort: CancelOnDrop(
 				tokio::task::spawn(async move {
 					loop {
+						tokio::select! {
+							Some(batch) = rx.recv() => {
+								let ticket = inner.semaphore.clone().acquire_owned().await.unwrap();
+								inner.spawn_batch(batch, ticket);
+							},
+							_ = inner.notify.notified() => {},
+						}
 						inner.notify.notified().await;
 						let Some((id, expires_at)) = inner.active_batch.read().await.as_ref().map(|b| (b.id, b.expires_at))
 						else {
@@ -399,11 +405,15 @@ impl<T: BatchOperation + 'static + Send + Sync> Batcher<T> {
 						if expires_at > tokio::time::Instant::now() {
 							tokio::time::sleep_until(expires_at).await;
 						}
-
+						
 						let mut batch = inner.active_batch.write().await;
-						if batch.as_ref().is_some_and(|b| b.id == id) {
-							inner.spawn_batch(batch.take().unwrap());
-						}
+						let batch = if batch.as_ref().is_some_and(|b| b.id == id) {
+							batch.take().unwrap()
+						} else {
+							continue;
+						};
+
+						tx.send(batch).await.ok();
 					}
 				})
 				.abort_handle(),

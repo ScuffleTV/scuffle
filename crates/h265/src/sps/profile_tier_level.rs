@@ -70,10 +70,9 @@ impl ProfileTierLevel {
 
         for i in 0..max_num_sub_layers_minus_1 as usize {
             if sub_layer_profile_present_flags[i] {
+                // Also reads sub_layer_level_idc when sub_layer_level_present_flag is set.
                 sub_layer_profiles[i] = Some(Profile::parse(bit_reader, sub_layer_level_present_flags[i])?);
-            }
-
-            if sub_layer_level_present_flags[i] {
+            } else if sub_layer_level_present_flags[i] {
                 sub_layer_level_idcs[i] = Some(bit_reader.read_u8()?);
             }
         }
@@ -81,14 +80,19 @@ impl ProfileTierLevel {
         let mut last_profile = general_profile.clone();
         let mut sub_layer_profiles: Vec<_> = sub_layer_profiles
             .into_iter()
+            .zip(sub_layer_level_idcs)
             .rev()
-            .map(|profile| match profile {
+            .map(|(profile, level_idc)| match profile {
                 Some(profile) => {
                     let profile = profile.merge(&last_profile);
                     last_profile = profile.clone();
                     profile
                 }
-                None => last_profile.clone(),
+                None => {
+                    // Only the level can be present here; the rest is inferred from the next higher sub-layer.
+                    last_profile.level_idc = level_idc.or(last_profile.level_idc);
+                    last_profile.clone()
+                }
             })
             .collect();
         sub_layer_profiles.reverse(); // reverse back to original order

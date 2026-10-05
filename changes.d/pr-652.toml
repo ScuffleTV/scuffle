@@ -1,0 +1,14 @@
+[[scuffle-h265]]
+category = "fix"
+description = "Accept an SPS whose VUI `matrix_coeffs` violates the ISO/IEC 23008-2 E.3.1 constraints instead of failing to parse it"
+authors = ["@bgreenway"]
+
+[[scuffle-h265]]
+category = "fix"
+description = "Read `sub_layer_level_idc` only once when a sub-layer signals both its profile and its level"
+authors = ["@bgreenway"]
+
+[[scuffle-h265]]
+category = "fix"
+description = "Report the coded `sub_layer_level_idc` when a sub-layer signals only its level"
+authors = ["@bgreenway"]

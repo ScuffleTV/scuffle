@@ -86,8 +86,6 @@ impl VuiParameters {
     pub(crate) fn parse<R: io::Read>(
         bit_reader: &mut BitReader<R>,
         sps_max_sub_layers_minus1: u8,
-        bit_depth_y: u8,
-        bit_depth_c: u8,
         chroma_format_idc: u8,
         general_profile: &Profile,
         conformance_window: &ConformanceWindow,
@@ -130,22 +128,6 @@ impl VuiParameters {
                 let colour_primaries = bit_reader.read_u8()?;
                 let transfer_characteristics = bit_reader.read_u8()?;
                 let matrix_coeffs = bit_reader.read_u8()?;
-
-                if matrix_coeffs == 0 && !(bit_depth_c == bit_depth_y && chroma_format_idc == 3) {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "matrix_coeffs must not be 0 unless bit_depth_c == bit_depth_y and chroma_format_idc == 3",
-                    ));
-                }
-
-                if matrix_coeffs == 8
-                    && !(bit_depth_c == bit_depth_y || (bit_depth_c == bit_depth_y + 1 && chroma_format_idc == 3))
-                {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "matrix_coeffs must not be 8 unless bit_depth_c == bit_depth_y or (bit_depth_c == bit_depth_y + 1 and chroma_format_idc == 3)",
-                    ));
-                }
 
                 video_signal_type = Some(VideoSignalType {
                     video_format,
@@ -351,6 +333,9 @@ pub struct VideoSignalType {
     pub transfer_characteristics: u8,
     /// Describes the matrix coefficients used in deriving luma and chroma signals from the green,
     /// blue, and red, or Y, Z, and X primaries, as specified in ISO/IEC 23008-2 - Table E.5.
+    ///
+    /// Reported as coded. The constraints that ISO/IEC 23008-2 - E.3.1 places on the values 0 and 8
+    /// (which depend on the chroma format and bit depths) are not enforced by this parser.
     pub matrix_coeffs: u8,
 }
 
@@ -603,8 +588,6 @@ mod tests {
         let vui_parameters = VuiParameters::parse(
             &mut BitReader::new(data.as_slice()),
             0,
-            8,
-            8,
             1,
             &Profile {
                 profile_space: 0,

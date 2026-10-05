@@ -1,0 +1,184 @@
+---
+source: crates/h265/src/sps.rs
+expression: nalu
+---
+SpsNALUnit {
+    nal_unit_header: NALUnitHeader {
+        nal_unit_type: NALUnitType::SpsNut,
+        nuh_layer_id: 0,
+        nuh_temporal_id_plus1: 1,
+    },
+    rbsp: SpsRbsp {
+        sps_video_parameter_set_id: 0,
+        sps_max_sub_layers_minus1: 2,
+        sps_temporal_id_nesting_flag: true,
+        profile_tier_level: ProfileTierLevel {
+            general_profile: Profile {
+                profile_space: 0,
+                tier_flag: false,
+                profile_idc: 1,
+                profile_compatibility_flag: ProfileCompatibilityFlags(
+                    MainProfile | Main10Profile,
+                ),
+                progressive_source_flag: true,
+                interlaced_source_flag: false,
+                non_packed_constraint_flag: false,
+                frame_only_constraint_flag: true,
+                additional_flags: Main10Profile {
+                    one_picture_only_constraint_flag: false,
+                },
+                inbld_flag: Some(
+                    false,
+                ),
+                level_idc: Some(
+                    93,
+                ),
+            },
+            sub_layer_profiles: [
+                Profile {
+                    profile_space: 0,
+                    tier_flag: false,
+                    profile_idc: 1,
+                    profile_compatibility_flag: ProfileCompatibilityFlags(
+                        MainProfile | Main10Profile,
+                    ),
+                    progressive_source_flag: true,
+                    interlaced_source_flag: false,
+                    non_packed_constraint_flag: false,
+                    frame_only_constraint_flag: true,
+                    additional_flags: Main10Profile {
+                        one_picture_only_constraint_flag: false,
+                    },
+                    inbld_flag: Some(
+                        false,
+                    ),
+                    level_idc: Some(
+                        90,
+                    ),
+                },
+                Profile {
+                    profile_space: 0,
+                    tier_flag: false,
+                    profile_idc: 1,
+                    profile_compatibility_flag: ProfileCompatibilityFlags(
+                        MainProfile | Main10Profile,
+                    ),
+                    progressive_source_flag: true,
+                    interlaced_source_flag: false,
+                    non_packed_constraint_flag: false,
+                    frame_only_constraint_flag: true,
+                    additional_flags: Main10Profile {
+                        one_picture_only_constraint_flag: false,
+                    },
+                    inbld_flag: Some(
+                        false,
+                    ),
+                    level_idc: Some(
+                        93,
+                    ),
+                },
+            ],
+        },
+        sps_seq_parameter_set_id: 0,
+        chroma_format_idc: 1,
+        separate_colour_plane_flag: false,
+        pic_width_in_luma_samples: 1280,
+        pic_height_in_luma_samples: 720,
+        conformance_window: ConformanceWindow {
+            conf_win_left_offset: 0,
+            conf_win_right_offset: 0,
+            conf_win_top_offset: 0,
+            conf_win_bottom_offset: 0,
+        },
+        bit_depth_luma_minus8: 0,
+        bit_depth_chroma_minus8: 0,
+        log2_max_pic_order_cnt_lsb_minus4: 4,
+        sub_layer_ordering_info: SubLayerOrderingInfo {
+            sps_max_dec_pic_buffering_minus1: [
+                4,
+                4,
+                4,
+            ],
+            sps_max_num_reorder_pics: [
+                2,
+                2,
+                2,
+            ],
+            sps_max_latency_increase_plus1: [
+                5,
+                5,
+                5,
+            ],
+        },
+        log2_min_luma_coding_block_size_minus3: 0,
+        log2_diff_max_min_luma_coding_block_size: 3,
+        log2_min_luma_transform_block_size_minus2: 0,
+        log2_diff_max_min_luma_transform_block_size: 3,
+        max_transform_hierarchy_depth_inter: 0,
+        max_transform_hierarchy_depth_intra: 0,
+        scaling_list_data: None,
+        amp_enabled_flag: false,
+        sample_adaptive_offset_enabled_flag: true,
+        pcm: None,
+        short_term_ref_pic_sets: ShortTermRefPicSets {
+            num_delta_pocs: [],
+            num_positive_pics: [],
+            num_negative_pics: [],
+            delta_poc_s1: [],
+            delta_poc_s0: [],
+            used_by_curr_pic_s0: [],
+            used_by_curr_pic_s1: [],
+        },
+        long_term_ref_pics: None,
+        sps_temporal_mvp_enabled_flag: true,
+        strong_intra_smoothing_enabled_flag: true,
+        vui_parameters: Some(
+            VuiParameters {
+                aspect_ratio_info: Predefined(
+                    AspectRatioIdc::Square,
+                ),
+                overscan_appropriate_flag: None,
+                video_signal_type: VideoSignalType {
+                    video_format: VideoFormat::Unspecified,
+                    video_full_range_flag: false,
+                    colour_primaries: 2,
+                    transfer_characteristics: 2,
+                    matrix_coeffs: 2,
+                },
+                chroma_loc_info: None,
+                neutral_chroma_indication_flag: false,
+                field_seq_flag: false,
+                frame_field_info_present_flag: false,
+                default_display_window: DefaultDisplayWindow {
+                    def_disp_win_left_offset: 0,
+                    def_disp_win_right_offset: 0,
+                    def_disp_win_top_offset: 0,
+                    def_disp_win_bottom_offset: 0,
+                },
+                vui_timing_info: Some(
+                    VuiTimingInfo {
+                        num_units_in_tick: 1,
+                        time_scale: 30,
+                        poc_proportional_to_timing_flag: false,
+                        num_ticks_poc_diff_one_minus1: None,
+                        hrd_parameters: None,
+                    },
+                ),
+                bitstream_restriction: BitStreamRestriction {
+                    tiles_fixed_structure_flag: false,
+                    motion_vectors_over_pic_boundaries_flag: true,
+                    restricted_ref_pic_lists_flag: None,
+                    min_spatial_segmentation_idc: 0,
+                    max_bytes_per_pic_denom: 2,
+                    max_bits_per_min_cu_denom: 1,
+                    log2_max_mv_length_horizontal: 15,
+                    log2_max_mv_length_vertical: 15,
+                },
+            },
+        ),
+        range_extension: None,
+        multilayer_extension: None,
+        sps_3d_extension: None,
+        scc_extension: None,
+    },
+}
